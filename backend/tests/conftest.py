@@ -1,11 +1,13 @@
 """Test harness: a real Postgres (TEST_DATABASE_URL, else a throwaway container), migrations applied once,
-each test wrapped in a transaction that is rolled back."""
+each test wrapped in an outer transaction that is rolled back. FX lookups use a fake fetcher."""
 
 from __future__ import annotations
 
 import os
 import uuid
 from collections.abc import Iterator
+from datetime import date
+from decimal import Decimal
 
 import pytest
 from alembic import command
@@ -16,6 +18,17 @@ from sqlalchemy.orm import Session, sessionmaker
 
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("CORS_ORIGINS", '["http://localhost:3000"]')
+
+FAKE_RATES: dict[tuple[str, str], Decimal] = {
+    ("EUR", "USD"): Decimal("0.92"),  # 1 USD = 0.92 EUR
+    ("USD", "EUR"): Decimal("1.0850"),  # 1 EUR = 1.085 USD
+    ("EUR", "CNY"): Decimal("0.128"),
+}
+
+
+def fake_fetcher(base: str, quote: str, on_date: date) -> tuple[Decimal, date] | None:
+    rate = FAKE_RATES.get((base, quote))
+    return None if rate is None else (rate, on_date)
 
 
 @pytest.fixture(scope="session")
@@ -36,8 +49,9 @@ def database_url() -> Iterator[str]:
 @pytest.fixture(scope="session")
 def engine(database_url: str) -> Iterator[Engine]:
     os.environ["DATABASE_URL"] = database_url
-    cfg = AlembicConfig(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
-    cfg.set_main_option("script_location", os.path.join(os.path.dirname(__file__), "..", "migrations"))
+    here = os.path.dirname(__file__)
+    cfg = AlembicConfig(os.path.join(here, "..", "alembic.ini"))
+    cfg.set_main_option("script_location", os.path.join(here, "..", "migrations"))
     command.downgrade(cfg, "base")
     command.upgrade(cfg, "head")
     eng = create_engine(database_url)
@@ -47,7 +61,6 @@ def engine(database_url: str) -> Iterator[Engine]:
 
 @pytest.fixture
 def db(engine: Engine) -> Iterator[Session]:
-    """Transaction-per-test with SAVEPOINT support (SQLAlchemy 'join external transaction' recipe)."""
     connection = engine.connect()
     outer = connection.begin()
     session = sessionmaker(
@@ -75,10 +88,17 @@ def org_id() -> uuid.UUID:
 
 @pytest.fixture
 def client(db: Session, engine: Engine, org_id: uuid.UUID) -> Iterator[TestClient]:
-    from app.db import get_db
+    from app.api.v1.deps import get_fx_service
+    from app.core.db import get_db
+    from app.domain.fx.service import FxService
     from app.main import app
 
-    app.dependency_overrides[get_db] = lambda: db
+    def fresh_db():  # type: ignore[no-untyped-def]
+        db.expire_all()  # each request starts from the database, like a per-request session
+        yield db
+
+    app.dependency_overrides[get_db] = fresh_db
+    app.dependency_overrides[get_fx_service] = lambda: FxService(fake_fetcher)
     with TestClient(app, headers={"X-Org-Id": str(org_id)}) as c:
         yield c
     app.dependency_overrides.clear()

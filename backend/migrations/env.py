@@ -3,7 +3,7 @@ import os
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from app.models import Base
+from app.domain.models import Base
 
 config = context.config
 database_url = os.environ.get("DATABASE_URL")

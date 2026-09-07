@@ -7,7 +7,7 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.config import get_settings
+from app.core.settings import get_settings
 
 
 @lru_cache(maxsize=1)

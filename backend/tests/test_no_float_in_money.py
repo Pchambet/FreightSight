@@ -6,8 +6,8 @@ import re
 
 from sqlalchemy import Float
 
-from app import schemas
-from app.models import Base
+from app.api.v1 import schemas
+from app.domain.models import Base
 
 MONEY_NAME = re.compile(r"(amount|price|value|rate|total|cost)", re.IGNORECASE)
 
