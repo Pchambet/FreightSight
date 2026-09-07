@@ -31,6 +31,9 @@ def install_guc_reset(engine: Engine) -> None:
             cur = dbapi_connection.cursor()
             cur.execute(f"RESET {ORG_GUC}")
             cur.close()
+            # RESET opens a transaction on a non-autocommit DBAPI connection; close it, or the
+            # next checkout fails with "can't change autocommit now: connection in transaction".
+            dbapi_connection.rollback()
         except Exception:  # pragma: no cover - connection already broken
             pass
 
