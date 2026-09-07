@@ -5,9 +5,9 @@ COPY --from=ghcr.io/astral-sh/uv:0.10 /uv /uvx /bin/
 WORKDIR /app
 RUN groupadd -r app && useradd -r -g app app
 COPY pyproject.toml uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-dev --no-install-project
 COPY . .
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev
 ENV PATH="/opt/venv/bin:$PATH"
 USER app
 EXPOSE 8000

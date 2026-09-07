@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.9.1",
     "lucide-react": "^1.42.0",
     "next": "16.3.4",
     "openapi-fetch": "^0.17.0",
