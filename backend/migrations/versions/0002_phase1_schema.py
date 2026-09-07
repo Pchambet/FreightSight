@@ -420,9 +420,11 @@ def downgrade() -> None:
         _enum(name).drop(bind, checkfirst=True)
 
     container_status = postgresql.ENUM(
-        "PENDING", "IN_TRANSIT", "DISCHARGED", "DELIVERED", name="containerstatus"
+        "PENDING", "IN_TRANSIT", "DISCHARGED", "DELIVERED", name="containerstatus", create_type=False
     )
-    cost_type = postgresql.ENUM("OCEAN_FREIGHT", "CUSTOMS", "DRAYAGE", "DEMURRAGE", name="costtype")
+    cost_type = postgresql.ENUM(
+        "OCEAN_FREIGHT", "CUSTOMS", "DRAYAGE", "DEMURRAGE", name="costtype", create_type=False
+    )
     container_status.create(bind, checkfirst=True)
     cost_type.create(bind, checkfirst=True)
     op.create_table(
