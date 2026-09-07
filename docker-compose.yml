@@ -1,50 +1,47 @@
-version: '3.8'
-
 services:
   db:
-    image: postgres:15
+    image: postgres:17
     environment:
-      POSTGRES_USER: freightsight
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: freightsight_db
+      POSTGRES_USER: fs
+      POSTGRES_PASSWORD: fs
+      POSTGRES_DB: fs
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fs"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
-  redis:
-    image: redis:7
-    ports:
-      - "6379:6379"
+  migrate:
+    build: ./backend
+    command: alembic upgrade head
+    environment:
+      DATABASE_URL: postgresql+psycopg://fs:fs@db/fs
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
 
-  backend:
-    build: 
-      context: ./backend
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+  api:
+    build: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_ENV: dev
+      DATABASE_URL: postgresql+psycopg://fs:fs@db/fs
+      CORS_ORIGINS: '["http://localhost:3000"]'
     volumes:
       - ./backend:/app
     ports:
       - "8001:8000"
-    environment:
-      - DATABASE_URL=postgresql://freightsight:password@db/freightsight_db
-      - REDIS_URL=redis://redis:6379/0
-      - VIZION_API_KEY=your_vizion_api_key
     depends_on:
-      - db
-      - redis
-
-  celery_worker:
-    build:
-      context: ./backend
-    command: celery -A tasks.celery_app worker --loglevel=info
-    volumes:
-      - ./backend:/app
-    environment:
-      - DATABASE_URL=postgresql://freightsight:password@db/freightsight_db
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      - db
-      - redis
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
-  postgres_data:
+  pgdata: {}

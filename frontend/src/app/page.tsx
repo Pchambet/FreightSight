@@ -1,114 +1,96 @@
-import UploadCSV from "../components/UploadCSV";
-import { Ship, PackageSearch, AlertCircle, CheckCircle2 } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
+import { PackageSearch, Ship } from "lucide-react";
+import UploadCSV from "@/components/UploadCSV";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { api, type ContainerResponse } from "@/lib/api/client";
 
-// Note: Server Component fetching from the local API
-async function getContainers() {
+export const metadata: Metadata = { title: "Containers" };
+
+async function getContainers(): Promise<{ containers: ContainerResponse[]; error: string | null }> {
   try {
-    const res = await fetch("http://127.0.0.1:8001/api/containers", { cache: "no-store" });
-    if (!res.ok) {
-      return [];
-    }
-    return res.json();
-  } catch (e) {
-    console.error("Erreur de connexion au backend:", e);
-    return [];
+    const { data, error } = await api.GET("/api/containers");
+    if (error || !data) return { containers: [], error: "The API returned an error." };
+    return { containers: data, error: null };
+  } catch {
+    return { containers: [], error: "Cannot reach the API. Is the backend running?" };
   }
 }
 
 export default async function Dashboard() {
-  const containers = await getContainers();
+  const { containers, error } = await getContainers();
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <Ship className="w-5 h-5 text-white" />
-              </div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-                Freight<span className="text-blue-600">Sight</span>
-              </h1>
+    <main className="min-h-screen">
+      <header className="bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="bg-blue-600 p-1.5 rounded-md">
+              <Ship className="w-4 h-4 text-white" />
             </div>
-            <div className="flex items-center gap-4">
-              <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-700/10">
-                MVP Version
-              </span>
-            </div>
+            <span className="text-lg font-semibold tracking-tight">
+              Freight<span className="text-blue-600">Sight</span>
+            </span>
           </div>
+          <span className="text-xs font-medium text-slate-500">Pre-alpha</span>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">Control Tower</h2>
-            <p className="text-slate-500 mt-1 text-sm">Monitor your shipments, landed costs, and logistics status.</p>
-          </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold">Containers</h1>
+          <p className="text-slate-500 mt-1 text-sm">Import purchase orders, attach logistics costs, get landed cost per PO.</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
+        {error ? (
+          <div className="rounded-md border border-red-200 bg-red-50 text-red-700 text-sm px-4 py-3">{error}</div>
+        ) : null}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
             <UploadCSV />
           </div>
 
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
-              <div className="px-6 py-5 border-b border-slate-200 bg-white flex justify-between items-center">
-                <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center">
+                <h2 className="text-sm font-semibold flex items-center gap-2">
                   <PackageSearch className="w-4 h-4 text-slate-500" />
-                  Active Containers
-                </h3>
-                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
-                  {containers.length} Total
-                </span>
+                  Tracked containers
+                </h2>
+                <span className="text-xs text-slate-500">{containers.length} total</span>
               </div>
-              <div className="p-0 overflow-x-auto flex-1">
-                <table className="min-w-full divide-y divide-slate-200">
-                  <thead className="bg-slate-50/50">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="bg-slate-50">
                     <tr>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Container No.</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Carrier</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">API Status</th>
+                      <th className="px-5 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Container</th>
+                      <th className="px-5 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Carrier</th>
+                      <th className="px-5 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-slate-200">
+                  <tbody className="divide-y divide-slate-200">
                     {containers.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="px-6 py-12 text-center">
-                          <div className="flex flex-col items-center justify-center text-slate-400">
-                            <Ship className="w-12 h-12 mb-3 text-slate-300" />
-                            <p className="text-sm font-medium text-slate-600">No containers tracked</p>
-                            <p className="text-xs mt-1">Upload a PO spreadsheet to start tracking.</p>
+                        <td colSpan={3} className="px-5 py-12 text-center">
+                          <div className="flex flex-col items-center text-slate-400">
+                            <Ship className="w-10 h-10 mb-3 text-slate-300" />
+                            <p className="text-sm font-medium text-slate-600">No containers yet</p>
+                            <p className="text-xs mt-1">Import a purchase-order CSV to create the first ones.</p>
                           </div>
                         </td>
                       </tr>
                     ) : (
-                      containers.map((c: any) => (
-                        <tr key={c.id} className="hover:bg-slate-50/80 transition-colors group">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Link href={`/container/${c.id}`} className="text-sm font-semibold text-blue-600 group-hover:text-blue-700 group-hover:underline">
+                      containers.map((c) => (
+                        <tr key={c.id} className="hover:bg-slate-50">
+                          <td className="px-5 py-3 whitespace-nowrap">
+                            <Link href={`/container/${c.id}`} className="font-mono font-medium text-blue-600 hover:underline">
                               {c.container_number}
                             </Link>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">
-                            {c.carrier || "-"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2.5 py-1 inline-flex items-center gap-1.5 text-xs font-medium rounded-md
-                              ${c.status === "COMPLETED" ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20" : 
-                                c.status === "ERROR" ? "bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/10" : 
-                                "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20"}`}>
-                              {c.status === "COMPLETED" ? <CheckCircle2 className="w-3.5 h-3.5" /> : 
-                               c.status === "ERROR" ? <AlertCircle className="w-3.5 h-3.5" /> : 
-                               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />}
-                              {c.status}
-                            </span>
+                          <td className="px-5 py-3 whitespace-nowrap text-slate-600">{c.carrier || "—"}</td>
+                          <td className="px-5 py-3 whitespace-nowrap">
+                            <StatusBadge status={c.status} />
                           </td>
                         </tr>
                       ))
@@ -118,7 +100,6 @@ export default async function Dashboard() {
               </div>
             </div>
           </div>
-          
         </div>
       </div>
     </main>

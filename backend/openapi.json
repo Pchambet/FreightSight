@@ -1,0 +1,997 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "FreightSight API",
+    "description": "Landed cost allocation and container tracking for SMB importers. Pre-alpha.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Root",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Root  Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Healthz",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Healthz Healthz Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Readyz",
+        "operationId": "readyz_readyz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/containers": {
+      "get": {
+        "tags": [
+          "containers"
+        ],
+        "summary": "List Containers",
+        "operationId": "list_containers_api_containers_get",
+        "parameters": [
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContainerResponse"
+                  },
+                  "title": "Response List Containers Api Containers Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "containers"
+        ],
+        "summary": "Create Container",
+        "operationId": "create_container_api_containers_post",
+        "parameters": [
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContainerCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/containers/{container_id}": {
+      "patch": {
+        "tags": [
+          "containers"
+        ],
+        "summary": "Update Container",
+        "description": "Manual tracking until a real provider exists (Phase 2).",
+        "operationId": "update_container_api_containers__container_id__patch",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Container Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContainerUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/containers/{container_id}/costs": {
+      "post": {
+        "tags": [
+          "containers"
+        ],
+        "summary": "Add Cost",
+        "operationId": "add_cost_api_containers__container_id__costs_post",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Container Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CostCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/containers/{container_id}/upload-invoice": {
+      "post": {
+        "tags": [
+          "containers"
+        ],
+        "summary": "Upload Invoice",
+        "description": "Invoice extraction is not built yet. It used to insert hard-coded amounts; it no longer does.",
+        "operationId": "upload_invoice_api_containers__container_id__upload_invoice_post",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Container Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_invoice_api_containers__container_id__upload_invoice_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "501": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Upload Invoice Api Containers  Container Id  Upload Invoice Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/containers/{container_id}/landed-costs": {
+      "get": {
+        "tags": [
+          "containers"
+        ],
+        "summary": "Get Landed Costs",
+        "operationId": "get_landed_costs_api_containers__container_id__landed_costs_get",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Container Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LandedCostResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/purchase-orders/upload": {
+      "post": {
+        "tags": [
+          "purchase-orders"
+        ],
+        "summary": "Upload Po Csv",
+        "description": "Legacy one-row-per-PO import.\n\nColumns: po_number, supplier_name, total_value, container_number, allocation_percentage.\n\nOne transaction. Rows with errors are skipped and reported; zero imported rows is a 422, not a success.",
+        "operationId": "upload_po_csv_api_purchase_orders_upload_post",
+        "parameters": [
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_po_csv_api_purchase_orders_upload_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AllocationMethod": {
+        "type": "string",
+        "enum": [
+          "BY_VALUE",
+          "MANUAL"
+        ],
+        "title": "AllocationMethod"
+      },
+      "Body_upload_invoice_api_containers__container_id__upload_invoice_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_invoice_api_containers__container_id__upload_invoice_post"
+      },
+      "Body_upload_po_csv_api_purchase_orders_upload_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_po_csv_api_purchase_orders_upload_post"
+      },
+      "ContainerCreate": {
+        "properties": {
+          "container_number": {
+            "type": "string",
+            "maxLength": 11,
+            "minLength": 11,
+            "pattern": "^[A-Za-z]{4}[0-9]{7}$",
+            "title": "Container Number"
+          },
+          "carrier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carrier"
+          }
+        },
+        "type": "object",
+        "required": [
+          "container_number"
+        ],
+        "title": "ContainerCreate"
+      },
+      "ContainerResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "container_number": {
+            "type": "string",
+            "title": "Container Number"
+          },
+          "carrier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carrier"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ContainerStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "container_number",
+          "carrier",
+          "status"
+        ],
+        "title": "ContainerResponse"
+      },
+      "ContainerStatus": {
+        "type": "string",
+        "enum": [
+          "PENDING",
+          "IN_TRANSIT",
+          "DISCHARGED",
+          "DELIVERED"
+        ],
+        "title": "ContainerStatus"
+      },
+      "ContainerUpdate": {
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContainerStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "carrier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carrier"
+          }
+        },
+        "type": "object",
+        "title": "ContainerUpdate"
+      },
+      "CostCreate": {
+        "properties": {
+          "cost_type": {
+            "$ref": "#/components/schemas/CostType"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cost_type",
+          "amount",
+          "currency"
+        ],
+        "title": "CostCreate"
+      },
+      "CostResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "cost_type": {
+            "$ref": "#/components/schemas/CostType"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "cost_type",
+          "amount",
+          "currency"
+        ],
+        "title": "CostResponse"
+      },
+      "CostType": {
+        "type": "string",
+        "enum": [
+          "OCEAN_FREIGHT",
+          "CUSTOMS",
+          "DRAYAGE",
+          "DEMURRAGE"
+        ],
+        "title": "CostType"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ImportResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "rows_processed": {
+            "type": "integer",
+            "title": "Rows Processed"
+          },
+          "rows_skipped": {
+            "items": {
+              "$ref": "#/components/schemas/ImportRowError"
+            },
+            "type": "array",
+            "title": "Rows Skipped"
+          },
+          "purchase_orders_created": {
+            "type": "integer",
+            "title": "Purchase Orders Created"
+          },
+          "containers_created": {
+            "type": "integer",
+            "title": "Containers Created"
+          },
+          "containers_linked": {
+            "type": "integer",
+            "title": "Containers Linked"
+          },
+          "detected_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Detected Columns"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "rows_processed",
+          "rows_skipped",
+          "purchase_orders_created",
+          "containers_created",
+          "containers_linked",
+          "detected_columns"
+        ],
+        "title": "ImportResponse"
+      },
+      "ImportRowError": {
+        "properties": {
+          "row": {
+            "type": "integer",
+            "title": "Row"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "row",
+          "code",
+          "message"
+        ],
+        "title": "ImportRowError"
+      },
+      "LandedCostBreakdown": {
+        "properties": {
+          "po_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Po Id"
+          },
+          "po_number": {
+            "type": "string",
+            "title": "Po Number"
+          },
+          "supplier_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supplier Name"
+          },
+          "fob_value": {
+            "type": "string",
+            "title": "Fob Value"
+          },
+          "allocation_pct": {
+            "type": "string",
+            "title": "Allocation Pct"
+          },
+          "allocated_costs": {
+            "type": "string",
+            "title": "Allocated Costs"
+          },
+          "true_landed_cost": {
+            "type": "string",
+            "title": "True Landed Cost"
+          }
+        },
+        "type": "object",
+        "required": [
+          "po_id",
+          "po_number",
+          "supplier_name",
+          "fob_value",
+          "allocation_pct",
+          "allocated_costs",
+          "true_landed_cost"
+        ],
+        "title": "LandedCostBreakdown"
+      },
+      "LandedCostResponse": {
+        "properties": {
+          "container": {
+            "$ref": "#/components/schemas/ContainerResponse"
+          },
+          "base_currency": {
+            "type": "string",
+            "title": "Base Currency"
+          },
+          "allocation_method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AllocationMethod"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total_additional_costs": {
+            "type": "string",
+            "title": "Total Additional Costs"
+          },
+          "total_allocated": {
+            "type": "string",
+            "title": "Total Allocated"
+          },
+          "unallocated": {
+            "type": "string",
+            "title": "Unallocated"
+          },
+          "breakdown": {
+            "items": {
+              "$ref": "#/components/schemas/LandedCostBreakdown"
+            },
+            "type": "array",
+            "title": "Breakdown"
+          },
+          "raw_costs": {
+            "items": {
+              "$ref": "#/components/schemas/CostResponse"
+            },
+            "type": "array",
+            "title": "Raw Costs"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/LandedCostWarning"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "container",
+          "base_currency",
+          "allocation_method",
+          "total_additional_costs",
+          "total_allocated",
+          "unallocated",
+          "breakdown",
+          "raw_costs",
+          "warnings"
+        ],
+        "title": "LandedCostResponse"
+      },
+      "LandedCostWarning": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "LandedCostWarning"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

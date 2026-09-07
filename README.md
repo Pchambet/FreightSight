@@ -1,115 +1,97 @@
-<div align="center">
+# FreightSight
 
-# FreightSight 🚢
+Landed cost allocation and container tracking for SMB importers.
 
-**The OS for Global Freight Intelligence.** <br/>
-Calculate *true landed costs* and track containers in real time. Built for SMB Importers.
+[![CI](https://github.com/Pchambet/FreightSight/actions/workflows/ci.yml/badge.svg)](https://github.com/Pchambet/FreightSight/actions/workflows/ci.yml)
+![Status](https://img.shields.io/badge/status-pre--alpha-orange)
+![Python](https://img.shields.io/badge/python-3.13-blue)
+![Next.js](https://img.shields.io/badge/next.js-16-black)
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/Pchambet/FreightSight/main.yml?style=flat-square&logo=github)](https://github.com/Pchambet/FreightSight/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-v1.0.0-green.svg?style=flat-square)]()
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)]()
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.109-009688?style=flat-square&logo=fastapi)]()
+**Status: pre-alpha, design partners only.** This is not a product yet. The sections below say exactly
+what works, what is simulated, and what is planned.
 
-[Explore Docs](#getting-started) · [Report Bug](https://github.com/Pchambet/FreightSight/issues) · [Request Feature](https://github.com/Pchambet/FreightSight/issues)
+## The problem
 
-</div>
+SMB importers price on FOB and discover their real cost per purchase order 30 to 60 days later, once the
+forwarder, customs and demurrage invoices have landed. Spreadsheets allocate freight pro rata of value,
+which is wrong for anything bulky, and nobody reconciles one invoice against three containers and five POs.
 
----
+FreightSight allocates logistics costs across purchase orders and containers with an auditable method,
+and will track containers and read invoices so the number is right before the last invoice arrives.
 
-## ⚡ The FreightSight Advantage
+## What works today
 
-SMB importers lose **2-5% of margin** because they rely on manual spreadsheets to understand their true landed costs, often discovering them 30-45 days after goods arrive. 
+- Import purchase orders from CSV (Excel FR exports with BOM, `;` and `12 500,50` are handled), with
+  per-row error reporting and idempotent re-import.
+- Create containers, link them to POs, set their status manually.
+- Record logistics costs (ocean freight, customs, drayage, demurrage) in the organization's base currency.
+- Compute the landed cost per PO for a container: pro rata of PO value, rounded to the cent with a
+  largest-remainder split so the parts always sum to the total. Legacy percentages are honoured only if
+  they sum to exactly 100 %; otherwise the API says so in `warnings` instead of guessing.
+- Money is `Decimal` end to end and serialised as strings; a test fails if a float sneaks in.
+- Tenancy is scoped by an `X-Org-Id` header. This is a placeholder for real authentication.
 
-FreightSight automatically allocates freight, customs, drayage, and demurrage costs across Purchase Orders (POs) — **in real time**, as your containers move across the ocean. Stop pricing products based on FOB values; start pricing on fully-burdened costs.
+## What is simulated or missing
 
-## ✨ Features
+| Area | State |
+|---|---|
+| Container tracking (carrier / terminal events, ETA, last free day) | Not built. Status is set by hand. Provider abstraction planned in Phase 2. |
+| Invoice extraction (PDF → cost lines) | Not built. The endpoint returns `501 NOT_IMPLEMENTED`. LLM extraction with human review planned in Phase 2. |
+| Authentication, users, roles | Not built. `X-Org-Id` header only. Planned in Phase 1. |
+| Multi-currency costs with fixed FX rates | Not built. A cost must be in the org's base currency. Planned in Phase 1. |
+| Allocation by weight, volume, quantity, per-line SKU costing | Not built. Planned in Phase 1. |
+| Background jobs, alerts, e-mail | Not built. |
 
-- **🚢 Real-Time Container Tracking** — Integrated with Vizion API for webhook-driven, real-time status updates. Never miss a demurrage deadline.
-- **💰 Dynamic Landed Cost Engine** — Automatic cost allocation across POs using highly configurable percentages. Perfect for split shipments.
-- **🤖 AI Invoice Parsing** — Drop a PDF freight invoice and let our AI engine automatically extract the costs using advanced OCR.
-- **📦 Seamless CSV Ingestion** — Bulk import Purchase Orders with container-to-PO allocation mappings in seconds.
-- **📊 Control Tower Dashboard** — A beautiful, intuitive bird's-eye view of all active shipments and their financial impact.
-
-## 🏗️ Architecture
+## Architecture
 
 ```mermaid
-graph TD
-    Client[Next.js 16 Client] -->|REST API| FastAPI[FastAPI Backend]
-    
-    subgraph Backend [Backend Infrastructure]
-        FastAPI -->|Reads/Writes| DB[(PostgreSQL 15)]
-        FastAPI -->|Enqueues Tasks| Redis[(Redis 7)]
-        Redis --> Worker[Celery Worker]
-        Worker -->|Reads/Writes| DB
-        Worker -->|External AI| AI[AI Invoice Parser]
-    end
-    
-    subgraph External [External Services]
-        Vizion[Vizion API] -.->|Webhooks| FastAPI
-    end
-    
-    classDef primary fill:#000,stroke:#333,stroke-width:2px,color:#fff;
-    classDef secondary fill:#f3f4f6,stroke:#333,stroke-width:2px,color:#000;
-    classDef db fill:#0052CC,stroke:#333,stroke-width:2px,color:#fff;
-    
-    class Client primary;
-    class FastAPI,Worker secondary;
-    class DB,Redis db;
+graph LR
+    Browser -->|Server Components / Server Actions| Next[Next.js 16]
+    Next -->|REST, X-Org-Id| API[FastAPI]
+    API --> PG[(PostgreSQL 17)]
 ```
 
-## 🚀 Getting Started
+- `backend/` FastAPI, SQLAlchemy 2, Alembic, pydantic v2, `uv`. Pure allocation engine in `app/costing.py`.
+- `frontend/` Next.js 16 App Router, Tailwind 4, typed API client generated from the backend OpenAPI.
 
-We recommend using Docker Compose to spin up the backend services easily. 
+## Getting started
 
-### Prerequisites
-- Docker & Docker Compose
-- Node.js 20+
+Prerequisites: Docker, Node 22+, [uv](https://docs.astral.sh/uv/).
 
-### 1. Clone the repository
 ```bash
-git clone https://github.com/Pchambet/FreightSight.git
-cd FreightSight
-```
+git clone https://github.com/Pchambet/FreightSight.git && cd FreightSight
 
-### 2. Start the Backend Infrastructure
-Spin up the API, PostgreSQL, Redis, and Celery workers:
-```bash
+# Backend + Postgres (migrations run automatically)
 docker compose up -d --build
-```
-> The API will be available at [http://localhost:8001](http://localhost:8001). Check out the Swagger docs at [http://localhost:8001/docs](http://localhost:8001/docs).
+# API on http://localhost:8001, Swagger on http://localhost:8001/docs
 
-### 3. Start the Frontend Application
-In a new terminal window:
-```bash
+# Frontend
 cd frontend
+cp ../.env.example .env.local   # keep API_URL and ORG_ID, drop the backend lines
 npm install
-npm run dev
-```
-> The application will be running at [http://localhost:3000](http://localhost:3000).
-
-## 🗄️ Core Data Model
-
-The key innovation of FreightSight is the **Many-to-Many** relationship between Containers and POs, enabling precise cost proration.
-
-```mermaid
-erDiagram
-    ORGANIZATION ||--o{ PURCHASE_ORDER : "owns"
-    ORGANIZATION ||--o{ CONTAINER : "owns"
-    CONTAINER ||--o{ COST : "has"
-    CONTAINER ||--|| VIZION_TRACKING : "tracks via"
-    
-    CONTAINER }|..|{ PURCHASE_ORDER : "allocates %"
+npm run dev                     # http://localhost:3000
 ```
 
-## 📖 Strategy & Documentation
+Try it: import `backend/tests/fixtures/legacy_po_container.csv` from the home page, open a container,
+add a cost, read the breakdown.
 
-All strategic documents are located in the [`/docs`](./docs) directory:
+## Development
 
-- 📑 **[01 — Audit & Skok Framework](./docs/01_audit_skok_framework.md)** — Strategic product audit using Michael Skok's 4Us and BLAC & White frameworks.
-- 🎯 **[02 — Go-To-Market Strategy](./docs/02_gtm_strategy.md)** — Target personas, outreach templates, competitive analysis, and pricing strategies.
-- 💻 **[03 — Technical Walkthrough](./docs/03_technical_walkthrough.md)** — Deep dive into the architecture, core files, API endpoints, and test strategies.
+```bash
+cd backend
+uv sync --all-groups
+uv run pytest            # spins up a throwaway Postgres via testcontainers
+uv run ruff check . && uv run ruff format --check . && uv run mypy .
+uv run alembic revision --autogenerate -m "describe change"
 
-## 📄 License
+cd ../frontend
+npm run api:types        # regenerate src/lib/api/schema.d.ts after an API change
+npm run typecheck && npm run lint && npm run build
+```
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+CI runs the same commands against a Postgres 17 service. Install `pre-commit` to get gitleaks and ruff
+on every commit.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

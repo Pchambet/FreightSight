@@ -2,7 +2,15 @@
 node_modules/
 __pycache__/
 *.pyc
+.venv/
+
+# Environment
 .env
+.env.*
+!.env.example
+
+# Private planning docs (strategy, pricing, competitive analysis)
+docs/plan/
 
 # Docker
 postgres_data/
@@ -10,6 +18,15 @@ postgres_data/
 # Next.js
 .next/
 out/
+next-env.d.ts
+
+# Test / coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
 
 # IDE
 .vscode/

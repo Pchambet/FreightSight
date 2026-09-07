@@ -1,113 +1,81 @@
-# FreightSight MVP — Walkthrough Final
+# FreightSight — Walkthrough technique (état Phase 0)
 
-## Résumé du Projet
+Dernière mise à jour : 7 septembre 2026. Ce document décrit ce qui existe réellement dans le dépôt. Les
+plans détaillés (schéma cible, moteur complet, tracking, extraction de factures, infra) vivent hors du
+code, dans `docs/plan/` (non versionné).
 
-**Origine :** Un ancien module Odoo mal architecturé (`legacy_odoo_module`) a été audité, disséqué, et transformé en un SaaS Cloud standalone dédié au suivi de conteneurs maritimes et au calcul des Landed Costs pour les PME importatrices.
+## Ce que fait le produit aujourd'hui
 
-**Framework stratégique :** La décision de pivoter vers ce produit a été validée via le framework de Michael Skok (4Us / BLAC & White) — le problème des Landed Costs est le seul qui soit à la fois **Blatant**, **Critical**, et **Unworkable** pour les PME.
+1. Import CSV de bons de commande, avec liaison optionnelle à un conteneur.
+2. Saisie manuelle de coûts logistiques sur un conteneur, dans la devise de base de l'organisation.
+3. Calcul du landed cost par bon de commande : répartition au prorata de la valeur, arrondi au centime par
+   la méthode du plus fort reste. Les pourcentages hérités de l'ancien format ne sont honorés que s'ils
+   totalisent exactement 100 %.
+4. Statut de conteneur modifiable à la main (aucun fournisseur de tracking branché).
 
----
+L'extraction de factures renvoie `501 NOT_IMPLEMENTED`. Il n'y a ni authentification ni utilisateurs :
+l'organisation est choisie par l'en-tête `X-Org-Id`.
 
-## Architecture Technique
+## Backend (`backend/`)
 
-```mermaid
-graph TB
-    subgraph "Frontend (localhost:3000)"
-        A["Next.js 16 + Tailwind CSS"]
-        B["Dashboard (Server Component)"]
-        C["Upload CSV (Client Component)"]
-        D["Page Conteneur + Landed Costs"]
-        E["Upload IA Facture (OCR simulé)"]
-    end
-    
-    subgraph "Backend (localhost:8001)"
-        F["FastAPI + Uvicorn"]
-        G["SQLAlchemy ORM"]
-        H["Celery Worker"]
-    end
-    
-    subgraph "Infrastructure (Docker)"
-        I["PostgreSQL 15"]
-        J["Redis 7"]
-    end
-    
-    A --> F
-    F --> G --> I
-    F --> H --> J
-```
-
----
-
-## Fichiers Créés
-
-### Backend (`/freightsight_mvp/backend/`)
 | Fichier | Rôle |
 |---|---|
-| [main.py](file:///Users/pierre/Desktop/timeo%20-%20boat/freightsight_mvp/backend/main.py) | API FastAPI : 7 endpoints (CRUD conteneurs, upload CSV, landed costs, OCR, webhook) |
-| [models.py](file:///Users/pierre/Desktop/timeo%20-%20boat/freightsight_mvp/backend/models.py) | Modèles SQLAlchemy : Organization, PurchaseOrder, Container, ContainerPurchaseOrder (M2M), Cost, VizionTrackingMetadata |
-| [schemas.py](file:///Users/pierre/Desktop/timeo%20-%20boat/freightsight_mvp/backend/schemas.py) | Schémas Pydantic : validation stricte des entrées/sorties |
-| [database.py](file:///Users/pierre/Desktop/timeo%20-%20boat/freightsight_mvp/backend/database.py) | Configuration SQLAlchemy + session factory |
-| [tasks.py](file:///Users/pierre/Desktop/timeo%20-%20boat/freightsight_mvp/backend/tasks.py) | Workers Celery pour les tâches asynchrones |
+| `app/main.py` | Application FastAPI, CORS explicite, erreurs au format problem+json, `/healthz`, `/readyz` |
+| `app/config.py` | Configuration 12-factor via pydantic-settings (`DATABASE_URL`, `CORS_ORIGINS`, `APP_ENV`) |
+| `app/db.py` | Engine, sessions, vérification que la base est à la dernière migration au démarrage |
+| `app/models.py` | Organization, PurchaseOrder, Container, ContainerPurchaseOrder, Cost (SQLAlchemy 2, `Numeric`) |
+| `app/schemas.py` | Schémas Pydantic ; montants `Decimal` en entrée, chaînes en sortie |
+| `app/costing.py` | Moteur d'allocation pur : `split_largest_remainder`, `allocate_container` |
+| `app/imports.py` | Décodage CSV (BOM, cp1252, `;`, nombres FR), validation ligne à ligne |
+| `app/deps.py` | Dépendance `get_org` (en-tête `X-Org-Id`) |
+| `app/api/containers.py` | Conteneurs, coûts, landed costs, upload facture (501) |
+| `app/api/purchase_orders.py` | Import CSV en une transaction |
+| `migrations/` | Alembic, migration `0001_baseline` |
+| `tests/` | 28 tests : moteur, import, API bout en bout sur un vrai Postgres, garde anti-float |
 
-### Frontend (`/freightsight_mvp/frontend/src/`)
+## Endpoints
+
+| Méthode | Route | Notes |
+|---|---|---|
+| GET | `/healthz`, `/readyz` | liveness / readiness (SELECT 1) |
+| GET | `/api/containers` | liste scopée par organisation |
+| POST | `/api/containers` | numéro ISO 6346 validé, 409 si doublon |
+| PATCH | `/api/containers/{id}` | statut et transporteur (tracking manuel) |
+| POST | `/api/containers/{id}/costs` | montant `Decimal` > 0, devise = devise de base sinon 422 |
+| POST | `/api/containers/{id}/upload-invoice` | 501 NOT_IMPLEMENTED |
+| GET | `/api/containers/{id}/landed-costs` | breakdown par PO, méthode, `unallocated`, `warnings` |
+| POST | `/api/purchase-orders/upload` | CSV ; 422 `NO_VALID_ROWS` si aucune ligne valide |
+
+Exemple de calcul avec le fichier `backend/tests/fixtures/legacy_po_container.csv` et 1 800,00 EUR de
+coûts sur MSCU1234567 (Michelin 12 500,50 et Pirelli 8 400,00) : Michelin reçoit 1 076,57, Pirelli
+723,43. La somme fait 1 800,00. Les pourcentages du fichier (100 % et 50 %) sont ignorés avec un
+avertissement `DEPRECATED_ALLOCATION_PCT`, là où l'ancien code allouait 150 % des coûts.
+
+## Frontend (`frontend/`)
+
 | Fichier | Rôle |
 |---|---|
-| [page.tsx](file:///Users/pierre/Desktop/timeo%20-%20boat/freightsight_mvp/frontend/src/app/page.tsx) | Dashboard principal — tableau des conteneurs actifs |
-| [UploadCSV.tsx](file:///Users/pierre/Desktop/timeo%20-%20boat/freightsight_mvp/frontend/src/components/UploadCSV.tsx) | Drag & Drop CSV avec notifications toast |
-| [container/[id]/page.tsx](file:///Users/pierre/Desktop/timeo%20-%20boat/freightsight_mvp/frontend/src/app/container/%5Bid%5D/page.tsx) | Page détaillée Landed Costs par conteneur |
-| [AddCostForm.tsx](file:///Users/pierre/Desktop/timeo%20-%20boat/freightsight_mvp/frontend/src/app/container/%5Bid%5D/AddCostForm.tsx) | Formulaire d'ajout de coût manuel |
-| [AIInvoiceUpload.tsx](file:///Users/pierre/Desktop/timeo%20-%20boat/freightsight_mvp/frontend/src/app/container/%5Bid%5D/AIInvoiceUpload.tsx) | Upload de facture PDF avec extraction IA simulée |
+| `src/lib/env.ts` | Variables d'environnement validées par zod (`API_URL`, `ORG_ID`), serveur uniquement |
+| `src/lib/api/client.ts` | Client `openapi-fetch` typé à partir de `schema.d.ts` (généré par `npm run api:types`) |
+| `src/lib/domain.ts` | Enums miroir du backend et libellés |
+| `src/lib/format.ts`, `components/shared/Money.tsx` | Formatage monétaire unique |
+| `src/features/actions.ts` | Server Actions : import CSV, ajout de coût, changement de statut |
+| `src/app/page.tsx` | Liste des conteneurs |
+| `src/app/container/[id]/page.tsx` | Landed cost par PO, avertissements, coûts |
 
-### Infra
-| Fichier | Rôle |
-|---|---|
-| [docker-compose.yml](file:///Users/pierre/Desktop/timeo%20-%20boat/freightsight_mvp/docker-compose.yml) | Orchestre PostgreSQL, Redis, Backend, Celery |
-| [test_data.csv](file:///Users/pierre/Desktop/timeo%20-%20boat/freightsight_mvp/test_data.csv) | Données de test (3 POs, 2 conteneurs) |
+Le navigateur ne parle jamais directement à l'API : lectures en Server Components, écritures en Server
+Actions. Aucune URL en dur, aucun `any`.
 
----
+## Infra
 
-## Endpoints API
+- `docker-compose.yml` : Postgres 17, service `migrate` (alembic upgrade head), API en rechargement.
+- `backend/Dockerfile` : image `uv`, utilisateur non-root, healthcheck, `CMD` uvicorn.
+- `.github/workflows/ci.yml` : ruff, mypy, alembic upgrade + check, pytest sur Postgres 17 ; lint, tsc,
+  build Next ; gitleaks.
+- `.pre-commit-config.yaml` : gitleaks, ruff, hooks de base.
 
-| Méthode | Route | Description | Testé |
-|---|---|---|---|
-| GET | `/` | Health check | ✅ |
-| GET | `/api/containers` | Liste tous les conteneurs | ✅ |
-| POST | `/api/containers` | Crée un conteneur + souscrit Vizion | ✅ |
-| POST | `/api/purchase-orders/upload` | Ingestion CSV de bons de commande | ✅ |
-| POST | `/api/containers/{id}/costs` | Ajoute un coût à un conteneur | ✅ |
-| GET | `/api/containers/{id}/landed-costs` | Calcule les landed costs ventilés par PO | ✅ |
-| POST | `/api/containers/{id}/upload-invoice` | Upload facture + extraction IA simulée | ✅ |
-| POST | `/api/webhooks/vizion` | Webhook pour les events Vizion API | ✅ |
+## Prochaines étapes
 
----
-
-## Tests Validés
-
-### Base de données
-- 1 Organisation créée automatiquement
-- 3 Bons de Commande (Michelin, Pirelli, Hankook)
-- 2 Conteneurs (MSCU1234567, CMAU9876543)
-- 3 Liens M2M avec pourcentages d'allocation (100%, 50%, 100%)
-- 4 Coûts enregistrés (Ocean Freight x2, Customs, Drayage)
-- Calcul Landed Cost vérifié : Michelin = 14 900.50$, Pirelli = 9 600.00$
-
-### Infrastructure
-- 4 conteneurs Docker en état `Running`
-- Backend API sur port 8001
-- Frontend Next.js sur port 3000
-- PostgreSQL sur port 5432
-- Redis sur port 6379
-
----
-
-## Prochaines Étapes
-
-> [!IMPORTANT]
-> **Priorité n°1 : Valider le marché.** Le MVP est fonctionnel. Ne plus coder avant d'avoir parlé à 5 vrais prospects.
-
-Voir le document [gtm_strategy.md](file:///Users/pierre/.gemini/antigravity/brain/c60b295f-3226-4ff0-ac3b-13d779b8c330/gtm_strategy.md) pour le plan d'action commercial complet.
-
-### Roadmap Technique (après validation marché)
-1. **Phase 1** : Remplacer l'OCR simulé par une vraie extraction via LLM (OpenAI Vision API)
-2. **Phase 2** : Connecteurs ERP (QuickBooks, NetSuite)
-3. **Phase 3** : Alertes prédictives de surestaries (Demurrage & Detention)
+Voir le plan de route (Phase 1 : authentification, tenancy avec RLS, schéma cible avec lignes de commande
+par conteneur, méthodes d'allocation par valeur / poids / volume / quantité, import avec mapping de
+colonnes ; Phase 2 : tracking réel, extraction de factures avec revue humaine, alertes).
