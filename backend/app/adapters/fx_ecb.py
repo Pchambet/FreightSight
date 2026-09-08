@@ -1,4 +1,7 @@
-"""Frankfurter adapter: ECB reference rates, no API key. GET /{date}?from=QUOTE&to=BASE."""
+"""Frankfurter adapter: ECB reference rates, no API key. GET {api_url}/{date}?from=QUOTE&to=BASE.
+
+The service moved from api.frankfurter.app to api.frankfurter.dev/v1 (301); redirects are followed and the
+default URL points at the new host."""
 
 from __future__ import annotations
 
@@ -18,6 +21,7 @@ def make_fetcher(api_url: str, timeout: float = 5.0):  # type: ignore[no-untyped
                 f"{api_url.rstrip('/')}/{on_date.isoformat()}",
                 params={"from": quote, "to": base},
                 timeout=timeout,
+                follow_redirects=True,
             )
             res.raise_for_status()
             payload = res.json()

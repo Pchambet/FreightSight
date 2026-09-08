@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     clerk_authorized_parties: list[str] = []
 
     # FX rates: Frankfurter (ECB reference rates), no key needed.
-    fx_api_url: str = "https://api.frankfurter.app"
+    fx_api_url: str = "https://api.frankfurter.dev/v1"
 
     @property
     def is_prod(self) -> bool:
