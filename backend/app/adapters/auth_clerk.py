@@ -21,6 +21,7 @@ class VerifiedClaims:
     name: str | None
     org_external_id: str | None
     org_slug: str | None
+    org_name: str | None
     role: str  # OWNER | ADMIN | MEMBER | VIEWER
 
 
@@ -70,5 +71,6 @@ class ClerkVerifier:
             name=claims.get("name"),
             org_external_id=org_id,
             org_slug=org.get("slg") or claims.get("org_slug"),
+            org_name=claims.get("org_name"),  # custom session claim {{org.name}}, see ops doc
             role=_ROLE_MAP.get(str(role_raw).lower(), "MEMBER"),
         )

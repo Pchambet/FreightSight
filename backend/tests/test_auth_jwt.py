@@ -63,6 +63,7 @@ def make_token(private_pem: bytes, **overrides: Any) -> str:
         "exp": now + 60,
         "v": 2,
         "o": {"id": "org_9xyz", "slg": "acme-import", "rol": "admin"},
+        "org_name": "ACME Import",
     }
     claims.update(overrides)
     return jwt.encode(claims, private_pem, algorithm="RS256", headers={"kid": "k1"})
@@ -107,7 +108,7 @@ def test_jwt_creates_mirror_and_scopes_requests(
     org_id = me.json()["org_id"]
 
     org = clerk_client.get("/api/v1/organization", headers=headers).json()
-    assert org["slug"] == "acme-import" and org["base_currency"] == "EUR"
+    assert org["slug"] == "acme-import" and org["base_currency"] == "EUR" and org["name"] == "ACME Import"
 
     res = clerk_client.post("/api/v1/containers", headers=headers, json={"container_number": "MSCU1234567"})
     assert res.status_code == 201
@@ -167,7 +168,7 @@ def test_slug_collision_and_concurrent_first_requests(
     headers = {"Authorization": f"Bearer {make_token(priv)}"}
     res = clerk_client.get("/api/v1/organization", headers=headers)
     assert res.status_code == 200, res.text
-    assert res.json()["slug"] is None and res.json()["name"] == "acme-import"
+    assert res.json()["slug"] is None and res.json()["name"] == "ACME Import"
     # the same token again resolves the same org
     assert clerk_client.get("/api/v1/organization", headers=headers).json()["id"] == res.json()["id"]
 

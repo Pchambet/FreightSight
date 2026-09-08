@@ -79,12 +79,14 @@ def _mirror_and_resolve(
         if slug and db.scalar(select(Organization.id).where(Organization.slug == slug)):
             slug = None  # slug already taken by another mirrored org; the external id is the identity
         org = Organization(
-            name=claims.org_slug or "New organization",
+            name=claims.org_name or claims.org_slug or "New organization",
             slug=slug,
             external_id=claims.org_external_id,
             base_currency=settings.default_base_currency,
         )
         db.add(org)
+    elif claims.org_name and org.name in (claims.org_slug, "New organization"):
+        org.name = claims.org_name  # upgrade a slug-named mirror once the claim is available
     db.flush()
 
     membership = db.get(Membership, (org.id, user.id))
