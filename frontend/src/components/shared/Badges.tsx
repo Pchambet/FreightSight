@@ -1,4 +1,5 @@
-import { MILESTONE_LABEL, RISK_LABEL, type ContainerMilestone, type DndRisk } from "@/lib/domain";
+import { useTranslations } from "next-intl";
+import type { ContainerMilestone, DndRisk } from "@/lib/domain";
 
 const MILESTONE_STYLE: Partial<Record<ContainerMilestone, string>> = {
   BOOKED: "bg-slate-100 text-slate-700 ring-slate-500/20",
@@ -24,11 +25,23 @@ const RISK_STYLE: Record<DndRisk, string> = {
 const base = "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset whitespace-nowrap";
 
 export function MilestoneBadge({ milestone }: { milestone: ContainerMilestone }) {
-  return <span className={`${base} ${MILESTONE_STYLE[milestone] ?? MILESTONE_STYLE.BOOKED}`}>{MILESTONE_LABEL[milestone] ?? milestone}</span>;
+  const t = useTranslations("domain.milestone");
+  return <span className={`${base} ${MILESTONE_STYLE[milestone] ?? MILESTONE_STYLE.BOOKED}`}>{t(milestone)}</span>;
 }
 
 export function RiskBadge({ risk, days }: { risk: DndRisk; days?: number | null }) {
+  const t = useTranslations();
   if (risk === "NONE") return <span className="text-xs text-slate-400">—</span>;
-  const suffix = days === null || days === undefined ? "" : days < 0 ? ` · ${-days} d over` : ` · D-${days}`;
-  return <span className={`${base} ${RISK_STYLE[risk]}`}>{RISK_LABEL[risk]}{suffix}</span>;
+  const suffix =
+    days === null || days === undefined
+      ? ""
+      : days < 0
+        ? ` · ${t("containers.risk.over", { days: -days })}`
+        : ` · ${t("containers.risk.left", { days })}`;
+  return (
+    <span className={`${base} ${RISK_STYLE[risk]}`}>
+      {t(`domain.risk.${risk}`)}
+      {suffix}
+    </span>
+  );
 }

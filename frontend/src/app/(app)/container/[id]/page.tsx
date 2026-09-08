@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getLocale, getTranslations } from "next-intl/server";
 import { AlertTriangle, ArrowLeft, Box, ChevronRight } from "lucide-react";
 import { Card, PageHeader } from "@/components/layout/AppShell";
 import { MilestoneBadge, RiskBadge } from "@/components/shared/Badges";
@@ -15,24 +16,28 @@ import { dateShort, daysUntil } from "@/lib/format";
 
 type Params = { params: Promise<{ id: string }> };
 
+// Thrown, never rendered: the error boundary shows the translated message.
+const API_ERROR = "api_error";
+
 async function load(id: string): Promise<{ container: ContainerResponse; report: LandedCostReport; loads: LoadResponse[]; pos: PurchaseOrderSummary[]; shipmentRef: string | null } | null> {
   const c = await api.GET("/api/v1/containers/{container_id}", { params: { path: { container_id: id } } });
   if (c.response.status === 404 || c.response.status === 422) return null;
-  if (c.error || !c.data) throw new Error("The API returned an error.");
+  if (c.error || !c.data) throw new Error(API_ERROR);
   const [r, l, p, s] = await Promise.all([
     api.GET("/api/v1/landed-costs/containers/{container_id}", { params: { path: { container_id: id } } }),
     api.GET("/api/v1/containers/{container_id}/loads", { params: { path: { container_id: id } } }),
     api.GET("/api/v1/purchase-orders"),
     c.data.shipment_id ? api.GET("/api/v1/shipments/{shipment_id}", { params: { path: { shipment_id: c.data.shipment_id } } }) : Promise.resolve(null),
   ]);
-  if (r.error || !r.data || l.error || !l.data) throw new Error("The API returned an error.");
+  if (r.error || !r.data || l.error || !l.data) throw new Error(API_ERROR);
   return { container: c.data, report: r.data, loads: l.data, pos: p.data ?? [], shipmentRef: s?.data?.reference ?? null };
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { id } = await params;
   const data = await load(id).catch(() => null);
-  return { title: data ? data.container.container_number : "Container" };
+  const t = await getTranslations("container");
+  return { title: data ? data.container.container_number : t("fallbackTitle") };
 }
 
 export default async function ContainerPage({ params }: Params) {
@@ -40,13 +45,14 @@ export default async function ContainerPage({ params }: Params) {
   const data = await load(containerId);
   if (!data) notFound();
   const { container, report, loads, pos, shipmentRef } = data;
+  const [t, errorCode, locale] = await Promise.all([getTranslations("container"), getTranslations("errors"), getLocale()]);
   const cur = report.base_currency;
   const revalidate = `/container/${container.id}`;
 
   return (
     <>
       <div className="flex items-center text-sm text-slate-500 mb-4">
-        <Link href="/containers" className="hover:text-slate-900 flex items-center gap-1.5"><ArrowLeft className="w-4 h-4" />Containers</Link>
+        <Link href="/containers" className="hover:text-slate-900 flex items-center gap-1.5"><ArrowLeft className="w-4 h-4" />{t("breadcrumb")}</Link>
         <ChevronRight className="w-4 h-4 mx-2 text-slate-300" />
         <span className="text-slate-900 font-mono">{container.container_number}</span>
       </div>
@@ -57,8 +63,8 @@ export default async function ContainerPage({ params }: Params) {
           <span className="flex items-center gap-3 flex-wrap">
             <MilestoneBadge milestone={container.milestone} />
             <RiskBadge risk={container.dnd_risk} days={daysUntil(container.last_free_day)} />
-            {container.last_free_day ? <span>Last free day {dateShort(container.last_free_day)}</span> : null}
-            {shipmentRef ? <span>Shipment {shipmentRef}</span> : null}
+            {container.last_free_day ? <span>{t("lastFreeDay", { date: dateShort(container.last_free_day, locale) })}</span> : null}
+            {shipmentRef ? <span>{t("shipment", { reference: shipmentRef })}</span> : null}
           </span>
         }
       />
@@ -68,7 +74,11 @@ export default async function ContainerPage({ params }: Params) {
           {report.warnings.map((w) => (
             <div key={w.cost_id} className="flex gap-2">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-              <span><span className="font-mono text-xs mr-2">{w.code}</span>{w.message} (<Money amount={w.amount_base} currency={cur} /> unallocated)</span>
+              <span>
+                {errorCode.has(w.code) ? errorCode(w.code) : w.message}
+                {w.message.includes(": ") ? <span className="text-amber-700/80"> {w.message.slice(w.message.indexOf(": ") + 2)}</span> : null}
+                {" ("}<Money amount={w.amount_base} currency={cur} /> {t("unallocatedSuffix")}{")"}
+              </span>
             </div>
           ))}
         </div>
@@ -77,10 +87,10 @@ export default async function ContainerPage({ params }: Params) {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-1 space-y-6">
           <TrackingPanel container={container} />
-          <Card title="Loads">
+          <Card title={t("cards.loads")}>
             <LoadsEditor containerId={container.id} loads={loads} purchaseOrders={pos} />
           </Card>
-          <Card title="Add a cost">
+          <Card title={t("cards.addCost")}>
             <AddCostForm scope="CONTAINER" targetId={container.id} shipmentId={container.shipment_id} currency={cur} revalidate={revalidate} />
           </Card>
         </div>
@@ -89,7 +99,7 @@ export default async function ContainerPage({ params }: Params) {
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {(["fob", "allocated", "vat", "landed", "unallocated"] as const).map((k) => (
               <div key={k} className="bg-white rounded-lg border border-slate-200 px-4 py-3">
-                <div className="text-xs text-slate-500 uppercase tracking-wider">{k === "vat" ? "Import VAT" : k === "fob" ? "FOB" : k}</div>
+                <div className="text-xs text-slate-500 uppercase tracking-wider">{t(`totals.${k}`)}</div>
                 <div className={`text-lg font-semibold tabular-nums mt-1 ${k === "unallocated" && report.totals.unallocated !== "0.00" ? "text-amber-700" : ""}`}>
                   <Money amount={report.totals[k]} currency={cur} />
                 </div>

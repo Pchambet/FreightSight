@@ -2,13 +2,16 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Card, btnPrimary, input, label } from "@/components/layout/AppShell";
 import { updateOrganization } from "@/features/actions";
 import type { OrganizationResponse } from "@/lib/api/client";
-import { METHOD_LABEL, USER_METHODS } from "@/lib/domain";
+import { USER_METHODS } from "@/lib/domain";
 
 export default function SettingsForm({ org }: { org: OrganizationResponse }) {
+  const t = useTranslations("settings");
+  const methodLabel = useTranslations("domain.method");
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -24,51 +27,51 @@ export default function SettingsForm({ org }: { org: OrganizationResponse }) {
         free_days_detention: Number(f.get("free_days_detention") ?? org.free_days_detention),
       });
       if (!result.ok) return void toast.error(result.error);
-      toast.success("Settings saved");
+      toast.success(t("saved"));
       router.refresh();
     });
   };
 
   return (
     <form onSubmit={submit} className="space-y-6 max-w-2xl">
-      <Card title="Organization">
+      <Card title={t("organization")}>
         <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
-            <label className={label} htmlFor="name">Name</label>
+            <label className={label} htmlFor="name">{t("name")}</label>
             <input id="name" name="name" defaultValue={org.name} required className={input} />
           </div>
           <div>
-            <label className={label} htmlFor="base_currency">Base currency</label>
+            <label className={label} htmlFor="base_currency">{t("baseCurrency")}</label>
             <input id="base_currency" name="base_currency" defaultValue={org.base_currency} maxLength={3} className={`${input} font-mono uppercase`} />
-            <p className="text-xs text-slate-500 mt-1">Every landed cost is reported in this currency. Changing it does not restate existing rates.</p>
+            <p className="text-xs text-slate-500 mt-1">{t("baseCurrencyHelp")}</p>
           </div>
         </div>
       </Card>
-      <Card title="Allocation">
+      <Card title={t("allocation")}>
         <div className="p-5 space-y-3">
           <div>
-            <label className={label} htmlFor="default_allocation_method">Default method for new costs</label>
+            <label className={label} htmlFor="default_allocation_method">{t("defaultMethod")}</label>
             <select id="default_allocation_method" name="default_allocation_method" defaultValue={org.default_allocation_method} className={input}>
-              {USER_METHODS.map((m) => <option key={m} value={m}>{METHOD_LABEL[m]}</option>)}
+              {USER_METHODS.map((m) => <option key={m} value={m}>{methodLabel(m)}</option>)}
             </select>
           </div>
-          <p className="text-xs text-slate-500">Freight is usually allocated by volume for FCL and by weight for air or LCL; insurance and duty by value. Customs duty always uses the CIF basis.</p>
+          <p className="text-xs text-slate-500">{t("methodHelp")}</p>
         </div>
       </Card>
-      <Card title="Free time">
+      <Card title={t("freeTime")}>
         <div className="p-5 grid grid-cols-2 gap-4">
           <div>
-            <label className={label} htmlFor="free_days_demurrage">Demurrage free days</label>
+            <label className={label} htmlFor="free_days_demurrage">{t("demurrageDays")}</label>
             <input id="free_days_demurrage" name="free_days_demurrage" type="number" min={0} max={60} defaultValue={org.free_days_demurrage} className={input} />
           </div>
           <div>
-            <label className={label} htmlFor="free_days_detention">Detention free days</label>
+            <label className={label} htmlFor="free_days_detention">{t("detentionDays")}</label>
             <input id="free_days_detention" name="free_days_detention" type="number" min={0} max={60} defaultValue={org.free_days_detention} className={input} />
           </div>
-          <p className="col-span-2 text-xs text-slate-500">Calendar days from discharge. Override per container when the carrier or terminal differs.</p>
+          <p className="col-span-2 text-xs text-slate-500">{t("freeTimeHelp")}</p>
         </div>
       </Card>
-      <button type="submit" disabled={pending} className={btnPrimary}>Save settings</button>
+      <button type="submit" disabled={pending} className={btnPrimary}>{t("save")}</button>
     </form>
   );
 }

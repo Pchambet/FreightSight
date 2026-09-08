@@ -1,3 +1,4 @@
+import { useLocale } from "next-intl";
 import { money } from "@/lib/format";
 
 export function Money({
@@ -9,5 +10,6 @@ export function Money({
   currency: string;
   className?: string;
 }) {
-  return <span className={`tabular-nums ${className ?? ""}`}>{money(amount, currency)}</span>;
+  const locale = useLocale();
+  return <span className={`tabular-nums ${className ?? ""}`}>{money(amount, currency, locale)}</span>;
 }

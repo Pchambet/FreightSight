@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Card, input, td, tdRight, th, thRight } from "@/components/layout/AppShell";
 import { Money } from "@/components/shared/Money";
 import { previewAllocation } from "@/features/actions";
 import type { LandedCostReport } from "@/lib/api/client";
-import { COST_TYPE_LABEL, METHOD_LABEL, USER_METHODS, type CostType } from "@/lib/domain";
+import { USER_METHODS, type CostType } from "@/lib/domain";
 import { qty, unitCost } from "@/lib/format";
 
 /**
@@ -13,6 +14,10 @@ import { qty, unitCost } from "@/lib/format";
  * unit landed cost recomputes through the backend preview endpoint. Nothing is persisted here.
  */
 export default function AllocationPanel({ containerId, poId, report }: { containerId?: string; poId?: string; report: LandedCostReport }) {
+  const tr = useTranslations("allocation");
+  const costTypeLabel = useTranslations("domain.costType");
+  const methodLabel = useTranslations("domain.method");
+  const locale = useLocale();
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<LandedCostReport | null>(null);
   const [pending, startTransition] = useTransition();
@@ -48,45 +53,45 @@ export default function AllocationPanel({ containerId, poId, report }: { contain
 
   return (
     <Card
-      title="Landed cost per purchase-order line"
-      right={isPreview ? <span className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded">preview, not saved</span> : <span className="text-xs text-slate-500">{shown.lines.length} lines</span>}
+      title={tr("title")}
+      right={isPreview ? <span className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded">{tr("preview")}</span> : <span className="text-xs text-slate-500">{tr("lineCount", { count: shown.lines.length })}</span>}
     >
       {costTypes.length > 0 ? (
         <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/60 flex flex-wrap gap-3 items-center text-xs">
-          <span className="text-slate-500">What if the allocation were:</span>
-          {costTypes.map((t) => (
-            <label key={t} className="flex items-center gap-1.5">
-              <span className="text-slate-600">{COST_TYPE_LABEL[t]}</span>
+          <span className="text-slate-500">{tr("whatIf")}</span>
+          {costTypes.map((ct) => (
+            <label key={ct} className="flex items-center gap-1.5">
+              <span className="text-slate-600">{costTypeLabel(ct)}</span>
               <select
-                value={overrides[t] ?? ""}
-                onChange={(e) => setOverride(t, e.target.value)}
+                value={overrides[ct] ?? ""}
+                onChange={(e) => setOverride(ct, e.target.value)}
                 className={`${input} w-auto py-1 text-xs`}
               >
-                <option value="">as recorded</option>
-                {USER_METHODS.map((m) => <option key={m} value={m}>{METHOD_LABEL[m]}</option>)}
+                <option value="">{tr("asRecorded")}</option>
+                {USER_METHODS.map((m) => <option key={m} value={m}>{methodLabel(m)}</option>)}
               </select>
             </label>
           ))}
-          {pending ? <span className="text-slate-400">recomputing…</span> : null}
-          {isPreview ? <button type="button" onClick={() => { setOverrides({}); setPreview(null); }} className="text-blue-600 hover:underline">reset</button> : null}
+          {pending ? <span className="text-slate-400">{tr("recomputing")}</span> : null}
+          {isPreview ? <button type="button" onClick={() => { setOverrides({}); setPreview(null); }} className="text-blue-600 hover:underline">{tr("reset")}</button> : null}
         </div>
       ) : null}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50">
             <tr>
-              <th className={th}>Line</th>
-              {poId ? <th className={th}>Container</th> : null}
-              <th className={thRight}>Qty</th>
-              <th className={thRight}>FOB</th>
-              <th className={thRight}>Landed</th>
-              <th className={thRight}>Unit cost</th>
-              {Object.keys(shown.by_cost_type).map((t) => <th key={t} className={`${thRight} text-blue-700/80`}>{COST_TYPE_LABEL[t as CostType] ?? t}</th>)}
+              <th className={th}>{tr("th.line")}</th>
+              {poId ? <th className={th}>{tr("th.container")}</th> : null}
+              <th className={thRight}>{tr("th.quantity")}</th>
+              <th className={thRight}>{tr("th.fob")}</th>
+              <th className={thRight}>{tr("th.landed")}</th>
+              <th className={thRight}>{tr("th.unitCost")}</th>
+              {Object.keys(shown.by_cost_type).map((ct) => <th key={ct} className={`${thRight} text-blue-700/80`}>{costTypeLabel(ct as CostType)}</th>)}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
             {shown.lines.length === 0 ? (
-              <tr><td colSpan={8} className="px-5 py-8 text-center text-sm text-slate-500">No purchase-order line loaded. Add loads first.</td></tr>
+              <tr><td colSpan={8} className="px-5 py-8 text-center text-sm text-slate-500">{tr("empty")}</td></tr>
             ) : (
               shown.lines.map((ln) => (
                 <tr key={ln.load_id} className="hover:bg-slate-50">
@@ -95,12 +100,12 @@ export default function AllocationPanel({ containerId, poId, report }: { contain
                     <div className="text-xs text-slate-500">{[ln.sku, ln.description].filter(Boolean).join(" · ") || "—"}</div>
                   </td>
                   {poId ? <td className={`${td} font-mono text-xs text-slate-600`}>{ln.container_number}</td> : null}
-                  <td className={tdRight}>{qty(ln.quantity)}</td>
+                  <td className={tdRight}>{qty(ln.quantity, locale)}</td>
                   <td className={`${tdRight} text-slate-600`}><Money amount={ln.fob} currency={cur} /></td>
                   <td className={`${tdRight} font-semibold`}><Money amount={ln.landed} currency={cur} /></td>
-                  <td className={`${tdRight} font-semibold text-emerald-700`}>{unitCost(ln.unit_landed_cost, cur)}</td>
-                  {Object.keys(shown.by_cost_type).map((t) => (
-                    <td key={t} className={`${tdRight} text-blue-700`}>{ln.by_cost_type[t] ? <Money amount={ln.by_cost_type[t]} currency={cur} /> : <span className="text-slate-300">—</span>}</td>
+                  <td className={`${tdRight} font-semibold text-emerald-700`}>{unitCost(ln.unit_landed_cost, cur, locale)}</td>
+                  {Object.keys(shown.by_cost_type).map((ct) => (
+                    <td key={ct} className={`${tdRight} text-blue-700`}>{ln.by_cost_type[ct] ? <Money amount={ln.by_cost_type[ct]} currency={cur} /> : <span className="text-slate-300">—</span>}</td>
                   ))}
                 </tr>
               ))
@@ -109,11 +114,11 @@ export default function AllocationPanel({ containerId, poId, report }: { contain
           {shown.lines.length > 0 ? (
             <tfoot className="bg-slate-50 text-sm font-medium">
               <tr>
-                <td className={td} colSpan={poId ? 3 : 2}>Total</td>
+                <td className={td} colSpan={poId ? 3 : 2}>{tr("total")}</td>
                 <td className={tdRight}><Money amount={shown.totals.fob} currency={cur} /></td>
                 <td className={tdRight}><Money amount={shown.totals.landed} currency={cur} /></td>
                 <td className={tdRight}></td>
-                {Object.keys(shown.by_cost_type).map((t) => <td key={t} className={tdRight}><Money amount={shown.by_cost_type[t]} currency={cur} /></td>)}
+                {Object.keys(shown.by_cost_type).map((ct) => <td key={ct} className={tdRight}><Money amount={shown.by_cost_type[ct]} currency={cur} /></td>)}
               </tr>
             </tfoot>
           ) : null}

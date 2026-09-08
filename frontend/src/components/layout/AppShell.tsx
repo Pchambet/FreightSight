@@ -1,15 +1,18 @@
 import { OrganizationSwitcher, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Ship } from "lucide-react";
+import LocaleSwitcher from "@/components/layout/LocaleSwitcher";
 
 const NAV = [
-  { href: "/containers", label: "Containers" },
-  { href: "/purchase-orders", label: "Purchase orders" },
-  { href: "/imports", label: "Imports" },
-  { href: "/settings", label: "Settings" },
-];
+  { href: "/containers", key: "containers" },
+  { href: "/purchase-orders", key: "purchaseOrders" },
+  { href: "/imports", key: "imports" },
+  { href: "/settings", key: "settings" },
+] as const;
 
 export function AppShell({ children, orgName }: { children: React.ReactNode; orgName?: string }) {
+  const t = useTranslations();
   return (
     <div className="min-h-screen">
       <header className="bg-white border-b border-slate-200">
@@ -25,12 +28,13 @@ export function AppShell({ children, orgName }: { children: React.ReactNode; org
           <nav className="flex items-center gap-1 text-sm">
             {NAV.map((n) => (
               <Link key={n.href} href={n.href} className="px-3 py-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900">
-                {n.label}
+                {t(`nav.${n.key}`)}
               </Link>
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-xs text-slate-500">
-            <span className="hidden sm:inline">Pre-alpha</span>
+            <span className="hidden sm:inline">{t("common.preAlpha")}</span>
+            <LocaleSwitcher />
             <OrganizationSwitcher hidePersonal afterSelectOrganizationUrl="/containers" afterCreateOrganizationUrl="/containers" />
             <UserButton />
             {orgName ? <span className="sr-only">{orgName}</span> : null}

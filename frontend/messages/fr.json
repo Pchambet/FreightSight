@@ -1,0 +1,445 @@
+{
+  "common": {
+    "appDescription": "Ventilation du coût de revient rendu et suivi des conteneurs pour les PME importatrices. Pré-alpha.",
+    "preAlpha": "Pré-alpha",
+    "language": "Langue",
+    "french": "Français",
+    "english": "English",
+    "empty": "—",
+    "back": "Retour",
+    "select": "Choisir…",
+    "loading": "Chargement…",
+    "total": "Total",
+    "apiError": "L'API a renvoyé une erreur.",
+    "apiUnreachable": "L'API est injoignable. Le backend tourne-t-il ?"
+  },
+  "nav": {
+    "containers": "Conteneurs",
+    "purchaseOrders": "Commandes",
+    "imports": "Imports",
+    "settings": "Paramètres"
+  },
+  "containers": {
+    "title": "Conteneurs",
+    "subtitle": "{total} suivis · {active} en cours · {atRisk} exposés aux surestaries",
+    "th": {
+      "container": "Conteneur",
+      "shipment": "Expédition",
+      "milestone": "Étape",
+      "lastFreeDay": "Dernier jour franc",
+      "risk": "Risque",
+      "purchaseOrders": "Commandes",
+      "fob": "FOB",
+      "allocated": "Ventilé",
+      "costs": "Coûts saisis"
+    },
+    "none": "aucune",
+    "empty": {
+      "title": "Aucun conteneur pour l'instant",
+      "hint": "Importez des commandes ou ajoutez un conteneur ci-dessus.",
+      "importLink": "Importer des commandes",
+      "sampleHint": "Une expédition, deux conteneurs et trois factures de frais, pour essayer la ventilation."
+    },
+    "sample": {
+      "load": "Charger un jeu d'exemple",
+      "loading": "Chargement…",
+      "loaded": "Jeu d'exemple chargé",
+      "failed": "Impossible de charger le jeu d'exemple"
+    },
+    "new": {
+      "title": "ISO 6346 : 4 lettres puis 7 chiffres",
+      "submit": "Ajouter un conteneur",
+      "added": "Conteneur ajouté",
+      "failed": "Impossible de créer le conteneur"
+    },
+    "risk": {
+      "over": "{days} j de dépassement",
+      "left": "J-{days}"
+    }
+  },
+  "container": {
+    "fallbackTitle": "Conteneur",
+    "breadcrumb": "Conteneurs",
+    "lastFreeDay": "Dernier jour franc {date}",
+    "shipment": "Expédition {reference}",
+    "unallocatedSuffix": "non ventilé",
+    "totals": {
+      "fob": "FOB",
+      "allocated": "Ventilé",
+      "vat": "TVA import",
+      "landed": "Coût rendu",
+      "unallocated": "Non ventilé"
+    },
+    "cards": {
+      "loads": "Chargements",
+      "addCost": "Ajouter un coût"
+    },
+    "notFound": {
+      "title": "Conteneur introuvable",
+      "body": "Il appartient peut-être à une autre société, ou il a été archivé.",
+      "back": "Retour aux conteneurs"
+    }
+  },
+  "tracking": {
+    "title": "Suivi",
+    "manualNote": "manuel tant qu'aucun fournisseur de tracking n'est connecté",
+    "milestone": "Étape",
+    "dischargedOn": "Déchargé le",
+    "freeDays": "Jours francs (surestaries)",
+    "freeDaysPlaceholder": "défaut société",
+    "eta": "ETA",
+    "arrived": "Arrivé",
+    "gateOut": "Sortie terminal",
+    "lastFreeDay": "Dernier jour franc",
+    "save": "Enregistrer le suivi",
+    "saved": "Suivi mis à jour",
+    "failed": "Impossible de mettre à jour le conteneur"
+  },
+  "loads": {
+    "empty": "Rien de chargé pour l'instant. Aucun coût ne peut être ventilé tant qu'aucune ligne de commande n'est dans ce conteneur.",
+    "lineLabel": "ligne {lineNo}",
+    "quantityOf": "{loaded} sur {total}",
+    "remove": "Retirer le chargement",
+    "purchaseOrder": "Commande",
+    "line": "Ligne",
+    "quantity": "Quantité",
+    "add": "Charger dans le conteneur",
+    "alreadyLoaded": "Cette ligne est déjà chargée ici.",
+    "updated": "Chargements mis à jour. Ventilation recalculée.",
+    "failed": "Impossible de mettre à jour les chargements"
+  },
+  "costs": {
+    "form": {
+      "appliesTo": "S'applique à",
+      "thisContainer": "Ce conteneur uniquement",
+      "wholeShipment": "Toute l'expédition (tous ses conteneurs)",
+      "costType": "Type de coût",
+      "amount": "Montant",
+      "amountInvalid": "Le montant doit être un nombre positif avec au plus deux décimales.",
+      "currency": "Devise",
+      "invoiceDate": "Date de facture",
+      "fxRate": "Taux de change",
+      "fxRateWith": "Taux de change (1 {from} = ? {to})",
+      "fxNotApplicable": "sans objet",
+      "fxEcb": "BCE à la date",
+      "method": "Méthode de ventilation",
+      "methodDefault": "Défaut de la société",
+      "dutyNote": "Les droits de douane sont ventilés sur la base CIF, aux droits théoriques dès que chaque ligne porte un taux de droit.",
+      "vendor": "Prestataire",
+      "invoiceNumber": "N° de facture",
+      "submit": "Ajouter le coût",
+      "added": "Coût ajouté. Ventilation recalculée.",
+      "failed": "Impossible d'ajouter le coût"
+    },
+    "ledger": {
+      "title": "Coûts",
+      "recorded": "{count} saisis",
+      "th": {
+        "date": "Date",
+        "type": "Type",
+        "scope": "Périmètre",
+        "amount": "Montant",
+        "inCurrency": "En {currency}",
+        "method": "Méthode",
+        "vendor": "Prestataire / facture"
+      },
+      "empty": "Aucun coût saisi pour l'instant.",
+      "delete": "Supprimer le coût",
+      "deleted": "Coût supprimé",
+      "deleteFailed": "Impossible de supprimer le coût"
+    }
+  },
+  "allocation": {
+    "title": "Coût rendu par ligne de commande",
+    "preview": "simulation, non enregistrée",
+    "lineCount": "{count} lignes",
+    "whatIf": "Et si la ventilation était :",
+    "asRecorded": "telle que saisie",
+    "recomputing": "recalcul…",
+    "reset": "réinitialiser",
+    "previewFailed": "Impossible de calculer la simulation",
+    "th": {
+      "line": "Ligne",
+      "container": "Conteneur",
+      "quantity": "Qté",
+      "fob": "FOB",
+      "landed": "Rendu",
+      "unitCost": "Coût unitaire"
+    },
+    "empty": "Aucune ligne de commande chargée. Ajoutez d'abord des chargements.",
+    "total": "Total"
+  },
+  "purchaseOrders": {
+    "title": "Commandes",
+    "subtitle": "{count} commandes",
+    "importCta": "Importer depuis CSV / Excel",
+    "th": {
+      "po": "Commande",
+      "supplier": "Fournisseur",
+      "currency": "Devise",
+      "lines": "Lignes",
+      "fob": "FOB ({currency})",
+      "containers": "Conteneurs"
+    },
+    "notLoaded": "non chargée",
+    "empty": "Aucune commande pour l'instant.",
+    "emptyLink": "Importez un fichier",
+    "emptySuffix": "pour commencer."
+  },
+  "purchaseOrder": {
+    "fallbackTitle": "Commande",
+    "breadcrumb": "Commandes",
+    "noSupplier": "Sans fournisseur",
+    "ordered": "commandé le {date}",
+    "linesCard": "Lignes",
+    "addCostCard": "Ajouter un coût sur cette commande",
+    "th": {
+      "lineNo": "N°",
+      "sku": "Référence",
+      "quantity": "Qté",
+      "unitPrice": "Prix unitaire",
+      "weight": "kg",
+      "volume": "CBM",
+      "duty": "Droit"
+    },
+    "totals": {
+      "fob": "FOB",
+      "allocated": "Ventilé",
+      "vat": "TVA import",
+      "landed": "Coût rendu"
+    },
+    "notFound": {
+      "title": "Commande introuvable",
+      "body": "Elle appartient peut-être à une autre société, ou elle a été supprimée.",
+      "back": "Retour aux commandes"
+    }
+  },
+  "imports": {
+    "title": "Imports",
+    "subtitle": "Commandes et chargements de conteneurs depuis un CSV ou un Excel",
+    "new": "Nouvel import",
+    "th": {
+      "date": "Date",
+      "file": "Fichier",
+      "kind": "Format",
+      "status": "Statut",
+      "rows": "Lignes",
+      "errors": "Erreurs",
+      "result": "Résultat"
+    },
+    "empty": "Aucun import pour l'instant.",
+    "kind": {
+      "PURCHASE_ORDERS": "Lignes de commande",
+      "LEGACY_PO_CONTAINER": "Commande + conteneur (ancien format)"
+    },
+    "status": {
+      "PARSED": "Analysé",
+      "VALIDATED": "Validé",
+      "DONE": "Terminé",
+      "FAILED": "Échec"
+    },
+    "result": "{pos} commandes, {lines} lignes, {containers} conteneurs, {loads} chargements",
+    "continue": "reprendre"
+  },
+  "importWizard": {
+    "title": "Importer des commandes",
+    "subtitle": "Déposez le fichier, faites correspondre les colonnes, relisez le rapport de validation, puis validez. Rien n'est écrit avant la dernière étape.",
+    "steps": {
+      "upload": "1. Dépôt",
+      "mapping": "2. Colonnes",
+      "review": "3. Rapport de validation",
+      "done": "4. Terminé"
+    },
+    "upload": {
+      "card": "Choisir un fichier",
+      "format": "Format",
+      "kindPurchaseOrders": "Une ligne par ligne de commande (référence, quantité, prix unitaire, conteneur facultatif)",
+      "kindLegacy": "Une ligne par commande, avec une valeur totale et un conteneur",
+      "choose": "Choisir un fichier",
+      "chooseFirst": "Choisissez d'abord un fichier.",
+      "cta": "Cliquez pour choisir un CSV ou un XLSX",
+      "hint": "Les exports Excel français (BOM, points-virgules, virgule décimale) passent sans réglage.",
+      "submit": "Déposer et détecter les colonnes",
+      "failed": "Le dépôt a échoué"
+    },
+    "mapping": {
+      "card": "Faire correspondre les colonnes de {filename}",
+      "fallbackFilename": "ce fichier",
+      "meta": "{rows} lignes · {encoding}",
+      "notInFile": "— absent du fichier —",
+      "required": "Obligatoires : {fields}",
+      "back": "Retour",
+      "validate": "Valider (à blanc)",
+      "failed": "La validation a échoué"
+    },
+    "review": {
+      "card": "Ce que l'import va faire",
+      "nothingWritten": "rien n'est encore écrit",
+      "validRows": "Lignes valides",
+      "purchaseOrders": "Commandes",
+      "lines": "Lignes",
+      "containersLoads": "Conteneurs / chargements",
+      "newUpdated": "{created} nouvelles, {updated} mises à jour",
+      "warningCount": "{count, plural, one {# avertissement} other {# avertissements}}",
+      "errorSummary": "{rows, plural, one {# ligne} other {# lignes}} avec {errors, plural, one {# erreur} other {# erreurs}} seront ignorées",
+      "noError": "Aucune erreur de ligne.",
+      "backToMapping": "Retour aux colonnes",
+      "importValid": "Importer les lignes valides",
+      "import": "Importer",
+      "orFix": "ou corrigez le fichier et déposez-le à nouveau",
+      "failed": "L'import a échoué",
+      "th": {
+        "row": "Ligne",
+        "field": "Champ",
+        "code": "Code",
+        "message": "Message"
+      }
+    },
+    "done": {
+      "card": "Import validé",
+      "summary": "{pos, plural, one {# commande créée} other {# commandes créées}}, {lines, plural, one {# ligne} other {# lignes}}, {containers, plural, one {# conteneur} other {# conteneurs}} et {loads, plural, one {# chargement} other {# chargements}}.",
+      "skipped": "{rows, plural, one {# ligne ignorée} other {# lignes ignorées}}.",
+      "committed": "Import validé. Ventilations recalculées.",
+      "goToContainers": "Voir les conteneurs",
+      "another": "Importer un autre fichier"
+    }
+  },
+  "settings": {
+    "title": "Paramètres",
+    "subtitle": "Valeurs par défaut de la société, utilisées par le moteur de ventilation et les alertes de surestaries.",
+    "organization": "Société",
+    "name": "Nom",
+    "baseCurrency": "Devise de référence",
+    "baseCurrencyHelp": "Tout coût rendu est présenté dans cette devise. La changer ne recalcule pas les taux déjà enregistrés.",
+    "allocation": "Ventilation",
+    "defaultMethod": "Méthode par défaut des nouveaux coûts",
+    "methodHelp": "Le fret se ventile en général au volume en conteneur complet et au poids en aérien ou en groupage ; l'assurance et les droits à la valeur. Les droits de douane utilisent toujours la base CIF.",
+    "freeTime": "Jours francs",
+    "demurrageDays": "Jours francs de surestaries",
+    "detentionDays": "Jours francs de détention",
+    "freeTimeHelp": "Jours calendaires à compter du déchargement. À redéfinir conteneur par conteneur quand la compagnie ou le terminal diffère.",
+    "save": "Enregistrer",
+    "saved": "Paramètres enregistrés",
+    "failed": "Impossible d'enregistrer les paramètres"
+  },
+  "auth": {
+    "chooseOrganization": {
+      "title": "Choisissez votre société",
+      "body": "Chaque commande, conteneur et coût appartient à une seule société."
+    }
+  },
+  "domain": {
+    "milestone": {
+      "BOOKED": "Réservé",
+      "GATE_IN_FULL_ORIGIN": "Entrée terminal (origine)",
+      "LOADED": "Chargé sur le navire",
+      "VESSEL_DEPARTED": "Navire parti",
+      "VESSEL_ARRIVED": "Navire arrivé",
+      "DISCHARGED": "Déchargé",
+      "AVAILABLE_FOR_PICKUP": "Disponible à l'enlèvement",
+      "GATE_OUT_FULL": "Sortie terminal (plein)",
+      "DELIVERED": "Livré",
+      "GATE_IN_EMPTY_RETURN": "Vide restitué"
+    },
+    "costType": {
+      "OCEAN_FREIGHT": "Fret maritime",
+      "AIR_FREIGHT": "Fret aérien",
+      "INSURANCE": "Assurance",
+      "ORIGIN_CHARGES": "Frais à l'origine",
+      "THC": "Manutention portuaire (THC)",
+      "BL_FEE": "Frais de connaissement",
+      "CUSTOMS_DUTY": "Droits de douane",
+      "CUSTOMS_BROKERAGE": "Frais de dédouanement",
+      "IMPORT_VAT": "TVA import (récupérable)",
+      "DRAYAGE": "Camionnage / livraison",
+      "DEMURRAGE": "Surestaries",
+      "DETENTION": "Détention",
+      "WAREHOUSING": "Entreposage",
+      "INSPECTION": "Inspection",
+      "BANK_FEES": "Frais bancaires",
+      "OTHER": "Autre"
+    },
+    "method": {
+      "BY_VALUE": "À la valeur",
+      "BY_WEIGHT": "Au poids",
+      "BY_VOLUME": "Au volume",
+      "BY_QUANTITY": "À la quantité",
+      "MANUAL": "Manuel (%)",
+      "BY_CIF_VALUE": "À la valeur CIF",
+      "BY_THEORETICAL_DUTY": "Aux droits théoriques"
+    },
+    "scope": {
+      "SHIPMENT": "Expédition",
+      "CONTAINER": "Conteneur",
+      "PO": "Commande",
+      "PO_LINE": "Ligne de commande"
+    },
+    "risk": {
+      "NONE": "Aucun risque",
+      "LOW": "Faible",
+      "MEDIUM": "Moyen",
+      "HIGH": "Élevé",
+      "INCURRING": "Surestaries en cours"
+    },
+    "importField": {
+      "po_number": "N° de commande",
+      "supplier_name": "Fournisseur",
+      "currency": "Devise",
+      "order_date": "Date de commande",
+      "line_no": "N° de ligne",
+      "sku": "Référence / SKU",
+      "description": "Désignation",
+      "quantity": "Quantité",
+      "unit_price": "Prix unitaire",
+      "unit_weight_kg": "Poids unitaire (kg)",
+      "unit_volume_cbm": "Volume unitaire (m³)",
+      "hs_code": "Code SH",
+      "duty_rate": "Taux de droit",
+      "container_number": "N° de conteneur",
+      "container_quantity": "Quantité dans le conteneur",
+      "total_value": "Valeur totale",
+      "allocation_percentage": "% de ventilation (ignoré)"
+    }
+  },
+  "errors": {
+    "fallback": "La requête a échoué",
+    "fieldPrefix": "{field} : {message}",
+    "OVER_ALLOCATED": "La quantité chargée dépasse la quantité de la ligne de commande.",
+    "DUPLICATE_LINE": "Cette ligne de commande apparaît deux fois.",
+    "MANUAL_SPLITS_REQUIRED": "Une ventilation manuelle exige des pourcentages.",
+    "INVALID_MANUAL_SPLIT": "Les pourcentages de ventilation manuelle doivent totaliser 100,00.",
+    "METHOD_NOT_ALLOWED": "Cette méthode de ventilation n'est pas autorisée pour ce type de coût.",
+    "FX_RATE_UNAVAILABLE": "Aucun taux de change disponible à cette date. Saisissez-le à la main.",
+    "FX_RATE_INVALID": "Le taux de change doit être supérieur à zéro.",
+    "FX_DATE_REQUIRED": "Une date est nécessaire pour retrouver le taux de change.",
+    "MISSING_BASIS": "Base de ventilation manquante sur certaines lignes (poids, volume ou valeur).",
+    "NO_TARGET": "Ce coût ne vise aucun chargement : le conteneur est vide.",
+    "ALL_WEIGHTS_ZERO": "Toutes les bases de ventilation valent zéro.",
+    "ALLOCATION_ERROR": "La ventilation n'a pas pu être calculée.",
+    "NOT_FOUND": "Introuvable.",
+    "CONFLICT": "Cette opération entre en conflit avec des données existantes.",
+    "TENANT_VIOLATION": "Cet objet appartient à une autre société.",
+    "FORBIDDEN": "Vous n'avez pas les droits nécessaires.",
+    "UNAUTHORIZED": "Session expirée. Reconnectez-vous.",
+    "VALIDATION": "Certaines valeurs sont invalides.",
+    "EMPTY_FILE": "Le fichier est vide.",
+    "FILE_TOO_LARGE": "Le fichier est trop volumineux.",
+    "XLSX_UNSUPPORTED": "Ce fichier Excel n'est pas exploitable.",
+    "ENCODING_UNKNOWN": "L'encodage du fichier n'a pas pu être déterminé.",
+    "MAPPING_INCOMPLETE": "Des colonnes obligatoires ne sont pas renseignées.",
+    "MAPPING_UNKNOWN_COLUMN": "Une colonne indiquée n'existe pas dans le fichier.",
+    "NO_VALID_ROWS": "Aucune ligne valide à importer.",
+    "IMPORT_ABORTED": "Import interrompu : aucune ligne n'a été écrite.",
+    "IMPORT_ALREADY_DONE": "Cet import a déjà été validé.",
+    "REQUIRED": "Valeur obligatoire.",
+    "NOT_A_NUMBER": "Ce n'est pas un nombre.",
+    "NOT_A_DATE": "Ce n'est pas une date.",
+    "NOT_POSITIVE": "La valeur doit être strictement positive.",
+    "NEGATIVE": "La valeur ne peut pas être négative.",
+    "INVALID_CURRENCY": "Code devise invalide.",
+    "INVALID_CONTAINER_NUMBER": "Numéro de conteneur invalide (ISO 6346).",
+    "DUPLICATE_IN_FILE": "Ligne en double dans le fichier.",
+    "DEPRECATED_COLUMN": "Colonne obsolète, ignorée.",
+    "FX_RATE_DEFAULTED": "Taux de change par défaut appliqué."
+  }
+}

@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Card, PageHeader, btnPrimary, td, tdRight, th, thRight } from "@/components/layout/AppShell";
 import { api } from "@/lib/api/client";
 import { dateShort } from "@/lib/format";
 
-export const metadata: Metadata = { title: "Imports" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("imports");
+  return { title: t("title") };
+}
 
 const STATUS_STYLE: Record<string, string> = {
   PARSED: "bg-slate-100 text-slate-700",
@@ -14,31 +18,40 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 export default async function ImportsPage() {
-  const { data } = await api.GET("/api/v1/imports");
+  const [{ data }, t, tc, locale] = await Promise.all([
+    api.GET("/api/v1/imports"),
+    getTranslations("imports"),
+    getTranslations("common"),
+    getLocale(),
+  ]);
   const jobs = data ?? [];
   return (
     <>
-      <PageHeader title="Imports" subtitle="Purchase orders and container loads from CSV or Excel" actions={<Link href="/imports/new" className={btnPrimary}>New import</Link>} />
+      <PageHeader title={t("title")} subtitle={t("subtitle")} actions={<Link href="/imports/new" className={btnPrimary}>{t("new")}</Link>} />
       <Card>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50"><tr><th className={th}>Date</th><th className={th}>File</th><th className={th}>Kind</th><th className={th}>Status</th><th className={thRight}>Rows</th><th className={thRight}>Errors</th><th className={th}>Result</th></tr></thead>
+            <thead className="bg-slate-50"><tr><th className={th}>{t("th.date")}</th><th className={th}>{t("th.file")}</th><th className={th}>{t("th.kind")}</th><th className={th}>{t("th.status")}</th><th className={thRight}>{t("th.rows")}</th><th className={thRight}>{t("th.errors")}</th><th className={th}>{t("th.result")}</th></tr></thead>
             <tbody className="divide-y divide-slate-200">
               {jobs.length === 0 ? (
-                <tr><td colSpan={7} className="px-5 py-14 text-center text-sm text-slate-500">No import yet.</td></tr>
+                <tr><td colSpan={7} className="px-5 py-14 text-center text-sm text-slate-500">{t("empty")}</td></tr>
               ) : (
                 jobs.map((j) => {
                   const r = j.report as Record<string, number | undefined>;
                   return (
                     <tr key={j.id}>
-                      <td className={`${td} text-slate-600`}>{dateShort(j.created_at)}</td>
-                      <td className={td}>{j.original_filename ?? "—"}</td>
-                      <td className={`${td} text-xs text-slate-600`}>{j.kind === "PURCHASE_ORDERS" ? "PO lines" : "Legacy PO + container"}</td>
-                      <td className={td}><span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[j.status]}`}>{j.status}</span></td>
+                      <td className={`${td} text-slate-600`}>{dateShort(j.created_at, locale)}</td>
+                      <td className={td}>{j.original_filename ?? tc("empty")}</td>
+                      <td className={`${td} text-xs text-slate-600`}>{t(`kind.${j.kind}`)}</td>
+                      <td className={td}><span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[j.status]}`}>{t(`status.${j.status}`)}</span></td>
                       <td className={tdRight}>{j.row_count}</td>
                       <td className={`${tdRight} ${j.error_count ? "text-amber-700" : ""}`}>{j.error_count}</td>
                       <td className={`${td} text-xs text-slate-600`}>
-                        {j.status === "DONE" ? `${r.purchase_orders_created ?? 0} POs, ${r.lines_created ?? 0} lines, ${r.containers_created ?? 0} containers, ${r.loads_created ?? 0} loads` : j.status === "PARSED" || j.status === "VALIDATED" ? <Link href={`/imports/new?job=${j.id}`} className="text-blue-600 hover:underline">continue</Link> : "—"}
+                        {j.status === "DONE"
+                          ? t("result", { pos: r.purchase_orders_created ?? 0, lines: r.lines_created ?? 0, containers: r.containers_created ?? 0, loads: r.loads_created ?? 0 })
+                          : j.status === "PARSED" || j.status === "VALIDATED"
+                            ? <Link href={`/imports/new?job=${j.id}`} className="text-blue-600 hover:underline">{t("continue")}</Link>
+                            : tc("empty")}
                       </td>
                     </tr>
                   );

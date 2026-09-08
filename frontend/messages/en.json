@@ -1,0 +1,445 @@
+{
+  "common": {
+    "appDescription": "Landed cost allocation and container tracking for SMB importers. Pre-alpha.",
+    "preAlpha": "Pre-alpha",
+    "language": "Language",
+    "french": "Français",
+    "english": "English",
+    "empty": "—",
+    "back": "Back",
+    "select": "Select…",
+    "loading": "Loading…",
+    "total": "Total",
+    "apiError": "The API returned an error.",
+    "apiUnreachable": "Cannot reach the API. Is the backend running?"
+  },
+  "nav": {
+    "containers": "Containers",
+    "purchaseOrders": "Purchase orders",
+    "imports": "Imports",
+    "settings": "Settings"
+  },
+  "containers": {
+    "title": "Containers",
+    "subtitle": "{total} tracked · {active} active · {atRisk} at demurrage risk",
+    "th": {
+      "container": "Container",
+      "shipment": "Shipment",
+      "milestone": "Milestone",
+      "lastFreeDay": "Last free day",
+      "risk": "Risk",
+      "purchaseOrders": "Purchase orders",
+      "fob": "FOB",
+      "allocated": "Allocated",
+      "costs": "Costs recorded"
+    },
+    "none": "none",
+    "empty": {
+      "title": "No containers yet",
+      "hint": "Import purchase orders or add a container above.",
+      "importLink": "Import purchase orders",
+      "sampleHint": "One shipment, two containers and three cost invoices, to try the allocation."
+    },
+    "sample": {
+      "load": "Load sample data",
+      "loading": "Loading…",
+      "loaded": "Sample data loaded",
+      "failed": "Could not load the sample data"
+    },
+    "new": {
+      "title": "ISO 6346: 4 letters + 7 digits",
+      "submit": "Add container",
+      "added": "Container added",
+      "failed": "Could not create the container"
+    },
+    "risk": {
+      "over": "{days} d over",
+      "left": "D-{days}"
+    }
+  },
+  "container": {
+    "fallbackTitle": "Container",
+    "breadcrumb": "Containers",
+    "lastFreeDay": "Last free day {date}",
+    "shipment": "Shipment {reference}",
+    "unallocatedSuffix": "unallocated",
+    "totals": {
+      "fob": "FOB",
+      "allocated": "Allocated",
+      "vat": "Import VAT",
+      "landed": "Landed",
+      "unallocated": "Unallocated"
+    },
+    "cards": {
+      "loads": "Loads",
+      "addCost": "Add a cost"
+    },
+    "notFound": {
+      "title": "Container not found",
+      "body": "It may belong to another organization or have been archived.",
+      "back": "Back to containers"
+    }
+  },
+  "tracking": {
+    "title": "Tracking",
+    "manualNote": "manual until a provider is connected",
+    "milestone": "Milestone",
+    "dischargedOn": "Discharged on",
+    "freeDays": "Free days (demurrage)",
+    "freeDaysPlaceholder": "org default",
+    "eta": "ETA",
+    "arrived": "Arrived",
+    "gateOut": "Gate out",
+    "lastFreeDay": "Last free day",
+    "save": "Save tracking",
+    "saved": "Tracking updated",
+    "failed": "Could not update the container"
+  },
+  "loads": {
+    "empty": "Nothing loaded yet. Costs cannot be allocated until a purchase-order line is in this container.",
+    "lineLabel": "line {lineNo}",
+    "quantityOf": "{loaded} of {total}",
+    "remove": "Remove load",
+    "purchaseOrder": "Purchase order",
+    "line": "Line",
+    "quantity": "Quantity",
+    "add": "Load into container",
+    "alreadyLoaded": "This line is already loaded here.",
+    "updated": "Loads updated. Allocation recalculated.",
+    "failed": "Could not update the loads"
+  },
+  "costs": {
+    "form": {
+      "appliesTo": "Applies to",
+      "thisContainer": "This container only",
+      "wholeShipment": "The whole shipment (all its containers)",
+      "costType": "Cost type",
+      "amount": "Amount",
+      "amountInvalid": "The amount must be a positive number with at most two decimals.",
+      "currency": "Currency",
+      "invoiceDate": "Invoice date",
+      "fxRate": "FX rate",
+      "fxRateWith": "FX rate (1 {from} = ? {to})",
+      "fxNotApplicable": "n/a",
+      "fxEcb": "ECB at date",
+      "method": "Allocation method",
+      "methodDefault": "Organization default",
+      "dutyNote": "Customs duty is allocated on the CIF basis, by theoretical duty when every line has a duty rate.",
+      "vendor": "Vendor",
+      "invoiceNumber": "Invoice no.",
+      "submit": "Add cost",
+      "added": "Cost added. Allocation recalculated.",
+      "failed": "Could not add the cost"
+    },
+    "ledger": {
+      "title": "Costs",
+      "recorded": "{count} recorded",
+      "th": {
+        "date": "Date",
+        "type": "Type",
+        "scope": "Scope",
+        "amount": "Amount",
+        "inCurrency": "In {currency}",
+        "method": "Method",
+        "vendor": "Vendor / invoice"
+      },
+      "empty": "No cost recorded yet.",
+      "delete": "Delete cost",
+      "deleted": "Cost deleted",
+      "deleteFailed": "Could not delete the cost"
+    }
+  },
+  "allocation": {
+    "title": "Landed cost per purchase-order line",
+    "preview": "preview, not saved",
+    "lineCount": "{count} lines",
+    "whatIf": "What if the allocation were:",
+    "asRecorded": "as recorded",
+    "recomputing": "recomputing…",
+    "reset": "reset",
+    "previewFailed": "Could not compute the preview",
+    "th": {
+      "line": "Line",
+      "container": "Container",
+      "quantity": "Qty",
+      "fob": "FOB",
+      "landed": "Landed",
+      "unitCost": "Unit cost"
+    },
+    "empty": "No purchase-order line loaded. Add loads first.",
+    "total": "Total"
+  },
+  "purchaseOrders": {
+    "title": "Purchase orders",
+    "subtitle": "{count} orders",
+    "importCta": "Import from CSV / Excel",
+    "th": {
+      "po": "PO",
+      "supplier": "Supplier",
+      "currency": "Currency",
+      "lines": "Lines",
+      "fob": "FOB ({currency})",
+      "containers": "Containers"
+    },
+    "notLoaded": "not loaded",
+    "empty": "No purchase order yet.",
+    "emptyLink": "Import a file",
+    "emptySuffix": "to get started."
+  },
+  "purchaseOrder": {
+    "fallbackTitle": "Purchase order",
+    "breadcrumb": "Purchase orders",
+    "noSupplier": "No supplier",
+    "ordered": "ordered {date}",
+    "linesCard": "Lines",
+    "addCostCard": "Add a cost on this order",
+    "th": {
+      "lineNo": "#",
+      "sku": "SKU",
+      "quantity": "Qty",
+      "unitPrice": "Unit price",
+      "weight": "kg",
+      "volume": "CBM",
+      "duty": "Duty"
+    },
+    "totals": {
+      "fob": "FOB",
+      "allocated": "Allocated",
+      "vat": "Import VAT",
+      "landed": "Landed"
+    },
+    "notFound": {
+      "title": "Purchase order not found",
+      "body": "It may belong to another organization or have been deleted.",
+      "back": "Back to purchase orders"
+    }
+  },
+  "imports": {
+    "title": "Imports",
+    "subtitle": "Purchase orders and container loads from CSV or Excel",
+    "new": "New import",
+    "th": {
+      "date": "Date",
+      "file": "File",
+      "kind": "Kind",
+      "status": "Status",
+      "rows": "Rows",
+      "errors": "Errors",
+      "result": "Result"
+    },
+    "empty": "No import yet.",
+    "kind": {
+      "PURCHASE_ORDERS": "PO lines",
+      "LEGACY_PO_CONTAINER": "Legacy PO + container"
+    },
+    "status": {
+      "PARSED": "Parsed",
+      "VALIDATED": "Validated",
+      "DONE": "Done",
+      "FAILED": "Failed"
+    },
+    "result": "{pos} POs, {lines} lines, {containers} containers, {loads} loads",
+    "continue": "continue"
+  },
+  "importWizard": {
+    "title": "Import purchase orders",
+    "subtitle": "Upload, map the columns, review the validation report, then commit. Nothing is written before the last step.",
+    "steps": {
+      "upload": "1. Upload",
+      "mapping": "2. Map columns",
+      "review": "3. Validation report",
+      "done": "4. Done"
+    },
+    "upload": {
+      "card": "Choose a file",
+      "format": "Format",
+      "kindPurchaseOrders": "One row per purchase-order line (SKU, quantity, unit price, optional container)",
+      "kindLegacy": "One row per purchase order with a total value and a container",
+      "choose": "Choose a file",
+      "chooseFirst": "Choose a file first.",
+      "cta": "Click to choose a CSV or XLSX",
+      "hint": "Excel FR exports (BOM, semicolons, French decimals) are fine.",
+      "submit": "Upload and detect columns",
+      "failed": "Upload failed"
+    },
+    "mapping": {
+      "card": "Map the columns of {filename}",
+      "fallbackFilename": "the file",
+      "meta": "{rows} rows · {encoding}",
+      "notInFile": "— not in file —",
+      "required": "Required: {fields}",
+      "back": "Back",
+      "validate": "Validate (dry run)",
+      "failed": "Validation failed"
+    },
+    "review": {
+      "card": "What the import will do",
+      "nothingWritten": "nothing written yet",
+      "validRows": "Valid rows",
+      "purchaseOrders": "Purchase orders",
+      "lines": "Lines",
+      "containersLoads": "Containers / loads",
+      "newUpdated": "{created} new, {updated} updated",
+      "warningCount": "{count, plural, one {# warning} other {# warnings}}",
+      "errorSummary": "{rows, plural, one {# row} other {# rows}} with {errors, plural, one {# error} other {# errors}} will be skipped",
+      "noError": "No row error.",
+      "backToMapping": "Back to mapping",
+      "importValid": "Import valid rows",
+      "import": "Import",
+      "orFix": "or fix the file and upload again",
+      "failed": "Import failed",
+      "th": {
+        "row": "Row",
+        "field": "Field",
+        "code": "Code",
+        "message": "Message"
+      }
+    },
+    "done": {
+      "card": "Import committed",
+      "summary": "{pos, plural, one {# purchase order} other {# purchase orders}}, {lines, plural, one {# line} other {# lines}}, {containers, plural, one {# container} other {# containers}} and {loads, plural, one {# load} other {# loads}} created.",
+      "skipped": "{rows, plural, one {# row} other {# rows}} skipped.",
+      "committed": "Import committed. Allocations recalculated.",
+      "goToContainers": "Go to containers",
+      "another": "Import another file"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Organization defaults used by the allocation engine and the demurrage alerts.",
+    "organization": "Organization",
+    "name": "Name",
+    "baseCurrency": "Base currency",
+    "baseCurrencyHelp": "Every landed cost is reported in this currency. Changing it does not restate existing rates.",
+    "allocation": "Allocation",
+    "defaultMethod": "Default method for new costs",
+    "methodHelp": "Freight is usually allocated by volume for FCL and by weight for air or LCL; insurance and duty by value. Customs duty always uses the CIF basis.",
+    "freeTime": "Free time",
+    "demurrageDays": "Demurrage free days",
+    "detentionDays": "Detention free days",
+    "freeTimeHelp": "Calendar days from discharge. Override per container when the carrier or terminal differs.",
+    "save": "Save settings",
+    "saved": "Settings saved",
+    "failed": "Could not save the settings"
+  },
+  "auth": {
+    "chooseOrganization": {
+      "title": "Choose your organization",
+      "body": "Every purchase order, container and cost belongs to one organization."
+    }
+  },
+  "domain": {
+    "milestone": {
+      "BOOKED": "Booked",
+      "GATE_IN_FULL_ORIGIN": "Gate in (origin)",
+      "LOADED": "Loaded on vessel",
+      "VESSEL_DEPARTED": "Vessel departed",
+      "VESSEL_ARRIVED": "Vessel arrived",
+      "DISCHARGED": "Discharged",
+      "AVAILABLE_FOR_PICKUP": "Available for pickup",
+      "GATE_OUT_FULL": "Gate out (full)",
+      "DELIVERED": "Delivered",
+      "GATE_IN_EMPTY_RETURN": "Empty returned"
+    },
+    "costType": {
+      "OCEAN_FREIGHT": "Ocean freight",
+      "AIR_FREIGHT": "Air freight",
+      "INSURANCE": "Insurance",
+      "ORIGIN_CHARGES": "Origin charges",
+      "THC": "Terminal handling (THC)",
+      "BL_FEE": "B/L fee",
+      "CUSTOMS_DUTY": "Customs duty",
+      "CUSTOMS_BROKERAGE": "Customs brokerage",
+      "IMPORT_VAT": "Import VAT (recoverable)",
+      "DRAYAGE": "Drayage / delivery",
+      "DEMURRAGE": "Demurrage",
+      "DETENTION": "Detention",
+      "WAREHOUSING": "Warehousing",
+      "INSPECTION": "Inspection",
+      "BANK_FEES": "Bank fees",
+      "OTHER": "Other"
+    },
+    "method": {
+      "BY_VALUE": "By value",
+      "BY_WEIGHT": "By weight",
+      "BY_VOLUME": "By volume",
+      "BY_QUANTITY": "By quantity",
+      "MANUAL": "Manual %",
+      "BY_CIF_VALUE": "By CIF value",
+      "BY_THEORETICAL_DUTY": "By theoretical duty"
+    },
+    "scope": {
+      "SHIPMENT": "Shipment",
+      "CONTAINER": "Container",
+      "PO": "Purchase order",
+      "PO_LINE": "PO line"
+    },
+    "risk": {
+      "NONE": "No risk",
+      "LOW": "Low",
+      "MEDIUM": "Medium",
+      "HIGH": "High",
+      "INCURRING": "Incurring"
+    },
+    "importField": {
+      "po_number": "PO number",
+      "supplier_name": "Supplier",
+      "currency": "Currency",
+      "order_date": "Order date",
+      "line_no": "Line no.",
+      "sku": "SKU / reference",
+      "description": "Description",
+      "quantity": "Quantity",
+      "unit_price": "Unit price",
+      "unit_weight_kg": "Unit weight (kg)",
+      "unit_volume_cbm": "Unit volume (CBM)",
+      "hs_code": "HS code",
+      "duty_rate": "Duty rate",
+      "container_number": "Container number",
+      "container_quantity": "Quantity in container",
+      "total_value": "Total value",
+      "allocation_percentage": "Allocation % (ignored)"
+    }
+  },
+  "errors": {
+    "fallback": "Request failed",
+    "fieldPrefix": "{field}: {message}",
+    "OVER_ALLOCATED": "More would be loaded than the purchase-order line holds.",
+    "DUPLICATE_LINE": "This purchase-order line appears twice.",
+    "MANUAL_SPLITS_REQUIRED": "A manual allocation needs percentages.",
+    "INVALID_MANUAL_SPLIT": "Manual splits must sum to 100.00.",
+    "METHOD_NOT_ALLOWED": "That allocation method is not allowed for this cost type.",
+    "FX_RATE_UNAVAILABLE": "No exchange rate available for that date. Enter one manually.",
+    "FX_RATE_INVALID": "The exchange rate must be greater than zero.",
+    "FX_DATE_REQUIRED": "A date is needed to look the exchange rate up.",
+    "MISSING_BASIS": "Some lines have no allocation basis (weight, volume or value).",
+    "NO_TARGET": "This cost reaches no load: the container is empty.",
+    "ALL_WEIGHTS_ZERO": "Every allocation basis is zero.",
+    "ALLOCATION_ERROR": "The allocation could not be computed.",
+    "NOT_FOUND": "Not found.",
+    "CONFLICT": "This conflicts with existing data.",
+    "TENANT_VIOLATION": "This object belongs to another organization.",
+    "FORBIDDEN": "You do not have the required role.",
+    "UNAUTHORIZED": "Session expired. Sign in again.",
+    "VALIDATION": "Some values are invalid.",
+    "EMPTY_FILE": "The file is empty.",
+    "FILE_TOO_LARGE": "The file is too large.",
+    "XLSX_UNSUPPORTED": "This Excel file cannot be read.",
+    "ENCODING_UNKNOWN": "The file encoding could not be determined.",
+    "MAPPING_INCOMPLETE": "Required columns are not mapped.",
+    "MAPPING_UNKNOWN_COLUMN": "A mapped column does not exist in the file.",
+    "NO_VALID_ROWS": "No valid row to import.",
+    "IMPORT_ABORTED": "Import aborted: no row was written.",
+    "IMPORT_ALREADY_DONE": "This import has already been committed.",
+    "REQUIRED": "Value required.",
+    "NOT_A_NUMBER": "Not a number.",
+    "NOT_A_DATE": "Not a date.",
+    "NOT_POSITIVE": "The value must be strictly positive.",
+    "NEGATIVE": "The value cannot be negative.",
+    "INVALID_CURRENCY": "Invalid currency code.",
+    "INVALID_CONTAINER_NUMBER": "Invalid container number (ISO 6346).",
+    "DUPLICATE_IN_FILE": "Duplicate row in the file.",
+    "DEPRECATED_COLUMN": "Deprecated column, ignored.",
+    "FX_RATE_DEFAULTED": "A default exchange rate was applied."
+  }
+}

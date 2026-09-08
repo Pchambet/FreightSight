@@ -1,14 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { api, problemMessage, type ImportJobResponse, type LandedCostReport } from "@/lib/api/client";
 import { protectAction } from "@/lib/auth";
 import type { AllocationMethod, ContainerMilestone, CostScope, CostType, ImportKind } from "@/lib/domain";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
-function fail<T>(error: unknown, fallback: string): ActionResult<T> {
-  return { ok: false, error: problemMessage(error, fallback) };
+/** `fallbackKey` is a message key: the API's own English sentence is only a last resort. */
+async function fail<T>(error: unknown, fallbackKey: string): Promise<ActionResult<T>> {
+  const t = await getTranslations();
+  return { ok: false, error: await problemMessage(error, t(fallbackKey)) };
 }
 
 function normalizeAmount(raw: string): string | null {
@@ -39,7 +42,10 @@ export async function addCost(input: {
   revalidate: string;
 }): Promise<ActionResult<{ id: string }>> {
   const amount = normalizeAmount(input.amount);
-  if (amount === null) return { ok: false, error: "Amount must be a positive number with at most two decimals." };
+  if (amount === null) {
+    const t = await getTranslations("costs.form");
+    return { ok: false, error: t("amountInvalid") };
+  }
   const fx = input.fx_rate ? normalizeAmount(input.fx_rate) : null;
   const { data, error } = await api.POST("/api/v1/costs", {
     body: {
@@ -55,7 +61,7 @@ export async function addCost(input: {
       invoice_number: input.invoice_number || null,
     },
   });
-  if (error || !data) return fail(error, "Could not add the cost");
+  if (error || !data) return await fail(error, "costs.form.failed");
   revalidatePath(input.revalidate);
   return { ok: true, data: { id: data.id } };
 }
@@ -63,7 +69,7 @@ export async function addCost(input: {
 export async function deleteCost(costId: string, revalidate: string): Promise<ActionResult<null>> {
   await protectAction();
   const { error } = await api.DELETE("/api/v1/costs/{cost_id}", { params: { path: { cost_id: costId } } });
-  if (error) return fail(error, "Could not delete the cost");
+  if (error) return await fail(error, "costs.ledger.deleteFailed");
   revalidatePath(revalidate);
   return { ok: true, data: null };
 }
@@ -81,7 +87,7 @@ export async function previewAllocation(input: {
       method_overrides: input.method_overrides as Record<string, AllocationMethod>,
     },
   });
-  if (error || !data) return fail(error, "Preview failed");
+  if (error || !data) return await fail(error, "allocation.previewFailed");
   return { ok: true, data };
 }
 
@@ -96,7 +102,7 @@ export async function updateContainer(
     params: { path: { container_id: containerId } },
     body: patch,
   });
-  if (error) return fail(error, "Could not update the container");
+  if (error) return await fail(error, "tracking.failed");
   revalidatePath(`/container/${containerId}`);
   revalidatePath("/containers");
   return { ok: true, data: null };
@@ -106,7 +112,7 @@ export async function createContainer(containerNumber: string): Promise<ActionRe
   const { data, error } = await api.POST("/api/v1/containers", {
     body: { container_number: containerNumber.trim().toUpperCase() },
   });
-  if (error || !data) return fail(error, "Could not create the container");
+  if (error || !data) return await fail(error, "containers.new.failed");
   revalidatePath("/containers");
   return { ok: true, data: { id: data.id } };
 }
@@ -120,7 +126,7 @@ export async function replaceLoads(
     params: { path: { container_id: containerId } },
     body: loads,
   });
-  if (error) return fail(error, "Could not update the loads");
+  if (error) return await fail(error, "loads.failed");
   revalidatePath(`/container/${containerId}`);
   revalidatePath("/containers");
   return { ok: true, data: null };
@@ -132,7 +138,10 @@ export async function createImport(formData: FormData): Promise<ActionResult<Imp
   await protectAction();
   const file = formData.get("file");
   const kind = String(formData.get("kind") ?? "PURCHASE_ORDERS") as ImportKind;
-  if (!(file instanceof File) || file.size === 0) return { ok: false, error: "Choose a file first." };
+  if (!(file instanceof File) || file.size === 0) {
+    const t = await getTranslations("importWizard.upload");
+    return { ok: false, error: t("chooseFirst") };
+  }
   const body = new FormData();
   body.append("kind", kind);
   body.append("file", file, file.name);
@@ -140,7 +149,7 @@ export async function createImport(formData: FormData): Promise<ActionResult<Imp
     body: body as unknown as { kind: ImportKind; file: string },
     bodySerializer: (b) => b as unknown as BodyInit,
   });
-  if (error || !data) return fail(error, "Upload failed");
+  if (error || !data) return await fail(error, "importWizard.upload.failed");
   return { ok: true, data };
 }
 
@@ -150,7 +159,7 @@ export async function validateImport(importId: string, mapping: Record<string, s
     params: { path: { import_id: importId } },
     body: { mapping },
   });
-  if (error || !data) return fail(error, "Validation failed");
+  if (error || !data) return await fail(error, "importWizard.mapping.failed");
   return { ok: true, data };
 }
 
@@ -160,7 +169,7 @@ export async function commitImport(importId: string, onError: "skip_rows" | "abo
     params: { path: { import_id: importId } },
     body: { on_error: onError },
   });
-  if (error || !data) return fail(error, "Import failed");
+  if (error || !data) return await fail(error, "importWizard.review.failed");
   revalidatePath("/containers");
   revalidatePath("/purchase-orders");
   revalidatePath("/imports");
@@ -172,7 +181,7 @@ export async function commitImport(importId: string, onError: "skip_rows" | "abo
 export async function loadSampleData(): Promise<ActionResult<{ containerIds: string[] }>> {
   await protectAction();
   const { data, error } = await api.POST("/api/v1/organization/sample-data", {});
-  if (error || !data) return fail(error, "Could not load the sample data");
+  if (error || !data) return await fail(error, "containers.sample.failed");
   revalidatePath("/containers");
   revalidatePath("/purchase-orders");
   return { ok: true, data: { containerIds: data.container_ids } };
@@ -191,7 +200,7 @@ export async function updateOrganization(input: {
   const { error } = await api.PATCH("/api/v1/organization", {
     body: { ...input, default_allocation_method: input.default_allocation_method as AllocationMethod | undefined },
   });
-  if (error) return fail(error, "Could not save the settings");
+  if (error) return await fail(error, "settings.failed");
   revalidatePath("/settings");
   revalidatePath("/containers");
   return { ok: true, data: null };

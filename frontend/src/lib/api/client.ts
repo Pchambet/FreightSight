@@ -1,6 +1,7 @@
 import "server-only";
 import { auth } from "@clerk/nextjs/server";
 import createClient, { type Middleware } from "openapi-fetch";
+import { getTranslations } from "next-intl/server";
 import type { components, paths } from "./schema";
 import { env } from "@/lib/env";
 
@@ -47,14 +48,27 @@ export const api = createClient<paths>({
 });
 api.use(authHeaders);
 
-/** Turn a problem+json error body into one readable sentence. */
-export function problemMessage(error: unknown, fallback = "Request failed"): string {
+/**
+ * Turn a problem+json error body into one readable sentence in the user's language.
+ *
+ * The backend answers in English with a machine-readable `code`; the front translates the code and
+ * only falls back to the server's own sentence when it carries detail we have no key for.
+ */
+export async function problemMessage(error: unknown, fallback?: string): Promise<string> {
+  const t = await getTranslations("errors");
+  const has = (code: string | null | undefined): code is string => !!code && t.has(code);
+  const fallbackMessage = fallback ?? t("fallback");
   if (error && typeof error === "object") {
     const p = error as Problem & { message?: string };
-    if (p.errors?.length) return p.errors.map((e) => `${e.field}: ${e.message}`).join(", ");
+    if (p.errors?.length) {
+      return p.errors
+        .map((e) => t("fieldPrefix", { field: e.field, message: has(e.code) ? t(e.code) : e.message }))
+        .join(", ");
+    }
+    if (has(p.code)) return t(p.code);
     if (typeof p.detail === "string") return p.detail;
     if (typeof p.message === "string") return p.message;
     if (typeof p.title === "string") return p.title;
   }
-  return fallback;
+  return fallbackMessage;
 }
