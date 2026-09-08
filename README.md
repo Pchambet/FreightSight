@@ -105,7 +105,7 @@ container, add an ocean freight cost, and switch the allocation method in the pr
 ```bash
 cd backend
 uv sync --all-groups
-uv run pytest            # throwaway Postgres via testcontainers; 36 tests incl. RLS isolation
+uv run pytest            # throwaway Postgres via testcontainers; 47 tests incl. RLS, JWT and tenancy
 uv run ruff check . && uv run ruff format --check . && uv run mypy .
 uv run alembic revision --autogenerate -m "describe change"
 
