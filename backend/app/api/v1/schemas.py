@@ -69,6 +69,17 @@ class OrganizationResponse(BaseModel):
     settings: dict[str, Any]
 
 
+class SampleDataResponse(BaseModel):
+    """What POST /organization/sample-data created."""
+
+    suppliers: int
+    purchase_orders: int
+    containers: int
+    costs: int
+    shipment_reference: str
+    container_ids: list[UUID]
+
+
 class OrganizationUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     base_currency: str | None = None

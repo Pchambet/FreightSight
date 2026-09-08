@@ -233,6 +233,57 @@
         }
       }
     },
+    "/api/v1/organization/sample-data": {
+      "post": {
+        "tags": [
+          "organization"
+        ],
+        "summary": "Load Sample Data",
+        "description": "Fill an empty organization with the reference demo dataset. Refuses once it holds any data.",
+        "operationId": "load_sample_data_api_v1_organization_sample_data_post",
+        "parameters": [
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SampleDataResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/suppliers": {
       "get": {
         "tags": [
@@ -5103,6 +5154,49 @@
           "load_ids"
         ],
         "title": "ReportWarning"
+      },
+      "SampleDataResponse": {
+        "properties": {
+          "suppliers": {
+            "type": "integer",
+            "title": "Suppliers"
+          },
+          "purchase_orders": {
+            "type": "integer",
+            "title": "Purchase Orders"
+          },
+          "containers": {
+            "type": "integer",
+            "title": "Containers"
+          },
+          "costs": {
+            "type": "integer",
+            "title": "Costs"
+          },
+          "shipment_reference": {
+            "type": "string",
+            "title": "Shipment Reference"
+          },
+          "container_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Container Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "suppliers",
+          "purchase_orders",
+          "containers",
+          "costs",
+          "shipment_reference",
+          "container_ids"
+        ],
+        "title": "SampleDataResponse",
+        "description": "What POST /organization/sample-data created."
       },
       "ShipmentCreate": {
         "properties": {

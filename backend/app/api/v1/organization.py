@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, status
 
 from app.api.v1 import schemas
+from app.api.v1.containers import derive_dnd
 from app.api.v1.deps import WriterDep
 from app.core.auth import PrincipalDep
+from app.core.errors import Conflict
 from app.core.tenancy import TenantDep
 from app.domain.costing.service import recompute_org
 from app.domain.models import Organization
+from app.domain.sample_data import has_data, seed_sample_data
 
 router = APIRouter(tags=["organization"])
 
@@ -32,3 +35,27 @@ def update_organization(payload: schemas.OrganizationUpdate, t: TenantDep, _: Wr
     t.db.commit()
     t.db.refresh(t.org)
     return t.org
+
+
+@router.post(
+    "/organization/sample-data",
+    response_model=schemas.SampleDataResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def load_sample_data(t: TenantDep, _: WriterDep) -> schemas.SampleDataResponse:
+    """Fill an empty organization with the reference demo dataset. Refuses once it holds any data."""
+    if has_data(t.db, t.org_id):
+        raise Conflict("This organization already has purchase orders or containers")
+    sample = seed_sample_data(t.db, t.org)
+    for c in sample.containers:
+        derive_dnd(c, t.org.free_days_demurrage)
+    t.db.flush()
+    t.db.commit()
+    return schemas.SampleDataResponse(
+        suppliers=sample.supplier_count,
+        purchase_orders=sample.purchase_order_count,
+        containers=len(sample.containers),
+        costs=sample.cost_count,
+        shipment_reference=sample.shipment_reference,
+        container_ids=[c.id for c in sample.containers],
+    )
