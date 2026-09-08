@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from app.core.tenancy import set_current_org
 from app.domain.models import Container, Cost
 
 
@@ -19,13 +20,13 @@ def test_rls_blocks_cross_org_reads_and_writes(client: TestClient, db: Session, 
 
     db.execute(text("SET ROLE freightsight_app"))
     try:
-        db.execute(text("SELECT set_config('app.org_id', :o, false)"), {"o": str(org_id)})
+        set_current_org(db, org_id)
         assert [str(c.id) for c in db.scalars(select(Container))] == [container_id]
 
-        db.execute(text("SELECT set_config('app.org_id', '', false)"))
+        set_current_org(db, None)
         assert list(db.scalars(select(Container))) == []
 
-        db.execute(text("SELECT set_config('app.org_id', :o, false)"), {"o": str(uuid.uuid4())})
+        set_current_org(db, uuid.uuid4())
         assert list(db.scalars(select(Container))) == []
         assert list(db.scalars(select(Cost))) == []
 
@@ -47,4 +48,4 @@ def test_rls_blocks_cross_org_reads_and_writes(client: TestClient, db: Session, 
         assert raised
     finally:
         db.execute(text("RESET ROLE"))
-        db.execute(text("SELECT set_config('app.org_id', :o, false)"), {"o": str(org_id)})
+        set_current_org(db, org_id)
