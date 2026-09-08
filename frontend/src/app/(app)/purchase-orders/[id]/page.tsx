@@ -90,7 +90,7 @@ export default async function PurchaseOrderPage({ params }: Params) {
               </div>
             ))}
           </div>
-          <AllocationPanel poId={po.id} report={report} />
+          <AllocationPanel key={report.costs.map((c) => c.id).join(",")} poId={po.id} report={report} />
           <CostLedger report={report} currency={cur} revalidate={revalidate} />
         </div>
       </div>

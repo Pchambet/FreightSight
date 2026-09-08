@@ -96,7 +96,7 @@ export default async function ContainerPage({ params }: Params) {
               </div>
             ))}
           </div>
-          <AllocationPanel containerId={container.id} report={report} />
+          <AllocationPanel key={report.costs.map((c) => c.id).join(",")} containerId={container.id} report={report} />
           <CostLedger report={report} currency={cur} revalidate={revalidate} />
         </div>
       </div>
