@@ -15,10 +15,12 @@ from uuid import UUID
 
 from fastapi import Depends, Header, Request
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.adapters.auth_clerk import VerifiedClaims
 from app.core.db import get_db
-from app.core.errors import Forbidden, Unauthorized
+from app.core.errors import Conflict, Forbidden, Unauthorized
 from app.core.settings import Settings, get_settings
 from app.domain.models import MemberRole, Membership, Organization, User
 
@@ -50,7 +52,19 @@ def _principal_from_jwt(db: Session, settings: Settings, token: str) -> Principa
     claims = _verifier(settings).verify(token)
     if not claims.org_external_id:
         raise Forbidden("Select an organization first")
+    # The first requests of a new user arrive in parallel (layout + page), so two of them may race
+    # to create the same mirror rows. On a unique violation, roll back and read what the other wrote.
+    for attempt in range(3):
+        try:
+            return _mirror_and_resolve(db, settings, claims, allow_slug=attempt == 0)
+        except IntegrityError:
+            db.rollback()
+    raise Conflict("Could not resolve the organization membership, retry")
 
+
+def _mirror_and_resolve(
+    db: Session, settings: Settings, claims: VerifiedClaims, allow_slug: bool
+) -> Principal:
     user = db.scalar(select(User).where(User.external_id == claims.user_external_id))
     if user is None:
         user = User(external_id=claims.user_external_id, email=claims.email or "", name=claims.name)
@@ -61,9 +75,12 @@ def _principal_from_jwt(db: Session, settings: Settings, token: str) -> Principa
 
     org = db.scalar(select(Organization).where(Organization.external_id == claims.org_external_id))
     if org is None:
+        slug = claims.org_slug if allow_slug else None
+        if slug and db.scalar(select(Organization.id).where(Organization.slug == slug)):
+            slug = None  # slug already taken by another mirrored org; the external id is the identity
         org = Organization(
             name=claims.org_slug or "New organization",
-            slug=claims.org_slug,
+            slug=slug,
             external_id=claims.org_external_id,
             base_currency=settings.default_base_currency,
         )

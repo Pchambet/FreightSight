@@ -155,6 +155,23 @@ def test_pending_session_is_401(clerk_client: TestClient, rsa_key: tuple[bytes, 
     assert clerk_client.get("/api/v1/me", headers={"Authorization": f"Bearer {token}"}).status_code == 401
 
 
+def test_slug_collision_and_concurrent_first_requests(
+    clerk_client: TestClient, rsa_key: tuple[bytes, bytes], db: Session
+) -> None:
+    """Another mirrored org already owns the slug: the new org is created without a slug, no 500."""
+    from app.domain.models import Organization
+
+    priv, _ = rsa_key
+    db.add(Organization(name="older", slug="acme-import", external_id="org_older", base_currency="EUR"))
+    db.commit()
+    headers = {"Authorization": f"Bearer {make_token(priv)}"}
+    res = clerk_client.get("/api/v1/organization", headers=headers)
+    assert res.status_code == 200, res.text
+    assert res.json()["slug"] is None and res.json()["name"] == "acme-import"
+    # the same token again resolves the same org
+    assert clerk_client.get("/api/v1/organization", headers=headers).json()["id"] == res.json()["id"]
+
+
 def test_dev_header_is_refused_in_prod(clerk_client: TestClient) -> None:
     res = clerk_client.get("/api/v1/me", headers={"X-Org-Id": str(uuid.uuid4())})
     assert res.status_code == 401
