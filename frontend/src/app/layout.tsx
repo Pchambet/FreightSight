@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
-        <ClerkProvider taskUrls={{ "choose-organization": "/choose-organization" }} afterSignOutUrl="/sign-in">
+        <ClerkProvider taskUrls={{ "choose-organization": "/choose-organization" }} afterSignOutUrl="/">
           {children}
           <Toaster position="top-right" richColors />
         </ClerkProvider>

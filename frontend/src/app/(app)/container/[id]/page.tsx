@@ -46,7 +46,7 @@ export default async function ContainerPage({ params }: Params) {
   return (
     <>
       <div className="flex items-center text-sm text-slate-500 mb-4">
-        <Link href="/" className="hover:text-slate-900 flex items-center gap-1.5"><ArrowLeft className="w-4 h-4" />Containers</Link>
+        <Link href="/containers" className="hover:text-slate-900 flex items-center gap-1.5"><ArrowLeft className="w-4 h-4" />Containers</Link>
         <ChevronRight className="w-4 h-4 mx-2 text-slate-300" />
         <span className="text-slate-900 font-mono">{container.container_number}</span>
       </div>

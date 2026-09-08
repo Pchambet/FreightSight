@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Ship } from "lucide-react";
 
 const NAV = [
-  { href: "/", label: "Containers" },
+  { href: "/containers", label: "Containers" },
   { href: "/purchase-orders", label: "Purchase orders" },
   { href: "/imports", label: "Imports" },
   { href: "/settings", label: "Settings" },
@@ -14,7 +14,7 @@ export function AppShell({ children, orgName }: { children: React.ReactNode; org
     <div className="min-h-screen">
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/containers" className="flex items-center gap-2">
             <div className="bg-blue-600 p-1.5 rounded-md">
               <Ship className="w-4 h-4 text-white" />
             </div>
@@ -31,7 +31,7 @@ export function AppShell({ children, orgName }: { children: React.ReactNode; org
           </nav>
           <div className="ml-auto flex items-center gap-3 text-xs text-slate-500">
             <span className="hidden sm:inline">Pre-alpha</span>
-            <OrganizationSwitcher hidePersonal afterSelectOrganizationUrl="/" afterCreateOrganizationUrl="/" />
+            <OrganizationSwitcher hidePersonal afterSelectOrganizationUrl="/containers" afterCreateOrganizationUrl="/containers" />
             <UserButton />
             {orgName ? <span className="sr-only">{orgName}</span> : null}
           </div>

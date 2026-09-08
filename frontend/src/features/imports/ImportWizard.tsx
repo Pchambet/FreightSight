@@ -162,7 +162,7 @@ export default function ImportWizard({ initialJob }: { initialJob: ImportJobResp
           <div className="p-5 space-y-3 text-sm">
             <p>{plural(report.purchase_orders_created as number ?? 0, "purchase order")}, {plural(report.lines_created as number ?? 0, "line")}, {plural(report.containers_created as number ?? 0, "container")} and {plural(report.loads_created as number ?? 0, "load")} created.{errorRows ? ` ${plural(errorRows, "row")} skipped.` : ""}</p>
             <div className="flex gap-2">
-              <button type="button" onClick={() => router.push("/")} className={btnPrimary}>Go to containers</button>
+              <button type="button" onClick={() => router.push("/containers")} className={btnPrimary}>Go to containers</button>
               <button type="button" onClick={() => { setJob(null); setFile(null); setMapping({}); setStep("upload"); }} className={btnSecondary}>Import another file</button>
             </div>
           </div>

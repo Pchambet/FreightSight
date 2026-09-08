@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /$
+Allow: /securite
+Allow: /design-partner
+Disallow: /containers
+Disallow: /container/
+Disallow: /purchase-orders
+Disallow: /imports
+Disallow: /settings
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /choose-organization

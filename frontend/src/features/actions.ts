@@ -98,7 +98,7 @@ export async function updateContainer(
   });
   if (error) return fail(error, "Could not update the container");
   revalidatePath(`/container/${containerId}`);
-  revalidatePath("/");
+  revalidatePath("/containers");
   return { ok: true, data: null };
 }
 
@@ -107,7 +107,7 @@ export async function createContainer(containerNumber: string): Promise<ActionRe
     body: { container_number: containerNumber.trim().toUpperCase() },
   });
   if (error || !data) return fail(error, "Could not create the container");
-  revalidatePath("/");
+  revalidatePath("/containers");
   return { ok: true, data: { id: data.id } };
 }
 
@@ -122,7 +122,7 @@ export async function replaceLoads(
   });
   if (error) return fail(error, "Could not update the loads");
   revalidatePath(`/container/${containerId}`);
-  revalidatePath("/");
+  revalidatePath("/containers");
   return { ok: true, data: null };
 }
 
@@ -161,7 +161,7 @@ export async function commitImport(importId: string, onError: "skip_rows" | "abo
     body: { on_error: onError },
   });
   if (error || !data) return fail(error, "Import failed");
-  revalidatePath("/");
+  revalidatePath("/containers");
   revalidatePath("/purchase-orders");
   revalidatePath("/imports");
   return { ok: true, data };
@@ -182,6 +182,6 @@ export async function updateOrganization(input: {
   });
   if (error) return fail(error, "Could not save the settings");
   revalidatePath("/settings");
-  revalidatePath("/");
+  revalidatePath("/containers");
   return { ok: true, data: null };
 }

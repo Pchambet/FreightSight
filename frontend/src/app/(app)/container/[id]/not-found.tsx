@@ -10,7 +10,7 @@ export default function ContainerNotFound() {
         </div>
         <h1 className="text-lg font-semibold mb-2">Container not found</h1>
         <p className="text-slate-500 mb-6 text-sm">It may belong to another organization or have been archived.</p>
-        <Link href="/" className="inline-flex items-center justify-center bg-slate-900 text-white text-sm font-medium py-2 px-4 rounded-md hover:bg-slate-800 w-full">
+        <Link href="/containers" className="inline-flex items-center justify-center bg-slate-900 text-white text-sm font-medium py-2 px-4 rounded-md hover:bg-slate-800 w-full">
           Back to containers
         </Link>
       </div>
