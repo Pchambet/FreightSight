@@ -90,6 +90,26 @@ export interface paths {
         patch: operations["update_organization_api_v1_organization_patch"];
         trace?: never;
     };
+    "/api/v1/organization/sample-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Load Sample Data
+         * @description Fill an empty organization with the reference demo dataset. Refuses once it holds any data.
+         */
+        post: operations["load_sample_data_api_v1_organization_sample_data_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/suppliers": {
         parameters: {
             query?: never;
@@ -1190,6 +1210,24 @@ export interface components {
             /** Load Ids */
             load_ids: string[];
         };
+        /**
+         * SampleDataResponse
+         * @description What POST /organization/sample-data created.
+         */
+        SampleDataResponse: {
+            /** Suppliers */
+            suppliers: number;
+            /** Purchase Orders */
+            purchase_orders: number;
+            /** Containers */
+            containers: number;
+            /** Costs */
+            costs: number;
+            /** Shipment Reference */
+            shipment_reference: string;
+            /** Container Ids */
+            container_ids: string[];
+        };
         /** ShipmentCreate */
         ShipmentCreate: {
             /** Reference */
@@ -1450,6 +1488,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrganizationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    load_sample_data_api_v1_organization_sample_data_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SampleDataResponse"];
                 };
             };
             /** @description Validation Error */

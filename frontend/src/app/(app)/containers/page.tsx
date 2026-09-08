@@ -4,6 +4,7 @@ import { Ship } from "lucide-react";
 import { Card, PageHeader, td, tdRight, th, thRight } from "@/components/layout/AppShell";
 import { MilestoneBadge, RiskBadge } from "@/components/shared/Badges";
 import { Money } from "@/components/shared/Money";
+import LoadSampleDataButton from "@/features/containers/LoadSampleDataButton";
 import NewContainerForm from "@/features/containers/NewContainerForm";
 import { api, type ContainerSummary } from "@/lib/api/client";
 import { COST_TYPE_LABEL } from "@/lib/domain";
@@ -61,6 +62,10 @@ export default async function ContainersPage() {
                       <p className="text-xs mt-1">
                         <Link href="/imports/new" className="text-blue-600 hover:underline">Import purchase orders</Link> or add a container above.
                       </p>
+                      <div className="mt-5">
+                        <LoadSampleDataButton />
+                        <p className="text-xs mt-2 text-slate-400">One shipment, two containers and three cost invoices, to try the allocation.</p>
+                      </div>
                     </div>
                   </td>
                 </tr>

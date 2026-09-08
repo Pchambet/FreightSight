@@ -75,9 +75,9 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
         <div className="mt-12 grid gap-10 lg:grid-cols-2 items-start">
           <figure>
             <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
-              <Image src="/landing/ventilation.jpg" alt="Changement de méthode d'allocation en direct : par valeur, poids, volume ou quantité" width={800} height={380} />
+              <Image src="/landing/signale.jpg" alt="Avertissement : base manquante sur une ligne, 1 200 € non ventilés, avec les totaux FOB, alloué, TVA import, rendu et non alloué" width={900} height={113} />
             </div>
-            <figcaption className="mt-3 text-sm text-slate-600"><span className="font-medium text-slate-900">Changez la méthode, voyez l&apos;effet.</span> Fret au poids, assurance à la valeur, inspection à la quantité : la prévisualisation recalcule sans rien enregistrer.</figcaption>
+            <figcaption className="mt-3 text-sm text-slate-600"><span className="font-medium text-slate-900">Ce qui ne peut pas être ventilé est signalé, jamais deviné.</span> Ici une ligne sans taux de droits : les 1 200 € de douane restent visibles en « non alloué » au lieu d&apos;être répartis au hasard.</figcaption>
           </figure>
           <figure>
             <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">

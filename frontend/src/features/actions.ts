@@ -167,6 +167,17 @@ export async function commitImport(importId: string, onError: "skip_rows" | "abo
   return { ok: true, data };
 }
 
+// ---------------------------------------------------------------------------- demo data
+
+export async function loadSampleData(): Promise<ActionResult<{ containerIds: string[] }>> {
+  await protectAction();
+  const { data, error } = await api.POST("/api/v1/organization/sample-data", {});
+  if (error || !data) return fail(error, "Could not load the sample data");
+  revalidatePath("/containers");
+  revalidatePath("/purchase-orders");
+  return { ok: true, data: { containerIds: data.container_ids } };
+}
+
 // ---------------------------------------------------------------------------- settings
 
 export async function updateOrganization(input: {

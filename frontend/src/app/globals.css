@@ -9,3 +9,11 @@ body {
   font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
 }
+
+@page {
+  size: A4;
+  margin: 12mm 14mm;
+}
+@media print {
+  body { background: white; }
+}

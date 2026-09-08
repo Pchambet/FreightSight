@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Programme design partner", descripti
 /** Printable one-pager (A4). The marketing header and footer hide on print. */
 export default function DesignPartnerPage() {
   return (
-    <main className="max-w-3xl mx-auto px-5 py-12 print:py-0 print:max-w-none">
+    <main className="max-w-3xl mx-auto px-5 py-12 print:py-0 print:max-w-none print:text-[11px] print:leading-snug">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="bg-blue-600 p-1.5 rounded-md"><Ship className="w-4 h-4 text-white" /></div>
@@ -16,20 +16,20 @@ export default function DesignPartnerPage() {
         <div className="text-xs uppercase tracking-wider text-slate-500">Programme design partner · septembre 2026</div>
       </div>
 
-      <h1 className="mt-8 text-3xl font-semibold tracking-tight text-balance">Le coût de revient rendu de vos importations, calculé sur vos vrais dossiers, en huit semaines.</h1>
+      <h1 className="mt-8 print:mt-4 text-3xl print:text-2xl font-semibold tracking-tight text-balance">Le coût de revient rendu de vos importations, calculé sur vos vrais dossiers, en huit semaines.</h1>
 
-      <div className="mt-8 grid gap-8 md:grid-cols-2 print:grid-cols-2">
+      <div className="mt-8 print:mt-4 grid gap-8 print:gap-4 md:grid-cols-2 print:grid-cols-2">
         <section>
           <h2 className="text-sm font-semibold uppercase tracking-wider text-blue-700">Le problème</h2>
-          <p className="mt-2 text-sm text-slate-700 leading-relaxed">Une PME qui importe fixe ses prix sur le FOB et découvre son coût réel par commande 30 à 60 jours plus tard, quand arrivent les factures du transitaire, de la douane et les surestaries. Le prorata à la valeur fait dans Excel est faux pour tout ce qui est lourd ou volumineux, et personne ne recolle une facture sur trois conteneurs et cinq commandes.</p>
+          <p className="mt-2 text-sm print:text-[11px] text-slate-700 leading-relaxed print:leading-snug">Une PME qui importe fixe ses prix sur le FOB et découvre son coût réel par commande 30 à 60 jours plus tard, quand arrivent les factures du transitaire, de la douane et les surestaries. Le prorata à la valeur fait dans Excel est faux pour tout ce qui est lourd ou volumineux, et personne ne recolle une facture sur trois conteneurs et cinq commandes.</p>
         </section>
         <section>
           <h2 className="text-sm font-semibold uppercase tracking-wider text-blue-700">Ce que fait FreightSight</h2>
-          <p className="mt-2 text-sm text-slate-700 leading-relaxed">Il importe vos commandes, rattache chaque coût à son périmètre (expédition, conteneur, commande, ligne) et le ventile jusqu&apos;à la ligne selon la méthode choisie : valeur, poids, volume, quantité, manuel. Les droits sont calculés sur la base CIF. Vous obtenez le coût rendu et le coût unitaire par SKU, en euros, au taux BCE du jour de facture, prêt pour l&apos;ERP.</p>
+          <p className="mt-2 text-sm print:text-[11px] text-slate-700 leading-relaxed print:leading-snug">Il importe vos commandes, rattache chaque coût à son périmètre (expédition, conteneur, commande, ligne) et le ventile jusqu&apos;à la ligne selon la méthode choisie : valeur, poids, volume, quantité, manuel. Les droits sont calculés sur la base CIF. Vous obtenez le coût rendu et le coût unitaire par SKU, en euros, au taux BCE du jour de facture, prêt pour l&apos;ERP.</p>
         </section>
         <section>
           <h2 className="text-sm font-semibold uppercase tracking-wider text-blue-700">Ce qu&apos;on vous demande</h2>
-          <ul className="mt-2 text-sm text-slate-700 leading-relaxed list-disc pl-5 space-y-1">
+          <ul className="mt-2 text-sm print:text-[11px] text-slate-700 leading-relaxed print:leading-snug list-disc pl-5 space-y-1">
             <li>Une heure par semaine avec le fondateur, pendant huit semaines</li>
             <li>Dix factures transitaire et cinq commandes, anonymisées si vous préférez</li>
             <li>Vos exports actuels (Sage, EBP, Odoo, Excel), tels quels</li>
@@ -38,7 +38,7 @@ export default function DesignPartnerPage() {
         </section>
         <section>
           <h2 className="text-sm font-semibold uppercase tracking-wider text-blue-700">Ce que vous recevez</h2>
-          <ul className="mt-2 text-sm text-slate-700 leading-relaxed list-disc pl-5 space-y-1">
+          <ul className="mt-2 text-sm print:text-[11px] text-slate-700 leading-relaxed print:leading-snug list-disc pl-5 space-y-1">
             <li>Votre coût rendu par SKU sur vos dossiers, réconcilié avec votre Excel au centime</li>
             <li>Huit semaines gratuites, puis −50 % sur le plan Growth pendant douze mois</li>
             <li>Un accès direct au fondateur et votre mot sur la feuille de route</li>
@@ -47,7 +47,7 @@ export default function DesignPartnerPage() {
         </section>
       </div>
 
-      <section className="mt-8">
+      <section className="mt-8 print:mt-4">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-blue-700">Les huit semaines</h2>
         <div className="mt-3 grid grid-cols-4 gap-3 text-xs">
           {[
@@ -61,7 +61,7 @@ export default function DesignPartnerPage() {
         </div>
       </section>
 
-      <section className="mt-8 grid gap-6 md:grid-cols-2 print:grid-cols-2 text-sm">
+      <section className="mt-8 print:mt-4 grid gap-6 print:gap-4 md:grid-cols-2 print:grid-cols-2 text-sm">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wider text-blue-700">Vos données</h2>
           <p className="mt-2 text-slate-700 leading-relaxed">Hébergées à {site.hostingRegion}, isolées par société jusque dans la base de données, jamais utilisées pour entraîner un modèle ni partagées. Export et suppression sur simple demande. Détail sur la page sécurité.</p>
@@ -72,7 +72,7 @@ export default function DesignPartnerPage() {
         </div>
       </section>
 
-      <div className="mt-10 border-t border-slate-200 pt-5 flex items-center justify-between text-sm">
+      <div className="mt-10 print:mt-5 border-t border-slate-200 pt-5 print:pt-3 flex items-center justify-between text-sm">
         <div className="text-slate-700">Pierre Chambet, fondateur · <span className="text-slate-500">ancien intégrateur Odoo côté client</span></div>
         <a href={site.bookingUrl} className="inline-flex items-center bg-slate-900 text-white font-medium py-2 px-4 rounded-md print:bg-white print:text-slate-900 print:border print:border-slate-300">Réserver 20 minutes</a>
       </div>

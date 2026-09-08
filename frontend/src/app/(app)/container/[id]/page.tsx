@@ -36,8 +36,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export default async function ContainerPage({ params }: Params) {
-  const { id } = await params;
-  const data = await load(id);
+  const { id: containerId } = await params;
+  const data = await load(containerId);
   if (!data) notFound();
   const { container, report, loads, pos, shipmentRef } = data;
   const cur = report.base_currency;
