@@ -35,6 +35,10 @@ _MILESTONE_TIMESTAMP = {
 }
 
 
+def _qty(value: Decimal) -> str:
+    return f"{value.normalize():f}"
+
+
 def derive_dnd(container: Container, org_free_days: int, today: datetime | None = None) -> None:
     """Last free day and demurrage risk from the discharge date and free days. Calendar days."""
     now = today or datetime.now(UTC)
@@ -214,7 +218,14 @@ def replace_loads(
     if len({p.po_line_id for p in payload}) != len(payload):
         raise Unprocessable("Each po_line_id may appear once", code="DUPLICATE_LINE")
     wanted = {p.po_line_id: p.quantity for p in payload}
-    lines = {ln.id: ln for ln in t.db.scalars(t.q(PurchaseOrderLine).where(PurchaseOrderLine.id.in_(wanted)))}
+    lines = {
+        ln.id: ln
+        for ln in t.db.scalars(
+            t.q(PurchaseOrderLine)
+            .where(PurchaseOrderLine.id.in_(wanted))
+            .options(selectinload(PurchaseOrderLine.purchase_order))
+        )
+    }
     missing = [str(i) for i in wanted if i not in lines]
     if missing:
         raise NotFound(f"Purchase order line(s) {', '.join(missing)}")
@@ -230,11 +241,18 @@ def replace_loads(
             )
         )
         if elsewhere + qty > lines[line_id].quantity:
+            line = lines[line_id]
+            label = f"{line.purchase_order.po_number} line {line.line_no}" + (
+                f" ({line.sku})" if line.sku else ""
+            )
             errors.append(
                 {
-                    "field": str(line_id),
+                    "field": label,
                     "code": "OVER_ALLOCATED",
-                    "message": f"{elsewhere + qty} > line quantity {lines[line_id].quantity}",
+                    "message": (
+                        f"{_qty(elsewhere + qty)} would be loaded across containers, "
+                        f"line quantity is {_qty(line.quantity)}"
+                    ),
                 }
             )
     if errors:

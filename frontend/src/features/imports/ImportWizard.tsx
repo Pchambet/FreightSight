@@ -33,6 +33,8 @@ export default function ImportWizard({ initialJob }: { initialJob: ImportJobResp
   const report = (job?.report ?? {}) as Record<string, unknown>;
   const errors = (report.errors as Issue[] | undefined) ?? [];
   const warnings = (report.warnings as Issue[] | undefined) ?? [];
+  const errorRows = new Set(errors.map((e) => e.row)).size;
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
   const missingRequired = useMemo(() => fields.filter((f) => f.required && !mapping[f.field]).map((f) => f.label), [fields, mapping]);
 
   const upload = () => {
@@ -105,7 +107,7 @@ export default function ImportWizard({ initialJob }: { initialJob: ImportJobResp
       ) : null}
 
       {step === "mapping" && job ? (
-        <Card title={`Map the columns of ${job.original_filename ?? "the file"}`} right={<span className="text-xs text-slate-500">{job.row_count} rows · {job.encoding}{job.delimiter ? ` · "${job.delimiter}"` : ""}</span>}>
+        <Card title={`Map the columns of ${job.original_filename ?? "the file"}`} right={<span className="text-xs text-slate-500">{plural(job.row_count, "row")} · {job.encoding}{job.delimiter ? ` · "${job.delimiter}"` : ""}</span>}>
           <div className="p-5 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 max-w-3xl">
               {fields.map((f) => (
@@ -142,8 +144,8 @@ export default function ImportWizard({ initialJob }: { initialJob: ImportJobResp
                 <div key={k} className="bg-slate-50 rounded-md px-3 py-2"><div className="text-xs text-slate-500">{k}</div><div className="font-medium">{v}</div></div>
               ))}
             </div>
-            {warnings.length ? <IssueTable title={`${warnings.length} warning(s)`} issues={warnings} tone="amber" /> : null}
-            {errors.length ? <IssueTable title={`${errors.length} row(s) with errors will be skipped`} issues={errors} tone="red" /> : <p className="text-sm text-emerald-700">No row error.</p>}
+            {warnings.length ? <IssueTable title={plural(warnings.length, "warning")} issues={warnings} tone="amber" /> : null}
+            {errors.length ? <IssueTable title={`${plural(errorRows, "row")} with ${plural(errors.length, "error")} will be skipped`} issues={errors} tone="red" /> : <p className="text-sm text-emerald-700">No row error.</p>}
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => setStep("mapping")} className={btnSecondary}>Back to mapping</button>
               <button type="button" onClick={() => commit("skip_rows")} disabled={pending} className={btnPrimary}>
@@ -158,7 +160,7 @@ export default function ImportWizard({ initialJob }: { initialJob: ImportJobResp
       {step === "done" && job ? (
         <Card title="Import committed">
           <div className="p-5 space-y-3 text-sm">
-            <p>{report.purchase_orders_created as number ?? 0} purchase orders, {report.lines_created as number ?? 0} lines, {report.containers_created as number ?? 0} containers and {report.loads_created as number ?? 0} loads created. {errors.length ? `${errors.length} rows skipped.` : ""}</p>
+            <p>{plural(report.purchase_orders_created as number ?? 0, "purchase order")}, {plural(report.lines_created as number ?? 0, "line")}, {plural(report.containers_created as number ?? 0, "container")} and {plural(report.loads_created as number ?? 0, "load")} created.{errorRows ? ` ${plural(errorRows, "row")} skipped.` : ""}</p>
             <div className="flex gap-2">
               <button type="button" onClick={() => router.push("/")} className={btnPrimary}>Go to containers</button>
               <button type="button" onClick={() => { setJob(null); setFile(null); setMapping({}); setStep("upload"); }} className={btnSecondary}>Import another file</button>

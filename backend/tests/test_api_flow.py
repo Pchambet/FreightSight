@@ -132,6 +132,8 @@ def test_t5_through_the_api(client: TestClient) -> None:
 
     po_a = client.get(f"/api/v1/landed-costs/purchase-orders/{s['po_a']['id']}").json()
     assert po_a["totals"]["allocated"] == "1645.83" and po_a["totals"]["landed"] == "11645.83"
+    # the PO ledger lists the container and shipment costs that reached its lines
+    assert sorted(c["cost_type"] for c in po_a["costs"]) == ["DRAYAGE", "DRAYAGE", "OCEAN_FREIGHT"]
 
     ship = client.get(f"/api/v1/landed-costs/shipments/{s['ship']['id']}").json()
     assert ship["totals"]["allocated"] == "3500.00"
@@ -335,6 +337,7 @@ def test_missing_basis_is_a_warning_not_a_guess(client: TestClient) -> None:
     rep = client.get(f"/api/v1/landed-costs/containers/{cnt['id']}").json()
     assert rep["totals"]["unallocated"] == "100.00" and rep["totals"]["allocated"] == "0.00"
     assert rep["warnings"][0]["code"] == "MISSING_BASIS"
+    assert rep["warnings"][0]["message"].endswith(": PO-1 #1")
     assert client.get("/api/v1/reports/integrity").json()["ok"]
 
 
@@ -355,6 +358,8 @@ def test_over_allocation_refused_and_line_shrink_refused(client: TestClient) -> 
     )
     res = client.put(f"/api/v1/containers/{c2['id']}/loads", json=[{"po_line_id": line, "quantity": "50"}])
     assert res.status_code == 422 and res.json()["code"] == "OVER_ALLOCATED"
+    assert res.json()["errors"][0]["field"] == "PO-1 line 1"
+    assert "110 would be loaded" in res.json()["errors"][0]["message"]
     res = client.patch(
         f"/api/v1/purchase-orders/{po['id']}",
         json={"lines": [{"line_no": 1, "quantity": "50", "unit_price": "1"}]},

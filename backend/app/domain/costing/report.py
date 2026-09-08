@@ -102,11 +102,17 @@ def _report(comp: Computation, base_currency: str, load_filter: set[UUID], cost_
 
     costs = [comp.cost_rows[cid] for cid in cost_filter if cid in comp.cost_rows]
     costs.sort(key=lambda c: (c.cost_date, c.cost_type.value, str(c.id)))
-    warnings = [
-        Warning_(u.cost_id, u.code, u.message, comp.cost_rows[u.cost_id].amount_base, list(u.load_ids))
-        for u in comp.result.unallocated
-        if u.cost_id in cost_filter
-    ]
+    warnings = []
+    for u in comp.result.unallocated:
+        if u.cost_id not in cost_filter:
+            continue
+        message = u.message
+        labels = [_load_label(comp, lid) for lid in u.load_ids if lid in comp.load_rows]
+        if labels:
+            message = f"{message}: {', '.join(labels)}"
+        warnings.append(
+            Warning_(u.cost_id, u.code, message, comp.cost_rows[u.cost_id].amount_base, list(u.load_ids))
+        )
     fob = sum((ln.fob for ln in lines), ZERO)
     allocated_total = sum((ln.allocated for ln in lines), ZERO)
     vat_total = sum((ln.vat for ln in lines), ZERO)
@@ -122,6 +128,13 @@ def _report(comp: Computation, base_currency: str, load_filter: set[UUID], cost_
         costs=costs,
         warnings=warnings,
     )
+
+
+def _load_label(comp: Computation, load_id: UUID) -> str:
+    row = comp.load_rows[load_id]
+    line = row.po_line
+    label = f"{line.purchase_order.po_number} #{line.line_no}"
+    return f"{label} {line.sku}" if line.sku else label
 
 
 def container_report(comp: Computation, base_currency: str, container_id: UUID) -> Report:
@@ -155,4 +168,5 @@ def purchase_order_report(comp: Computation, base_currency: str, po_id: UUID) ->
     loads = {ld.id for ld in comp.loads if ld.po_id == po_id}
     line_ids = {ld.po_line_id for ld in comp.loads if ld.po_id == po_id}
     costs = {c.id for c in comp.cost_rows.values() if c.po_id == po_id or c.po_line_id in line_ids}
+    costs |= {a.cost_id for a in comp.result.allocations if a.load_id in loads}  # what reached its lines
     return _report(comp, base_currency, loads, costs)

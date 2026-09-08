@@ -38,7 +38,7 @@ export default async function ImportsPage() {
                       <td className={tdRight}>{j.row_count}</td>
                       <td className={`${tdRight} ${j.error_count ? "text-amber-700" : ""}`}>{j.error_count}</td>
                       <td className={`${td} text-xs text-slate-600`}>
-                        {j.status === "DONE" ? `${r.purchase_orders_created ?? 0} POs, ${r.lines_created ?? 0} lines, ${r.containers_created ?? 0} containers, ${r.loads_created ?? 0} loads` : j.status === "PARSED" ? <Link href={`/imports/new?job=${j.id}`} className="text-blue-600 hover:underline">continue</Link> : "—"}
+                        {j.status === "DONE" ? `${r.purchase_orders_created ?? 0} POs, ${r.lines_created ?? 0} lines, ${r.containers_created ?? 0} containers, ${r.loads_created ?? 0} loads` : j.status === "PARSED" || j.status === "VALIDATED" ? <Link href={`/imports/new?job=${j.id}`} className="text-blue-600 hover:underline">continue</Link> : "—"}
                       </td>
                     </tr>
                   );

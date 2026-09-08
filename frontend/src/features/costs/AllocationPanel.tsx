@@ -79,9 +79,9 @@ export default function AllocationPanel({ containerId, poId, report }: { contain
               {poId ? <th className={th}>Container</th> : null}
               <th className={thRight}>Qty</th>
               <th className={thRight}>FOB</th>
-              {Object.keys(shown.by_cost_type).map((t) => <th key={t} className={thRight}>{COST_TYPE_LABEL[t as CostType] ?? t}</th>)}
               <th className={thRight}>Landed</th>
               <th className={thRight}>Unit cost</th>
+              {Object.keys(shown.by_cost_type).map((t) => <th key={t} className={`${thRight} text-blue-700/80`}>{COST_TYPE_LABEL[t as CostType] ?? t}</th>)}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
@@ -97,11 +97,11 @@ export default function AllocationPanel({ containerId, poId, report }: { contain
                   {poId ? <td className={`${td} font-mono text-xs text-slate-600`}>{ln.container_number}</td> : null}
                   <td className={tdRight}>{qty(ln.quantity)}</td>
                   <td className={`${tdRight} text-slate-600`}><Money amount={ln.fob} currency={cur} /></td>
+                  <td className={`${tdRight} font-semibold`}><Money amount={ln.landed} currency={cur} /></td>
+                  <td className={`${tdRight} font-semibold text-emerald-700`}>{unitCost(ln.unit_landed_cost, cur)}</td>
                   {Object.keys(shown.by_cost_type).map((t) => (
                     <td key={t} className={`${tdRight} text-blue-700`}>{ln.by_cost_type[t] ? <Money amount={ln.by_cost_type[t]} currency={cur} /> : <span className="text-slate-300">—</span>}</td>
                   ))}
-                  <td className={`${tdRight} font-semibold`}><Money amount={ln.landed} currency={cur} /></td>
-                  <td className={`${tdRight} font-semibold text-emerald-700`}>{unitCost(ln.unit_landed_cost, cur)}</td>
                 </tr>
               ))
             )}
@@ -111,9 +111,9 @@ export default function AllocationPanel({ containerId, poId, report }: { contain
               <tr>
                 <td className={td} colSpan={poId ? 3 : 2}>Total</td>
                 <td className={tdRight}><Money amount={shown.totals.fob} currency={cur} /></td>
-                {Object.keys(shown.by_cost_type).map((t) => <td key={t} className={tdRight}><Money amount={shown.by_cost_type[t]} currency={cur} /></td>)}
                 <td className={tdRight}><Money amount={shown.totals.landed} currency={cur} /></td>
                 <td className={tdRight}></td>
+                {Object.keys(shown.by_cost_type).map((t) => <td key={t} className={tdRight}><Money amount={shown.by_cost_type[t]} currency={cur} /></td>)}
               </tr>
             </tfoot>
           ) : null}
