@@ -65,7 +65,7 @@ export default async function PurchaseOrderPage({ params }: Params) {
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
               <span>
                 {errorCode.has(w.code) ? errorCode(w.code) : w.message}
-                {w.message.includes(": ") ? <span className="text-amber-700/80"> {w.message.slice(w.message.indexOf(": ") + 2)}</span> : null}
+                {w.message.includes(": ") ? <span className="text-amber-700/80"> {w.message.slice(w.message.lastIndexOf(": ") + 2)}</span> : null}
               </span>
             </div>
           ))}
