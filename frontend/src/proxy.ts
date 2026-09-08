@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
  * Optimistic redirects only. In @clerk/nextjs v7 the middleware is not the security boundary:
  * every page, layout, route handler and server action calls `auth.protect()` itself (see lib/auth.ts).
  */
-const PUBLIC = [/^\/$/, /^\/securite$/, /^\/design-partner$/, /^\/sign-in(\/.*)?$/, /^\/sign-up(\/.*)?$/, /^\/choose-organization(\/.*)?$/];
+const PUBLIC = [/^\/$/, /^\/robots\.txt$/, /^\/securite$/, /^\/design-partner$/, /^\/sign-in(\/.*)?$/, /^\/sign-up(\/.*)?$/, /^\/choose-organization(\/.*)?$/];
 
 export default clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl;
