@@ -30,8 +30,15 @@ def _jwks_client(url: str) -> PyJWKClient:
 
 
 class ClerkVerifier:
-    def __init__(self, jwks_url: str, issuer: str, audience: str | None = None):
+    def __init__(
+        self,
+        jwks_url: str,
+        issuer: str,
+        audience: str | None = None,
+        authorized_parties: list[str] | None = None,
+    ):
         self.jwks_url, self.issuer, self.audience = jwks_url, issuer, audience
+        self.authorized_parties = [p.rstrip("/") for p in (authorized_parties or [])]
 
     def verify(self, token: str) -> VerifiedClaims:
         try:
@@ -43,10 +50,16 @@ class ClerkVerifier:
                 issuer=self.issuer,
                 audience=self.audience,
                 options={"verify_aud": self.audience is not None},
-                leeway=60,
+                leeway=10,  # tokens live 60 s; Clerk's own SDK allows 5 s of skew
             )
         except jwt.PyJWTError as e:
             raise Unauthorized(f"Invalid token: {e}") from e
+
+        if claims.get("sts") == "pending":
+            raise Unauthorized("Session pending: choose an organization first")
+        azp = str(claims.get("azp", "")).rstrip("/")
+        if self.authorized_parties and azp not in self.authorized_parties:
+            raise Unauthorized("Token was issued to an unknown origin")
 
         org = claims.get("o") or {}
         org_id = org.get("id") or claims.get("org_id")

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { api, problemMessage, type ImportJobResponse, type LandedCostReport } from "@/lib/api/client";
+import { protectAction } from "@/lib/auth";
 import type { AllocationMethod, ContainerMilestone, CostScope, CostType, ImportKind } from "@/lib/domain";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -60,6 +61,7 @@ export async function addCost(input: {
 }
 
 export async function deleteCost(costId: string, revalidate: string): Promise<ActionResult<null>> {
+  await protectAction();
   const { error } = await api.DELETE("/api/v1/costs/{cost_id}", { params: { path: { cost_id: costId } } });
   if (error) return fail(error, "Could not delete the cost");
   revalidatePath(revalidate);
@@ -71,6 +73,7 @@ export async function previewAllocation(input: {
   po_id?: string;
   method_overrides: Record<string, string>;
 }): Promise<ActionResult<LandedCostReport>> {
+  await protectAction();
   const { data, error } = await api.POST("/api/v1/landed-costs/preview", {
     body: {
       container_id: input.container_id ?? null,
@@ -88,6 +91,7 @@ export async function updateContainer(
   containerId: string,
   patch: { milestone?: ContainerMilestone; free_days_demurrage?: number | null; discharged_at?: string | null },
 ): Promise<ActionResult<null>> {
+  await protectAction();
   const { error } = await api.PATCH("/api/v1/containers/{container_id}", {
     params: { path: { container_id: containerId } },
     body: patch,
@@ -111,6 +115,7 @@ export async function replaceLoads(
   containerId: string,
   loads: { po_line_id: string; quantity: string }[],
 ): Promise<ActionResult<null>> {
+  await protectAction();
   const { error } = await api.PUT("/api/v1/containers/{container_id}/loads", {
     params: { path: { container_id: containerId } },
     body: loads,
@@ -124,6 +129,7 @@ export async function replaceLoads(
 // ---------------------------------------------------------------------------- imports
 
 export async function createImport(formData: FormData): Promise<ActionResult<ImportJobResponse>> {
+  await protectAction();
   const file = formData.get("file");
   const kind = String(formData.get("kind") ?? "PURCHASE_ORDERS") as ImportKind;
   if (!(file instanceof File) || file.size === 0) return { ok: false, error: "Choose a file first." };
@@ -139,6 +145,7 @@ export async function createImport(formData: FormData): Promise<ActionResult<Imp
 }
 
 export async function validateImport(importId: string, mapping: Record<string, string>): Promise<ActionResult<ImportJobResponse>> {
+  await protectAction();
   const { data, error } = await api.POST("/api/v1/imports/{import_id}/validate", {
     params: { path: { import_id: importId } },
     body: { mapping },
@@ -148,6 +155,7 @@ export async function validateImport(importId: string, mapping: Record<string, s
 }
 
 export async function commitImport(importId: string, onError: "skip_rows" | "abort"): Promise<ActionResult<ImportJobResponse>> {
+  await protectAction();
   const { data, error } = await api.POST("/api/v1/imports/{import_id}/commit", {
     params: { path: { import_id: importId } },
     body: { on_error: onError },
@@ -168,6 +176,7 @@ export async function updateOrganization(input: {
   free_days_demurrage?: number;
   free_days_detention?: number;
 }): Promise<ActionResult<null>> {
+  await protectAction();
   const { error } = await api.PATCH("/api/v1/organization", {
     body: { ...input, default_allocation_method: input.default_allocation_method as AllocationMethod | undefined },
   });

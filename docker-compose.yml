@@ -35,6 +35,10 @@ services:
       APP_ENV: dev
       DATABASE_URL: postgresql+psycopg://fs:fs@db/fs
       CORS_ORIGINS: '["http://localhost:3000"]'
+      # Optional Clerk verification for local dev; values come from the repo-root .env (gitignored).
+      CLERK_ISSUER: ${CLERK_ISSUER:-}
+      CLERK_JWKS_URL: ${CLERK_JWKS_URL:-}
+      CLERK_AUTHORIZED_PARTIES: ${CLERK_AUTHORIZED_PARTIES:-[]}
     volumes:
       - ./backend:/app
     ports:

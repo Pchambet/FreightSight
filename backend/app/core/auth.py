@@ -38,7 +38,12 @@ def _verifier(settings: Settings):  # type: ignore[no-untyped-def]
     from app.adapters.auth_clerk import ClerkVerifier
 
     assert settings.clerk_jwks_url and settings.clerk_issuer
-    return ClerkVerifier(settings.clerk_jwks_url, settings.clerk_issuer, settings.clerk_audience)
+    return ClerkVerifier(
+        settings.clerk_jwks_url,
+        settings.clerk_issuer,
+        settings.clerk_audience,
+        settings.clerk_authorized_parties,
+    )
 
 
 def _principal_from_jwt(db: Session, settings: Settings, token: str) -> Principal:

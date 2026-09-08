@@ -41,6 +41,11 @@ def install_guc_reset(engine: Engine) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
+    if settings.is_prod and not settings.clerk_enabled:
+        raise RuntimeError(
+            "APP_ENV=prod requires CLERK_JWKS_URL and CLERK_ISSUER: "
+            "without them every request would be refused"
+        )
     engine = get_engine()
     install_guc_reset(engine)
     if settings.app_env != "test":

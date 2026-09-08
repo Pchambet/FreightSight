@@ -1,3 +1,4 @@
+import { OrganizationSwitcher, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { Ship } from "lucide-react";
 
@@ -29,8 +30,10 @@ export function AppShell({ children, orgName }: { children: React.ReactNode; org
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-xs text-slate-500">
-            {orgName ? <span className="font-medium text-slate-700">{orgName}</span> : null}
-            <span>Pre-alpha</span>
+            <span className="hidden sm:inline">Pre-alpha</span>
+            <OrganizationSwitcher hidePersonal afterSelectOrganizationUrl="/" afterCreateOrganizationUrl="/" />
+            <UserButton />
+            {orgName ? <span className="sr-only">{orgName}</span> : null}
           </div>
         </div>
       </header>

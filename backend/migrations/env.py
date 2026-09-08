@@ -6,9 +6,10 @@ from sqlalchemy import engine_from_config, pool
 from app.domain.models import Base
 
 config = context.config
-database_url = os.environ.get("DATABASE_URL")
+# Migrations need the table owner (superuser on Railway); the app runs as the least-privilege role.
+database_url = os.environ.get("MIGRATIONS_DATABASE_URL") or os.environ.get("DATABASE_URL")
 if not database_url:
-    raise RuntimeError("DATABASE_URL must be set to run migrations")
+    raise RuntimeError("MIGRATIONS_DATABASE_URL or DATABASE_URL must be set to run migrations")
 config.set_main_option("sqlalchemy.url", database_url)
 
 target_metadata = Base.metadata

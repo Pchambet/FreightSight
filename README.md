@@ -38,9 +38,11 @@ method, and will track containers and read invoices so the number is right befor
   and cp1252 files are handled. Re-importing the same file is a no-op.
 - **Manual tracking**: milestone, discharge date, free days; the last free day and demurrage risk are
   derived from them.
-- **Tenancy**: every table carries the organization, the API scopes every query, and Postgres Row Level
-  Security enforces it a second time. Clerk JWTs are verified when configured; in development an
-  `X-Org-Id` header selects the organization.
+- **Authentication and tenancy**: Clerk sign-in with mandatory organizations; the Next app sends the
+  user's session token to the API, which verifies it against Clerk's JWKS, mirrors user, organization
+  and membership locally, and scopes every query to that organization. Postgres Row Level Security
+  enforces the scope a second time. In development only (`APP_ENV=dev`), an `X-Org-Id` header can stand
+  in for a token; production refuses to start without Clerk configuration.
 
 ## What is manual or missing
 
@@ -48,7 +50,7 @@ method, and will track containers and read invoices so the number is right befor
 |---|---|
 | Container tracking from carriers / terminals (events, ETA, last free day) | Manual entry only. Provider abstraction planned in Phase 2. |
 | Invoice extraction (PDF → cost lines with review) | Not built. Planned in Phase 2. |
-| Sign-in UI, invitations, roles in the app | Backend verifies Clerk JWTs; the Next app still uses the dev header. Wiring planned once Clerk keys exist. |
+| Invitations and role management inside the app | Handled in Clerk's own components for now (organization switcher, user button). |
 | Alerts, e-mail, background jobs | Not built. |
 | ERP connectors (Odoo, Pennylane), exports | Not built. Phase 3. |
 
@@ -79,12 +81,21 @@ git clone https://github.com/Pchambet/FreightSight.git && cd FreightSight
 docker compose up -d --build
 # API on http://localhost:8001, Swagger on http://localhost:8001/docs
 
-# Frontend
+# Frontend: needs a Clerk development instance (free) with Organizations enabled
 cd frontend
-printf 'API_URL=http://localhost:8001\nORG_ID=123e4567-e89b-12d3-a456-426614174000\n' > .env.local
+cat > .env.local <<'EOF'
+API_URL=http://localhost:8001
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+EOF
 npm install
 npm run dev                     # http://localhost:3000
 ```
+
+For the local API to accept those sessions, put `CLERK_ISSUER` and `CLERK_JWKS_URL` in a repo-root `.env`
+(see `.env.example`); docker compose passes them to the API. Deployment notes: `docs/04_ops_railway_vercel.md`.
 
 Try it: Imports → New import → upload `backend/tests/fixtures/legacy_po_container.csv`, then open a
 container, add an ocean freight cost, and switch the allocation method in the preview.

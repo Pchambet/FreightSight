@@ -1,0 +1,11 @@
+# Extends the default gitleaks rules. Only the CI build placeholders are allow-listed: they are not
+# credentials (a publishable key is public by design, and this one encodes "clerk.example.com").
+[extend]
+useDefault = true
+
+[allowlist]
+description = "CI build placeholders for Clerk"
+regexes = [
+  '''pk_test_Y2xlcmsuZXhhbXBsZS5jb20k''',
+  '''sk_test_placeholder_for_ci_build_only''',
+]

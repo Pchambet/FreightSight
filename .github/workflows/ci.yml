@@ -91,8 +91,11 @@ jobs:
       - run: npm run build
         env:
           API_URL: http://localhost:8001
-          NEXT_PUBLIC_API_URL: http://localhost:8001
-          ORG_ID: 123e4567-e89b-12d3-a456-426614174000
+          # Clerk requires keys at build time since 7.8; these are syntactically valid placeholders.
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
+          CLERK_SECRET_KEY: sk_test_placeholder_for_ci_build_only
+          NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+          NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
 
   secrets:
     runs-on: ubuntu-latest

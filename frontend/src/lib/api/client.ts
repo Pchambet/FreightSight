@@ -1,5 +1,6 @@
 import "server-only";
-import createClient from "openapi-fetch";
+import { auth } from "@clerk/nextjs/server";
+import createClient, { type Middleware } from "openapi-fetch";
 import type { components, paths } from "./schema";
 import { env } from "@/lib/env";
 
@@ -25,11 +26,26 @@ export type Problem = {
   errors?: { field: string; code: string; message: string }[] | null;
 };
 
+/**
+ * Every request carries the caller's Clerk session token, fetched right before the call (tokens live
+ * 60 s). The backend derives the organization from the token; nothing about the tenant is trusted
+ * from this side.
+ */
+const authHeaders: Middleware = {
+  async onRequest({ request }) {
+    const { getToken } = await auth();
+    const token = await getToken();
+    if (token) request.headers.set("Authorization", `Bearer ${token}`);
+    if (env.ORG_ID) request.headers.set("X-Org-Id", env.ORG_ID); // dev backends without Clerk only
+    return request;
+  },
+};
+
 export const api = createClient<paths>({
   baseUrl: env.API_URL,
-  headers: { "X-Org-Id": env.ORG_ID },
   fetch: (request) => fetch(request, { cache: "no-store" }),
 });
+api.use(authHeaders);
 
 /** Turn a problem+json error body into one readable sentence. */
 export function problemMessage(error: unknown, fallback = "Request failed"): string {

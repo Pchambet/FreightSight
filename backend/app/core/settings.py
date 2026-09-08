@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     clerk_jwks_url: str | None = None
     clerk_issuer: str | None = None
     clerk_audience: str | None = None
+    # Clerk session tokens carry `azp` (the origin that requested them). When set, only these are accepted.
+    clerk_authorized_parties: list[str] = []
 
     # FX rates: Frankfurter (ECB reference rates), no key needed.
     fx_api_url: str = "https://api.frankfurter.app"

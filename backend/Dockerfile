@@ -11,5 +11,5 @@ RUN uv sync --frozen --no-dev
 ENV PATH="/opt/venv/bin:$PATH"
 USER app
 EXPOSE 8000
-HEALTHCHECK --interval=15s --timeout=3s CMD python -c "import urllib.request as u;u.urlopen('http://127.0.0.1:8000/healthz')"
+HEALTHCHECK --interval=15s --timeout=3s CMD python -c "import os,urllib.request as u;u.urlopen(f\"http://127.0.0.1:{os.environ.get('PORT','8000')}/healthz\")"
 CMD sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
