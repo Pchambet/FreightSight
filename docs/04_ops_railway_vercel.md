@@ -1,6 +1,6 @@
 # Ops — Railway (API) et Vercel (front)
 
-Dernière mise à jour : 8 septembre 2026.
+Dernière mise à jour : 8 septembre 2026. État : appliqué en production (rôle limité, Clerk, Amsterdam).
 
 ## 1. Rôle Postgres à privilèges limités (obligatoire pour la RLS)
 
@@ -35,8 +35,8 @@ Puis, sur le service API dans Railway (Variables), en gardant les références `
 | Variable | Valeur |
 |---|---|
 | `APP_DB_PASSWORD` | le mot de passe choisi ci-dessus (variable « sealed ») |
-| `DATABASE_URL` | `postgresql+psycopg://freightsight:${{APP_DB_PASSWORD}}@${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}` |
-| `MIGRATIONS_DATABASE_URL` | `${{Postgres.DATABASE_URL}}` avec le préfixe remplacé : `postgresql+psycopg://postgres:${{Postgres.PGPASSWORD}}@${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}` |
+| `DATABASE_URL` | `postgresql+psycopg://freightsight:${{APP_DB_PASSWORD}}@${{PostgresEU.PGHOST}}:${{PostgresEU.PGPORT}}/${{PostgresEU.PGDATABASE}}` |
+| `MIGRATIONS_DATABASE_URL` | `postgresql+psycopg://${{PostgresEU.PGUSER}}:${{PostgresEU.PGPASSWORD}}@${{PostgresEU.PGHOST}}:${{PostgresEU.PGPORT}}/${{PostgresEU.PGDATABASE}}` |
 
 Les migrations tournent avec `MIGRATIONS_DATABASE_URL` (propriétaire des tables), l'API avec
 `DATABASE_URL` (rôle limité). Sans `MIGRATIONS_DATABASE_URL`, Alembic retombe sur `DATABASE_URL`, ce
@@ -93,8 +93,9 @@ Le démarrage échoue volontairement si `APP_ENV=prod` sans `CLERK_ISSUER` et `C
   exécute aussi `alembic upgrade head` par sécurité ; c'est redondant mais idempotent, et à retirer de
   l'image quand tu passes à plusieurs répliques (chaque réplique la relancerait).
 - **Settings → Deploy → Healthcheck path** : `/readyz`. Railway ignore le `HEALTHCHECK` du Dockerfile.
-- **Settings → Deploy → Region** : `europe-west4` (Amsterdam). À fixer avant de charger des données :
-  déplacer le Postgres (volume) implique une coupure.
+- **Région** : API et Postgres (`PostgresEU`, endpoint privé `postgreseu.railway.internal`) tournent à
+  Amsterdam (`europe-west4-drams3a`) depuis le 8 septembre 2026. La configuration est dans
+  `.railway/railway.ts` (`npm install railway --no-save` à la racine, puis `railway config plan|apply`).
 - **Draining seconds** : 10, pour laisser finir les requêtes en cours au redéploiement.
 - Sauvegardes : les backups de volume Railway sont quotidiens ; le PITR existe. Ajouter un service
   cron (`0 3 * * *`) qui fait `pg_dump --format=custom` vers Scaleway Object Storage Paris
