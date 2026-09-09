@@ -1988,6 +1988,77 @@
         }
       }
     },
+    "/api/v1/costs/{cost_id}/close": {
+      "post": {
+        "tags": [
+          "costs"
+        ],
+        "summary": "Close Cost",
+        "description": "Close an estimate no invoice will ever match — \"the forwarder never billed the inspection\".\n\nThe estimate stops being allocated but is not deleted: what was expected and never charged is\npart of the story of the shipment, and deleting it would quietly change past landed costs.",
+        "operationId": "close_cost_api_v1_costs__cost_id__close_post",
+        "parameters": [
+          {
+            "name": "cost_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Cost Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CostClose"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/landed-costs/containers/{container_id}": {
       "get": {
         "tags": [
@@ -4456,6 +4527,18 @@
             ],
             "title": "Last Free Day"
           },
+          "detention_deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detention Deadline"
+          },
           "dnd_risk": {
             "$ref": "#/components/schemas/DndRisk"
           }
@@ -4477,6 +4560,7 @@
           "free_days_demurrage",
           "free_days_detention",
           "last_free_day",
+          "detention_deadline",
           "dnd_risk"
         ],
         "title": "ContainerResponse"
@@ -4626,6 +4710,18 @@
             ],
             "title": "Last Free Day"
           },
+          "detention_deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detention Deadline"
+          },
           "dnd_risk": {
             "$ref": "#/components/schemas/DndRisk"
           },
@@ -4687,6 +4783,7 @@
           "free_days_demurrage",
           "free_days_detention",
           "last_free_day",
+          "detention_deadline",
           "dnd_risk"
         ],
         "title": "ContainerSummary"
@@ -4829,10 +4926,30 @@
         "type": "object",
         "title": "ContainerUpdate"
       },
+      "CostClose": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "CostClose",
+        "description": "Closing an estimate no invoice will ever match."
+      },
       "CostCreate": {
         "properties": {
           "scope": {
             "$ref": "#/components/schemas/CostScope"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CostStatus",
+            "default": "ACTUAL"
           },
           "target_id": {
             "type": "string",
@@ -5095,6 +5212,44 @@
             ],
             "title": "Notes"
           },
+          "status": {
+            "$ref": "#/components/schemas/CostStatus"
+          },
+          "supersedes_cost_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Cost Id"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "close_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Close Reason"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -5122,6 +5277,10 @@
           "vendor",
           "invoice_number",
           "notes",
+          "status",
+          "supersedes_cost_id",
+          "closed_at",
+          "close_reason",
           "created_at"
         ],
         "title": "CostResponse"
@@ -5135,6 +5294,15 @@
           "PO_LINE"
         ],
         "title": "CostScope"
+      },
+      "CostStatus": {
+        "type": "string",
+        "enum": [
+          "ESTIMATE",
+          "ACTUAL"
+        ],
+        "title": "CostStatus",
+        "description": "A cost is either what someone expects to pay or what was actually invoiced.\n\nThe whole point of the distinction: a landed cost can be right on the day the container lands,\nfrom estimates, and become exact as invoices arrive — with the gap between the two visible."
       },
       "CostType": {
         "type": "string",
@@ -5281,6 +5449,28 @@
               }
             ],
             "title": "Notes"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CostStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supersedes_cost_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Cost Id"
           }
         },
         "type": "object",

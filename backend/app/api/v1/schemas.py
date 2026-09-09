@@ -15,6 +15,7 @@ from app.domain.models import (
     AllocationMethod,
     ContainerMilestone,
     CostScope,
+    CostStatus,
     CostType,
     DndRisk,
     ImportKind,
@@ -294,6 +295,7 @@ class ContainerResponse(BaseModel):
     free_days_demurrage: int | None
     free_days_detention: int | None
     last_free_day: date | None
+    detention_deadline: date | None
     dnd_risk: DndRisk
 
 
@@ -333,6 +335,7 @@ class ManualSplitIn(BaseModel):
 
 class CostCreate(BaseModel):
     scope: CostScope
+    status: CostStatus = CostStatus.ACTUAL
     target_id: UUID
     cost_type: CostType
     amount: Decimal = Field(ge=0, max_digits=14, decimal_places=2)
@@ -372,6 +375,10 @@ class CostUpdate(BaseModel):
     vendor: str | None = None
     invoice_number: str | None = None
     notes: str | None = None
+    status: CostStatus | None = None
+    #: The estimate this cost replaces. Setting it takes that estimate out of the allocation and
+    #: makes the pair a variance; only an ACTUAL cost may carry one.
+    supersedes_cost_id: UUID | None = None
 
     @field_validator("currency")
     @classmethod
@@ -400,7 +407,17 @@ class CostResponse(BaseModel):
     vendor: str | None
     invoice_number: str | None
     notes: str | None
+    status: CostStatus
+    supersedes_cost_id: UUID | None
+    closed_at: datetime | None
+    close_reason: str | None
     created_at: datetime
+
+
+class CostClose(BaseModel):
+    """Closing an estimate no invoice will ever match."""
+
+    reason: str = Field(min_length=1, max_length=500)
 
 
 # ---------------------------------------------------------------------------- landed costs

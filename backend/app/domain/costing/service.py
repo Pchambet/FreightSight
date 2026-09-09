@@ -36,7 +36,10 @@ class Computation:
     costs: list[engine.Cost]
     result: engine.AllocationResult
     load_rows: dict[UUID, ContainerLoad]
+    #: Only the costs that are allocated: an estimate that has been replaced or closed is not here.
     cost_rows: dict[UUID, Cost]
+    #: `(actual, the estimate it replaced)`, which is where the variance comes from.
+    superseded: list[tuple[Cost, Cost]]
     containers: dict[UUID, Container]
     lines: dict[UUID, PurchaseOrderLine]
     pos: dict[UUID, PurchaseOrder]
@@ -56,6 +59,25 @@ def _load_rows(db: Session, org_id: UUID) -> list[ContainerLoad]:
 
 def _cost_rows(db: Session, org_id: UUID) -> list[Cost]:
     return list(db.scalars(select(Cost).where(Cost.org_id == org_id)))
+
+
+def live_and_superseded(rows: list[Cost]) -> tuple[list[Cost], list[tuple[Cost, Cost]]]:
+    """Split the organization's costs into what is allocated now and what has been replaced.
+
+    An estimate stands in for an invoice until that invoice arrives — that is the whole point, a
+    landed cost that is right on the day the box lands. Once the real cost supersedes it, the
+    estimate leaves the allocation but stays in the database: it is what the variance is measured
+    against. An estimate closed without an invoice leaves too, and measures nothing.
+    """
+    by_id = {row.id: row for row in rows}
+    pairs = [
+        (row, by_id[row.supersedes_cost_id])
+        for row in rows
+        if row.supersedes_cost_id is not None and row.supersedes_cost_id in by_id
+    ]
+    replaced = {estimate.id for _, estimate in pairs}
+    live = [row for row in rows if row.id not in replaced and row.closed_at is None]
+    return live, pairs
 
 
 def to_engine_load(row: ContainerLoad) -> engine.Load:
@@ -105,7 +127,8 @@ def compute(
 ) -> Computation:
     """Run the engine over the whole organization. `method_overrides` (per cost type) is for previews."""
     load_rows = _load_rows(db, org.id)
-    cost_rows = _cost_rows(db, org.id)
+    all_costs = _cost_rows(db, org.id)
+    cost_rows, superseded = live_and_superseded(all_costs)
     overrides = method_overrides or {}
     loads = [to_engine_load(r) for r in load_rows]
     costs = [
@@ -119,6 +142,7 @@ def compute(
         result=result,
         load_rows={r.id: r for r in load_rows},
         cost_rows={r.id: r for r in cost_rows},
+        superseded=superseded,
         containers={r.container.id: r.container for r in load_rows},
         lines={r.po_line.id: r.po_line for r in load_rows},
         pos={r.po_line.purchase_order.id: r.po_line.purchase_order for r in load_rows},

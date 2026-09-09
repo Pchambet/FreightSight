@@ -24,6 +24,8 @@ from app.domain.models import AuditLog
 COST_CREATED = "cost.created"
 COST_UPDATED = "cost.updated"
 COST_DELETED = "cost.deleted"
+COST_CLOSED = "cost.closed"
+COST_SUPERSEDED = "cost.superseded"
 INVOICE_CONFIRMED = "invoice.confirmed"
 INVOICE_REJECTED = "invoice.rejected"
 LOADS_REPLACED = "container.loads_replaced"
@@ -53,6 +55,8 @@ def snapshot(obj: Any, fields: tuple[str, ...]) -> dict[str, Any]:
 
 
 COST_FIELDS = (
+    "status",
+    "supersedes_cost_id",
     "scope",
     "cost_type",
     "amount",

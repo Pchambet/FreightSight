@@ -318,6 +318,29 @@ export interface paths {
         patch: operations["update_cost_api_v1_costs__cost_id__patch"];
         trace?: never;
     };
+    "/api/v1/costs/{cost_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close Cost
+         * @description Close an estimate no invoice will ever match — "the forwarder never billed the inspection".
+         *
+         *     The estimate stops being allocated but is not deleted: what was expected and never charged is
+         *     part of the story of the shipment, and deleting it would quietly change past landed costs.
+         */
+        post: operations["close_cost_api_v1_costs__cost_id__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/landed-costs/containers/{container_id}": {
         parameters: {
             query?: never;
@@ -996,6 +1019,8 @@ export interface components {
             free_days_detention: number | null;
             /** Last Free Day */
             last_free_day: string | null;
+            /** Detention Deadline */
+            detention_deadline: string | null;
             dnd_risk: components["schemas"]["DndRisk"];
         };
         /** ContainerSummary */
@@ -1031,6 +1056,8 @@ export interface components {
             free_days_detention: number | null;
             /** Last Free Day */
             last_free_day: string | null;
+            /** Detention Deadline */
+            detention_deadline: string | null;
             dnd_risk: components["schemas"]["DndRisk"];
             /** Shipment Reference */
             shipment_reference?: string | null;
@@ -1078,9 +1105,19 @@ export interface components {
             /** Free Days Detention */
             free_days_detention?: number | null;
         };
+        /**
+         * CostClose
+         * @description Closing an estimate no invoice will ever match.
+         */
+        CostClose: {
+            /** Reason */
+            reason: string;
+        };
         /** CostCreate */
         CostCreate: {
             scope: components["schemas"]["CostScope"];
+            /** @default ACTUAL */
+            status: components["schemas"]["CostStatus"];
             /**
              * Target Id
              * Format: uuid
@@ -1159,6 +1196,13 @@ export interface components {
             invoice_number: string | null;
             /** Notes */
             notes: string | null;
+            status: components["schemas"]["CostStatus"];
+            /** Supersedes Cost Id */
+            supersedes_cost_id: string | null;
+            /** Closed At */
+            closed_at: string | null;
+            /** Close Reason */
+            close_reason: string | null;
             /**
              * Created At
              * Format: date-time
@@ -1170,6 +1214,15 @@ export interface components {
          * @enum {string}
          */
         CostScope: "SHIPMENT" | "CONTAINER" | "PO" | "PO_LINE";
+        /**
+         * CostStatus
+         * @description A cost is either what someone expects to pay or what was actually invoiced.
+         *
+         *     The whole point of the distinction: a landed cost can be right on the day the container lands,
+         *     from estimates, and become exact as invoices arrive — with the gap between the two visible.
+         * @enum {string}
+         */
+        CostStatus: "ESTIMATE" | "ACTUAL";
         /**
          * CostType
          * @enum {string}
@@ -1195,6 +1248,9 @@ export interface components {
             invoice_number?: string | null;
             /** Notes */
             notes?: string | null;
+            status?: components["schemas"]["CostStatus"] | null;
+            /** Supersedes Cost Id */
+            supersedes_cost_id?: string | null;
         };
         /**
          * DndRisk
@@ -3149,6 +3205,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CostUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    close_cost_api_v1_costs__cost_id__close_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                cost_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CostClose"];
             };
         };
         responses: {

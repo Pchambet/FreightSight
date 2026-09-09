@@ -26,8 +26,10 @@ def test_sample_data_seeds_the_reference_case(client: TestClient) -> None:
     cnt1, cnt2 = containers["MSCU4821990"], containers["TGHU7245081"]
     assert cnt1["milestone"] == "DISCHARGED"
     assert cnt1["last_free_day"] is not None and cnt1["dnd_risk"] == "MEDIUM"
-    # gated out: a last free day is still shown, but no demurrage is running
-    assert cnt2["last_free_day"] is not None and cnt2["dnd_risk"] == "NONE"
+    # gated out: demurrage stopped at the terminal, detention started on the empty
+    assert cnt2["last_free_day"] is not None
+    assert cnt2["detention_deadline"] is not None
+    assert cnt2["dnd_risk"] == "LOW"
 
     assert cnt1["allocated_base"] == "2766.67"
     assert cnt1["po_numbers"] == ["PO-2026-014", "PO-2026-015"]

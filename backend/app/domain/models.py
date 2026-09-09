@@ -95,6 +95,17 @@ class CostType(enum.StrEnum):
     OTHER = "OTHER"
 
 
+class CostStatus(enum.StrEnum):
+    """A cost is either what someone expects to pay or what was actually invoiced.
+
+    The whole point of the distinction: a landed cost can be right on the day the container lands,
+    from estimates, and become exact as invoices arrive — with the gap between the two visible.
+    """
+
+    ESTIMATE = "ESTIMATE"
+    ACTUAL = "ACTUAL"
+
+
 class ContainerMilestone(enum.StrEnum):
     BOOKED = "BOOKED"
     GATE_IN_FULL_ORIGIN = "GATE_IN_FULL_ORIGIN"
@@ -323,6 +334,8 @@ class Container(Timestamped, OrgScoped, Base):
     free_days_demurrage: Mapped[int | None] = mapped_column(Integer)
     free_days_detention: Mapped[int | None] = mapped_column(Integer)
     last_free_day: Mapped[date | None] = mapped_column(Date)
+    #: gate-out + free detention days - 1: when the empty has to be back before detention runs.
+    detention_deadline: Mapped[date | None] = mapped_column(Date)
     dnd_risk: Mapped[DndRisk] = mapped_column(
         Enum(DndRisk, name="dnd_risk"), nullable=False, default=DndRisk.NONE
     )
@@ -402,6 +415,9 @@ class Cost(Timestamped, OrgScoped, Base):
         CheckConstraint("num_nonnulls(shipment_id, container_id, po_id, po_line_id) = 1", name="one_scope"),
         CheckConstraint("(allocation_method = 'MANUAL') = (manual_splits IS NOT NULL)", name="manual_splits"),
         CheckConstraint("amount >= 0", name="amount_nonneg"),
+        CheckConstraint("closed_at IS NULL OR status = 'ESTIMATE'", name="estimate_only_close"),
+        CheckConstraint("supersedes_cost_id IS NULL OR status = 'ACTUAL'", name="actual_only_supersede"),
+        Index("ix_costs_org_status", "org_id", "status", postgresql_where=text("closed_at IS NULL")),
         Index(
             "uq_costs_invoice_line",
             "org_id",
@@ -435,10 +451,22 @@ class Cost(Timestamped, OrgScoped, Base):
     invoice_number: Mapped[str | None] = mapped_column(String)
     notes: Mapped[str | None] = mapped_column(String)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    status: Mapped[CostStatus] = mapped_column(
+        Enum(CostStatus, name="cost_status"), nullable=False, default=CostStatus.ACTUAL
+    )
+    #: The estimate this actual cost replaces. Unique: an estimate is superseded once, by one invoice.
+    supersedes_cost_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("costs.id", ondelete="SET NULL"), unique=True
+    )
+    #: An estimate closed without an invoice ever arriving — "the forwarder never billed it".
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    close_reason: Mapped[str | None] = mapped_column(String)
 
     allocations: Mapped[list[CostAllocation]] = relationship(
         back_populates="cost", cascade="all, delete-orphan"
     )
+    supersedes: Mapped[Cost | None] = relationship(remote_side="Cost.id", back_populates="superseded_by")
+    superseded_by: Mapped[Cost | None] = relationship(back_populates="supersedes", uselist=False)
 
 
 class CostAllocation(OrgScoped, Base):

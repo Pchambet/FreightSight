@@ -377,8 +377,15 @@ def test_manual_milestone_sets_timestamps_and_lfd(client: TestClient) -> None:
     assert (
         res.status_code == 200 and body["last_free_day"] == "2026-01-07" and body["dnd_risk"] == "INCURRING"
     )
+    # Picked up: the terminal clock stops, and the detention clock on returning the empty starts.
     res = client.patch(f"/api/v1/containers/{cnt['id']}", json={"milestone": "GATE_OUT_FULL"})
-    assert res.json()["gate_out_at"] is not None and res.json()["dnd_risk"] == "NONE"
+    body = res.json()
+    assert body["gate_out_at"] is not None
+    assert body["detention_deadline"] is not None
+    assert body["dnd_risk"] == "LOW"  # seven free days to bring the box back
+
+    res = client.patch(f"/api/v1/containers/{cnt['id']}", json={"milestone": "GATE_IN_EMPTY_RETURN"})
+    assert res.json()["dnd_risk"] == "NONE"  # the box is back: nothing is running
 
 
 def test_orgs_do_not_see_each_other(client: TestClient) -> None:

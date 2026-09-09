@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -8,13 +8,15 @@ from fastapi import APIRouter, status
 
 from app.api.v1 import schemas
 from app.api.v1.deps import FxDep, WriterDep
-from app.core.errors import Unprocessable
+from app.core.errors import Conflict, Unprocessable
 from app.core.money import q2, to_base
 from app.core.tenancy import TenantDep, TenantSession
 from app.domain.audit.service import (
+    COST_CLOSED,
     COST_CREATED,
     COST_DELETED,
     COST_FIELDS,
+    COST_SUPERSEDED,
     COST_UPDATED,
     record,
     snapshot,
@@ -28,6 +30,7 @@ from app.domain.models import (
     ContainerLoad,
     Cost,
     CostScope,
+    CostStatus,
     CostType,
     PurchaseOrder,
     PurchaseOrderLine,
@@ -90,6 +93,36 @@ def _check_method(method: AllocationMethod, cost_type: CostType) -> None:
         raise Unprocessable("A dutiable cost cannot be allocated on a CIF basis", code="METHOD_NOT_ALLOWED")
 
 
+_UNSET = object()
+
+
+def _supersede(t: TenantSession, cost: Cost, estimate_id: UUID | None, *, status: CostStatus) -> None:
+    """Point an actual cost at the estimate it replaces, refusing the pairings that make no sense.
+
+    The estimate leaves the current allocation the moment this is set — that is what makes the
+    landed cost exact instead of approximate — and stays in the database as the thing the variance
+    is measured against.
+    """
+    if estimate_id is None:
+        cost.supersedes_cost_id = None
+        return
+    if status is not CostStatus.ACTUAL:
+        raise Unprocessable("Only an actual cost can replace an estimate", code="NOT_AN_ACTUAL")
+    if estimate_id == cost.id:
+        raise Unprocessable("A cost cannot replace itself", code="SELF_SUPERSEDE")
+    estimate = t.get_or_404(Cost, estimate_id, "Estimate")
+    if estimate.status is not CostStatus.ESTIMATE:
+        raise Unprocessable(f"Cost {estimate_id} is not an estimate", code="NOT_AN_ESTIMATE")
+    if estimate.closed_at is not None:
+        raise Unprocessable("This estimate was closed; reopen it or pick another", code="ESTIMATE_CLOSED")
+    taken = t.db.scalar(t.q(Cost).where(Cost.supersedes_cost_id == estimate_id, Cost.id != cost.id))
+    if taken is not None:
+        raise Unprocessable(
+            f"Estimate {estimate_id} is already replaced by cost {taken.id}", code="ALREADY_SUPERSEDED"
+        )
+    cost.supersedes_cost_id = estimate_id
+
+
 def _apply_fx(t: TenantSession, fx: FxService, cost: Cost, manual_rate: Decimal | None) -> None:
     resolved = fx.resolve(t.db, t.org.base_currency, cost.currency, cost.cost_date, manual_rate)
     cost.fx_rate, cost.fx_date, cost.fx_source = resolved.rate, resolved.rate_date, resolved.source
@@ -134,6 +167,7 @@ def create_cost(payload: schemas.CostCreate, t: TenantDep, fx: FxDep, p: WriterD
     _check_method(method, payload.cost_type)
     cost = Cost(
         scope=payload.scope,
+        status=payload.status,
         cost_type=payload.cost_type,
         amount=q2(payload.amount),
         currency=payload.currency,
@@ -178,6 +212,9 @@ def update_cost(cost_id: UUID, payload: schemas.CostUpdate, t: TenantDep, fx: Fx
     changes = payload.model_dump(exclude_unset=True)
     splits = changes.pop("manual_splits", None)
     manual_rate = changes.pop("fx_rate", None)
+    supersedes = changes.pop("supersedes_cost_id", _UNSET)
+    if supersedes is not _UNSET:
+        _supersede(t, cost, supersedes, status=changes.get("status") or cost.status)
     for k, v in changes.items():
         if k == "amount":
             v = q2(v)
@@ -203,11 +240,44 @@ def update_cost(cost_id: UUID, payload: schemas.CostUpdate, t: TenantDep, fx: Fx
         t.db,
         t.org_id,
         actor_user_id=p.user_id,
-        action=COST_UPDATED,
+        # Replacing an estimate is not an ordinary edit: it is the moment a forecast becomes a fact.
+        action=COST_SUPERSEDED if cost.supersedes_cost_id and supersedes is not _UNSET else COST_UPDATED,
         entity_type="cost",
         entity_id=cost.id,
         before=before,
         after=snapshot(cost, COST_FIELDS),
+    )
+    recompute_org(t.db, t.org)
+    t.db.commit()
+    t.db.refresh(cost)
+    return cost
+
+
+@router.post("/{cost_id}/close", response_model=schemas.CostResponse)
+def close_cost(cost_id: UUID, payload: schemas.CostClose, t: TenantDep, p: WriterDep) -> Cost:
+    """Close an estimate no invoice will ever match — "the forwarder never billed the inspection".
+
+    The estimate stops being allocated but is not deleted: what was expected and never charged is
+    part of the story of the shipment, and deleting it would quietly change past landed costs.
+    """
+    cost = t.get_or_404(Cost, cost_id, "Cost")
+    if cost.status is not CostStatus.ESTIMATE:
+        raise Unprocessable("Only an estimate can be closed", code="NOT_AN_ESTIMATE")
+    if cost.closed_at is not None:
+        raise Conflict("This estimate is already closed")
+    before = snapshot(cost, COST_FIELDS)
+    cost.closed_at = datetime.now(UTC)
+    cost.close_reason = payload.reason
+    t.db.flush()
+    record(
+        t.db,
+        t.org_id,
+        actor_user_id=p.user_id,
+        action=COST_CLOSED,
+        entity_type="cost",
+        entity_id=cost.id,
+        before=before,
+        after={"closed_at": cost.closed_at, "close_reason": cost.close_reason},
     )
     recompute_org(t.db, t.org)
     t.db.commit()

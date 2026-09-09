@@ -65,11 +65,16 @@ def test_apply_snapshot_never_walks_the_milestone_backwards() -> None:
 def test_last_free_day_and_risk_bands() -> None:
     org = Organization(name="Acme", free_days_demurrage=5, settings={})
 
-    def risk(discharged_days: float, gate_out_days: float | None = None) -> DndRisk:
+    def risk(
+        discharged_days: float,
+        gate_out_days: float | None = None,
+        empty_days: float | None = None,
+    ) -> DndRisk:
         container = Container(
             container_number="MSCU1234567",
             discharged_at=at(discharged_days),
             gate_out_at=None if gate_out_days is None else at(gate_out_days),
+            empty_returned_at=None if empty_days is None else at(empty_days),
         )
         derive_dnd(container, org, NOW)
         return container.dnd_risk
@@ -78,11 +83,19 @@ def test_last_free_day_and_risk_bands() -> None:
     derive_dnd(discharged_today, org, NOW)
     assert discharged_today.last_free_day == at(4).date()  # discharge + 5 - 1, calendar days
 
+    picked_up = Container(container_number="MSCU1234567", discharged_at=at(-2), gate_out_at=at(0))
+    derive_dnd(picked_up, org, NOW)
+    assert picked_up.detention_deadline == at(6).date()  # gate-out + 7 - 1
+
     assert risk(0) == DndRisk.LOW  # four days left
     assert risk(-2) == DndRisk.MEDIUM
     assert risk(-3) == DndRisk.HIGH
     assert risk(-10) == DndRisk.INCURRING
-    assert risk(-10, gate_out_days=-9) == DndRisk.NONE  # picked up: demurrage stopped
+    # Picked up: the terminal clock stops and the detention clock starts, seven free days by default.
+    assert risk(-10, gate_out_days=-1) == DndRisk.LOW  # five days left to return the empty
+    assert risk(-10, gate_out_days=-6) == DndRisk.HIGH
+    assert risk(-10, gate_out_days=-9) == DndRisk.INCURRING  # detention is running
+    assert risk(-10, gate_out_days=-9, empty_days=-8) == DndRisk.NONE  # the box is back
 
 
 def test_free_days_container_then_carrier_then_org_default() -> None:

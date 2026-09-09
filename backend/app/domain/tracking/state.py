@@ -19,6 +19,9 @@ from app.domain.models import Container, ContainerMilestone, DndRisk, MilestoneC
 from app.domain.tracking.ports import CONTAINER_MILESTONE, ORDER, ProviderEvent
 
 #: An ETA that moves by less than this is noise; past `ETA_WARNING_HOURS` it is a warning.
+DEFAULT_DEMURRAGE_DAYS = 5
+DEFAULT_DETENTION_DAYS = 7
+
 ETA_SHIFT_HOURS = 12
 ETA_WARNING_HOURS = 48
 
@@ -61,40 +64,65 @@ def derive(events: Sequence[ProviderEvent], now: datetime | None = None) -> Cont
     )
 
 
-def free_days_for(container: Container, org: Organization) -> int:
-    """Free days at the terminal: the container's own value, else the org's per-carrier setting, else
-    the org default. The exact counting rule differs by terminal, so it is a setting, never a guess."""
-    if container.free_days_demurrage is not None:
-        return container.free_days_demurrage
-    per_carrier = org.settings.get("free_days") if isinstance(org.settings, dict) else None
+def free_days_for(container: Container, org: Organization, *, detention: bool = False) -> int:
+    """Free days: the container's own value, else the org's per-carrier setting, else the org default.
+
+    The exact counting rule differs by terminal and by carrier, so it is a setting, never a guess.
+    `detention` asks for the empty-return clock rather than the terminal one.
+    """
+    own = container.free_days_detention if detention else container.free_days_demurrage
+    if own is not None:
+        return own
+    key = "free_days_detention" if detention else "free_days"
+    per_carrier = org.settings.get(key) if isinstance(org.settings, dict) else None
     if isinstance(per_carrier, dict) and container.carrier_scac:
         value = per_carrier.get(container.carrier_scac)
         if isinstance(value, int):
             return value
-    return org.free_days_demurrage
+    # The column defaults, repeated for an organization that has not been through the database yet.
+    fallback = DEFAULT_DETENTION_DAYS if detention else DEFAULT_DEMURRAGE_DAYS
+    org_value = org.free_days_detention if detention else org.free_days_demurrage
+    return org_value if org_value is not None else fallback
+
+
+def risk_band(days_left: int) -> DndRisk:
+    if days_left < 0:
+        return DndRisk.INCURRING
+    if days_left <= 1:
+        return DndRisk.HIGH
+    if days_left <= 3:
+        return DndRisk.MEDIUM
+    return DndRisk.LOW
 
 
 def derive_dnd(container: Container, org: Organization, now: datetime | None = None) -> None:
-    """Set `last_free_day` and `dnd_risk` in place. Calendar days, recomputed on every event."""
+    """Set `last_free_day`, `detention_deadline` and `dnd_risk` in place. Calendar days.
+
+    Two clocks, one after the other: demurrage runs at the terminal from discharge until the box is
+    picked up, then detention runs from pickup until the empty is back. The risk shown is whichever
+    one is running now — there is only ever one, and it is the one costing money today.
+    """
     moment = now or datetime.now(UTC)
-    free = free_days_for(container, org)
-    if container.discharged_at is None or container.gate_out_at is not None:
-        container.last_free_day = (
-            (container.discharged_at.date() + timedelta(days=free - 1)) if container.discharged_at else None
-        )
-        container.dnd_risk = DndRisk.NONE
-        return
-    lfd = container.discharged_at.date() + timedelta(days=free - 1)
-    container.last_free_day = lfd
-    remaining = (lfd - moment.date()).days
-    if remaining < 0:
-        container.dnd_risk = DndRisk.INCURRING
-    elif remaining <= 1:
-        container.dnd_risk = DndRisk.HIGH
-    elif remaining <= 3:
-        container.dnd_risk = DndRisk.MEDIUM
+    demurrage_days = free_days_for(container, org)
+    detention_days = free_days_for(container, org, detention=True)
+
+    container.last_free_day = (
+        (container.discharged_at.date() + timedelta(days=demurrage_days - 1))
+        if container.discharged_at
+        else None
+    )
+    container.detention_deadline = (
+        (container.gate_out_at.date() + timedelta(days=detention_days - 1)) if container.gate_out_at else None
+    )
+
+    if container.empty_returned_at is not None:
+        container.dnd_risk = DndRisk.NONE  # the box is back: both clocks have stopped
+    elif container.gate_out_at is not None and container.detention_deadline is not None:
+        container.dnd_risk = risk_band((container.detention_deadline - moment.date()).days)
+    elif container.discharged_at is not None and container.last_free_day is not None:
+        container.dnd_risk = risk_band((container.last_free_day - moment.date()).days)
     else:
-        container.dnd_risk = DndRisk.LOW
+        container.dnd_risk = DndRisk.NONE  # not landed yet: nothing is running
 
 
 def apply_snapshot(container: Container, snapshot: ContainerSnapshot) -> None:
