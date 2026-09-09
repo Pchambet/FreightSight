@@ -368,7 +368,17 @@
       "AVAILABLE_FOR_PICKUP": "Available for pickup",
       "GATE_OUT_FULL": "Gate out (full)",
       "DELIVERED": "Delivered",
-      "GATE_IN_EMPTY_RETURN": "Empty returned"
+      "GATE_IN_EMPTY_RETURN": "Empty returned",
+      "GATE_OUT_EMPTY_ORIGIN": "Empty out of depot (origin)",
+      "TRANSSHIPMENT_ARRIVED": "Arrived at transshipment port",
+      "TRANSSHIPMENT_DISCHARGED": "Discharged (transshipment)",
+      "TRANSSHIPMENT_LOADED": "Reloaded (transshipment)",
+      "TRANSSHIPMENT_DEPARTED": "Departed transshipment",
+      "RAIL_LOADED": "Loaded on rail",
+      "RAIL_DEPARTED": "Rail departed",
+      "RAIL_ARRIVED": "Rail arrived",
+      "RAIL_UNLOADED": "Unloaded from rail",
+      "UNKNOWN": "Unrecognised event"
     },
     "costType": {
       "OCEAN_FREIGHT": "Ocean freight",
@@ -470,5 +480,31 @@
     "DUPLICATE_IN_FILE": "Duplicate row in the file.",
     "DEPRECATED_COLUMN": "Deprecated column, ignored.",
     "FX_RATE_DEFAULTED": "A default exchange rate was applied."
+  },
+  "timeline": {
+    "title": "Timeline",
+    "count": "{count} events",
+    "empty": "No event recorded yet. Add the first one below, or connect a tracking provider.",
+    "estimate": "estimate",
+    "actual": "actual",
+    "by": "via {source}",
+    "add": "Add an event",
+    "code": "Event",
+    "occurredAt": "Date and time",
+    "isEstimate": "Estimate (has not happened yet)",
+    "location": "Location (UN/LOCODE, e.g. BEANR)",
+    "locationName": "Location name",
+    "vessel": "Vessel",
+    "voyage": "Voyage",
+    "note": "Note",
+    "submit": "Save event",
+    "added": "Event added",
+    "failed": "Could not add the event",
+    "etaTitle": "ETA history",
+    "etaEmpty": "No ETA change recorded.",
+    "etaChange": "ETA {from} → {to}",
+    "etaFirst": "First ETA {to}",
+    "etaDelta": "{hours} h",
+    "unknownCode": "Unrecognised event"
   }
 }

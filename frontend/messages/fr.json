@@ -368,7 +368,17 @@
       "AVAILABLE_FOR_PICKUP": "Disponible à l'enlèvement",
       "GATE_OUT_FULL": "Sortie terminal (plein)",
       "DELIVERED": "Livré",
-      "GATE_IN_EMPTY_RETURN": "Vide restitué"
+      "GATE_IN_EMPTY_RETURN": "Vide restitué",
+      "GATE_OUT_EMPTY_ORIGIN": "Vide sorti du dépôt (origine)",
+      "TRANSSHIPMENT_ARRIVED": "Arrivé au port de transbordement",
+      "TRANSSHIPMENT_DISCHARGED": "Déchargé (transbordement)",
+      "TRANSSHIPMENT_LOADED": "Rechargé (transbordement)",
+      "TRANSSHIPMENT_DEPARTED": "Reparti du transbordement",
+      "RAIL_LOADED": "Chargé sur rail",
+      "RAIL_DEPARTED": "Train parti",
+      "RAIL_ARRIVED": "Train arrivé",
+      "RAIL_UNLOADED": "Déchargé du rail",
+      "UNKNOWN": "Événement non reconnu"
     },
     "costType": {
       "OCEAN_FREIGHT": "Fret maritime",
@@ -470,5 +480,31 @@
     "DUPLICATE_IN_FILE": "Ligne en double dans le fichier.",
     "DEPRECATED_COLUMN": "Colonne obsolète, ignorée.",
     "FX_RATE_DEFAULTED": "Taux de change par défaut appliqué."
+  },
+  "timeline": {
+    "title": "Chronologie",
+    "count": "{count} événements",
+    "empty": "Aucun événement enregistré. Ajoutez le premier ci-dessous, ou connectez un fournisseur de suivi.",
+    "estimate": "estimé",
+    "actual": "réel",
+    "by": "via {source}",
+    "add": "Ajouter un événement",
+    "code": "Événement",
+    "occurredAt": "Date et heure",
+    "isEstimate": "Estimation (pas encore survenu)",
+    "location": "Lieu (UN/LOCODE, ex. BEANR)",
+    "locationName": "Nom du lieu",
+    "vessel": "Navire",
+    "voyage": "Voyage",
+    "note": "Note",
+    "submit": "Enregistrer l'événement",
+    "added": "Événement ajouté",
+    "failed": "Impossible d'ajouter l'événement",
+    "etaTitle": "Historique d'ETA",
+    "etaEmpty": "Aucun changement d'ETA enregistré.",
+    "etaChange": "ETA {from} → {to}",
+    "etaFirst": "Première ETA {to}",
+    "etaDelta": "{hours} h",
+    "unknownCode": "Événement non reconnu"
   }
 }

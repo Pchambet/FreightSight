@@ -1,6 +1,9 @@
 import type { Schemas } from "@/lib/api/client";
 
 export type ContainerMilestone = Schemas["ContainerMilestone"];
+export type MilestoneCode = Schemas["MilestoneCode"];
+/** Every event code a user may record by hand, in voyage order. */
+export const MILESTONE_CODES: MilestoneCode[] = ["BOOKED", "GATE_OUT_EMPTY_ORIGIN", "GATE_IN_FULL_ORIGIN", "LOADED", "VESSEL_DEPARTED", "TRANSSHIPMENT_ARRIVED", "TRANSSHIPMENT_DISCHARGED", "TRANSSHIPMENT_LOADED", "TRANSSHIPMENT_DEPARTED", "VESSEL_ARRIVED", "DISCHARGED", "AVAILABLE_FOR_PICKUP", "GATE_OUT_FULL", "RAIL_LOADED", "RAIL_DEPARTED", "RAIL_ARRIVED", "RAIL_UNLOADED", "DELIVERED", "GATE_IN_EMPTY_RETURN"];
 export type CostType = Schemas["CostType"];
 export type CostScope = Schemas["CostScope"];
 export type AllocationMethod = Schemas["AllocationMethod"];

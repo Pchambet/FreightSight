@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { api, problemMessage, type ImportJobResponse, type LandedCostReport } from "@/lib/api/client";
 import { protectAction } from "@/lib/auth";
-import type { AllocationMethod, ContainerMilestone, CostScope, CostType, ImportKind } from "@/lib/domain";
+import type { AllocationMethod, ContainerMilestone, CostScope, CostType, ImportKind, MilestoneCode } from "@/lib/domain";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -103,6 +103,30 @@ export async function updateContainer(
     body: patch,
   });
   if (error) return await fail(error, "tracking.failed");
+  revalidatePath(`/container/${containerId}`);
+  revalidatePath("/containers");
+  return { ok: true, data: null };
+}
+
+export async function addTrackingEvent(
+  containerId: string,
+  event: {
+    code: MilestoneCode;
+    occurred_at: string;
+    is_estimate: boolean;
+    location_unlocode?: string | null;
+    location_name?: string | null;
+    vessel_name?: string | null;
+    voyage?: string | null;
+    note?: string | null;
+  },
+): Promise<ActionResult<null>> {
+  await protectAction();
+  const { error } = await api.POST("/api/v1/containers/{container_id}/events", {
+    params: { path: { container_id: containerId } },
+    body: event,
+  });
+  if (error) return await fail(error, "timeline.failed");
   revalidatePath(`/container/${containerId}`);
   revalidatePath("/containers");
   return { ok: true, data: null };

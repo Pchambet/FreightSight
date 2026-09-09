@@ -60,3 +60,11 @@ export function daysUntil(isoDate: string | null | undefined): number | null {
   const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
   return Math.round((target - todayUtc) / 86_400_000);
 }
+
+/** "09/09/2026 14:30" in French, "Sep 9, 2026, 2:30 PM" in English; always the browser-neutral UTC day/time of the ISO value. */
+export function dateTimeShort(value: string | null | undefined, locale: string = DEFAULT_LOCALE): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { dateStyle: "short", timeStyle: "short", timeZone: "UTC" }).format(d);
+}
