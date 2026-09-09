@@ -846,6 +846,29 @@ class ErpSyncRun(OrgScoped, Base):
     detail: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
 
 
+class SkuCostHistory(OrgScoped, Base):
+    """The landed unit cost of a SKU, as it stood each day the numbers were recomputed.
+
+    One row per (SKU, day): recomputing twice on the same day corrects the day rather than adding a
+    second point, so the curve is a history of facts, not of button presses.
+    """
+
+    __tablename__ = "sku_cost_history"
+    __table_args__ = (
+        UniqueConstraint("org_id", "sku", "recorded_on", name="uq_sku_cost_history_org_id"),
+        Index("ix_sku_cost_history_org_sku", "org_id", "sku", "recorded_on"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    sku: Mapped[str] = mapped_column(String, nullable=False)
+    recorded_on: Mapped[date] = mapped_column(Date, nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+    fob_base: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    landed_base: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    unit_landed_cost: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+    load_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
 # ---------------------------------------------------------------------------- audit
 
 
@@ -897,4 +920,5 @@ RLS_TABLES = [
     "rate_cards",
     "erp_connections",
     "erp_sync_runs",
+    "sku_cost_history",
 ]

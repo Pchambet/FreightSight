@@ -150,7 +150,16 @@ def compute(
 
 
 def recompute_org(db: Session, org: Organization) -> Computation:
-    """Recompute and materialise allocations for the organization, inside the current transaction."""
+    """Recompute and materialise allocations for the organization, inside the current transaction.
+
+    Also records today's landed unit cost per SKU: the curve customers ask for is a by-product of
+    every recompute, and computing it later from the allocations would be the same numbers derived a
+    second way.
+    """
+    from datetime import UTC, datetime
+
+    from app.domain.reporting.service import record_sku_costs
+
     comp = compute(db, org)
     db.execute(delete(CostAllocation).where(CostAllocation.org_id == org.id))
     db.add_all(
@@ -160,4 +169,5 @@ def recompute_org(db: Session, org: Organization) -> Computation:
         for a in comp.result.allocations
     )
     db.flush()
+    record_sku_costs(db, comp, org, datetime.now(UTC).date())
     return comp

@@ -852,3 +852,75 @@ class ErpSyncRunResponse(BaseModel):
     import_job_id: UUID | None
     error: str | None
     detail: dict[str, Any]
+
+
+# ---------------------------------------------------------------------------- finance reports
+
+
+class ReportBucket(BaseModel):
+    key: str
+    label: str
+    fob: Money
+    allocated: Money
+    vat: Money
+    landed: Money
+    quantity: Qty
+    load_count: int
+    #: Freight as a percentage of the goods. Null when there are no goods to compare it to.
+    freight_share_pct: Pct | None = None
+    by_cost_type: dict[str, Money] = Field(default_factory=dict)
+
+
+class ReportSkuLine(BaseModel):
+    sku: str
+    quantity: Qty
+    fob: Money
+    landed: Money
+    unit_landed_cost: Qty
+    load_count: int
+
+
+class LandedCostAnalysis(BaseModel):
+    base_currency: str
+    group_by: Literal["supplier", "route", "month", "cost_type"]
+    period_from: date | None
+    period_to: date | None
+    buckets: list[ReportBucket]
+    skus: list[ReportSkuLine]
+    totals: ReportBucket
+
+
+class DndReportLine(BaseModel):
+    container_id: UUID
+    container_number: str
+    paid: Money
+    #: Null when nothing can be estimated honestly; `rule` says why.
+    avoided: Money | None
+    rule: str
+
+
+class DndAnalysis(BaseModel):
+    base_currency: str
+    period_from: date | None
+    period_to: date | None
+    paid: Money
+    avoided: Money
+    estimable: int
+    not_estimable: int
+    lines: list[DndReportLine]
+
+
+class SkuHistoryPoint(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    recorded_on: date
+    quantity: Qty
+    fob_base: Money
+    landed_base: Money
+    unit_landed_cost: Qty
+    load_count: int
+
+
+class SkuHistoryResponse(BaseModel):
+    sku: str
+    base_currency: str
+    points: list[SkuHistoryPoint]

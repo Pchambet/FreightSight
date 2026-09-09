@@ -1199,6 +1199,252 @@
         }
       }
     },
+    "/api/v1/reports/landed-cost": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Landed Cost",
+        "description": "Landed cost by supplier, route, month or charge, over the period the goods landed in.\n\nThe period is about arrival, not invoicing: a forwarder billing six weeks late must not move last\nquarter's numbers.",
+        "operationId": "landed_cost_api_v1_reports_landed_cost_get",
+        "parameters": [
+          {
+            "name": "group_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "supplier",
+                "route",
+                "month",
+                "cost_type"
+              ],
+              "type": "string",
+              "default": "supplier",
+              "title": "Group By"
+            }
+          },
+          {
+            "name": "period_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period From"
+            }
+          },
+          {
+            "name": "period_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period To"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LandedCostAnalysis"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/dnd": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Demurrage And Detention",
+        "description": "What demurrage and detention cost, and what acting in time plausibly saved.\n\nPaid is a fact. Avoided is an estimate that each line justifies in words, and that does not exist\nat all without the organization's own daily rate: a made-up saving is the kind of figure that\ndestroys trust in every other number on the page.",
+        "operationId": "demurrage_and_detention_api_v1_reports_dnd_get",
+        "parameters": [
+          {
+            "name": "period_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period From"
+            }
+          },
+          {
+            "name": "period_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period To"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DndAnalysis"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/sku/{sku}/history": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Sku History",
+        "description": "How this SKU's landed unit cost moved, one point per day it was recomputed.",
+        "operationId": "sku_history_api_v1_reports_sku__sku__history_get",
+        "parameters": [
+          {
+            "name": "sku",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sku"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkuHistoryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/shipments": {
       "get": {
         "tags": [
@@ -2222,6 +2468,392 @@
                   },
                   "title": "Response List Sync Runs Api V1 Erp Sync Runs Get"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/landed-costs.csv": {
+      "get": {
+        "tags": [
+          "exports"
+        ],
+        "summary": "Landed Costs Csv",
+        "description": "One row per load: the whole landed cost, at the level it is computed.",
+        "operationId": "landed_costs_csv_api_v1_exports_landed_costs_csv_get",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "fr",
+                "en"
+              ],
+              "type": "string",
+              "default": "fr",
+              "title": "Locale"
+            }
+          },
+          {
+            "name": "period_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period From"
+            }
+          },
+          {
+            "name": "period_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period To"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/costs.csv": {
+      "get": {
+        "tags": [
+          "exports"
+        ],
+        "summary": "Costs Csv",
+        "operationId": "costs_csv_api_v1_exports_costs_csv_get",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "fr",
+                "en"
+              ],
+              "type": "string",
+              "default": "fr",
+              "title": "Locale"
+            }
+          },
+          {
+            "name": "period_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period From"
+            }
+          },
+          {
+            "name": "period_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period To"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/purchase-orders.csv": {
+      "get": {
+        "tags": [
+          "exports"
+        ],
+        "summary": "Purchase Orders Csv",
+        "description": "One row per purchase-order line, which is the level anything is decided at.",
+        "operationId": "purchase_orders_csv_api_v1_exports_purchase_orders_csv_get",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "fr",
+                "en"
+              ],
+              "type": "string",
+              "default": "fr",
+              "title": "Locale"
+            }
+          },
+          {
+            "name": "period_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period From"
+            }
+          },
+          {
+            "name": "period_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period To"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/containers.csv": {
+      "get": {
+        "tags": [
+          "exports"
+        ],
+        "summary": "Containers Csv",
+        "operationId": "containers_csv_api_v1_exports_containers_csv_get",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "fr",
+                "en"
+              ],
+              "type": "string",
+              "default": "fr",
+              "title": "Locale"
+            }
+          },
+          {
+            "name": "period_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period From"
+            }
+          },
+          {
+            "name": "period_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period To"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -6116,6 +6748,114 @@
         "type": "object",
         "title": "CostUpdate"
       },
+      "DndAnalysis": {
+        "properties": {
+          "base_currency": {
+            "type": "string",
+            "title": "Base Currency"
+          },
+          "period_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period From"
+          },
+          "period_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period To"
+          },
+          "paid": {
+            "type": "string",
+            "title": "Paid"
+          },
+          "avoided": {
+            "type": "string",
+            "title": "Avoided"
+          },
+          "estimable": {
+            "type": "integer",
+            "title": "Estimable"
+          },
+          "not_estimable": {
+            "type": "integer",
+            "title": "Not Estimable"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/DndReportLine"
+            },
+            "type": "array",
+            "title": "Lines"
+          }
+        },
+        "type": "object",
+        "required": [
+          "base_currency",
+          "period_from",
+          "period_to",
+          "paid",
+          "avoided",
+          "estimable",
+          "not_estimable",
+          "lines"
+        ],
+        "title": "DndAnalysis"
+      },
+      "DndReportLine": {
+        "properties": {
+          "container_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Container Id"
+          },
+          "container_number": {
+            "type": "string",
+            "title": "Container Number"
+          },
+          "paid": {
+            "type": "string",
+            "title": "Paid"
+          },
+          "avoided": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avoided"
+          },
+          "rule": {
+            "type": "string",
+            "title": "Rule"
+          }
+        },
+        "type": "object",
+        "required": [
+          "container_id",
+          "container_number",
+          "paid",
+          "avoided",
+          "rule"
+        ],
+        "title": "DndReportLine"
+      },
       "DndRisk": {
         "type": "string",
         "enum": [
@@ -7269,6 +8009,76 @@
           "created_at"
         ],
         "title": "InvoiceSummary"
+      },
+      "LandedCostAnalysis": {
+        "properties": {
+          "base_currency": {
+            "type": "string",
+            "title": "Base Currency"
+          },
+          "group_by": {
+            "type": "string",
+            "enum": [
+              "supplier",
+              "route",
+              "month",
+              "cost_type"
+            ],
+            "title": "Group By"
+          },
+          "period_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period From"
+          },
+          "period_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period To"
+          },
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/ReportBucket"
+            },
+            "type": "array",
+            "title": "Buckets"
+          },
+          "skus": {
+            "items": {
+              "$ref": "#/components/schemas/ReportSkuLine"
+            },
+            "type": "array",
+            "title": "Skus"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/ReportBucket"
+          }
+        },
+        "type": "object",
+        "required": [
+          "base_currency",
+          "group_by",
+          "period_from",
+          "period_to",
+          "buckets",
+          "skus",
+          "totals"
+        ],
+        "title": "LandedCostAnalysis"
       },
       "LandedCostReport": {
         "properties": {
@@ -8509,6 +9319,72 @@
         "type": "object",
         "title": "RateCardUpdate"
       },
+      "ReportBucket": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "fob": {
+            "type": "string",
+            "title": "Fob"
+          },
+          "allocated": {
+            "type": "string",
+            "title": "Allocated"
+          },
+          "vat": {
+            "type": "string",
+            "title": "Vat"
+          },
+          "landed": {
+            "type": "string",
+            "title": "Landed"
+          },
+          "quantity": {
+            "type": "string",
+            "title": "Quantity"
+          },
+          "load_count": {
+            "type": "integer",
+            "title": "Load Count"
+          },
+          "freight_share_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freight Share Pct"
+          },
+          "by_cost_type": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "By Cost Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "fob",
+          "allocated",
+          "vat",
+          "landed",
+          "quantity",
+          "load_count"
+        ],
+        "title": "ReportBucket"
+      },
       "ReportLine": {
         "properties": {
           "load_id": {
@@ -8626,6 +9502,44 @@
           "by_cost_type"
         ],
         "title": "ReportLine"
+      },
+      "ReportSkuLine": {
+        "properties": {
+          "sku": {
+            "type": "string",
+            "title": "Sku"
+          },
+          "quantity": {
+            "type": "string",
+            "title": "Quantity"
+          },
+          "fob": {
+            "type": "string",
+            "title": "Fob"
+          },
+          "landed": {
+            "type": "string",
+            "title": "Landed"
+          },
+          "unit_landed_cost": {
+            "type": "string",
+            "title": "Unit Landed Cost"
+          },
+          "load_count": {
+            "type": "integer",
+            "title": "Load Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sku",
+          "quantity",
+          "fob",
+          "landed",
+          "unit_landed_cost",
+          "load_count"
+        ],
+        "title": "ReportSkuLine"
       },
       "ReportWarning": {
         "properties": {
@@ -8987,6 +9901,71 @@
         },
         "type": "object",
         "title": "ShipmentUpdate"
+      },
+      "SkuHistoryPoint": {
+        "properties": {
+          "recorded_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Recorded On"
+          },
+          "quantity": {
+            "type": "string",
+            "title": "Quantity"
+          },
+          "fob_base": {
+            "type": "string",
+            "title": "Fob Base"
+          },
+          "landed_base": {
+            "type": "string",
+            "title": "Landed Base"
+          },
+          "unit_landed_cost": {
+            "type": "string",
+            "title": "Unit Landed Cost"
+          },
+          "load_count": {
+            "type": "integer",
+            "title": "Load Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recorded_on",
+          "quantity",
+          "fob_base",
+          "landed_base",
+          "unit_landed_cost",
+          "load_count"
+        ],
+        "title": "SkuHistoryPoint"
+      },
+      "SkuHistoryResponse": {
+        "properties": {
+          "sku": {
+            "type": "string",
+            "title": "Sku"
+          },
+          "base_currency": {
+            "type": "string",
+            "title": "Base Currency"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/SkuHistoryPoint"
+            },
+            "type": "array",
+            "title": "Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sku",
+          "base_currency",
+          "points"
+        ],
+        "title": "SkuHistoryResponse"
       },
       "SupplierCreate": {
         "properties": {

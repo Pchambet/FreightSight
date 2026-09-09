@@ -269,6 +269,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/landed-cost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Landed Cost
+         * @description Landed cost by supplier, route, month or charge, over the period the goods landed in.
+         *
+         *     The period is about arrival, not invoicing: a forwarder billing six weeks late must not move last
+         *     quarter's numbers.
+         */
+        get: operations["landed_cost_api_v1_reports_landed_cost_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/dnd": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Demurrage And Detention
+         * @description What demurrage and detention cost, and what acting in time plausibly saved.
+         *
+         *     Paid is a fact. Avoided is an estimate that each line justifies in words, and that does not exist
+         *     at all without the organization's own daily rate: a made-up saving is the kind of figure that
+         *     destroys trust in every other number on the page.
+         */
+        get: operations["demurrage_and_detention_api_v1_reports_dnd_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/sku/{sku}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sku History
+         * @description How this SKU's landed unit cost moved, one point per day it was recomputed.
+         */
+        get: operations["sku_history_api_v1_reports_sku__sku__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shipments": {
         parameters: {
             query?: never;
@@ -428,6 +495,80 @@ export interface paths {
         };
         /** List Sync Runs */
         get: operations["list_sync_runs_api_v1_erp_sync_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/landed-costs.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Landed Costs Csv
+         * @description One row per load: the whole landed cost, at the level it is computed.
+         */
+        get: operations["landed_costs_csv_api_v1_exports_landed_costs_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/costs.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Costs Csv */
+        get: operations["costs_csv_api_v1_exports_costs_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/purchase-orders.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Purchase Orders Csv
+         * @description One row per purchase-order line, which is the level anything is decided at.
+         */
+        get: operations["purchase_orders_csv_api_v1_exports_purchase_orders_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/containers.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Containers Csv */
+        get: operations["containers_csv_api_v1_exports_containers_csv_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1420,6 +1561,41 @@ export interface components {
             /** Supersedes Cost Id */
             supersedes_cost_id?: string | null;
         };
+        /** DndAnalysis */
+        DndAnalysis: {
+            /** Base Currency */
+            base_currency: string;
+            /** Period From */
+            period_from: string | null;
+            /** Period To */
+            period_to: string | null;
+            /** Paid */
+            paid: string;
+            /** Avoided */
+            avoided: string;
+            /** Estimable */
+            estimable: number;
+            /** Not Estimable */
+            not_estimable: number;
+            /** Lines */
+            lines: components["schemas"]["DndReportLine"][];
+        };
+        /** DndReportLine */
+        DndReportLine: {
+            /**
+             * Container Id
+             * Format: uuid
+             */
+            container_id: string;
+            /** Container Number */
+            container_number: string;
+            /** Paid */
+            paid: string;
+            /** Avoided */
+            avoided: string | null;
+            /** Rule */
+            rule: string;
+        };
         /**
          * DndRisk
          * @enum {string}
@@ -1804,6 +1980,25 @@ export interface components {
              */
             created_at: string;
         };
+        /** LandedCostAnalysis */
+        LandedCostAnalysis: {
+            /** Base Currency */
+            base_currency: string;
+            /**
+             * Group By
+             * @enum {string}
+             */
+            group_by: "supplier" | "route" | "month" | "cost_type";
+            /** Period From */
+            period_from: string | null;
+            /** Period To */
+            period_to: string | null;
+            /** Buckets */
+            buckets: components["schemas"]["ReportBucket"][];
+            /** Skus */
+            skus: components["schemas"]["ReportSkuLine"][];
+            totals: components["schemas"]["ReportBucket"];
+        };
         /** LandedCostReport */
         LandedCostReport: {
             /** Base Currency */
@@ -2149,6 +2344,31 @@ export interface components {
             /** Notes */
             notes?: string | null;
         };
+        /** ReportBucket */
+        ReportBucket: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Fob */
+            fob: string;
+            /** Allocated */
+            allocated: string;
+            /** Vat */
+            vat: string;
+            /** Landed */
+            landed: string;
+            /** Quantity */
+            quantity: string;
+            /** Load Count */
+            load_count: number;
+            /** Freight Share Pct */
+            freight_share_pct?: string | null;
+            /** By Cost Type */
+            by_cost_type?: {
+                [key: string]: string;
+            };
+        };
         /** ReportLine */
         ReportLine: {
             /**
@@ -2198,6 +2418,21 @@ export interface components {
             by_cost_type: {
                 [key: string]: string;
             };
+        };
+        /** ReportSkuLine */
+        ReportSkuLine: {
+            /** Sku */
+            sku: string;
+            /** Quantity */
+            quantity: string;
+            /** Fob */
+            fob: string;
+            /** Landed */
+            landed: string;
+            /** Unit Landed Cost */
+            unit_landed_cost: string;
+            /** Load Count */
+            load_count: number;
         };
         /** ReportWarning */
         ReportWarning: {
@@ -2290,6 +2525,33 @@ export interface components {
             etd?: string | null;
             /** Eta */
             eta?: string | null;
+        };
+        /** SkuHistoryPoint */
+        SkuHistoryPoint: {
+            /**
+             * Recorded On
+             * Format: date
+             */
+            recorded_on: string;
+            /** Quantity */
+            quantity: string;
+            /** Fob Base */
+            fob_base: string;
+            /** Landed Base */
+            landed_base: string;
+            /** Unit Landed Cost */
+            unit_landed_cost: string;
+            /** Load Count */
+            load_count: number;
+        };
+        /** SkuHistoryResponse */
+        SkuHistoryResponse: {
+            /** Sku */
+            sku: string;
+            /** Base Currency */
+            base_currency: string;
+            /** Points */
+            points: components["schemas"]["SkuHistoryPoint"][];
         };
         /** SupplierCreate */
         SupplierCreate: {
@@ -3223,6 +3485,108 @@ export interface operations {
             };
         };
     };
+    landed_cost_api_v1_reports_landed_cost_get: {
+        parameters: {
+            query?: {
+                group_by?: "supplier" | "route" | "month" | "cost_type";
+                period_from?: string | null;
+                period_to?: string | null;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LandedCostAnalysis"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    demurrage_and_detention_api_v1_reports_dnd_get: {
+        parameters: {
+            query?: {
+                period_from?: string | null;
+                period_to?: string | null;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DndAnalysis"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sku_history_api_v1_reports_sku__sku__history_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                sku: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkuHistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_shipments_api_v1_shipments_get: {
         parameters: {
             query?: never;
@@ -3777,6 +4141,146 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErpSyncRunResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    landed_costs_csv_api_v1_exports_landed_costs_csv_get: {
+        parameters: {
+            query?: {
+                locale?: "fr" | "en";
+                period_from?: string | null;
+                period_to?: string | null;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    costs_csv_api_v1_exports_costs_csv_get: {
+        parameters: {
+            query?: {
+                locale?: "fr" | "en";
+                period_from?: string | null;
+                period_to?: string | null;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    purchase_orders_csv_api_v1_exports_purchase_orders_csv_get: {
+        parameters: {
+            query?: {
+                locale?: "fr" | "en";
+                period_from?: string | null;
+                period_to?: string | null;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    containers_csv_api_v1_exports_containers_csv_get: {
+        parameters: {
+            query?: {
+                locale?: "fr" | "en";
+                period_from?: string | null;
+                period_to?: string | null;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

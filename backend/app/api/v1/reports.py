@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Query
@@ -14,8 +15,12 @@ from app.core.money import q2
 from app.core.tenancy import TenantDep
 from app.domain.costing.report import estimate_allocations
 from app.domain.costing.service import compute
+from app.domain.models import CostType, RateBasis, RateCard
+from app.domain.reporting import service as reporting
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+
+GroupBy = Literal["supplier", "route", "month", "cost_type"]
 
 ZERO = Decimal("0.00")
 
@@ -96,4 +101,111 @@ def variance(
             )
             for po_id, values in sorted(by_po.items(), key=lambda item: po_numbers[item[0]])
         ],
+    )
+
+
+def _bucket(bucket: reporting.Bucket) -> schemas.ReportBucket:
+    return schemas.ReportBucket(
+        key=bucket.key,
+        label=bucket.label,
+        fob=bucket.fob,
+        allocated=bucket.allocated,
+        vat=bucket.vat,
+        landed=bucket.landed,
+        quantity=bucket.quantity,
+        load_count=bucket.load_count,
+        freight_share_pct=bucket.freight_share,
+        by_cost_type=dict(bucket.by_cost_type),
+    )
+
+
+@router.get("/landed-cost", response_model=schemas.LandedCostAnalysis)
+def landed_cost(
+    t: TenantDep,
+    group_by: GroupBy = "supplier",
+    period_from: date | None = None,
+    period_to: date | None = None,
+) -> schemas.LandedCostAnalysis:
+    """Landed cost by supplier, route, month or charge, over the period the goods landed in.
+
+    The period is about arrival, not invoicing: a forwarder billing six weeks late must not move last
+    quarter's numbers.
+    """
+    report = reporting.landed_cost_report(
+        compute(t.db, t.org),
+        t.org,
+        group_by=group_by,
+        period_from=period_from,
+        period_to=period_to,
+    )
+    return schemas.LandedCostAnalysis(
+        base_currency=report.base_currency,
+        group_by=group_by,
+        period_from=report.period_from,
+        period_to=report.period_to,
+        buckets=[_bucket(b) for b in report.buckets],
+        skus=[
+            schemas.ReportSkuLine(
+                sku=line.sku,
+                quantity=line.quantity,
+                fob=line.fob,
+                landed=line.landed,
+                unit_landed_cost=line.unit_landed_cost,
+                load_count=line.load_count,
+            )
+            for line in report.skus
+        ],
+        totals=_bucket(report.totals),
+    )
+
+
+@router.get("/dnd", response_model=schemas.DndAnalysis)
+def demurrage_and_detention(
+    t: TenantDep, period_from: date | None = None, period_to: date | None = None
+) -> schemas.DndAnalysis:
+    """What demurrage and detention cost, and what acting in time plausibly saved.
+
+    Paid is a fact. Avoided is an estimate that each line justifies in words, and that does not exist
+    at all without the organization's own daily rate: a made-up saving is the kind of figure that
+    destroys trust in every other number on the page.
+    """
+    card = t.db.scalar(
+        t.q(RateCard).where(RateCard.cost_type == CostType.DEMURRAGE, RateCard.basis == RateBasis.FLAT)
+    )
+    report = reporting.dnd_report(
+        t.db,
+        t.org,
+        period_from=period_from,
+        period_to=period_to,
+        daily_rate=card.amount if card else None,
+    )
+    return schemas.DndAnalysis(
+        base_currency=report.base_currency,
+        period_from=report.period_from,
+        period_to=report.period_to,
+        paid=report.paid,
+        avoided=report.avoided,
+        estimable=report.estimable,
+        not_estimable=report.not_estimable,
+        lines=[
+            schemas.DndReportLine(
+                container_id=line.container_id,
+                container_number=line.container_number,
+                paid=line.paid,
+                avoided=line.avoided,
+                rule=line.rule,
+            )
+            for line in report.lines
+        ],
+    )
+
+
+@router.get("/sku/{sku}/history", response_model=schemas.SkuHistoryResponse)
+def sku_history(sku: str, t: TenantDep) -> schemas.SkuHistoryResponse:
+    """How this SKU's landed unit cost moved, one point per day it was recomputed."""
+    points = reporting.sku_history(t.db, t.org, sku)
+    return schemas.SkuHistoryResponse(
+        sku=sku,
+        base_currency=t.org.base_currency,
+        points=[schemas.SkuHistoryPoint.model_validate(point) for point in points],
     )
