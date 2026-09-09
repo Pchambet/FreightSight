@@ -14,7 +14,7 @@ import TrackingPanel from "@/features/containers/TrackingPanel";
 import TimelinePanel from "@/features/containers/TimelinePanel";
 import AuditTrail from "@/features/audit/AuditTrail";
 import EstimatePanel from "@/features/estimates/EstimatePanel";
-import { api, type ContainerResponse, type EtaHistoryResponse, type LandedCostReport, type LoadResponse, type PurchaseOrderSummary, type TrackingEventResponse } from "@/lib/api/client";
+import { api, type ContainerResponse, type EtaHistoryResponse, type LandedCostReport, type LoadResponse, type PurchaseOrderSummary, type Schemas, type TrackingEventResponse } from "@/lib/api/client";
 import { dateShort, daysUntil } from "@/lib/format";
 
 type Params = { params: Promise<{ id: string }> };
@@ -22,20 +22,21 @@ type Params = { params: Promise<{ id: string }> };
 // Thrown, never rendered: the error boundary shows the translated message.
 const API_ERROR = "api_error";
 
-async function load(id: string): Promise<{ container: ContainerResponse; report: LandedCostReport; loads: LoadResponse[]; pos: PurchaseOrderSummary[]; shipmentRef: string | null; events: TrackingEventResponse[]; etaHistory: EtaHistoryResponse[] } | null> {
+async function load(id: string): Promise<{ container: ContainerResponse; report: LandedCostReport; loads: LoadResponse[]; pos: PurchaseOrderSummary[]; shipmentRef: string | null; events: TrackingEventResponse[]; etaHistory: EtaHistoryResponse[]; subscription: Schemas["TrackingSubscriptionResponse"] | null } | null> {
   const c = await api.GET("/api/v1/containers/{container_id}", { params: { path: { container_id: id } } });
   if (c.response.status === 404 || c.response.status === 422) return null;
   if (c.error || !c.data) throw new Error(API_ERROR);
-  const [r, l, p, s, ev, eh] = await Promise.all([
+  const [r, l, p, s, ev, eh, sub] = await Promise.all([
     api.GET("/api/v1/landed-costs/containers/{container_id}", { params: { path: { container_id: id } } }),
     api.GET("/api/v1/containers/{container_id}/loads", { params: { path: { container_id: id } } }),
     api.GET("/api/v1/purchase-orders"),
     c.data.shipment_id ? api.GET("/api/v1/shipments/{shipment_id}", { params: { path: { shipment_id: c.data.shipment_id } } }) : Promise.resolve(null),
     api.GET("/api/v1/containers/{container_id}/events", { params: { path: { container_id: id } } }),
     api.GET("/api/v1/containers/{container_id}/eta-history", { params: { path: { container_id: id } } }),
+    api.GET("/api/v1/containers/{container_id}/tracking", { params: { path: { container_id: id } } }),
   ]);
   if (r.error || !r.data || l.error || !l.data) throw new Error(API_ERROR);
-  return { container: c.data, report: r.data, loads: l.data, pos: p.data ?? [], shipmentRef: s?.data?.reference ?? null, events: ev.data ?? [], etaHistory: eh.data ?? [] };
+  return { container: c.data, report: r.data, loads: l.data, pos: p.data ?? [], shipmentRef: s?.data?.reference ?? null, events: ev.data ?? [], etaHistory: eh.data ?? [], subscription: sub.response.status === 200 ? (sub.data ?? null) : null };
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
@@ -49,7 +50,7 @@ export default async function ContainerPage({ params }: Params) {
   const { id: containerId } = await params;
   const data = await load(containerId);
   if (!data) notFound();
-  const { container, report, loads, pos, shipmentRef, events, etaHistory } = data;
+  const { container, report, loads, pos, shipmentRef, events, etaHistory, subscription } = data;
   const [t, errorCode, locale] = await Promise.all([getTranslations("container"), getTranslations("errors"), getLocale()]);
   const cur = report.base_currency;
   const revalidate = `/container/${container.id}`;
@@ -91,7 +92,7 @@ export default async function ContainerPage({ params }: Params) {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-1 space-y-6">
-          <TrackingPanel container={container} />
+          <TrackingPanel container={container} subscription={subscription} />
           <TimelinePanel containerId={container.id} events={events} etaHistory={etaHistory} />
           <Card title={t("cards.loads")}>
             <LoadsEditor containerId={container.id} loads={loads} purchaseOrders={pos} />

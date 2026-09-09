@@ -277,14 +277,30 @@ export async function disconnectErp(): Promise<ActionResult<null>> {
   return { ok: true, data: null };
 }
 
-export async function syncErp(): Promise<ActionResult<{ orders: number; lines: number; status: string; error: string | null }>> {
+export async function syncErp(full = false): Promise<ActionResult<{ orders: number; lines: number; status: string; error: string | null }>> {
   await protectAction();
-  const { data, error } = await api.POST("/api/v1/erp/sync");
+  const { data, error } = await api.POST("/api/v1/erp/sync", { params: { query: { full } } });
   if (error || !data) return await fail(error, "erp.syncFailed");
   revalidatePath("/settings");
   revalidatePath("/purchase-orders");
   revalidatePath("/containers");
   return { ok: true, data: { orders: data.purchase_orders, lines: data.lines, status: data.status, error: data.error ?? null } };
+}
+
+export async function subscribeTracking(containerId: string): Promise<ActionResult<{ provider: string; status: string }>> {
+  await protectAction();
+  const { data, error } = await api.POST("/api/v1/containers/{container_id}/tracking", { params: { path: { container_id: containerId } }, body: { identifier_type: "container" } });
+  if (error || !data) return await fail(error, "tracking.subscribeFailed");
+  revalidatePath(`/container/${containerId}`);
+  return { ok: true, data: { provider: data.provider, status: data.status } };
+}
+
+export async function unsubscribeTracking(containerId: string): Promise<ActionResult<null>> {
+  await protectAction();
+  const { error } = await api.DELETE("/api/v1/containers/{container_id}/tracking", { params: { path: { container_id: containerId } } });
+  if (error) return await fail(error, "tracking.subscribeFailed");
+  revalidatePath(`/container/${containerId}`);
+  return { ok: true, data: null };
 }
 
 export async function createContainer(containerNumber: string): Promise<ActionResult<{ id: string }>> {
@@ -374,6 +390,7 @@ export async function updateOrganization(input: {
   default_allocation_method?: string;
   free_days_demurrage?: number;
   free_days_detention?: number;
+  settings?: Record<string, unknown>;
 }): Promise<ActionResult<null>> {
   await protectAction();
   const { error } = await api.PATCH("/api/v1/organization", {

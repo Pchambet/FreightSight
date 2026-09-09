@@ -11,6 +11,7 @@ import { USER_METHODS } from "@/lib/domain";
 
 export default function SettingsForm({ org }: { org: OrganizationResponse }) {
   const t = useTranslations("settings");
+  const tt = useTranslations("tracking");
   const methodLabel = useTranslations("domain.method");
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function SettingsForm({ org }: { org: OrganizationResponse }) {
         default_allocation_method: String(f.get("default_allocation_method") ?? org.default_allocation_method),
         free_days_demurrage: Number(f.get("free_days_demurrage") ?? org.free_days_demurrage),
         free_days_detention: Number(f.get("free_days_detention") ?? org.free_days_detention),
+        settings: { ...(org.settings ?? {}), tracking_provider_default: String(f.get("tracking_provider_default") ?? "manual") },
       });
       if (!result.ok) return void toast.error(result.error);
       toast.success(t("saved"));
@@ -69,6 +71,15 @@ export default function SettingsForm({ org }: { org: OrganizationResponse }) {
             <input id="free_days_detention" name="free_days_detention" type="number" min={0} max={60} defaultValue={org.free_days_detention} className={input} />
           </div>
           <p className="col-span-2 text-xs text-slate-500">{t("freeTimeHelp")}</p>
+        </div>
+      </Card>
+      <Card title={tt("providerTitle")}>
+        <div className="p-5 space-y-2">
+          <label className={label} htmlFor="tracking_provider_default">{tt("providerDefault")}</label>
+          <select id="tracking_provider_default" name="tracking_provider_default" defaultValue={String((org.settings as Record<string, unknown> | undefined)?.tracking_provider_default ?? "manual")} className={input}>
+            {(["manual", "terminal49", "shipsgo"] as const).map((p) => <option key={p} value={p}>{tt(`provider.${p}`)}</option>)}
+          </select>
+          <p className="text-xs text-slate-500">{tt("providerHelp")}</p>
         </div>
       </Card>
       <button type="submit" disabled={pending} className={btnPrimary}>{t("save")}</button>

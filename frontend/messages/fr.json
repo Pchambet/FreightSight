@@ -127,7 +127,23 @@
     "lastFreeDay": "Dernier jour franc",
     "save": "Enregistrer le suivi",
     "saved": "Suivi mis à jour",
-    "failed": "Impossible de mettre à jour le conteneur"
+    "failed": "Impossible de mettre à jour le conteneur",
+    "providerTitle": "Fournisseur de suivi",
+    "providerHelp": "Utilisé quand vous cliquez « Suivre ce conteneur ». Manuel : vous saisissez les événements. Terminal49 et Shipsgo : les événements arrivent seuls, avec une clé API posée sur le serveur.",
+    "providerDefault": "Fournisseur par défaut",
+    "provider": {
+      "manual": "Manuel",
+      "terminal49": "Terminal49",
+      "shipsgo": "Shipsgo"
+    },
+    "subscribe": "Suivre ce conteneur",
+    "subscribed": "Suivi par {provider}",
+    "subscribeDone": "Suivi activé",
+    "unsubscribe": "Arrêter le suivi",
+    "unsubscribed": "Suivi arrêté",
+    "subscribeFailed": "Impossible d'activer le suivi",
+    "subStatus": "statut {status}",
+    "subError": "erreur : {error}"
   },
   "loads": {
     "empty": "Rien de chargé pour l'instant. Aucun coût ne peut être ventilé tant qu'aucune ligne de commande n'est dans ce conteneur.",
@@ -527,7 +543,8 @@
     "SELF_SUPERSEDE": "Un coût ne peut pas se remplacer lui-même.",
     "NOT_AN_ESTIMATE": "Le coût visé n'est pas un estimé.",
     "ALREADY_SUPERSEDED": "Cet estimé est déjà remplacé.",
-    "ESTIMATE_CLOSED": "Cet estimé est clos."
+    "ESTIMATE_CLOSED": "Cet estimé est clos.",
+    "UNKNOWN_PROVIDER": "Fournisseur de suivi inconnu."
   },
   "timeline": {
     "title": "Chronologie",
@@ -759,7 +776,9 @@
       "RUNNING": "En cours",
       "SUCCEEDED": "Réussie",
       "FAILED": "Échouée"
-    }
+    },
+    "fullSync": "Tout relire",
+    "fullSyncHint": "Relit toutes les commandes au lieu des seules modifiées depuis la dernière synchronisation."
   },
   "reports": {
     "title": "Rapports",

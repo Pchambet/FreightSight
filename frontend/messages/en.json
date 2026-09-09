@@ -127,7 +127,23 @@
     "lastFreeDay": "Last free day",
     "save": "Save tracking",
     "saved": "Tracking updated",
-    "failed": "Could not update the container"
+    "failed": "Could not update the container",
+    "providerTitle": "Tracking provider",
+    "providerHelp": "Used when you click \"Track this container\". Manual: you enter the events. Terminal49 and Shipsgo: events arrive by themselves, with an API key set on the server.",
+    "providerDefault": "Default provider",
+    "provider": {
+      "manual": "Manual",
+      "terminal49": "Terminal49",
+      "shipsgo": "Shipsgo"
+    },
+    "subscribe": "Track this container",
+    "subscribed": "Tracked by {provider}",
+    "subscribeDone": "Tracking enabled",
+    "unsubscribe": "Stop tracking",
+    "unsubscribed": "Tracking stopped",
+    "subscribeFailed": "Could not enable tracking",
+    "subStatus": "status {status}",
+    "subError": "error: {error}"
   },
   "loads": {
     "empty": "Nothing loaded yet. Costs cannot be allocated until a purchase-order line is in this container.",
@@ -527,7 +543,8 @@
     "SELF_SUPERSEDE": "A cost cannot replace itself.",
     "NOT_AN_ESTIMATE": "The targeted cost is not an estimate.",
     "ALREADY_SUPERSEDED": "This estimate is already replaced.",
-    "ESTIMATE_CLOSED": "This estimate is closed."
+    "ESTIMATE_CLOSED": "This estimate is closed.",
+    "UNKNOWN_PROVIDER": "Unknown tracking provider."
   },
   "timeline": {
     "title": "Timeline",
@@ -759,7 +776,9 @@
       "RUNNING": "Running",
       "SUCCEEDED": "Succeeded",
       "FAILED": "Failed"
-    }
+    },
+    "fullSync": "Re-read everything",
+    "fullSyncHint": "Re-reads every order instead of only those changed since the last sync."
   },
   "reports": {
     "title": "Reports",

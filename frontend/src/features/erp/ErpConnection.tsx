@@ -28,9 +28,9 @@ export default function ErpConnection({ connection, runs }: { connection: Conn |
       router.refresh();
     });
   };
-  const sync = () =>
+  const sync = (full = false) =>
     start(async () => {
-      const r = await syncErp();
+      const r = await syncErp(full);
       if (!r.ok) return void toast.error(r.error);
       if (r.data.status === "FAILED") toast.error(`${t("syncFailed")}${r.data.error ? ` · ${r.data.error}` : ""}`);
       else toast.success(t("synced", { orders: r.data.orders, lines: r.data.lines }));
@@ -55,8 +55,9 @@ export default function ErpConnection({ connection, runs }: { connection: Conn |
           </div>
           <div className="text-xs text-slate-500">{connection.last_sync_at ? t("lastSync", { date: dateTimeShort(connection.last_sync_at, locale) }) : t("neverSynced")}{connection.last_error ? <span className="text-red-600"> · {t("lastError", { error: connection.last_error })}</span> : null}</div>
           <div className="flex gap-2">
-            <button type="button" onClick={sync} disabled={pending} className={btnPrimary}>{pending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}{pending ? t("syncing") : t("sync")}</button>
-            <button type="button" onClick={disconnect} disabled={pending} className={btnSecondary}>{t("disconnect")}</button>
+            <button type="button" onClick={() => sync(false)} disabled={pending} className={btnPrimary}>{pending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}{pending ? t("syncing") : t("sync")}</button>
+            <button type="button" onClick={() => sync(true)} disabled={pending} title={t("fullSyncHint")} className={btnSecondary}>{t("fullSync")}</button>
+            <button type="button" onClick={disconnect} disabled={pending} className="text-sm text-slate-500 px-2 hover:underline">{t("disconnect")}</button>
           </div>
           <div>
             <div className="text-xs font-medium uppercase tracking-wider text-slate-500 mb-2">{t("runs")}</div>

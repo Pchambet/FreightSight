@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Card, btnSecondary, input, label } from "@/components/layout/AppShell";
-import { updateContainer } from "@/features/actions";
-import type { ContainerResponse } from "@/lib/api/client";
+import { subscribeTracking, unsubscribeTracking, updateContainer } from "@/features/actions";
+import type { ContainerResponse, Schemas } from "@/lib/api/client";
 import { MILESTONES, type ContainerMilestone } from "@/lib/domain";
 import { dateShort } from "@/lib/format";
 
@@ -14,7 +14,7 @@ function toDateInput(iso: string | null): string {
   return iso ? iso.slice(0, 10) : "";
 }
 
-export default function TrackingPanel({ container }: { container: ContainerResponse }) {
+export default function TrackingPanel({ container, subscription }: { container: ContainerResponse; subscription: Schemas["TrackingSubscriptionResponse"] | null }) {
   const t = useTranslations("tracking");
   const milestoneLabel = useTranslations("domain.milestone");
   const locale = useLocale();
@@ -36,8 +36,17 @@ export default function TrackingPanel({ container }: { container: ContainerRespo
       router.refresh();
     });
 
+  const subscribe = () =>
+    startTransition(async () => {
+      const r = subscription ? await unsubscribeTracking(container.id) : await subscribeTracking(container.id);
+      if (!r.ok) return void toast.error(r.error);
+      toast.success(subscription ? t("unsubscribed") : t("subscribeDone"));
+      router.refresh();
+    });
+  const providerLabel = (p: string) => (t.has(`provider.${p}`) ? t(`provider.${p}`) : p);
+
   return (
-    <Card title={t("title")} right={<span className="text-xs text-slate-400">{t("manualNote")}</span>}>
+    <Card title={t("title")} right={<span className="text-xs text-slate-400">{subscription ? `${t("subscribed", { provider: providerLabel(subscription.provider) })} · ${t("subStatus", { status: subscription.status })}` : t("manualNote")}</span>}>
       <div className="p-5 space-y-4">
         <div>
           <label className={label} htmlFor="milestone">{t("milestone")}</label>
@@ -61,7 +70,11 @@ export default function TrackingPanel({ container }: { container: ContainerRespo
           <dt>{t("gateOut")}</dt><dd className="text-slate-700">{dateShort(container.gate_out_at, locale)}</dd>
           <dt>{t("lastFreeDay")}</dt><dd className="text-slate-700">{dateShort(container.last_free_day, locale)}</dd>
         </dl>
-        <button type="button" onClick={save} disabled={pending} className={btnSecondary}>{t("save")}</button>
+        <div className="flex flex-wrap gap-2 items-center">
+          <button type="button" onClick={save} disabled={pending} className={btnSecondary}>{t("save")}</button>
+          <button type="button" onClick={subscribe} disabled={pending} className="text-sm text-blue-600 hover:underline px-2">{subscription ? t("unsubscribe") : t("subscribe")}</button>
+        </div>
+        {subscription?.last_error ? <p className="text-xs text-red-600">{t("subError", { error: subscription.last_error })}</p> : null}
       </div>
     </Card>
   );
