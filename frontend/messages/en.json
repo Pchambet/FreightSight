@@ -18,7 +18,8 @@
     "purchaseOrders": "Purchase orders",
     "imports": "Imports",
     "settings": "Settings",
-    "alerts": "Alerts"
+    "alerts": "Alerts",
+    "invoices": "Invoices"
   },
   "containers": {
     "title": "Containers",
@@ -450,6 +451,20 @@
       "info": "info",
       "warning": "warning",
       "critical": "critical"
+    },
+    "invoiceStatus": {
+      "UPLOADED": "Uploaded",
+      "EXTRACTING": "Reading",
+      "NEEDS_REVIEW": "To review",
+      "CONFIRMED": "Confirmed",
+      "FAILED": "Reading failed",
+      "REJECTED": "Rejected"
+    },
+    "costScope": {
+      "SHIPMENT": "Shipment",
+      "CONTAINER": "Container",
+      "PO": "Purchase order",
+      "PO_LINE": "Purchase-order line"
     }
   },
   "errors": {
@@ -532,5 +547,78 @@
     "bell": "Alerts, {count} unread",
     "unreadOnly": "Unread only",
     "showAll": "Show all"
+  },
+  "invoices": {
+    "title": "Invoices",
+    "subtitle": "{review} to review · {total} in total",
+    "nav": "Invoices",
+    "upload": {
+      "title": "Upload an invoice",
+      "hint": "PDF, PNG or JPEG, 20 MB max. The invoice is read, then each line is proposed: nothing enters the costs without your confirmation.",
+      "choose": "Choose a file",
+      "submit": "Upload and read",
+      "uploading": "Uploading…",
+      "done": "Invoice uploaded, reading in progress",
+      "failed": "Could not upload the invoice",
+      "duplicate": "This invoice was already uploaded"
+    },
+    "th": {
+      "vendor": "Vendor",
+      "number": "No.",
+      "date": "Date",
+      "total": "Total",
+      "status": "Status",
+      "confidence": "Confidence",
+      "file": "File"
+    },
+    "empty": "No invoice. Upload a forwarder invoice to read it.",
+    "filter": {
+      "all": "All",
+      "review": "To review",
+      "confirmed": "Confirmed"
+    },
+    "detail": {
+      "back": "Invoices",
+      "document": "Document",
+      "lines": "Proposed lines",
+      "noLines": "No line could be read. Fix the file or record the costs by hand.",
+      "reading": "Reading…",
+      "readingHint": "This page refreshes by itself.",
+      "failedTitle": "Reading failed",
+      "retry": "Read again",
+      "reject": "Reject",
+      "confirm": "Confirm {count} lines",
+      "confirmNone": "Accept at least one line",
+      "confirmed": "{count} costs created",
+      "rejected": "Invoice rejected",
+      "retried": "Reading restarted",
+      "failed": "Action failed",
+      "confirmedBanner": "Invoice confirmed: {count} costs created on {date}. To undo, delete the costs on the container or the purchase order.",
+      "rejectedBanner": "Invoice rejected.",
+      "notes": "Checks",
+      "extractor": "Read by {extractor}, confidence {confidence}",
+      "vendor": "Vendor",
+      "number": "Invoice no.",
+      "date": "Invoice date",
+      "total": "Total",
+      "vat": "VAT"
+    },
+    "line": {
+      "accepted": "Accept",
+      "description": "Description",
+      "amount": "Amount",
+      "currency": "Currency",
+      "costType": "Type",
+      "scope": "Scope",
+      "target": "Target",
+      "chooseTarget": "Choose…",
+      "noTarget": "no target",
+      "confidence": "confidence {value}",
+      "save": "Save",
+      "saved": "Line updated",
+      "failed": "Could not update the line",
+      "needsTarget": "An accepted line needs a target",
+      "notes": "Notes"
+    }
   }
 }

@@ -18,7 +18,8 @@
     "purchaseOrders": "Commandes",
     "imports": "Imports",
     "settings": "Paramètres",
-    "alerts": "Alertes"
+    "alerts": "Alertes",
+    "invoices": "Factures"
   },
   "containers": {
     "title": "Conteneurs",
@@ -450,6 +451,20 @@
       "info": "info",
       "warning": "attention",
       "critical": "critique"
+    },
+    "invoiceStatus": {
+      "UPLOADED": "Déposée",
+      "EXTRACTING": "Lecture en cours",
+      "NEEDS_REVIEW": "À relire",
+      "CONFIRMED": "Confirmée",
+      "FAILED": "Lecture impossible",
+      "REJECTED": "Rejetée"
+    },
+    "costScope": {
+      "SHIPMENT": "Expédition",
+      "CONTAINER": "Conteneur",
+      "PO": "Commande",
+      "PO_LINE": "Ligne de commande"
     }
   },
   "errors": {
@@ -532,5 +547,78 @@
     "bell": "Alertes, {count} non lues",
     "unreadOnly": "Non lues seulement",
     "showAll": "Tout afficher"
+  },
+  "invoices": {
+    "title": "Factures",
+    "subtitle": "{review} à relire · {total} au total",
+    "nav": "Factures",
+    "upload": {
+      "title": "Déposer une facture",
+      "hint": "PDF, PNG ou JPEG, 20 Mo maximum. La facture est lue, puis chaque ligne est proposée : rien n'entre dans les coûts sans votre validation.",
+      "choose": "Choisir un fichier",
+      "submit": "Déposer et lire",
+      "uploading": "Dépôt…",
+      "done": "Facture déposée, lecture en cours",
+      "failed": "Impossible de déposer la facture",
+      "duplicate": "Cette facture a déjà été déposée"
+    },
+    "th": {
+      "vendor": "Émetteur",
+      "number": "N°",
+      "date": "Date",
+      "total": "Total",
+      "status": "Statut",
+      "confidence": "Confiance",
+      "file": "Fichier"
+    },
+    "empty": "Aucune facture. Déposez une facture transitaire pour la lire.",
+    "filter": {
+      "all": "Toutes",
+      "review": "À relire",
+      "confirmed": "Confirmées"
+    },
+    "detail": {
+      "back": "Factures",
+      "document": "Document",
+      "lines": "Lignes proposées",
+      "noLines": "Aucune ligne n'a pu être lue. Corrigez le fichier ou saisissez les coûts à la main.",
+      "reading": "Lecture en cours…",
+      "readingHint": "La page se rafraîchit toute seule.",
+      "failedTitle": "Lecture impossible",
+      "retry": "Relancer la lecture",
+      "reject": "Rejeter",
+      "confirm": "Confirmer {count} lignes",
+      "confirmNone": "Acceptez au moins une ligne",
+      "confirmed": "{count} coûts créés",
+      "rejected": "Facture rejetée",
+      "retried": "Lecture relancée",
+      "failed": "Action impossible",
+      "confirmedBanner": "Facture confirmée : {count} coûts créés le {date}. Pour revenir en arrière, supprimez les coûts dans le conteneur ou la commande.",
+      "rejectedBanner": "Facture rejetée.",
+      "notes": "Contrôles",
+      "extractor": "Lue par {extractor}, confiance {confidence}",
+      "vendor": "Émetteur",
+      "number": "N° de facture",
+      "date": "Date de facture",
+      "total": "Total",
+      "vat": "TVA"
+    },
+    "line": {
+      "accepted": "Accepter",
+      "description": "Description",
+      "amount": "Montant",
+      "currency": "Devise",
+      "costType": "Type",
+      "scope": "Périmètre",
+      "target": "Cible",
+      "chooseTarget": "Choisir…",
+      "noTarget": "sans cible",
+      "confidence": "confiance {value}",
+      "save": "Enregistrer",
+      "saved": "Ligne mise à jour",
+      "failed": "Impossible de mettre à jour la ligne",
+      "needsTarget": "Une ligne acceptée doit avoir une cible",
+      "notes": "Notes"
+    }
   }
 }

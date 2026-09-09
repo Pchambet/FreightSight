@@ -150,6 +150,74 @@ export async function markAllAlertsRead(): Promise<ActionResult<{ marked: number
   return { ok: true, data: { marked: data.marked } };
 }
 
+// ---------------------------------------------------------------------------- invoices
+
+export async function uploadInvoice(formData: FormData): Promise<ActionResult<{ id: string }>> {
+  await protectAction();
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return await fail(null, "invoices.upload.failed");
+  const { data, error, response } = await api.POST("/api/v1/invoices", {
+    body: { file: file as unknown as string },
+    bodySerializer: (b) => {
+      const fd = new FormData();
+      fd.append("file", b.file as unknown as File, file.name);
+      return fd;
+    },
+  });
+  if (response.status === 409) return await fail(error, "invoices.upload.duplicate");
+  if (error || !data) return await fail(error, "invoices.upload.failed");
+  revalidatePath("/invoices");
+  return { ok: true, data: { id: data.id } };
+}
+
+export async function updateInvoiceLine(
+  invoiceId: string,
+  lineId: string,
+  patch: { amount?: string | null; currency?: string | null; cost_type?: CostType | null; scope?: CostScope | null; target_id?: string | null; accepted?: boolean | null; description?: string | null },
+): Promise<ActionResult<null>> {
+  await protectAction();
+  const body = { ...patch };
+  if (typeof body.amount === "string") {
+    const n = normalizeAmount(body.amount);
+    if (!n) return await fail(null, "invoices.line.failed");
+    body.amount = n;
+  }
+  const { error } = await api.PATCH("/api/v1/invoices/{invoice_id}/lines/{line_id}", {
+    params: { path: { invoice_id: invoiceId, line_id: lineId } },
+    body,
+  });
+  if (error) return await fail(error, "invoices.line.failed");
+  revalidatePath(`/invoices/${invoiceId}`);
+  return { ok: true, data: null };
+}
+
+export async function confirmInvoice(invoiceId: string): Promise<ActionResult<{ costsCreated: number }>> {
+  await protectAction();
+  const { data, error } = await api.POST("/api/v1/invoices/{invoice_id}/confirm", { params: { path: { invoice_id: invoiceId } } });
+  if (error || !data) return await fail(error, "invoices.detail.failed");
+  revalidatePath(`/invoices/${invoiceId}`);
+  revalidatePath("/invoices");
+  revalidatePath("/containers");
+  return { ok: true, data: { costsCreated: data.costs_created } };
+}
+
+export async function rejectInvoice(invoiceId: string): Promise<ActionResult<null>> {
+  await protectAction();
+  const { error } = await api.POST("/api/v1/invoices/{invoice_id}/reject", { params: { path: { invoice_id: invoiceId } } });
+  if (error) return await fail(error, "invoices.detail.failed");
+  revalidatePath(`/invoices/${invoiceId}`);
+  revalidatePath("/invoices");
+  return { ok: true, data: null };
+}
+
+export async function retryInvoice(invoiceId: string): Promise<ActionResult<null>> {
+  await protectAction();
+  const { error } = await api.POST("/api/v1/invoices/{invoice_id}/retry", { params: { path: { invoice_id: invoiceId } } });
+  if (error) return await fail(error, "invoices.detail.failed");
+  revalidatePath(`/invoices/${invoiceId}`);
+  return { ok: true, data: null };
+}
+
 export async function createContainer(containerNumber: string): Promise<ActionResult<{ id: string }>> {
   const { data, error } = await api.POST("/api/v1/containers", {
     body: { container_number: containerNumber.trim().toUpperCase() },
