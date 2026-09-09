@@ -41,7 +41,7 @@ jobs:
         working-directory: backend
     services:
       postgres:
-        image: postgres:17
+        image: postgres:18
         env:
           POSTGRES_USER: fs
           POSTGRES_PASSWORD: fs
@@ -68,7 +68,7 @@ jobs:
       - run: |
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
           echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
-          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-18
       - run: uv sync --frozen --all-groups
       - run: uv run ruff check .
       - run: uv run ruff format --check .
