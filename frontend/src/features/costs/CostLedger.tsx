@@ -17,6 +17,7 @@ export default function CostLedger({ report, currency, revalidate }: { report: L
   const costTypeLabel = useTranslations("domain.costType");
   const methodLabel = useTranslations("domain.method");
   const scopeLabel = useTranslations("domain.scope");
+  const te = useTranslations("estimates");
   const locale = useLocale();
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -52,7 +53,11 @@ export default function CostLedger({ report, currency, revalidate }: { report: L
               report.costs.map((c) => (
                 <tr key={c.id} className="hover:bg-slate-50">
                   <td className={`${td} text-slate-600`}>{dateShort(c.cost_date, locale)}</td>
-                  <td className={td}>{costTypeLabel(c.cost_type)}</td>
+                  <td className={td}>
+                    {costTypeLabel(c.cost_type)}
+                    {c.status === "ESTIMATE" ? <span className={`ml-2 inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${c.closed_at ? "bg-slate-100 text-slate-500" : "bg-violet-100 text-violet-800"}`}>{c.closed_at ? te("closed") : te("statusEstimate")}</span> : null}
+                    {c.supersedes_cost_id ? <span className="ml-2 text-[10px] text-slate-400 uppercase tracking-wider">↩ {te("statusEstimate").toLowerCase()}</span> : null}
+                  </td>
                   <td className={`${td} text-slate-600`}>{scopeLabel(c.scope)}</td>
                   <td className={tdRight}><Money amount={c.amount} currency={c.currency} /></td>
                   <td className={tdRight}>

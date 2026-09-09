@@ -20,7 +20,8 @@
     "settings": "Settings",
     "alerts": "Alerts",
     "invoices": "Invoices",
-    "audit": "History"
+    "audit": "History",
+    "variance": "Variance"
   },
   "containers": {
     "title": "Containers",
@@ -161,7 +162,10 @@
       "invoiceNumber": "Invoice no.",
       "submit": "Add cost",
       "added": "Cost added. Allocation recalculated.",
-      "failed": "Could not add the cost"
+      "failed": "Could not add the cost",
+      "status": "Status",
+      "statusActual": "Actual (invoice)",
+      "statusEstimate": "Estimate (quote, rate card)"
     },
     "ledger": {
       "title": "Costs",
@@ -517,7 +521,12 @@
     "INVALID_CONTAINER_NUMBER": "Invalid container number (ISO 6346).",
     "DUPLICATE_IN_FILE": "Duplicate row in the file.",
     "DEPRECATED_COLUMN": "Deprecated column, ignored.",
-    "FX_RATE_DEFAULTED": "A default exchange rate was applied."
+    "FX_RATE_DEFAULTED": "A default exchange rate was applied.",
+    "NOT_AN_ACTUAL": "Only an actual cost can replace an estimate.",
+    "SELF_SUPERSEDE": "A cost cannot replace itself.",
+    "NOT_AN_ESTIMATE": "The targeted cost is not an estimate.",
+    "ALREADY_SUPERSEDED": "This estimate is already replaced.",
+    "ESTIMATE_CLOSED": "This estimate is closed."
   },
   "timeline": {
     "title": "Timeline",
@@ -651,6 +660,67 @@
       "container": "Container",
       "invoice": "Invoice",
       "organization": "Organization"
+    }
+  },
+  "estimates": {
+    "title": "Estimated → actual",
+    "estimated": "Estimated",
+    "actual": "Actual",
+    "variance": "Variance",
+    "varianceHint": "actual − estimated, on the cost types that have both",
+    "completeness": "Invoiced cost types",
+    "completenessDetail": "{actual} of {expected} expected cost types have an invoice",
+    "noExpected": "nothing expected yet",
+    "apply": "Estimate from rate cards",
+    "applied": "{created} estimates created",
+    "appliedSkipped": "{created} estimates created, {skipped} skipped",
+    "skippedTitle": "Skipped",
+    "noRateCards": "No rate card: add some in the settings to estimate before the invoice.",
+    "failed": "Could not apply the rate cards",
+    "statusEstimate": "Estimate",
+    "statusActual": "Actual",
+    "superseded": "replaced by an invoice",
+    "closed": "closed",
+    "close": "Close without invoice",
+    "closeReason": "Reason (e.g. never invoiced by the forwarder)",
+    "closed_ok": "Estimate closed"
+  },
+  "rateCards": {
+    "title": "Estimation rate cards",
+    "hint": "One rate card per cost type. Applied on demand to a container to create estimated costs, later replaced by the real invoice.",
+    "empty": "No rate card.",
+    "costType": "Cost type",
+    "scope": "Scope",
+    "basis": "Basis",
+    "amount": "Amount",
+    "currency": "Currency",
+    "hsCode": "HS code (duty)",
+    "notes": "Note",
+    "add": "Add rate card",
+    "added": "Rate card added",
+    "deleted": "Rate card deleted",
+    "failed": "Could not save the rate card",
+    "basisLabel": {
+      "FLAT": "Flat",
+      "PER_100KG": "Per 100 kg",
+      "PER_CBM": "Per m³",
+      "PCT_OF_FOB": "% of FOB"
+    }
+  },
+  "variance": {
+    "title": "Month variance",
+    "nav": "Variance",
+    "subtitle": "Actual minus estimated, on actual costs dated in the month, by type and by purchase order. For month-end close.",
+    "period": "Month",
+    "pairs": "{count} actual costs paired with an estimate",
+    "byType": "By cost type",
+    "byPo": "By purchase order",
+    "empty": "No actual cost paired with an estimate this month.",
+    "th": {
+      "label": "Label",
+      "estimated": "Estimated",
+      "actual": "Actual",
+      "variance": "Variance"
     }
   }
 }

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { api, problemMessage, type ImportJobResponse, type LandedCostReport } from "@/lib/api/client";
 import { protectAction } from "@/lib/auth";
-import type { AllocationMethod, ContainerMilestone, CostScope, CostType, ImportKind, MilestoneCode } from "@/lib/domain";
+import type { AllocationMethod, ContainerMilestone, CostScope, CostStatus, CostType, ImportKind, MilestoneCode, RateBasis } from "@/lib/domain";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -39,6 +39,7 @@ export async function addCost(input: {
   fx_rate?: string;
   vendor?: string;
   invoice_number?: string;
+  status?: CostStatus;
   revalidate: string;
 }): Promise<ActionResult<{ id: string }>> {
   const amount = normalizeAmount(input.amount);
@@ -52,6 +53,7 @@ export async function addCost(input: {
       scope: input.scope,
       target_id: input.target_id,
       cost_type: input.cost_type as CostType,
+      status: input.status ?? "ACTUAL",
       amount,
       currency: input.currency,
       cost_date: input.cost_date,
@@ -215,6 +217,45 @@ export async function retryInvoice(invoiceId: string): Promise<ActionResult<null
   const { error } = await api.POST("/api/v1/invoices/{invoice_id}/retry", { params: { path: { invoice_id: invoiceId } } });
   if (error) return await fail(error, "invoices.detail.failed");
   revalidatePath(`/invoices/${invoiceId}`);
+  return { ok: true, data: null };
+}
+
+// ---------------------------------------------------------------------------- estimates
+
+export async function applyEstimates(containerId: string): Promise<ActionResult<{ created: number; skipped: Record<string, string> }>> {
+  await protectAction();
+  const { data, error } = await api.POST("/api/v1/containers/{container_id}/estimates", { params: { path: { container_id: containerId } } });
+  if (error || !data) return await fail(error, "estimates.failed");
+  revalidatePath(`/container/${containerId}`);
+  revalidatePath("/containers");
+  return { ok: true, data: { created: data.created.length, skipped: data.skipped } };
+}
+
+export async function closeEstimate(costId: string, reason: string, revalidate: string): Promise<ActionResult<null>> {
+  await protectAction();
+  const { error } = await api.POST("/api/v1/costs/{cost_id}/close", { params: { path: { cost_id: costId } }, body: { reason: reason.trim() || "closed" } });
+  if (error) return await fail(error, "estimates.failed");
+  revalidatePath(revalidate);
+  return { ok: true, data: null };
+}
+
+export async function addRateCard(input: { cost_type: CostType; scope: "CONTAINER" | "SHIPMENT"; basis: RateBasis; amount: string; currency: string; hs_code?: string; notes?: string }): Promise<ActionResult<null>> {
+  await protectAction();
+  const amount = normalizeAmount(input.amount);
+  if (amount === null) return await fail(null, "rateCards.failed");
+  const { error } = await api.POST("/api/v1/organization/rate-cards", {
+    body: { cost_type: input.cost_type, scope: input.scope, basis: input.basis, amount, currency: input.currency.toUpperCase(), hs_code: input.hs_code || null, notes: input.notes || null },
+  });
+  if (error) return await fail(error, "rateCards.failed");
+  revalidatePath("/settings");
+  return { ok: true, data: null };
+}
+
+export async function deleteRateCard(cardId: string): Promise<ActionResult<null>> {
+  await protectAction();
+  const { error } = await api.DELETE("/api/v1/organization/rate-cards/{card_id}", { params: { path: { card_id: cardId } } });
+  if (error) return await fail(error, "rateCards.failed");
+  revalidatePath("/settings");
   return { ok: true, data: null };
 }
 

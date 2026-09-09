@@ -36,6 +36,7 @@ export default function AddCostForm({ scope, targetId, shipmentId, currency, rev
         fx_rate: String(f.get("fx_rate") ?? "") || undefined,
         vendor: String(f.get("vendor") ?? "") || undefined,
         invoice_number: String(f.get("invoice_number") ?? "") || undefined,
+        status: (String(f.get("status") ?? "ACTUAL") as "ACTUAL" | "ESTIMATE"),
         revalidate,
       });
       if (!result.ok) return void toast.error(result.error);
@@ -74,6 +75,13 @@ export default function AddCostForm({ scope, targetId, shipmentId, currency, rev
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className={label} htmlFor="status">{t("status")}</label>
+          <select id="status" name="status" defaultValue="ACTUAL" className={input}>
+            <option value="ACTUAL">{t("statusActual")}</option>
+            <option value="ESTIMATE">{t("statusEstimate")}</option>
+          </select>
+        </div>
         <div>
           <label className={label} htmlFor="cost_date">{t("invoiceDate")}</label>
           <input id="cost_date" name="cost_date" type="date" defaultValue={today} required className={input} />

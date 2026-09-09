@@ -20,7 +20,8 @@
     "settings": "Paramètres",
     "alerts": "Alertes",
     "invoices": "Factures",
-    "audit": "Historique"
+    "audit": "Historique",
+    "variance": "Écarts"
   },
   "containers": {
     "title": "Conteneurs",
@@ -161,7 +162,10 @@
       "invoiceNumber": "N° de facture",
       "submit": "Ajouter le coût",
       "added": "Coût ajouté. Ventilation recalculée.",
-      "failed": "Impossible d'ajouter le coût"
+      "failed": "Impossible d'ajouter le coût",
+      "status": "Statut",
+      "statusActual": "Réel (facture)",
+      "statusEstimate": "Estimé (devis, barème)"
     },
     "ledger": {
       "title": "Coûts",
@@ -517,7 +521,12 @@
     "INVALID_CONTAINER_NUMBER": "Numéro de conteneur invalide (ISO 6346).",
     "DUPLICATE_IN_FILE": "Ligne en double dans le fichier.",
     "DEPRECATED_COLUMN": "Colonne obsolète, ignorée.",
-    "FX_RATE_DEFAULTED": "Taux de change par défaut appliqué."
+    "FX_RATE_DEFAULTED": "Taux de change par défaut appliqué.",
+    "NOT_AN_ACTUAL": "Seul un coût réel peut remplacer un estimé.",
+    "SELF_SUPERSEDE": "Un coût ne peut pas se remplacer lui-même.",
+    "NOT_AN_ESTIMATE": "Le coût visé n'est pas un estimé.",
+    "ALREADY_SUPERSEDED": "Cet estimé est déjà remplacé.",
+    "ESTIMATE_CLOSED": "Cet estimé est clos."
   },
   "timeline": {
     "title": "Chronologie",
@@ -651,6 +660,67 @@
       "container": "Conteneur",
       "invoice": "Facture",
       "organization": "Société"
+    }
+  },
+  "estimates": {
+    "title": "Estimé → réel",
+    "estimated": "Estimé",
+    "actual": "Réel",
+    "variance": "Écart",
+    "varianceHint": "réel − estimé, sur les postes qui ont les deux",
+    "completeness": "Postes facturés",
+    "completenessDetail": "{actual} sur {expected} types de coûts ont une facture",
+    "noExpected": "aucun poste attendu",
+    "apply": "Estimer avec les barèmes",
+    "applied": "{created} estimés créés",
+    "appliedSkipped": "{created} estimés créés, {skipped} ignorés",
+    "skippedTitle": "Ignorés",
+    "noRateCards": "Aucun barème : ajoutez-en dans les réglages pour estimer avant la facture.",
+    "failed": "Impossible d'appliquer les barèmes",
+    "statusEstimate": "Estimé",
+    "statusActual": "Réel",
+    "superseded": "remplacé par une facture",
+    "closed": "clos",
+    "close": "Clore sans facture",
+    "closeReason": "Motif (ex. : non facturé par le transitaire)",
+    "closed_ok": "Estimé clos"
+  },
+  "rateCards": {
+    "title": "Barèmes d'estimation",
+    "hint": "Un barème par type de coût. Appliqué à la demande sur un conteneur pour créer des coûts estimés, remplacés ensuite par la facture réelle.",
+    "empty": "Aucun barème.",
+    "costType": "Type de coût",
+    "scope": "Périmètre",
+    "basis": "Base",
+    "amount": "Montant",
+    "currency": "Devise",
+    "hsCode": "Code SH (droits)",
+    "notes": "Note",
+    "add": "Ajouter le barème",
+    "added": "Barème ajouté",
+    "deleted": "Barème supprimé",
+    "failed": "Impossible d'enregistrer le barème",
+    "basisLabel": {
+      "FLAT": "Forfait",
+      "PER_100KG": "Par 100 kg",
+      "PER_CBM": "Par m³",
+      "PCT_OF_FOB": "% du FOB"
+    }
+  },
+  "variance": {
+    "title": "Écarts du mois",
+    "nav": "Écarts",
+    "subtitle": "Réel moins estimé, sur les coûts réels datés du mois, par type et par commande. Pour la clôture.",
+    "period": "Mois",
+    "pairs": "{count} coûts réels appariés à un estimé",
+    "byType": "Par type de coût",
+    "byPo": "Par commande",
+    "empty": "Aucun coût réel apparié à un estimé sur ce mois.",
+    "th": {
+      "label": "Libellé",
+      "estimated": "Estimé",
+      "actual": "Réel",
+      "variance": "Écart"
     }
   }
 }

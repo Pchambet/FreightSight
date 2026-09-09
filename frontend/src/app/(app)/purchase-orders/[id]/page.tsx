@@ -7,6 +7,7 @@ import { Card, PageHeader, td, tdRight, th, thRight } from "@/components/layout/
 import { Money } from "@/components/shared/Money";
 import AddCostForm from "@/features/costs/AddCostForm";
 import AllocationPanel from "@/features/costs/AllocationPanel";
+import EstimatePanel from "@/features/estimates/EstimatePanel";
 import CostLedger from "@/features/costs/CostLedger";
 import { api } from "@/lib/api/client";
 import { dateShort, pct, qty } from "@/lib/format";
@@ -107,6 +108,7 @@ export default async function PurchaseOrderPage({ params }: Params) {
               </div>
             ))}
           </div>
+          <EstimatePanel report={report} currency={cur} />
           <AllocationPanel key={report.costs.map((c) => c.id).join(",")} poId={po.id} report={report} />
           <CostLedger report={report} currency={cur} revalidate={revalidate} />
         </div>

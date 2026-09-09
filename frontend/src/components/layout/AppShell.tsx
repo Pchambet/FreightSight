@@ -9,6 +9,7 @@ const NAV = [
   { href: "/purchase-orders", key: "purchaseOrders" },
   { href: "/imports", key: "imports" },
   { href: "/invoices", key: "invoices" },
+  { href: "/reports/variance", key: "variance" },
   { href: "/audit", key: "audit" },
   { href: "/settings", key: "settings" },
 ] as const;
