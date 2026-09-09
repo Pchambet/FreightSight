@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
-import { api, problemMessage, type ImportJobResponse, type LandedCostReport } from "@/lib/api/client";
+import { api, problemMessage, type ImportJobResponse, type LandedCostReport, type Schemas } from "@/lib/api/client";
 import { protectAction } from "@/lib/auth";
 import type { AllocationMethod, ContainerMilestone, CostScope, CostStatus, CostType, ImportKind, MilestoneCode, RateBasis } from "@/lib/domain";
 
@@ -400,4 +400,24 @@ export async function updateOrganization(input: {
   revalidatePath("/settings");
   revalidatePath("/containers");
   return { ok: true, data: null };
+}
+
+export type ErpLandedCostPreview = Schemas["ErpLandedCostPreview"];
+export type ErpPushResponse = Schemas["ErpPushResponse"];
+
+/** What would be created in the ERP for this container. Reads the ERP, writes nothing. */
+export async function previewErpLandedCost(containerId: string): Promise<ActionResult<ErpLandedCostPreview>> {
+  await protectAction();
+  const { data, error } = await api.GET("/api/v1/containers/{container_id}/erp/landed-cost/preview", { params: { path: { container_id: containerId } } });
+  if (error || !data) return await fail(error, "erp.push.previewFailed");
+  return { ok: true, data };
+}
+
+/** Creates the landed cost in the ERP, in draft. Pushing the same costs twice returns the first push. */
+export async function pushErpLandedCost(containerId: string): Promise<ActionResult<ErpPushResponse>> {
+  await protectAction();
+  const { data, error } = await api.POST("/api/v1/containers/{container_id}/erp/landed-cost", { params: { path: { container_id: containerId } } });
+  if (error || !data) return await fail(error, "erp.push.pushFailed");
+  revalidatePath(`/container/${containerId}`);
+  return { ok: true, data };
 }

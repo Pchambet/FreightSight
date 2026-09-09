@@ -496,7 +496,8 @@
       "invoice_rejected": "Invoice rejected",
       "container_loads_replaced": "Loads changed",
       "organization_updated": "Settings changed",
-      "container_tracking_event_added": "Tracking event added"
+      "container_tracking_event_added": "Tracking event added",
+      "erp_landed_cost_pushed": "ERP entry created (draft)"
     }
   },
   "errors": {
@@ -778,7 +779,34 @@
       "FAILED": "Failed"
     },
     "fullSync": "Re-read everything",
-    "fullSyncHint": "Re-reads every order instead of only those changed since the last sync."
+    "fullSyncHint": "Re-reads every order instead of only those changed since the last sync.",
+    "push": {
+      "title": "Write to the ERP",
+      "hint": "The landed cost exactly as it will be created in Odoo, from the invoices allocated to this container. Estimates are never pushed.",
+      "loading": "Reading the ERP…",
+      "retry": "Retry",
+      "refresh": "Refresh preview",
+      "push": "Create the draft in Odoo",
+      "notPushable": "See what is blocking above.",
+      "pushed": "Draft {name} created in Odoo. Nothing is validated: that is yours to do in Odoo.",
+      "pushFailed": "Could not create in the ERP",
+      "previewFailed": "Preview unavailable: the ERP did not answer",
+      "alreadyPushed": "Already pushed to Odoo as {name}.",
+      "draftReminder": "Created as a draft only: FreightSight never validates an entry in your books.",
+      "receipt": "Receipt {name}",
+      "noReceipt": "No receipt found",
+      "costCount": "{count, plural, one {# cost} other {# costs}}",
+      "showLines": "Show the split per line",
+      "hideLines": "Hide the split",
+      "blocker": {
+        "no_erp_connection": "No ERP connected (Settings → ERP connection).",
+        "no_actual_costs": "No invoiced cost is allocated to this container.",
+        "no_receipt": "Receipt not found, or ambiguous, in the ERP.",
+        "unmatched_line": "An order line matches no line on the receipt.",
+        "not_valued": "A product is not in automated valuation (FIFO or average) in Odoo.",
+        "already_pushed": "Already pushed."
+      }
+    }
   },
   "reports": {
     "title": "Reports",

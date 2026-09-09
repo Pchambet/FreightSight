@@ -496,7 +496,8 @@
       "invoice_rejected": "Facture rejetée",
       "container_loads_replaced": "Chargements modifiés",
       "organization_updated": "Réglages modifiés",
-      "container_tracking_event_added": "Événement de suivi ajouté"
+      "container_tracking_event_added": "Événement de suivi ajouté",
+      "erp_landed_cost_pushed": "Écriture ERP créée (brouillon)"
     }
   },
   "errors": {
@@ -778,7 +779,34 @@
       "FAILED": "Échouée"
     },
     "fullSync": "Tout relire",
-    "fullSyncHint": "Relit toutes les commandes au lieu des seules modifiées depuis la dernière synchronisation."
+    "fullSyncHint": "Relit toutes les commandes au lieu des seules modifiées depuis la dernière synchronisation.",
+    "push": {
+      "title": "Écriture dans l'ERP",
+      "hint": "Le coût de réception (landed cost) tel qu'il sera créé dans Odoo, à partir des factures ventilées sur ce conteneur. Les estimations ne sont jamais poussées.",
+      "loading": "Lecture de l'ERP…",
+      "retry": "Réessayer",
+      "refresh": "Actualiser l'aperçu",
+      "push": "Créer le brouillon dans Odoo",
+      "notPushable": "Voir ce qui bloque ci-dessus.",
+      "pushed": "Brouillon {name} créé dans Odoo. Rien n'est validé : à vous de le faire dans Odoo.",
+      "pushFailed": "Création dans l'ERP impossible",
+      "previewFailed": "Aperçu impossible : l'ERP n'a pas répondu",
+      "alreadyPushed": "Déjà poussé dans Odoo sous le nom {name}.",
+      "draftReminder": "Créé en brouillon uniquement : FreightSight ne valide jamais une écriture dans vos comptes.",
+      "receipt": "Réception {name}",
+      "noReceipt": "Aucune réception trouvée",
+      "costCount": "{count, plural, one {# coût} other {# coûts}}",
+      "showLines": "Voir la ventilation par ligne",
+      "hideLines": "Masquer la ventilation",
+      "blocker": {
+        "no_erp_connection": "Aucun ERP connecté (Réglages → Connexion ERP).",
+        "no_actual_costs": "Aucun coût facturé ventilé sur ce conteneur.",
+        "no_receipt": "Réception introuvable ou ambiguë dans l'ERP.",
+        "unmatched_line": "Une ligne de commande ne correspond à aucune ligne de la réception.",
+        "not_valued": "Un produit n'est pas en valorisation automatisée (FIFO ou coût moyen) dans Odoo.",
+        "already_pushed": "Déjà poussé."
+      }
+    }
   },
   "reports": {
     "title": "Rapports",
