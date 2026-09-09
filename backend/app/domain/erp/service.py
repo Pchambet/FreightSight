@@ -19,10 +19,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.crypto import decode_key, seal, unseal
-from app.core.errors import NotFound
+from app.core.errors import NotFound, Unprocessable
 from app.core.settings import Settings, get_settings
 from app.core.tenancy import TenantSession
-from app.domain.erp.ports import ErpConnector, ErpPurchaseOrder
+from app.domain.erp.ports import ErpConnector, ErpPurchaseOrder, ErpWriter
 from app.domain.imports import service as imports
 from app.domain.models import (
     ErpConnection,
@@ -113,6 +113,20 @@ def mark_cancelled(db: Session, org_id: UUID, orders: list[ErpPurchaseOrder]) ->
             po.cancelled_at = now
     db.flush()
     return len(known)
+
+
+def writer_for(connection: ErpConnection, settings: Settings | None = None) -> ErpWriter:
+    """The same adapter, seen through the writing half of the port.
+
+    A connector that cannot write back is a configuration a customer can be in — an ERP we only read
+    — so this says so rather than failing at the moment someone presses the button.
+    """
+    connector = connector_for(connection, settings)
+    if not isinstance(connector, ErpWriter):
+        raise Unprocessable(
+            f"The {connection.kind.value} connector cannot write back yet", code="ERP_READ_ONLY"
+        )
+    return connector
 
 
 def to_csv(orders: list[ErpPurchaseOrder]) -> tuple[bytes, int]:

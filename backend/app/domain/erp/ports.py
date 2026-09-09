@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from app.core.errors import DomainError
 
@@ -69,6 +69,80 @@ class ErpPurchaseOrder:
     #: carry costs and containers here, and deleting it would rewrite a landed cost silently.
     cancelled: bool = False
     lines: list[ErpLine] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ErpReceiptLine:
+    """One line of a receipt in the ERP, and whether Odoo can value it.
+
+    `valued` is the question that decides everything: Odoo refuses a landed cost on a product whose
+    category is not in real-time valuation with a real cost method, and it refuses it at validation —
+    long after we would have written it.
+    """
+
+    move_id: int
+    product_id: int
+    product_name: str
+    sku: str | None
+    quantity: str
+    po_number: str | None
+    po_line_id: int | None
+    valued: bool
+    valuation: str | None = None
+    cost_method: str | None = None
+
+
+@dataclass(frozen=True)
+class ErpReceipt:
+    picking_id: int
+    name: str
+    po_number: str | None
+    done_at: str | None
+    lines: list[ErpReceiptLine] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ErpCostLine:
+    """One charge to push, already split across the receipt's lines by our own engine."""
+
+    label: str
+    amount: str
+    #: `move_id -> amount`, summing to `amount`. This is the whole point of the integration: Odoo is
+    #: told what each line costs rather than being asked to guess a split.
+    per_move: dict[int, str] = field(default_factory=dict)
+    cost_ids: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ErpPushResult:
+    model: str
+    record_id: int
+    name: str
+    state: str
+    amount_total: str
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+@runtime_checkable
+class ErpWriter(Protocol):
+    """Writing back into the ERP. Separate from reading because the risk is not the same."""
+
+    def find_receipts(self, po_numbers: list[str]) -> list[ErpReceipt]:
+        """The done receipts of these purchase orders, with what Odoo knows about each line."""
+        ...
+
+    def create_landed_cost(
+        self,
+        picking_id: int,
+        cost_lines: list[ErpCostLine],
+        *,
+        landed_cost_product_id: int | None = None,
+        journal_id: int | None = None,
+        on_date: date | None = None,
+        reference: str | None = None,
+    ) -> ErpPushResult:
+        """Create a landed cost in draft, carrying our amounts. Never validated by us."""
+        ...
 
 
 @runtime_checkable

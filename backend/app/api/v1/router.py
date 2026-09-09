@@ -31,6 +31,7 @@ for r in (
     shipments.router,
     containers.router,
     erp.router,
+    erp.containers_router,
     exports.router,
     costs.router,
     landed_costs.router,

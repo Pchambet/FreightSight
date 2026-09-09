@@ -27,10 +27,14 @@ from typing import Any
 
 from app.domain.erp.ports import (
     ErpAuthError,
+    ErpCostLine,
     ErpIdentity,
     ErpLine,
     ErpProtocolError,
     ErpPurchaseOrder,
+    ErpPushResult,
+    ErpReceipt,
+    ErpReceiptLine,
     ErpUnavailable,
 )
 
@@ -251,6 +255,203 @@ class OdooConnector:
             if len(page) < page_size:
                 break
         return collected
+
+    # ------------------------------------------------------------------ writing back
+
+    def find_receipts(self, po_numbers: list[str]) -> list[ErpReceipt]:
+        """The done receipts of these orders, with enough about each line to know if Odoo can value it."""
+        if not po_numbers:
+            return []
+        orders = self._kw(
+            "purchase.order",
+            "search_read",
+            [["name", "in", po_numbers]],
+            fields=["name", "picking_ids"],
+        )
+        picking_ids = [pid for order in orders for pid in order.get("picking_ids") or []]
+        if not picking_ids:
+            return []
+        pickings = self._kw(
+            "stock.picking",
+            "search_read",
+            [["id", "in", picking_ids], ["state", "=", "done"]],
+            fields=["name", "state", "date_done", "purchase_id"],
+        )
+        if not pickings:
+            return []
+        moves = self._kw(
+            "stock.move",
+            "search_read",
+            [["picking_id", "in", [p["id"] for p in pickings]], ["state", "=", "done"]],
+            fields=["picking_id", "product_id", "purchase_line_id", "quantity"],
+        )
+        product_ids = sorted({m["product_id"][0] for m in moves if m.get("product_id")})
+        products = (
+            {
+                p["id"]: p
+                for p in self._kw(
+                    "product.product",
+                    "read",
+                    product_ids,
+                    # `valuation` and `cost_method` come from the product's category and are exactly
+                    # what decides whether a landed cost is possible at all.
+                    fields=["default_code", "name", "valuation", "cost_method"],
+                )
+            }
+            if product_ids
+            else {}
+        )
+        po_line_numbers = self._po_numbers_by_line(moves)
+
+        by_picking: dict[int, list[ErpReceiptLine]] = {}
+        for move in moves:
+            product = products.get(move["product_id"][0]) if move.get("product_id") else None
+            line_id = move["purchase_line_id"][0] if move.get("purchase_line_id") else None
+            valuation = (product or {}).get("valuation")
+            cost_method = (product or {}).get("cost_method")
+            by_picking.setdefault(move["picking_id"][0], []).append(
+                ErpReceiptLine(
+                    move_id=int(move["id"]),
+                    product_id=int(move["product_id"][0]) if move.get("product_id") else 0,
+                    product_name=str((product or {}).get("name") or ""),
+                    sku=(product or {}).get("default_code") or None,
+                    quantity=f"{Decimal(str(move.get('quantity') or 0)):f}",
+                    po_number=po_line_numbers.get(line_id) if line_id is not None else None,
+                    po_line_id=line_id,
+                    valued=valuation == "real_time" and cost_method in ("fifo", "average"),
+                    valuation=valuation,
+                    cost_method=cost_method,
+                )
+            )
+        return [
+            ErpReceipt(
+                picking_id=int(picking["id"]),
+                name=str(picking["name"]),
+                po_number=str(picking["purchase_id"][1]) if picking.get("purchase_id") else None,
+                done_at=picking.get("date_done") or None,
+                lines=by_picking.get(picking["id"], []),
+            )
+            for picking in pickings
+        ]
+
+    def _po_numbers_by_line(self, moves: list[dict[str, Any]]) -> dict[int, str]:
+        line_ids = sorted({m["purchase_line_id"][0] for m in moves if m.get("purchase_line_id")})
+        if not line_ids:
+            return {}
+        lines = self._kw("purchase.order.line", "read", line_ids, fields=["order_id"])
+        return {int(line["id"]): str(line["order_id"][1]) for line in lines if line.get("order_id")}
+
+    def create_landed_cost(
+        self,
+        picking_id: int,
+        cost_lines: list[ErpCostLine],
+        *,
+        landed_cost_product_id: int | None = None,
+        journal_id: int | None = None,
+        on_date: date | None = None,
+        reference: str | None = None,
+    ) -> ErpPushResult:
+        """Create the landed cost in draft and write our own split into it.
+
+        Verified against a real Odoo 17, because the documentation does not say it: the valuation
+        adjustment lines cannot be given at creation — Odoo computes them — but
+        `additional_landed_cost` on each of them **is** writable afterwards. So the sequence is
+        create, `compute_landed_cost`, then overwrite each line with the amount our engine
+        allocated. The record stays in `draft`: validating it posts accounting entries, and that is
+        a decision for the person whose books they are.
+        """
+        product_id = landed_cost_product_id or self._default_landed_cost_product()
+        journal = journal_id or self._default_journal()
+        values: dict[str, Any] = {
+            "date": (on_date or date.today()).isoformat(),  # noqa: DTZ011 - an accounting date
+            "target_model": "picking",
+            "picking_ids": [(6, 0, [picking_id])],
+            "account_journal_id": journal,
+            "cost_lines": [
+                (
+                    0,
+                    0,
+                    {
+                        "product_id": product_id,
+                        "name": line.label[:200],
+                        # Our own split is written line by line below; the method only decides the
+                        # first guess Odoo makes, which we then replace.
+                        "split_method": "equal",
+                        "price_unit": float(Decimal(line.amount)),
+                    },
+                )
+                for line in cost_lines
+            ],
+        }
+        if reference:
+            values["name"] = reference
+        created = self._kw("stock.landed.cost", "create", values)
+        record_id = int(created[0] if isinstance(created, list) else created)
+        self._kw("stock.landed.cost", "compute_landed_cost", [record_id])
+        record = self._kw(
+            "stock.landed.cost",
+            "read",
+            [record_id],
+            fields=["name", "state", "amount_total", "cost_lines", "valuation_adjustment_lines"],
+        )[0]
+        self._apply_our_split(record_id, cost_lines, record.get("cost_lines") or [])
+        return ErpPushResult(
+            model="stock.landed.cost",
+            record_id=record_id,
+            name=str(record.get("name") or ""),
+            state=str(record.get("state") or ""),
+            amount_total=f"{Decimal(str(record.get('amount_total') or 0)):.2f}",
+            raw=record,
+        )
+
+    def _apply_our_split(
+        self, record_id: int, cost_lines: list[ErpCostLine], created_line_ids: list[int]
+    ) -> None:
+        """Replace Odoo's split with ours, line by line.
+
+        Matched on the created cost line's *id* rather than its label: Odoo truncates the name it
+        stores, and a user can rename it, so matching on text would silently write nothing.
+        """
+        adjustments = self._kw(
+            "stock.valuation.adjustment.lines",
+            "search_read",
+            [["cost_id", "=", record_id]],
+            fields=["move_id", "cost_line_id", "additional_landed_cost"],
+        )
+        wanted: dict[tuple[int, int], Decimal] = {}
+        for line, line_id in zip(cost_lines, created_line_ids, strict=False):
+            for move_id, amount in line.per_move.items():
+                wanted[(int(line_id), int(move_id))] = Decimal(amount)
+        for adjustment in adjustments:
+            move = adjustment.get("move_id")
+            cost_line = adjustment.get("cost_line_id")
+            if not move or not cost_line:
+                continue
+            allocated = wanted.get((int(cost_line[0]), int(move[0])))
+            if allocated is None:
+                continue
+            self._kw(
+                "stock.valuation.adjustment.lines",
+                "write",
+                [int(adjustment["id"])],
+                {"additional_landed_cost": float(allocated)},
+            )
+
+    def _default_landed_cost_product(self) -> int:
+        found = self._kw("product.product", "search", [["landed_cost_ok", "=", True]], limit=1, order="id")
+        if not found:
+            raise ErpProtocolError(
+                "This Odoo has no product marked as a landed cost. Create a service product with "
+                "'Is a Landed Cost' ticked, then push again.",
+                code="NO_LANDED_COST_PRODUCT",
+            )
+        return int(found[0])
+
+    def _default_journal(self) -> int:
+        found = self._kw("account.journal", "search", [["type", "=", "general"]], limit=1, order="id")
+        if not found:
+            raise ErpProtocolError("This Odoo has no miscellaneous journal", code="NO_JOURNAL")
+        return int(found[0])
 
     # ------------------------------------------------------------------ details
 

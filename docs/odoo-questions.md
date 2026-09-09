@@ -90,3 +90,70 @@ docker exec odoo17 odoo -d fstest -i purchase --stop-after-init \
 ```
 
 Les tests n'en ont pas besoin : ils rejouent les fixtures capturées.
+
+
+---
+
+# Écriture retour : la landed cost (9 septembre 2026)
+
+**Vérifié sur un vrai Odoo 17** avec le module `stock_landed_costs`, pas seulement sur des fixtures :
+catégorie de produit en FIFO + valorisation automatisée, commande d'achat confirmée, réception
+validée (WH/IN/00007), puis `stock.landed.cost` créée par notre code, relue, et vérifiée ligne à
+ligne. Les fixtures de test sont les réponses de cette instance.
+
+## 12. La réponse à la question ouverte : on ne peut pas poser les ventilations à la création
+
+`valuation_adjustment_lines` **n'est pas exploitable en création** : Odoo les calcule lui-même (il en
+a créé une à la création, puis l'a remplacée au `compute_landed_cost`). En revanche
+`additional_landed_cost` sur chacune de ces lignes **est modifiable ensuite**. La séquence qui marche,
+mesurée :
+
+1. `create` de la `stock.landed.cost` avec `picking_ids`, `account_journal_id`, `target_model='picking'`
+   et une `cost_lines` par coût réel (montant = ce que **notre** moteur a ventilé sur ce conteneur) ;
+2. `compute_landed_cost` — Odoo génère ses lignes de ventilation avec **sa** répartition ;
+3. `write` de `additional_landed_cost` sur chaque ligne avec **notre** montant exact ;
+4. on s'arrête là : l'objet reste en `draft`.
+
+Vérifié en vrai sur deux coûts : `LC` en brouillon à 3 041,67 avec deux lignes de ventilation portant
+2 766,67 et 275,00, chacune rattachée au bon `stock.move` et à la bonne `cost_line`.
+
+**L'appariement se fait sur l'`id` de la ligne de coût, pas sur son libellé** : Odoo tronque le nom
+qu'il stocke et un utilisateur peut le renommer, donc apparier sur le texte écrirait silencieusement
+zéro ligne. C'est le genre de bug qui ne se voit qu'en production, sur les livres de quelqu'un
+d'autre.
+
+Conséquence de conception : **une `cost_lines` par coût réel**, avec pour montant la somme de nos
+ventilations sur ce conteneur — ainsi `amount_total` de la landed cost égale la somme des
+ventilations, et le comptable ne voit pas un total qui ne correspond pas à ses lignes.
+
+## 13. Ce qui bloque, et qu'on refuse avant d'écrire
+
+- **Produit non valorisé en coût réel.** Odoo refuse la landed cost à la validation si la catégorie
+  n'est pas en valorisation automatisée avec FIFO ou coût moyen — c'est-à-dire **après** que nous
+  aurions écrit. On lit `valuation` et `cost_method` sur le produit et on refuse avant, avec la
+  raison. (Les données de démo d'Odoo sont toutes en `standard` / `manual_periodic` : le cas par
+  défaut est le cas bloquant.)
+- **Aucune réception faite** pour la commande : une landed cost s'accroche à une réception.
+- **Plusieurs réceptions** pour les commandes du conteneur (livraison partielle) : on ne devine pas
+  laquelle, on le dit. → À trancher avec un partenaire : répartir au prorata des quantités reçues ?
+- **Ligne sans correspondance** : l'appariement se fait sur le SKU (`default_code`), seul
+  identifiant que les deux systèmes partagent. Une ligne sans SKU des deux côtés n'est pas poussée.
+- **Coûts déjà poussés** : un second appel renvoie le premier `erp_pushes`, il n'écrit pas un
+  deuxième document dans les livres de quelqu'un.
+
+## 14. Ce que je n'ai pas vérifié
+
+**Je n'ai pas regardé l'écran Odoo.** Me connecter à l'interface demandait de taper un mot de passe
+dans un formulaire, ce que je ne fais pas, même sur un conteneur jetable que je viens de créer. Tout
+ce qui est écrit ci-dessus vient de la lecture XML-RPC des enregistrements réellement créés
+(`name`, `state`, `amount_total`, `cost_lines`, `valuation_adjustment_lines`, `former_cost`,
+`additional_landed_cost`, `final_cost`). → Si tu veux la capture d'écran, l'instance se recrée en
+quatre commandes (section 5) et `admin` / `admin` t'y connecte en dix secondes.
+
+**Pas de validation, jamais.** `button_validate` poste des écritures comptables ; c'est la décision
+de celui dont ce sont les livres, dans son écran à lui.
+
+**Le produit « landed cost »** est cherché automatiquement (`landed_cost_ok = True`, le premier par
+id) et le journal aussi (premier journal `general`). Si le client en a plusieurs, on prend le premier,
+ce qui est un choix par défaut discutable. → À rendre configurable sur la connexion ERP le jour où un
+partenaire s'en plaint.

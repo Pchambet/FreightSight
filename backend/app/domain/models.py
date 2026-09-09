@@ -859,6 +859,32 @@ class ErpSyncRun(OrgScoped, Base):
     detail: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
 
 
+class ErpPush(OrgScoped, Base):
+    """One landed cost written into a customer's ERP, and which of our costs it carried.
+
+    Kept so a second push of the same costs returns the first one instead of writing twice into
+    someone's books.
+    """
+
+    __tablename__ = "erp_pushes"
+    __table_args__ = (Index("ix_erp_pushes_org_container", "org_id", "container_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    connection_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("erp_connections.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    container_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("containers.id"), nullable=False)
+    #: The costs this push carried, as strings, so the row survives a cost being deleted.
+    cost_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    odoo_model: Mapped[str] = mapped_column(String, nullable=False)
+    odoo_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    odoo_name: Mapped[str | None] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="draft")
+    response: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+
+
 class SkuCostHistory(OrgScoped, Base):
     """The landed unit cost of a SKU, as it stood each day the numbers were recomputed.
 
@@ -934,4 +960,5 @@ RLS_TABLES = [
     "erp_connections",
     "erp_sync_runs",
     "sku_cost_history",
+    "erp_pushes",
 ]

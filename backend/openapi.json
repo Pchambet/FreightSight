@@ -2494,6 +2494,128 @@
         }
       }
     },
+    "/api/v1/containers/{container_id}/erp/landed-cost/preview": {
+      "get": {
+        "tags": [
+          "erp"
+        ],
+        "summary": "Preview Landed Cost",
+        "description": "What we would write into the ERP for this container, and what stands in the way.\n\nWrites nothing, on purpose: the person clicking should see the object before it exists.",
+        "operationId": "preview_landed_cost_api_v1_containers__container_id__erp_landed_cost_preview_get",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Container Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErpLandedCostPreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/containers/{container_id}/erp/landed-cost": {
+      "post": {
+        "tags": [
+          "erp"
+        ],
+        "summary": "Push Landed Cost",
+        "description": "Create the landed cost in the ERP, in draft.\n\nNever validated by us: validating posts accounting entries in someone else's books, and that\ndecision belongs to whoever owns them. Pushing the same costs twice returns the first push\nrather than writing a second document.",
+        "operationId": "push_landed_cost_api_v1_containers__container_id__erp_landed_cost_post",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Container Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErpPushResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/exports/landed-costs.csv": {
       "get": {
         "tags": [
@@ -6877,6 +6999,24 @@
         ],
         "title": "DndRisk"
       },
+      "ErpBlocker": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErpBlocker"
+      },
       "ErpConnectionCreate": {
         "properties": {
           "kind": {
@@ -7017,6 +7157,218 @@
           "ODOO"
         ],
         "title": "ErpKind"
+      },
+      "ErpLandedCostPreview": {
+        "properties": {
+          "container_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Container Id"
+          },
+          "container_number": {
+            "type": "string",
+            "title": "Container Number"
+          },
+          "receipt_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipt Id"
+          },
+          "receipt_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipt Name"
+          },
+          "costs": {
+            "items": {
+              "$ref": "#/components/schemas/ErpPlannedCost"
+            },
+            "type": "array",
+            "title": "Costs"
+          },
+          "total": {
+            "type": "string",
+            "title": "Total"
+          },
+          "blockers": {
+            "items": {
+              "$ref": "#/components/schemas/ErpBlocker"
+            },
+            "type": "array",
+            "title": "Blockers"
+          },
+          "pushable": {
+            "type": "boolean",
+            "title": "Pushable"
+          },
+          "already_pushed_as": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Already Pushed As"
+          }
+        },
+        "type": "object",
+        "required": [
+          "container_id",
+          "container_number",
+          "receipt_id",
+          "receipt_name",
+          "costs",
+          "total",
+          "blockers",
+          "pushable"
+        ],
+        "title": "ErpLandedCostPreview",
+        "description": "Exactly what would be created in the ERP, and everything standing in the way of it.\n\nNothing is written to produce this."
+      },
+      "ErpPlannedCost": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "cost_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Cost Ids"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/ErpPlannedLine"
+            },
+            "type": "array",
+            "title": "Lines"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "cost_ids",
+          "amount",
+          "lines"
+        ],
+        "title": "ErpPlannedCost"
+      },
+      "ErpPlannedLine": {
+        "properties": {
+          "move_id": {
+            "type": "integer",
+            "title": "Move Id"
+          },
+          "product_name": {
+            "type": "string",
+            "title": "Product Name"
+          },
+          "sku": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sku"
+          },
+          "quantity": {
+            "type": "string",
+            "title": "Quantity"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "move_id",
+          "product_name",
+          "sku",
+          "quantity",
+          "amount"
+        ],
+        "title": "ErpPlannedLine"
+      },
+      "ErpPushResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "odoo_model": {
+            "type": "string",
+            "title": "Odoo Model"
+          },
+          "odoo_id": {
+            "type": "integer",
+            "title": "Odoo Id"
+          },
+          "odoo_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Odoo Name"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "cost_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Cost Ids"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "odoo_model",
+          "odoo_id",
+          "odoo_name",
+          "status",
+          "cost_ids",
+          "created_at"
+        ],
+        "title": "ErpPushResponse"
       },
       "ErpSyncRunResponse": {
         "properties": {

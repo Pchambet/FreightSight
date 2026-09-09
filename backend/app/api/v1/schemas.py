@@ -929,3 +929,54 @@ class SkuHistoryResponse(BaseModel):
     sku: str
     base_currency: str
     points: list[SkuHistoryPoint]
+
+
+# ---------------------------------------------------------------------------- ERP write-back
+
+
+class ErpBlocker(BaseModel):
+    code: str
+    message: str
+
+
+class ErpPlannedLine(BaseModel):
+    move_id: int
+    product_name: str
+    sku: str | None
+    quantity: Qty
+    amount: Money
+
+
+class ErpPlannedCost(BaseModel):
+    label: str
+    cost_ids: list[UUID]
+    amount: Money
+    lines: list[ErpPlannedLine]
+
+
+class ErpLandedCostPreview(BaseModel):
+    """Exactly what would be created in the ERP, and everything standing in the way of it.
+
+    Nothing is written to produce this.
+    """
+
+    container_id: UUID
+    container_number: str
+    receipt_id: int | None
+    receipt_name: str | None
+    costs: list[ErpPlannedCost]
+    total: Money
+    blockers: list[ErpBlocker]
+    pushable: bool
+    already_pushed_as: str | None = None
+
+
+class ErpPushResponse(BaseModel):
+    id: UUID
+    odoo_model: str
+    odoo_id: int
+    odoo_name: str | None
+    #: Always `draft`: validating a landed cost posts entries in someone else's books.
+    status: str
+    cost_ids: list[UUID]
+    created_at: datetime

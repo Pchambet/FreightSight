@@ -504,6 +504,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/containers/{container_id}/erp/landed-cost/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Landed Cost
+         * @description What we would write into the ERP for this container, and what stands in the way.
+         *
+         *     Writes nothing, on purpose: the person clicking should see the object before it exists.
+         */
+        get: operations["preview_landed_cost_api_v1_containers__container_id__erp_landed_cost_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/containers/{container_id}/erp/landed-cost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push Landed Cost
+         * @description Create the landed cost in the ERP, in draft.
+         *
+         *     Never validated by us: validating posts accounting entries in someone else's books, and that
+         *     decision belongs to whoever owns them. Pushing the same costs twice returns the first push
+         *     rather than writing a second document.
+         */
+        post: operations["push_landed_cost_api_v1_containers__container_id__erp_landed_cost_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/exports/landed-costs.csv": {
         parameters: {
             query?: never;
@@ -1602,6 +1648,13 @@ export interface components {
          * @enum {string}
          */
         DndRisk: "NONE" | "LOW" | "MEDIUM" | "HIGH" | "INCURRING";
+        /** ErpBlocker */
+        ErpBlocker: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
         /**
          * ErpConnectionCreate
          * @description Everything needed to reach an Odoo. The API key is sealed before it is stored.
@@ -1653,6 +1706,82 @@ export interface components {
          * @enum {string}
          */
         ErpKind: "ODOO";
+        /**
+         * ErpLandedCostPreview
+         * @description Exactly what would be created in the ERP, and everything standing in the way of it.
+         *
+         *     Nothing is written to produce this.
+         */
+        ErpLandedCostPreview: {
+            /**
+             * Container Id
+             * Format: uuid
+             */
+            container_id: string;
+            /** Container Number */
+            container_number: string;
+            /** Receipt Id */
+            receipt_id: number | null;
+            /** Receipt Name */
+            receipt_name: string | null;
+            /** Costs */
+            costs: components["schemas"]["ErpPlannedCost"][];
+            /** Total */
+            total: string;
+            /** Blockers */
+            blockers: components["schemas"]["ErpBlocker"][];
+            /** Pushable */
+            pushable: boolean;
+            /** Already Pushed As */
+            already_pushed_as?: string | null;
+        };
+        /** ErpPlannedCost */
+        ErpPlannedCost: {
+            /** Label */
+            label: string;
+            /** Cost Ids */
+            cost_ids: string[];
+            /** Amount */
+            amount: string;
+            /** Lines */
+            lines: components["schemas"]["ErpPlannedLine"][];
+        };
+        /** ErpPlannedLine */
+        ErpPlannedLine: {
+            /** Move Id */
+            move_id: number;
+            /** Product Name */
+            product_name: string;
+            /** Sku */
+            sku: string | null;
+            /** Quantity */
+            quantity: string;
+            /** Amount */
+            amount: string;
+        };
+        /** ErpPushResponse */
+        ErpPushResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Odoo Model */
+            odoo_model: string;
+            /** Odoo Id */
+            odoo_id: number;
+            /** Odoo Name */
+            odoo_name: string | null;
+            /** Status */
+            status: string;
+            /** Cost Ids */
+            cost_ids: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** ErpSyncRunResponse */
         ErpSyncRunResponse: {
             /**
@@ -4150,6 +4279,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErpSyncRunResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_landed_cost_api_v1_containers__container_id__erp_landed_cost_preview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                container_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpLandedCostPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    push_landed_cost_api_v1_containers__container_id__erp_landed_cost_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                container_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpPushResponse"];
                 };
             };
             /** @description Validation Error */
