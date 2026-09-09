@@ -264,16 +264,24 @@ def test_listing_follows_the_continuation_token() -> None:
 # ---------------------------------------------------------------------------- the real round trip
 
 
+PG_DUMP = os.environ.get("PG_DUMP_BIN", "pg_dump")
+PG_RESTORE = os.environ.get("PG_RESTORE_BIN", "pg_restore")
+
+
 def pg_tools_available(database_url: str) -> bool:
     """pg_dump refuses a server newer than itself, so the major versions have to match."""
-    if not shutil.which("pg_dump") or not shutil.which("pg_restore"):
+    if not (shutil.which(PG_DUMP) or os.path.exists(PG_DUMP)):
+        return False
+    if not (shutil.which(PG_RESTORE) or os.path.exists(PG_RESTORE)):
         return False
     try:
-        out = subprocess.run(["pg_dump", "--version"], capture_output=True, check=True).stdout
+        out = subprocess.run([PG_DUMP, "--version"], capture_output=True, check=True).stdout
     except Exception:
         return False
     client_major = out.decode().strip().split()[-1].split(".")[0]
-    engine = create_engine(libpq_url(database_url))
+    # SQLAlchemy engines keep the +psycopg driver: stripping it picks the psycopg2 dialect, which is
+    # not installed. Only the string handed to pg_dump/pg_restore loses the driver.
+    engine = create_engine(database_url)
     with engine.connect() as connection:
         server_major = str(connection.execute(text("SHOW server_version_num")).scalar())[:2]
     engine.dispose()
@@ -290,16 +298,16 @@ def test_a_dump_restores_with_every_row(engine: Engine, database_url: str) -> No
         pytest.skip("pg_dump/pg_restore of the server's major version are not installed")
 
     counts_before = table_counts(engine)
-    archive = dump(database_url)
+    archive = dump(database_url, PG_DUMP)
     assert archive.startswith(b"PGDMP")
 
     target = f"restore_check_{uuid.uuid4().hex[:8]}"
-    admin = create_engine(libpq_url(database_url), isolation_level="AUTOCOMMIT")
+    admin = create_engine(database_url, isolation_level="AUTOCOMMIT")
     with admin.connect() as connection:
         connection.execute(text(f'CREATE DATABASE "{target}"'))
     try:
-        target_url = libpq_url(database_url).rsplit("/", 1)[0] + f"/{target}"
-        restore(target_url, encrypt_round_trip(archive))
+        target_url = database_url.rsplit("/", 1)[0] + f"/{target}"
+        restore(target_url, encrypt_round_trip(archive), PG_RESTORE)  # restore() strips the driver
         restored = create_engine(target_url)
         assert table_counts(restored) == counts_before
         restored.dispose()
