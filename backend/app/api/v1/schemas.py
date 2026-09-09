@@ -435,6 +435,11 @@ class ReportWarning(BaseModel):
     load_labels: list[str] = []
 
 
+class CostTypeSplit(BaseModel):
+    estimated: Money = Decimal("0.00")
+    actual: Money = Decimal("0.00")
+
+
 class ReportLine(BaseModel):
     load_id: UUID
     container_id: UUID
@@ -450,13 +455,21 @@ class ReportLine(BaseModel):
     vat: Money
     landed: Money
     unit_landed_cost: Qty
+    estimated: Money
+    actual: Money
+    variance: Money
     by_cost_type: dict[str, Money]
 
 
 class LandedCostReport(BaseModel):
     base_currency: str
-    totals: dict[str, Money]  # fob, allocated, vat, landed, unallocated
+    #: fob, allocated, vat, landed, unallocated, estimated, actual, variance
+    totals: dict[str, Money]
+    #: Share of the cost types on this scope that have a real invoice, 0 to 1. Null when none is
+    #: expected yet.
+    completeness: Decimal | None = None
     by_cost_type: dict[str, Money]
+    by_cost_type_detail: dict[str, CostTypeSplit] = Field(default_factory=dict)
     lines: list[ReportLine]
     costs: list[CostResponse]
     warnings: list[ReportWarning]
@@ -682,6 +695,10 @@ class InvoiceConfirmResponse(BaseModel):
     invoice: InvoiceResponse
     costs_created: int
     cost_ids: list[UUID]
+    #: Estimates these costs replaced, when exactly one was waiting for them.
+    superseded_estimate_ids: list[UUID] = Field(default_factory=list)
+    #: What the confirmation deliberately did not decide, in plain words.
+    notes: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------- audit log
@@ -754,3 +771,31 @@ class EstimateResponse(BaseModel):
 
     created: list[CostResponse]
     skipped: dict[str, str]  # cost type -> the reason, in plain words
+
+
+# ---------------------------------------------------------------------------- variance report
+
+
+class VarianceRow(BaseModel):
+    key: str  # a cost type, or a purchase order number
+    label: str
+    estimated: Money
+    actual: Money
+    variance: Money
+
+
+class VarianceReport(BaseModel):
+    """What the month's invoices cost against what was expected of them.
+
+    Only costs that replaced an estimate appear: an invoice nobody forecast has nothing to differ
+    from, and counting it as a 100 % overrun would be a lie by arithmetic.
+    """
+
+    period: str  # YYYY-MM
+    base_currency: str
+    estimated: Money
+    actual: Money
+    variance: Money
+    pairs: int
+    by_cost_type: list[VarianceRow]
+    by_purchase_order: list[VarianceRow]

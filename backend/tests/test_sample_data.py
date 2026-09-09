@@ -43,7 +43,12 @@ def test_sample_data_seeds_the_reference_case(client: TestClient) -> None:
         "vat": "0.00",
         "landed": "18766.67",
         "unallocated": "0.00",
+        # the sample data is a set of invoices, so it is fully actual and has nothing to compare
+        "estimated": "0.00",
+        "actual": "2766.67",
+        "variance": "0.00",
     }
+    assert report["completeness"] == "1.00"
     by_po = {ln["po_number"]: ln for ln in report["lines"]}
     assert by_po["PO-2026-014"]["unit_landed_cost"] == "11.5208"
     assert by_po["PO-2026-015"]["unit_landed_cost"] == "23.7083"

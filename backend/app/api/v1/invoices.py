@@ -172,6 +172,8 @@ def confirm(invoice_id: UUID, t: TenantDep, fx: FxDep, p: WriterDep) -> schemas.
         invoice=_response(invoice),
         costs_created=len(result.costs),
         cost_ids=[c.id for c in result.costs],
+        superseded_estimate_ids=result.superseded,
+        notes=result.notes,
     )
 
 

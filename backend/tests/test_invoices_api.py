@@ -288,3 +288,64 @@ def test_the_fx_rate_is_the_one_of_the_invoice_date(
     assert cost["currency"] == "USD"
     assert cost["fx_date"] == "2026-03-12"
     assert Decimal(cost["amount_base"]) == Decimal(cost["amount"]) * Decimal(cost["fx_rate"])
+
+
+# ---------------------------------------------------------------------------- replacing an estimate
+
+
+def estimate_on(client: TestClient, container_id: str, *, cost_type: str, amount: str) -> str:
+    res = client.post(
+        "/api/v1/costs",
+        json={
+            "scope": "CONTAINER",
+            "target_id": container_id,
+            "cost_type": cost_type,
+            "amount": amount,
+            "currency": "EUR",
+            "cost_date": "2026-03-01",
+            "status": "ESTIMATE",
+        },
+    )
+    assert res.status_code == 201, res.text
+    return str(res.json()["id"])
+
+
+def test_confirming_replaces_the_single_estimate_that_was_waiting(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    invoice_id, lines = review(client, db, org)
+    freight = next(line for line in lines if line["cost_type"] == "OCEAN_FREIGHT")
+    container_id = freight["target_id"]
+    estimate_id = estimate_on(client, container_id, cost_type="OCEAN_FREIGHT", amount="3000.00")
+    client.patch(f"/api/v1/invoices/{invoice_id}/lines/{freight['id']}", json={"accepted": True})
+
+    res = client.post(f"/api/v1/invoices/{invoice_id}/confirm")
+    assert res.status_code == 200, res.text
+    assert res.json()["superseded_estimate_ids"] == [estimate_id]
+
+    costs = {c["id"]: c for c in client.get("/api/v1/costs").json()}
+    created = costs[res.json()["cost_ids"][0]]
+    assert created["supersedes_cost_id"] == estimate_id  # the quote stepped aside for the invoice
+    assert created["status"] == "ACTUAL"
+    assert costs[estimate_id]["status"] == "ESTIMATE"  # and is still on file, as the comparison
+
+
+def test_several_estimates_are_left_alone_and_the_confirmation_says_so(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """Which of two open estimates an invoice settles is a judgement; guessing would silently drop a
+    real estimate out of the landed cost."""
+    invoice_id, lines = review(client, db, org)
+    freight = next(line for line in lines if line["cost_type"] == "OCEAN_FREIGHT")
+    container_id = freight["target_id"]
+    estimate_on(client, container_id, cost_type="OCEAN_FREIGHT", amount="2000.00")
+    estimate_on(client, container_id, cost_type="OCEAN_FREIGHT", amount="1000.00")
+    client.patch(f"/api/v1/invoices/{invoice_id}/lines/{freight['id']}", json={"accepted": True})
+
+    body = client.post(f"/api/v1/invoices/{invoice_id}/confirm").json()
+    assert body["superseded_estimate_ids"] == []
+    assert "2 open estimates" in body["notes"][0]
+    assert "pick one by hand" in body["notes"][0]
+
+    created = {c["id"]: c for c in client.get("/api/v1/costs").json()}[body["cost_ids"][0]]
+    assert created["supersedes_cost_id"] is None  # both estimates are still standing

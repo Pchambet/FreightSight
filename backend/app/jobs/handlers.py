@@ -33,6 +33,7 @@ from app.domain.models import (
     AlertKind,
     AlertSeverity,
     Container,
+    ContainerMilestone,
     DndRisk,
     EtaHistory,
     Invoice,
@@ -227,6 +228,59 @@ def _poll_one(
     if subscription.status == "active" and container.tracking_state is TrackingState.ACTIVE:
         container.tracking_state = TrackingState.FAILED
     db.flush()
+
+
+#: How long a delivered container is still worth paying a provider to watch.
+KEEP_TRACKING_AFTER_DELIVERY = timedelta(days=7)
+
+DELIVERED_MILESTONES = (ContainerMilestone.DELIVERED, ContainerMilestone.GATE_IN_EMPTY_RETURN)
+
+
+def end_delivered_subscriptions(
+    db: Session, *, now: datetime | None = None, provider_factory: ProviderFactory = get_provider
+) -> int:
+    """Stop tracking containers that arrived a week ago. Returns how many were unsubscribed.
+
+    Providers charge per tracked container, and a box that has been returned empty is not going to
+    move again. The week of grace is for the late gate-in that arrives after the delivery event.
+    """
+    moment = now or datetime.now(UTC)
+    ended = 0
+    for org in organizations(db):
+        with tenant(db, org):
+            subscriptions = list(
+                db.scalars(
+                    select(TrackingSubscription).where(
+                        TrackingSubscription.org_id == org.id,
+                        TrackingSubscription.ended_at.is_(None),
+                        TrackingSubscription.provider != "manual",
+                    )
+                )
+            )
+            for subscription in subscriptions:
+                container = db.get(Container, subscription.container_id)
+                if container is None or container.milestone not in DELIVERED_MILESTONES:
+                    continue
+                settled = container.empty_returned_at or container.gate_out_at
+                if settled is None or moment - settled < KEEP_TRACKING_AFTER_DELIVERY:
+                    continue
+                if subscription.provider_ref:
+                    try:
+                        provider_factory(subscription.provider).unsubscribe(subscription.provider_ref)
+                    except (ProviderNotConfigured, ProviderUnavailable) as exc:
+                        # The provider will keep charging until someone sorts it out; that is worth
+                        # saying, and worth retrying, so the subscription stays open.
+                        logger.warning(
+                            "could not unsubscribe container %s: %s", container.container_number, exc
+                        )
+                        subscription.last_error = exc.message
+                        continue
+                subscription.ended_at = moment
+                subscription.status = "ended"
+                container.tracking_state = TrackingState.ENDED
+                ended += 1
+            db.commit()
+    return ended
 
 
 # ---------------------------------------------------------------------------- demurrage

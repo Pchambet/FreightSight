@@ -15,6 +15,7 @@ from app.domain.models import (
     Alert,
     AlertKind,
     Container,
+    ContainerMilestone,
     DndRisk,
     EtaHistory,
     MilestoneCode,
@@ -250,3 +251,126 @@ def test_retries_stop_after_five_attempts(client: TestClient, db: Session, org: 
 def test_backoff_grows_exponentially() -> None:
     waits = [handlers._backoff(n).total_seconds() / 60 for n in range(5)]
     assert waits == [1, 2, 4, 8, 16]
+
+
+# ---------------------------------------------------------------------------- delivered containers
+
+
+def test_a_delivered_container_stops_being_tracked_after_a_week(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """Providers charge per tracked box, and a returned empty is not going to move again."""
+    container_id = make_container(client)
+    container = db.get(Container, uuid.UUID(container_id))
+    assert container is not None
+    container.milestone = ContainerMilestone.GATE_IN_EMPTY_RETURN
+    container.empty_returned_at = NOW - timedelta(days=8)
+    container.tracking_state = TrackingState.ACTIVE
+    db.add(
+        TrackingSubscription(
+            org_id=org.id,
+            container_id=container.id,
+            provider="terminal49",
+            provider_ref="t49-done",
+            status="active",
+            subscribed_at=NOW - timedelta(days=40),
+        )
+    )
+    db.commit()
+
+    unsubscribed: list[str] = []
+
+    class Provider:
+        name = "terminal49"
+
+        def unsubscribe(self, provider_ref: str) -> None:
+            unsubscribed.append(provider_ref)
+
+    ended = handlers.end_delivered_subscriptions(
+        db,
+        now=NOW,
+        provider_factory=lambda _: Provider(),  # type: ignore[arg-type,return-value]
+    )
+    assert ended == 1
+    assert unsubscribed == ["t49-done"]
+    db.expire_all()
+    stopped = db.get(Container, uuid.UUID(container_id))
+    assert stopped is not None and stopped.tracking_state is TrackingState.ENDED
+
+
+def test_a_container_delivered_yesterday_is_still_watched(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """The week of grace is for the late gate-in that arrives after the delivery event."""
+    container_id = make_container(client)
+    container = db.get(Container, uuid.UUID(container_id))
+    assert container is not None
+    container.milestone = ContainerMilestone.DELIVERED
+    container.gate_out_at = NOW - timedelta(days=1)
+    db.add(
+        TrackingSubscription(
+            org_id=org.id,
+            container_id=container.id,
+            provider="terminal49",
+            provider_ref="t49-recent",
+            status="active",
+            subscribed_at=NOW - timedelta(days=40),
+        )
+    )
+    db.commit()
+
+    class Provider:
+        name = "terminal49"
+
+        def unsubscribe(self, provider_ref: str) -> None:  # pragma: no cover - must not be called
+            raise AssertionError("still moving")
+
+    assert (
+        handlers.end_delivered_subscriptions(
+            db,
+            now=NOW,
+            provider_factory=lambda _: Provider(),  # type: ignore[arg-type,return-value]
+        )
+        == 0
+    )
+
+
+def test_a_provider_that_refuses_keeps_the_subscription_open(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """It will keep charging until someone sorts it out; closing our row would hide that."""
+    from app.domain.tracking.ports import ProviderUnavailable
+
+    container_id = make_container(client)
+    container = db.get(Container, uuid.UUID(container_id))
+    assert container is not None
+    container.milestone = ContainerMilestone.GATE_IN_EMPTY_RETURN
+    container.empty_returned_at = NOW - timedelta(days=30)
+    subscription = TrackingSubscription(
+        org_id=org.id,
+        container_id=container.id,
+        provider="terminal49",
+        provider_ref="t49-stuck",
+        status="active",
+        subscribed_at=NOW - timedelta(days=60),
+    )
+    db.add(subscription)
+    db.commit()
+
+    class Provider:
+        name = "terminal49"
+
+        def unsubscribe(self, provider_ref: str) -> None:
+            raise ProviderUnavailable("Terminal49 is down")
+
+    assert (
+        handlers.end_delivered_subscriptions(
+            db,
+            now=NOW,
+            provider_factory=lambda _: Provider(),  # type: ignore[arg-type,return-value]
+        )
+        == 0
+    )
+    db.expire_all()
+    assert subscription.ended_at is None
+    assert subscription.last_error == "Terminal49 is down"

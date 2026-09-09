@@ -7,7 +7,7 @@ THE RULE: no cost is ever created without a human confirming it. Everything here
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -34,6 +34,7 @@ from app.domain.models import (
     Container,
     Cost,
     CostScope,
+    CostStatus,
     Invoice,
     InvoiceLine,
     InvoiceStatus,
@@ -57,6 +58,9 @@ SCOPE_MODEL: dict[CostScope, tuple[type, str, str]] = {
 class Confirmation:
     invoice: Invoice
     costs: list[Cost]
+    #: Estimates this confirmation replaced, and the lines where it deliberately replaced nothing.
+    superseded: list[UUID] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
 
 
 def create_invoice(
@@ -235,6 +239,8 @@ def confirm(
 
     cost_date = invoice.invoice_date or datetime.now(UTC).date()
     costs: list[Cost] = []
+    superseded: list[UUID] = []
+    notes: list[str] = []
     for line in accepted:
         assert line.scope is not None and line.target_id is not None and line.cost_type is not None
         model, foreign_key, what = SCOPE_MODEL[line.scope]
@@ -264,6 +270,19 @@ def confirm(
             created_by=created_by,
         )
         setattr(cost, foreign_key, line.target_id)
+        candidates = _open_estimates(db, org, line)
+        if len(candidates) == 1:
+            # One estimate of this type on this target: this invoice is plainly the one it was
+            # waiting for, and the pair becomes the variance.
+            cost.supersedes_cost_id = candidates[0].id
+            superseded.append(candidates[0].id)
+        elif len(candidates) > 1:
+            # Several: which one this invoice settles is a judgement, and guessing would silently
+            # drop a real estimate out of the landed cost. Say so and leave them alone.
+            notes.append(
+                f"Line {line.line_no}: {len(candidates)} open estimates of type "
+                f"{line.cost_type.value} on this target; none was replaced, pick one by hand."
+            )
         db.add(cost)
         db.flush()
         line.cost_id = cost.id
@@ -273,7 +292,23 @@ def confirm(
     invoice.confirmed_at = datetime.now(UTC)
     db.flush()
     recompute_org(db, org)
-    return Confirmation(invoice=invoice, costs=costs)
+    return Confirmation(invoice=invoice, costs=costs, superseded=superseded, notes=notes)
+
+
+def _open_estimates(db: Session, org: Organization, line: InvoiceLine) -> list[Cost]:
+    """Estimates of this cost type, on this exact target, still standing and not yet replaced."""
+    assert line.scope is not None and line.target_id is not None
+    _, foreign_key, _ = SCOPE_MODEL[line.scope]
+    taken = select(Cost.supersedes_cost_id).where(Cost.org_id == org.id, Cost.supersedes_cost_id.is_not(None))
+    stmt = select(Cost).where(
+        Cost.org_id == org.id,
+        Cost.status == CostStatus.ESTIMATE,
+        Cost.cost_type == line.cost_type,
+        Cost.closed_at.is_(None),
+        Cost.id.not_in(taken),
+        getattr(Cost, foreign_key) == line.target_id,
+    )
+    return list(db.scalars(stmt))
 
 
 def _method(org: Organization, cost_type: object) -> AllocationMethod:

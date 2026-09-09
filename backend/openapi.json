@@ -1136,6 +1136,69 @@
         }
       }
     },
+    "/api/v1/reports/variance": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Variance",
+        "description": "Estimated against invoiced, for the invoices dated in one month.\n\nGrouped by cost type and by purchase order, because those are the two questions: which charge\nsurprised us, and which order carries the surprise. The split by order is the engine's own\nallocation of each invoice, not a proportion invented here.",
+        "operationId": "variance_api_v1_reports_variance_get",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}$",
+              "description": "YYYY-MM",
+              "title": "Period"
+            },
+            "description": "YYYY-MM"
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VarianceReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/shipments": {
       "get": {
         "tags": [
@@ -5621,6 +5684,22 @@
         ],
         "title": "CostType"
       },
+      "CostTypeSplit": {
+        "properties": {
+          "estimated": {
+            "type": "string",
+            "title": "Estimated",
+            "default": "0.00"
+          },
+          "actual": {
+            "type": "string",
+            "title": "Actual",
+            "default": "0.00"
+          }
+        },
+        "type": "object",
+        "title": "CostTypeSplit"
+      },
       "CostUpdate": {
         "properties": {
           "cost_type": {
@@ -6145,6 +6224,21 @@
             },
             "type": "array",
             "title": "Cost Ids"
+          },
+          "superseded_estimate_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Superseded Estimate Ids"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
           }
         },
         "type": "object",
@@ -6695,12 +6789,31 @@
             "type": "object",
             "title": "Totals"
           },
+          "completeness": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completeness"
+          },
           "by_cost_type": {
             "additionalProperties": {
               "type": "string"
             },
             "type": "object",
             "title": "By Cost Type"
+          },
+          "by_cost_type_detail": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CostTypeSplit"
+            },
+            "type": "object",
+            "title": "By Cost Type Detail"
           },
           "lines": {
             "items": {
@@ -7977,6 +8090,18 @@
             "type": "string",
             "title": "Unit Landed Cost"
           },
+          "estimated": {
+            "type": "string",
+            "title": "Estimated"
+          },
+          "actual": {
+            "type": "string",
+            "title": "Actual"
+          },
+          "variance": {
+            "type": "string",
+            "title": "Variance"
+          },
           "by_cost_type": {
             "additionalProperties": {
               "type": "string"
@@ -8001,6 +8126,9 @@
           "vat",
           "landed",
           "unit_landed_cost",
+          "estimated",
+          "actual",
+          "variance",
           "by_cost_type"
         ],
         "title": "ReportLine"
@@ -8858,6 +8986,94 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VarianceReport": {
+        "properties": {
+          "period": {
+            "type": "string",
+            "title": "Period"
+          },
+          "base_currency": {
+            "type": "string",
+            "title": "Base Currency"
+          },
+          "estimated": {
+            "type": "string",
+            "title": "Estimated"
+          },
+          "actual": {
+            "type": "string",
+            "title": "Actual"
+          },
+          "variance": {
+            "type": "string",
+            "title": "Variance"
+          },
+          "pairs": {
+            "type": "integer",
+            "title": "Pairs"
+          },
+          "by_cost_type": {
+            "items": {
+              "$ref": "#/components/schemas/VarianceRow"
+            },
+            "type": "array",
+            "title": "By Cost Type"
+          },
+          "by_purchase_order": {
+            "items": {
+              "$ref": "#/components/schemas/VarianceRow"
+            },
+            "type": "array",
+            "title": "By Purchase Order"
+          }
+        },
+        "type": "object",
+        "required": [
+          "period",
+          "base_currency",
+          "estimated",
+          "actual",
+          "variance",
+          "pairs",
+          "by_cost_type",
+          "by_purchase_order"
+        ],
+        "title": "VarianceReport",
+        "description": "What the month's invoices cost against what was expected of them.\n\nOnly costs that replaced an estimate appear: an invoice nobody forecast has nothing to differ\nfrom, and counting it as a 100 % overrun would be a lie by arithmetic."
+      },
+      "VarianceRow": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "estimated": {
+            "type": "string",
+            "title": "Estimated"
+          },
+          "actual": {
+            "type": "string",
+            "title": "Actual"
+          },
+          "variance": {
+            "type": "string",
+            "title": "Variance"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "estimated",
+          "actual",
+          "variance"
+        ],
+        "title": "VarianceRow"
       },
       "WebhookAck": {
         "properties": {

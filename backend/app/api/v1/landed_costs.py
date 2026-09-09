@@ -24,8 +24,16 @@ def _serialize(r: rpt.Report) -> schemas.LandedCostReport:
             "vat": r.vat,
             "landed": r.landed,
             "unallocated": r.unallocated,
+            "estimated": r.estimated,
+            "actual": r.actual,
+            "variance": r.variance,
         },
+        completeness=r.completeness,
         by_cost_type=r.by_cost_type,
+        by_cost_type_detail={
+            k: schemas.CostTypeSplit(estimated=v.estimated, actual=v.actual)
+            for k, v in r.by_cost_type_detail.items()
+        },
         lines=[schemas.ReportLine(**ln.__dict__) for ln in r.lines],
         costs=[schemas.CostResponse.model_validate(c) for c in r.costs],
         warnings=[schemas.ReportWarning(**w.__dict__) for w in r.warnings],

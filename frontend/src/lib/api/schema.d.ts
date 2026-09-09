@@ -245,6 +245,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/variance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Variance
+         * @description Estimated against invoiced, for the invoices dated in one month.
+         *
+         *     Grouped by cost type and by purchase order, because those are the two questions: which charge
+         *     surprised us, and which order carries the surprise. The split by order is the engine's own
+         *     allocation of each invoice, not a proportion invented here.
+         */
+        get: operations["variance_api_v1_reports_variance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shipments": {
         parameters: {
             query?: never;
@@ -1290,6 +1314,19 @@ export interface components {
          * @enum {string}
          */
         CostType: "OCEAN_FREIGHT" | "AIR_FREIGHT" | "INSURANCE" | "ORIGIN_CHARGES" | "THC" | "BL_FEE" | "CUSTOMS_DUTY" | "CUSTOMS_BROKERAGE" | "IMPORT_VAT" | "DRAYAGE" | "DEMURRAGE" | "DETENTION" | "WAREHOUSING" | "INSPECTION" | "BANK_FEES" | "OTHER";
+        /** CostTypeSplit */
+        CostTypeSplit: {
+            /**
+             * Estimated
+             * @default 0.00
+             */
+            estimated: string;
+            /**
+             * Actual
+             * @default 0.00
+             */
+            actual: string;
+        };
         /** CostUpdate */
         CostUpdate: {
             cost_type?: components["schemas"]["CostType"] | null;
@@ -1473,6 +1510,10 @@ export interface components {
             costs_created: number;
             /** Cost Ids */
             cost_ids: string[];
+            /** Superseded Estimate Ids */
+            superseded_estimate_ids?: string[];
+            /** Notes */
+            notes?: string[];
         };
         /** InvoiceLineResponse */
         InvoiceLineResponse: {
@@ -1618,9 +1659,15 @@ export interface components {
             totals: {
                 [key: string]: string;
             };
+            /** Completeness */
+            completeness?: string | null;
             /** By Cost Type */
             by_cost_type: {
                 [key: string]: string;
+            };
+            /** By Cost Type Detail */
+            by_cost_type_detail?: {
+                [key: string]: components["schemas"]["CostTypeSplit"];
             };
             /** Lines */
             lines: components["schemas"]["ReportLine"][];
@@ -1988,6 +2035,12 @@ export interface components {
             landed: string;
             /** Unit Landed Cost */
             unit_landed_cost: string;
+            /** Estimated */
+            estimated: string;
+            /** Actual */
+            actual: string;
+            /** Variance */
+            variance: string;
             /** By Cost Type */
             by_cost_type: {
                 [key: string]: string;
@@ -2248,6 +2301,44 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * VarianceReport
+         * @description What the month's invoices cost against what was expected of them.
+         *
+         *     Only costs that replaced an estimate appear: an invoice nobody forecast has nothing to differ
+         *     from, and counting it as a 100 % overrun would be a lie by arithmetic.
+         */
+        VarianceReport: {
+            /** Period */
+            period: string;
+            /** Base Currency */
+            base_currency: string;
+            /** Estimated */
+            estimated: string;
+            /** Actual */
+            actual: string;
+            /** Variance */
+            variance: string;
+            /** Pairs */
+            pairs: number;
+            /** By Cost Type */
+            by_cost_type: components["schemas"]["VarianceRow"][];
+            /** By Purchase Order */
+            by_purchase_order: components["schemas"]["VarianceRow"][];
+        };
+        /** VarianceRow */
+        VarianceRow: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Estimated */
+            estimated: string;
+            /** Actual */
+            actual: string;
+            /** Variance */
+            variance: string;
         };
         /**
          * WebhookAck
@@ -2932,6 +3023,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EstimateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    variance_api_v1_reports_variance_get: {
+        parameters: {
+            query: {
+                /** @description YYYY-MM */
+                period: string;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VarianceReport"];
                 };
             };
             /** @description Validation Error */

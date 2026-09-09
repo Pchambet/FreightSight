@@ -53,6 +53,19 @@ def poll_stale_subscriptions(timestamp: int) -> None:
     logger.info("polled %s stale subscriptions", count)
 
 
+@app.periodic(cron="30 4 * * *")
+@app.task(
+    name="tracking.end_delivered",
+    queueing_lock="tracking:end_delivered",
+    retry=RetryStrategy(max_attempts=3, exponential_wait=60),
+)
+def end_delivered_subscriptions(timestamp: int) -> None:
+    """Stop paying to watch containers that were delivered a week ago."""
+    with handlers.session() as db:
+        ended = handlers.end_delivered_subscriptions(db, now=_moment(timestamp))
+    logger.info("ended %s tracking subscriptions on delivered containers", ended)
+
+
 @app.periodic(cron="0 * * * *")
 @app.task(
     name="dnd.recompute_risk",
