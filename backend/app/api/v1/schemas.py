@@ -24,6 +24,7 @@ from app.domain.models import (
     InvoiceStatus,
     MemberRole,
     MilestoneCode,
+    RateBasis,
     TrackingState,
 )
 
@@ -703,3 +704,53 @@ class AuditPage(BaseModel):
 
     entries: list[AuditEntryResponse]
     next_cursor: str | None = None
+
+
+# ---------------------------------------------------------------------------- rate cards
+
+
+class RateCardIn(BaseModel):
+    cost_type: CostType
+    scope: Literal[CostScope.CONTAINER, CostScope.SHIPMENT] = CostScope.CONTAINER
+    basis: RateBasis = RateBasis.FLAT
+    amount: Decimal = Field(ge=0, max_digits=14, decimal_places=4)
+    currency: str
+    hs_code: str | None = Field(default=None, max_length=12)
+    notes: str | None = None
+
+    @field_validator("currency")
+    @classmethod
+    def _cur(cls, v: str) -> str:
+        return currency_code(v)
+
+
+class RateCardUpdate(BaseModel):
+    basis: RateBasis | None = None
+    amount: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=4)
+    currency: str | None = None
+    hs_code: str | None = None
+    notes: str | None = None
+
+    @field_validator("currency")
+    @classmethod
+    def _cur(cls, v: str | None) -> str | None:
+        return None if v is None else currency_code(v)
+
+
+class RateCardResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    cost_type: CostType
+    scope: CostScope
+    basis: RateBasis
+    amount: Qty
+    currency: str
+    hs_code: str | None
+    notes: str | None
+
+
+class EstimateResponse(BaseModel):
+    """What applying the rate cards to a container produced, and what it did not."""
+
+    created: list[CostResponse]
+    skipped: dict[str, str]  # cost type -> the reason, in plain words

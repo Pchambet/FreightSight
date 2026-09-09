@@ -178,6 +178,15 @@ class AlertSeverity(enum.StrEnum):
     CRITICAL = "critical"
 
 
+class RateBasis(enum.StrEnum):
+    """How a rate card turns into an amount. What the forwarder's price list actually says."""
+
+    FLAT = "FLAT"  # the amount, once, per target
+    PER_100KG = "PER_100KG"
+    PER_CBM = "PER_CBM"
+    PCT_OF_FOB = "PCT_OF_FOB"  # amount is a percentage: 4.50 means 4.5 %
+
+
 class MemberRole(enum.StrEnum):
     OWNER = "OWNER"
     ADMIN = "ADMIN"
@@ -745,6 +754,40 @@ class InvoiceLine(OrgScoped, Base):
     invoice: Mapped[Invoice] = relationship(back_populates="lines")
 
 
+class RateCard(Timestamped, OrgScoped, Base):
+    """What this organization expects to pay, so an estimate can be produced without asking anyone.
+
+    One card per (cost type, scope, HS code): a forwarder quotes one price for terminal handling per
+    container, not three. The HS code is only used for customs duty, where the rate depends on what
+    is in the box rather than on the box.
+    """
+
+    __tablename__ = "rate_cards"
+    __table_args__ = (
+        UniqueConstraint(
+            "org_id",
+            "cost_type",
+            "scope",
+            "hs_code",
+            name="uq_rate_cards_org_id",
+            postgresql_nulls_not_distinct=True,
+        ),
+        CheckConstraint("amount >= 0", name="amount_nonneg"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    cost_type: Mapped[CostType] = mapped_column(Enum(CostType, name="cost_type"), nullable=False)
+    scope: Mapped[CostScope] = mapped_column(Enum(CostScope, name="cost_scope"), nullable=False)
+    basis: Mapped[RateBasis] = mapped_column(
+        Enum(RateBasis, name="rate_basis"), nullable=False, default=RateBasis.FLAT
+    )
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+    currency: Mapped[str] = mapped_column(CHAR(3), nullable=False)
+    #: Customs duty only: the tariff heading this rate applies to, matched by prefix.
+    hs_code: Mapped[str | None] = mapped_column(String)
+    notes: Mapped[str | None] = mapped_column(String)
+
+
 # ---------------------------------------------------------------------------- audit
 
 
@@ -793,4 +836,5 @@ RLS_TABLES = [
     "invoices",
     "invoice_lines",
     "audit_log",
+    "rate_cards",
 ]

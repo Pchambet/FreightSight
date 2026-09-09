@@ -183,6 +183,68 @@ export interface paths {
         patch: operations["update_purchase_order_api_v1_purchase_orders__po_id__patch"];
         trace?: never;
     };
+    "/api/v1/organization/rate-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Rate Cards */
+        get: operations["list_rate_cards_api_v1_organization_rate_cards_get"];
+        put?: never;
+        /** Create Rate Card */
+        post: operations["create_rate_card_api_v1_organization_rate_cards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organization/rate-cards/{card_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Rate Card
+         * @description Deleting a card leaves the estimates it produced alone: they are costs now, not derivations.
+         */
+        delete: operations["delete_rate_card_api_v1_organization_rate_cards__card_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Rate Card */
+        patch: operations["update_rate_card_api_v1_organization_rate_cards__card_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/containers/{container_id}/estimates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Estimates
+         * @description Fill in what this container is expected to cost, from the rate cards and the tariff rates.
+         *
+         *     One transaction, and never a second estimate for a cost type that already has one: running this
+         *     twice is a no-op, which is what makes it safe to offer as a button.
+         */
+        post: operations["create_estimates_api_v1_containers__container_id__estimates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shipments": {
         parameters: {
             query?: never;
@@ -1257,6 +1319,18 @@ export interface components {
          * @enum {string}
          */
         DndRisk: "NONE" | "LOW" | "MEDIUM" | "HIGH" | "INCURRING";
+        /**
+         * EstimateResponse
+         * @description What applying the rate cards to a container produced, and what it did not.
+         */
+        EstimateResponse: {
+            /** Created */
+            created: components["schemas"]["CostResponse"][];
+            /** Skipped */
+            skipped: {
+                [key: string]: string;
+            };
+        };
         /** EtaHistoryResponse */
         EtaHistoryResponse: {
             /**
@@ -1817,6 +1891,63 @@ export interface components {
             order_date?: string | null;
             /** Lines */
             lines?: components["schemas"]["PoLineIn"][] | null;
+        };
+        /**
+         * RateBasis
+         * @description How a rate card turns into an amount. What the forwarder's price list actually says.
+         * @enum {string}
+         */
+        RateBasis: "FLAT" | "PER_100KG" | "PER_CBM" | "PCT_OF_FOB";
+        /** RateCardIn */
+        RateCardIn: {
+            cost_type: components["schemas"]["CostType"];
+            /**
+             * Scope
+             * @default CONTAINER
+             * @enum {string}
+             */
+            scope: "CONTAINER" | "SHIPMENT";
+            /** @default FLAT */
+            basis: components["schemas"]["RateBasis"];
+            /** Amount */
+            amount: number | string;
+            /** Currency */
+            currency: string;
+            /** Hs Code */
+            hs_code?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** RateCardResponse */
+        RateCardResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            cost_type: components["schemas"]["CostType"];
+            scope: components["schemas"]["CostScope"];
+            basis: components["schemas"]["RateBasis"];
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /** Hs Code */
+            hs_code: string | null;
+            /** Notes */
+            notes: string | null;
+        };
+        /** RateCardUpdate */
+        RateCardUpdate: {
+            basis?: components["schemas"]["RateBasis"] | null;
+            /** Amount */
+            amount?: number | string | null;
+            /** Currency */
+            currency?: string | null;
+            /** Hs Code */
+            hs_code?: string | null;
+            /** Notes */
+            notes?: string | null;
         };
         /** ReportLine */
         ReportLine: {
@@ -2634,6 +2765,173 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PurchaseOrderResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_rate_cards_api_v1_organization_rate_cards_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateCardResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_rate_card_api_v1_organization_rate_cards_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RateCardIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateCardResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_rate_card_api_v1_organization_rate_cards__card_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                card_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_rate_card_api_v1_organization_rate_cards__card_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                card_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RateCardUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateCardResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_estimates_api_v1_containers__container_id__estimates_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                container_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstimateResponse"];
                 };
             };
             /** @description Validation Error */
