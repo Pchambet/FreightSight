@@ -82,7 +82,9 @@ def test_a_request_logs_one_line_of_json_with_the_tenant(
     configure_logging(settings(app_env="dev"))
     try:
         client.get("/api/v1/organization", headers={REQUEST_ID_HEADER: "abc123"})
-        written = capsys.readouterr().err
+        # stdout, not stderr: Railway paints anything on stderr red, and a successful request is not
+        # an error. Warnings and above still go to stderr.
+        written = capsys.readouterr().out
     finally:
         configure_logging(get_settings())
 

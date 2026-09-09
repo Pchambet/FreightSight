@@ -8,12 +8,12 @@ someone types that URL themselves.
 from __future__ import annotations
 
 import argparse
-import logging
 import sys
 
+from app.core.observability import configure_logging
 from app.ops.backup import BackupError, database_name, fetch, restore
 
-logging.basicConfig(level=logging.INFO, format="%(message)s")
+configure_logging()
 
 
 def main(argv: list[str] | None = None) -> int:

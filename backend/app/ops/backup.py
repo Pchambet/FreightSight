@@ -14,8 +14,6 @@ Three properties this has to have, and each one is a decision:
 from __future__ import annotations
 
 import hashlib
-import json
-import logging
 import os
 import re
 import subprocess
@@ -24,11 +22,12 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from urllib.parse import urlparse
 
+import structlog
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from app.adapters.s3 import S3Client
 
-logger = logging.getLogger("freightsight.backup")
+logger = structlog.get_logger("freightsight.backup")
 
 #: Everything the job needs, and what each is for.
 REQUIRED = {
@@ -225,18 +224,16 @@ def run(env: dict[str, str] | None = None, *, client: S3Client | None = None) ->
         duration_seconds=round(time.monotonic() - started, 2),
         deleted=deleted,
     )
+    # Structured fields rather than a JSON string in the message: the renderer puts them at the top
+    # level of the line, where a log search can filter on `size_bytes` instead of matching text.
     logger.info(
-        json.dumps(
-            {
-                "event": "backup.succeeded",
-                "key": result.key,
-                "size_bytes": result.size_bytes,
-                "plaintext_sha256": result.sha256,
-                "duration_seconds": result.duration_seconds,
-                "deleted": len(result.deleted),
-                "kept": len(existing) + 1 - len(result.deleted),
-            }
-        )
+        "backup.succeeded",
+        key=result.key,
+        size_bytes=result.size_bytes,
+        plaintext_sha256=result.sha256,
+        duration_seconds=result.duration_seconds,
+        deleted=len(result.deleted),
+        kept=len(existing) + 1 - len(result.deleted),
     )
     return result
 

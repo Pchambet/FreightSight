@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -36,8 +37,14 @@ def request_id() -> str | None:
     return str(value) if value else None
 
 
-def configure_logging(settings: Settings) -> None:
-    """JSON to stdout, which is what Railway collects and what a human can still read with `jq`."""
+def configure_logging(settings: Settings | None = None) -> None:
+    """JSON to stdout, which is what Railway collects and what a human can still read with `jq`.
+
+    Takes the environment rather than the whole configuration when asked to: the backup command runs
+    with MIGRATIONS_DATABASE_URL and no DATABASE_URL, and refusing to log because the application's
+    settings will not build would be a poor trade.
+    """
+    app_env = settings.app_env if settings is not None else os.environ.get("APP_ENV", "dev")
     timestamper = structlog.processors.TimeStamper(fmt="iso", utc=True)
     structlog.configure(
         processors=[
@@ -55,22 +62,28 @@ def configure_logging(settings: Settings) -> None:
         logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
-    handler = logging.StreamHandler()
-    handler.setFormatter(
-        structlog.stdlib.ProcessorFormatter(
-            processor=structlog.processors.JSONRenderer(),
-            foreign_pre_chain=[
-                structlog.contextvars.merge_contextvars,
-                structlog.stdlib.add_log_level,
-                structlog.stdlib.add_logger_name,
-                timestamper,
-                structlog.processors.format_exc_info,
-            ],
-        )
+    formatter = structlog.stdlib.ProcessorFormatter(
+        processor=structlog.processors.JSONRenderer(),
+        foreign_pre_chain=[
+            structlog.contextvars.merge_contextvars,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.add_logger_name,
+            timestamper,
+            structlog.processors.format_exc_info,
+        ],
     )
+    # Success goes to stdout and trouble to stderr. Railway colours anything on stderr as an error,
+    # so a nightly backup reporting success in red is a false alarm arriving at 03:00 for ever.
+    out = logging.StreamHandler(sys.stdout)
+    out.setFormatter(formatter)
+    out.addFilter(lambda record: record.levelno < logging.WARNING)
+    err = logging.StreamHandler(sys.stderr)
+    err.setFormatter(formatter)
+    err.setLevel(logging.WARNING)
+
     root = logging.getLogger()
-    root.handlers = [handler]
-    root.setLevel(logging.INFO if settings.app_env != "test" else logging.WARNING)
+    root.handlers = [out, err]
+    root.setLevel(logging.INFO if app_env != "test" else logging.WARNING)
     # uvicorn keeps its own handlers unless told otherwise, which would double every line.
     for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
         logging.getLogger(name).handlers = []

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import os
 import shutil
 import subprocess
@@ -337,3 +338,27 @@ def table_counts(engine: Engine) -> dict[str, int]:
             table: connection.execute(text(f'SELECT count(*) FROM "{table}"')).scalar() or 0
             for table in tables
         }
+
+
+def test_the_success_line_is_structured_and_goes_to_stdout(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Railway paints stderr red. A nightly backup announcing success in red, for ever, at 03:00,
+    is an alarm that teaches people to ignore alarms."""
+    from app.core.observability import configure_logging
+    from app.core.settings import Settings
+
+    # The suite runs at APP_ENV=test, where the root logger sits at WARNING; this asks for the
+    # configuration a deployment gets.
+    configure_logging(Settings(database_url="postgresql+psycopg://x@x/x", app_env="dev"))
+    bucket = FakeBucket()
+    run(ENV | {"PG_DUMP_BIN": fake_pg_dump(tmp_path)}, client=bucket)  # type: ignore[arg-type]
+    captured = capsys.readouterr()
+
+    lines = [json.loads(line) for line in captured.out.splitlines() if line.startswith("{")]
+    success = [line for line in lines if line.get("event") == "backup.succeeded"]
+    assert len(success) == 1, captured.out
+    assert success[0]["level"] == "info"
+    assert success[0]["size_bytes"] > 0  # a field to filter on, not a sentence to match
+    assert success[0]["plaintext_sha256"]
+    assert "backup.succeeded" not in captured.err
