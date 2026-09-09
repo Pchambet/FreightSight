@@ -10,14 +10,15 @@ from __future__ import annotations
 import logging
 import os
 
+from app.core.observability import configure_logging, init_sentry
 from app.core.settings import get_settings
 from app.jobs.app import get_app
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 
 def main() -> None:
     settings = get_settings()
+    configure_logging(settings)
+    init_sentry(settings)  # the worker is where the silent failures live: it has no user watching
     queues = [q.strip() for q in os.environ.get("WORKER_QUEUES", "").split(",") if q.strip()]
     concurrency = int(os.environ.get("WORKER_CONCURRENCY", "2"))
     logging.getLogger("freightsight.worker").info(

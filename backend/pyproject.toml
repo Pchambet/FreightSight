@@ -19,6 +19,8 @@ dependencies = [
     # Pinned to a minor: migration 0005 installs this exact schema and refuses to run against another.
     "procrastinate>=3.9,<3.10",
     "pypdf>=6.18.0",
+    "sentry-sdk[fastapi]>=2",
+    "structlog>=26.1.0",
 ]
 
 [dependency-groups]

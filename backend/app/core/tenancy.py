@@ -5,12 +5,13 @@ from __future__ import annotations
 from typing import Annotated, Any, TypeVar
 from uuid import UUID
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from sqlalchemy import Select, event, select, text
 from sqlalchemy.orm import Session
 
 from app.core.auth import DbDep, Principal, PrincipalDep
 from app.core.errors import NotFound, TenantViolation
+from app.core.observability import bind_tenant
 from app.domain.models import Organization
 
 T = TypeVar("T")
@@ -61,7 +62,13 @@ class TenantSession:
         return obj
 
 
-def get_tenant(db: DbDep, principal: PrincipalDep) -> TenantSession:
+def get_tenant(request: Request, db: DbDep, principal: PrincipalDep) -> TenantSession:
+    # Both, deliberately: the context variables serve any log line written from this dependency's
+    # own thread, and request.state is what survives back to the middleware — a sync dependency runs
+    # in a worker thread, whose context variables are a copy the caller never sees again.
+    bind_tenant(org_id=principal.org_id, user_id=principal.user_id)
+    request.state.org_id = principal.org_id
+    request.state.user_id = principal.user_id
     set_current_org(db, principal.org_id)
     org = db.get(Organization, principal.org_id)
     if org is None:

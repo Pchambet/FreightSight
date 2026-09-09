@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     alerts_from_email: str | None = None
     resend_base_url: str = "https://api.resend.com"
 
+    # Observability. Without a DSN the application logs exactly the same and reports nothing.
+    sentry_dsn: str | None = None
+    sentry_traces_sample_rate: float = 0.1
+
     # Invoice extraction. Without a key, invoices are read by the pattern extractor only.
     extraction_api_key: str | None = None
     extraction_model: str = "claude-opus-5"

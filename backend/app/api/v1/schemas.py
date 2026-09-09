@@ -50,6 +50,8 @@ class Problem(BaseModel):
     code: str | None = None
     detail: str | None = None
     errors: list[dict[str, str]] | None = None
+    #: The id of the request that produced this error, also in the X-Request-ID response header.
+    request_id: str | None = None
 
 
 # ---------------------------------------------------------------------------- identity

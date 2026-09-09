@@ -15,10 +15,16 @@ from app.api.v1 import schemas
 from app.api.v1.router import router as v1_router
 from app.core.db import assert_migrated, get_engine
 from app.core.errors import DomainError
+from app.core.observability import (
+    REQUEST_ID_HEADER,
+    RequestContextMiddleware,
+    configure_logging,
+    init_sentry,
+    request_id,
+)
 from app.core.settings import get_settings
 from app.core.tenancy import ORG_GUC
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("freightsight")
 
 
@@ -55,6 +61,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    configure_logging(settings)
+    if init_sentry(settings):
+        logger.info("sentry enabled for environment %s", settings.app_env)
     app = FastAPI(
         title="FreightSight API",
         version="0.2.0",
@@ -63,18 +72,27 @@ def create_app() -> FastAPI:
         docs_url=None if settings.is_prod else "/docs",
         redoc_url=None,
     )
+    # Outermost, so every request is logged with its id — including the ones CORS rejects.
+    app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["*"],
+        expose_headers=[REQUEST_ID_HEADER],
     )
 
     @app.exception_handler(DomainError)
     async def domain_problem(_: Request, exc: DomainError) -> JSONResponse:
         body = schemas.Problem(
-            title=_title(exc.status), status=exc.status, code=exc.code, detail=exc.message, errors=exc.errors
+            title=_title(exc.status),
+            status=exc.status,
+            code=exc.code,
+            detail=exc.message,
+            errors=exc.errors,
+            # The same id as the log line and the response header: one string to quote in a ticket.
+            request_id=request_id(),
         ).model_dump()
         body.update(exc.extra)
         return JSONResponse(body, status_code=exc.status)
@@ -83,7 +101,10 @@ def create_app() -> FastAPI:
     async def http_problem(_: Request, exc: StarletteHTTPException) -> JSONResponse:
         detail = exc.detail if isinstance(exc.detail, str) else None
         body = schemas.Problem(
-            title=_title(exc.status_code), status=exc.status_code, detail=detail
+            title=_title(exc.status_code),
+            status=exc.status_code,
+            detail=detail,
+            request_id=request_id(),
         ).model_dump()
         if isinstance(exc.detail, dict):
             body.update(exc.detail)
@@ -104,6 +125,7 @@ def create_app() -> FastAPI:
             status=status.HTTP_422_UNPROCESSABLE_CONTENT,
             code="VALIDATION",
             errors=errors,
+            request_id=request_id(),
         ).model_dump()
         return JSONResponse(body, status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
 
