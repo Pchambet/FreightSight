@@ -3,7 +3,6 @@ from __future__ import annotations
 from fastapi import APIRouter, status
 
 from app.api.v1 import schemas
-from app.api.v1.containers import derive_dnd
 from app.api.v1.deps import WriterDep
 from app.core.auth import PrincipalDep
 from app.core.errors import Conflict
@@ -11,6 +10,7 @@ from app.core.tenancy import TenantDep
 from app.domain.costing.service import recompute_org
 from app.domain.models import Organization
 from app.domain.sample_data import has_data, seed_sample_data
+from app.domain.tracking.state import derive_dnd
 
 router = APIRouter(tags=["organization"])
 
@@ -48,7 +48,7 @@ def load_sample_data(t: TenantDep, _: WriterDep) -> schemas.SampleDataResponse:
         raise Conflict("This organization already has purchase orders or containers")
     sample = seed_sample_data(t.db, t.org)
     for c in sample.containers:
-        derive_dnd(c, t.org.free_days_demurrage)
+        derive_dnd(c, t.org)
     t.db.flush()
     t.db.commit()
     return schemas.SampleDataResponse(

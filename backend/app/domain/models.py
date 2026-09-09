@@ -16,6 +16,7 @@ from typing import Any, ClassVar
 from sqlalchemy import (
     CHAR,
     JSON,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -23,6 +24,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     MetaData,
     Numeric,
     String,
@@ -104,6 +106,35 @@ class ContainerMilestone(enum.StrEnum):
     GATE_OUT_FULL = "GATE_OUT_FULL"
     DELIVERED = "DELIVERED"
     GATE_IN_EMPTY_RETURN = "GATE_IN_EMPTY_RETURN"
+
+
+class MilestoneCode(enum.StrEnum):
+    """Tracking timeline vocabulary: every milestone a provider can report.
+
+    A superset of `ContainerMilestone` (the coarser state carried on the container itself); the extra
+    codes — empty pickup at origin, transshipment and rail legs, `UNKNOWN` — stay in the timeline.
+    """
+
+    BOOKED = "BOOKED"
+    GATE_OUT_EMPTY_ORIGIN = "GATE_OUT_EMPTY_ORIGIN"
+    GATE_IN_FULL_ORIGIN = "GATE_IN_FULL_ORIGIN"
+    LOADED = "LOADED"
+    VESSEL_DEPARTED = "VESSEL_DEPARTED"
+    TRANSSHIPMENT_ARRIVED = "TRANSSHIPMENT_ARRIVED"
+    TRANSSHIPMENT_DISCHARGED = "TRANSSHIPMENT_DISCHARGED"
+    TRANSSHIPMENT_LOADED = "TRANSSHIPMENT_LOADED"
+    TRANSSHIPMENT_DEPARTED = "TRANSSHIPMENT_DEPARTED"
+    VESSEL_ARRIVED = "VESSEL_ARRIVED"
+    DISCHARGED = "DISCHARGED"
+    AVAILABLE_FOR_PICKUP = "AVAILABLE_FOR_PICKUP"
+    GATE_OUT_FULL = "GATE_OUT_FULL"
+    RAIL_LOADED = "RAIL_LOADED"
+    RAIL_DEPARTED = "RAIL_DEPARTED"
+    RAIL_ARRIVED = "RAIL_ARRIVED"
+    RAIL_UNLOADED = "RAIL_UNLOADED"
+    DELIVERED = "DELIVERED"
+    GATE_IN_EMPTY_RETURN = "GATE_IN_EMPTY_RETURN"
+    UNKNOWN = "UNKNOWN"
 
 
 class TrackingState(enum.StrEnum):
@@ -451,7 +482,96 @@ class ImportMapping(OrgScoped, Base):
     )
 
 
-# Tables that carry org_id and get a Row Level Security policy in migration 0003.
+# ---------------------------------------------------------------------------- tracking
+
+
+class TrackingSubscription(Timestamped, OrgScoped, Base):
+    """One container watched at one provider. `provider_ref` is the provider's own handle for it;
+    it is null while a webhook-only deployment routes deliveries by container number."""
+
+    __tablename__ = "tracking_subscriptions"
+    __table_args__ = (
+        UniqueConstraint("container_id"),
+        UniqueConstraint("provider", "provider_ref"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    container_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("containers.id"), nullable=False)
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    provider_ref: Mapped[str | None] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")  # pending|active|failed
+    last_error: Mapped[str | None] = mapped_column(String)
+    subscribed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class WebhookDelivery(Base):
+    """Raw provider deliveries, kept whole. Not org-scoped and not under RLS: a delivery is written
+    before we know which tenant it belongs to, and it holds no tenant data of its own beyond the
+    provider's payload. `(provider, delivery_id)` is the idempotency key."""
+
+    __tablename__ = "webhook_deliveries"
+    __table_args__ = (UniqueConstraint("provider", "delivery_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    delivery_id: Mapped[str] = mapped_column(String, nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+    headers: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
+    body: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    signature_ok: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    status: Mapped[str] = mapped_column(
+        String, nullable=False, default="received"
+    )  # received|processed|failed
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error: Mapped[str | None] = mapped_column(String)
+
+
+class TrackingEvent(OrgScoped, Base):
+    """Append-only milestone history. Nothing here is ever updated: a snapshot replayed inserts
+    nothing (ON CONFLICT DO NOTHING), and an estimate that becomes actual is a new row, because the
+    carrier's earlier promise is evidence in a demurrage dispute."""
+
+    __tablename__ = "tracking_events"
+    __table_args__ = (
+        UniqueConstraint("org_id", "container_id", "provider", "provider_event_key"),
+        Index("ix_tracking_events_container_time", "container_id", "occurred_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    container_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("containers.id"), nullable=False)
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    provider_event_key: Mapped[str] = mapped_column(String, nullable=False)
+    code: Mapped[MilestoneCode] = mapped_column(Enum(MilestoneCode, name="milestone_code"), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    is_estimate: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    location_unlocode: Mapped[str | None] = mapped_column(CHAR(5))
+    location_name: Mapped[str | None] = mapped_column(String)
+    vessel_name: Mapped[str | None] = mapped_column(String)
+    voyage: Mapped[str | None] = mapped_column(String)
+    raw_description: Mapped[str | None] = mapped_column(String)
+    source: Mapped[str] = mapped_column(String, nullable=False, default="unknown")
+    delivery_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("webhook_deliveries.id"))
+    inserted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+
+
+class EtaHistory(OrgScoped, Base):
+    """Every ETA move worth telling the user about (more than 12 h). `severity` is `warning` past 48 h."""
+
+    __tablename__ = "eta_history"
+    __table_args__ = (Index("ix_eta_history_container", "container_id", "recorded_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    container_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("containers.id"), nullable=False)
+    eta: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    previous_eta: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    delta_hours: Mapped[Decimal] = mapped_column(Numeric(8, 1), nullable=False)
+    severity: Mapped[str] = mapped_column(String, nullable=False, default="info")  # info|warning
+    source: Mapped[str] = mapped_column(String, nullable=False, default="unknown")
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+
+
+# Tables that carry org_id and get a Row Level Security policy in migration 0003 (0004 for tracking).
 RLS_TABLES = [
     "suppliers",
     "shipments",
@@ -463,4 +583,7 @@ RLS_TABLES = [
     "cost_allocations",
     "import_jobs",
     "import_mappings",
+    "tracking_subscriptions",
+    "tracking_events",
+    "eta_history",
 ]

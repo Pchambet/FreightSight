@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -24,6 +24,7 @@ from app.domain.models import (
     PurchaseOrderLine,
     Shipment,
 )
+from app.domain.tracking.state import derive_dnd
 
 router = APIRouter(prefix="/containers", tags=["containers"])
 
@@ -37,29 +38,6 @@ _MILESTONE_TIMESTAMP = {
 
 def _qty(value: Decimal) -> str:
     return f"{value.normalize():f}"
-
-
-def derive_dnd(container: Container, org_free_days: int, today: datetime | None = None) -> None:
-    """Last free day and demurrage risk from the discharge date and free days. Calendar days."""
-    now = today or datetime.now(UTC)
-    free = container.free_days_demurrage if container.free_days_demurrage is not None else org_free_days
-    if container.discharged_at is None or container.gate_out_at is not None:
-        container.last_free_day = (
-            (container.discharged_at.date() + timedelta(days=free - 1)) if container.discharged_at else None
-        )
-        container.dnd_risk = DndRisk.NONE
-        return
-    lfd = container.discharged_at.date() + timedelta(days=free - 1)
-    container.last_free_day = lfd
-    remaining = (lfd - now.date()).days
-    if remaining < 0:
-        container.dnd_risk = DndRisk.INCURRING
-    elif remaining <= 1:
-        container.dnd_risk = DndRisk.HIGH
-    elif remaining <= 3:
-        container.dnd_risk = DndRisk.MEDIUM
-    else:
-        container.dnd_risk = DndRisk.LOW
 
 
 def _get(t: TenantSession, container_id: UUID) -> Container:
@@ -165,7 +143,7 @@ def update_container(
         field = _MILESTONE_TIMESTAMP.get(payload.milestone)
         if field and getattr(c, field) is None:
             setattr(c, field, datetime.now(UTC))
-    derive_dnd(c, t.org.free_days_demurrage)
+    derive_dnd(c, t.org)
     t.db.flush()
     if "shipment_id" in changes:
         recompute_org(t.db, t.org)
