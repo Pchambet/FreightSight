@@ -7,6 +7,7 @@ import json
 import uuid
 import xmlrpc.client
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -488,3 +489,86 @@ def test_an_order_cancelled_before_we_ever_saw_it_is_not_created(
         "P00008",
         "P00010",
     ]
+
+
+# ---------------------------------------------------------------------------- incremental sync
+
+
+class RecordingOdoo(FakeOdoo):
+    """Remembers the domains it was asked for, so a test can see what was re-read."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.domains: list[list[Any]] = []
+
+    def proxy(self, url: str) -> Any:
+        return _Common(self) if url.endswith("/common") else _RecordingModels(self)
+
+
+class _RecordingModels(_Models):
+    def execute_kw(
+        self, db: str, uid: int, password: str, model: str, method: str, args: list[Any], kwargs: Any
+    ) -> Any:
+        if (model, method) == ("purchase.order", "search_read"):
+            self.odoo.domains.append(args[0])  # type: ignore[attr-defined]
+        return super().execute_kw(db, uid, password, model, method, args, kwargs)
+
+
+def write_date_filter(domain: list[Any]) -> str | None:
+    return next((clause[2] for clause in domain if clause[0] == "write_date"), None)
+
+
+def test_the_second_sync_only_asks_for_what_changed(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Re-reading a customer's whole history every night is how an integration becomes the thing
+    their IT department switches off."""
+    from app.adapters.erp import odoo as odoo_module
+
+    connect(client, FakeOdoo(), monkeypatch)
+    odoo = RecordingOdoo()
+    monkeypatch.setattr(odoo_module, "_default_proxy", odoo.proxy)
+
+    assert client.post("/api/v1/erp/sync").status_code == 202
+    assert write_date_filter(odoo.domains[0]) is None  # the first sync reads everything
+
+    second = client.post("/api/v1/erp/sync")
+    assert second.status_code == 202
+    watermark = write_date_filter(odoo.domains[-1])
+    assert watermark is not None, odoo.domains
+    assert second.json()["detail"]["since"] is not None
+
+
+def test_the_watermark_looks_back_a_little_further_than_the_last_sync(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The ERP's clock is not ours and a write can land a second before the read that missed it.
+    Five minutes of overlap costs one request; a missed order costs a wrong landed cost."""
+    from app.domain.erp.service import SYNC_OVERLAP, watermark
+    from app.domain.models import ErpConnection
+
+    connect(client, FakeOdoo(), monkeypatch)
+    connection = db.scalar(select(ErpConnection))
+    assert connection is not None
+
+    assert watermark(connection) is None  # never synced: everything
+    synced_at = datetime(2026, 9, 9, 12, 0, tzinfo=UTC)
+    connection.last_sync_at = synced_at
+    assert watermark(connection) == synced_at - SYNC_OVERLAP
+    assert watermark(connection, full=True) is None  # the "start again" button
+
+
+def test_a_full_sync_re_reads_everything(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.adapters.erp import odoo as odoo_module
+
+    connect(client, FakeOdoo(), monkeypatch)
+    odoo = RecordingOdoo()
+    monkeypatch.setattr(odoo_module, "_default_proxy", odoo.proxy)
+    client.post("/api/v1/erp/sync")
+
+    forced = client.post("/api/v1/erp/sync", params={"full": True})
+    assert forced.status_code == 202
+    assert write_date_filter(odoo.domains[-1]) is None
+    assert forced.json()["detail"]["since"] is None

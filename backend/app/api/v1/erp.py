@@ -73,17 +73,18 @@ def delete_connection(t: TenantDep, _: WriterDep) -> None:
 
 
 @router.post("/sync", response_model=schemas.ErpSyncRunResponse, status_code=status.HTTP_202_ACCEPTED)
-def sync_now(t: TenantDep, _: WriterDep) -> ErpSyncRun:
+def sync_now(t: TenantDep, _: WriterDep, full: bool = False) -> ErpSyncRun:
     """Read the ERP now, in this request.
 
     Deliberately synchronous: someone has just connected their Odoo and is watching this button.
-    The daily refresh is the job; this is the reassurance.
+    The daily refresh is the job; this is the reassurance. `full=true` re-reads the whole history
+    instead of what has changed — the button for "this looks wrong, start again".
     """
     connection = service.connection_for(t.db, t.org_id)
     if connection is None:
         raise NotFound("ERP connection")
     try:
-        result = service.sync(t, connection)
+        result = service.sync(t, connection, full=full)
     except Exception:
         # The run row was written before the failure and says why; keep it and let the error surface.
         t.db.commit()

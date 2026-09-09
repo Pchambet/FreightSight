@@ -12,7 +12,7 @@ import csv
 import io
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select
@@ -35,6 +35,11 @@ from app.domain.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+#: How far back before the last successful sync to look again. The ERP's clock is not ours, a write
+#: can land a second before the read that missed it, and re-reading five minutes of orders costs one
+#: request. Missing an order costs a landed cost that is quietly wrong.
+SYNC_OVERLAP = timedelta(minutes=5)
 
 #: The container magic for a sealed ERP credential.
 ERP_MAGIC = b"FSERP1"
@@ -140,6 +145,13 @@ def to_csv(orders: list[ErpPurchaseOrder]) -> tuple[bytes, int]:
     return buffer.getvalue().encode(), written
 
 
+def watermark(connection: ErpConnection, *, full: bool = False) -> datetime | None:
+    """Where to start reading. None means everything, which is what a first or forced sync wants."""
+    if full or connection.last_sync_at is None:
+        return None
+    return connection.last_sync_at - SYNC_OVERLAP
+
+
 def sync(
     t: TenantSession,
     connection: ErpConnection,
@@ -147,8 +159,14 @@ def sync(
     *,
     since: datetime | None = None,
     limit: int | None = None,
+    full: bool = False,
 ) -> SyncResult:
-    """Read the ERP and import what it says. One run row, whatever happens."""
+    """Read the ERP and import what it says. One run row, whatever happens.
+
+    Incremental by default: only what the ERP has touched since the last successful sync, minus an
+    overlap. `full` re-reads everything, which is the button for "it looks wrong, start again".
+    """
+    since = since if since is not None else watermark(connection, full=full)
     run = ErpSyncRun(org_id=t.org_id, connection_id=connection.id, status=ErpSyncStatus.RUNNING, detail={})
     t.db.add(run)
     t.db.flush()
@@ -162,7 +180,11 @@ def sync(
         if not orders or not line_count:
             run.status = ErpSyncStatus.SUCCEEDED
             run.finished_at = datetime.now(UTC)
-            run.detail = {"message": "nothing new in the ERP", "cancelled": cancelled}
+            run.detail = {
+                "message": "nothing new in the ERP",
+                "cancelled": cancelled,
+                "since": since.isoformat() if since else None,
+            }
             connection.last_sync_at = run.finished_at
             connection.last_error = None
             t.db.flush()
@@ -177,7 +199,11 @@ def sync(
         run.import_job_id = job.id
         run.purchase_orders = len(orders)
         run.lines = line_count
-        run.detail = {**report.to_dict(), "cancelled": cancelled}
+        run.detail = {
+            **report.to_dict(),
+            "cancelled": cancelled,
+            "since": since.isoformat() if since else None,
+        }
         run.finished_at = datetime.now(UTC)
         connection.last_sync_at = run.finished_at
         connection.last_error = None
