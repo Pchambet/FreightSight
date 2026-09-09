@@ -18,6 +18,8 @@ from app.domain.models import (
     CostStatus,
     CostType,
     DndRisk,
+    ErpKind,
+    ErpSyncStatus,
     ImportKind,
     ImportStatus,
     Incoterm,
@@ -801,3 +803,52 @@ class VarianceReport(BaseModel):
     pairs: int
     by_cost_type: list[VarianceRow]
     by_purchase_order: list[VarianceRow]
+
+
+# ---------------------------------------------------------------------------- ERP
+
+
+class ErpConnectionCreate(BaseModel):
+    """Everything needed to reach an Odoo. The API key is sealed before it is stored."""
+
+    kind: ErpKind = ErpKind.ODOO
+    url: str = Field(min_length=8, max_length=500)
+    database: str = Field(min_length=1, max_length=200)
+    login: str = Field(min_length=1, max_length=200)
+    api_key: str = Field(min_length=1, max_length=500)
+
+    @field_validator("url")
+    @classmethod
+    def _url(cls, v: str) -> str:
+        value = v.strip().rstrip("/")
+        if not value.startswith(("http://", "https://")):
+            raise ValueError("url must start with http:// or https://")
+        return value
+
+
+class ErpConnectionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    kind: ErpKind
+    url: str
+    database: str
+    login: str  # the API key is never returned, in any form
+    active: bool
+    server_version: str | None
+    company: str | None
+    last_sync_at: datetime | None
+    last_error: str | None
+    created_at: datetime
+
+
+class ErpSyncRunResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    status: ErpSyncStatus
+    started_at: datetime
+    finished_at: datetime | None
+    purchase_orders: int
+    lines: int
+    import_job_id: UUID | None
+    error: str | None
+    detail: dict[str, Any]

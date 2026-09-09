@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.adapters.fx_ecb import make_fetcher
 from app.core.db import get_sessionmaker
 from app.core.settings import get_settings
-from app.core.tenancy import set_current_org
+from app.core.tenancy import TenantSession, set_current_org
 from app.domain.alerts.notifier import Notification, Notifier, make_notifier
 from app.domain.alerts.service import raise_alert
 from app.domain.documents.registry import get_store
@@ -35,6 +35,7 @@ from app.domain.models import (
     Container,
     ContainerMilestone,
     DndRisk,
+    ErpSyncStatus,
     EtaHistory,
     Invoice,
     InvoiceStatus,
@@ -424,6 +425,60 @@ def extract_invoice(db: Session, org_id: UUID, invoice_id: UUID) -> str:
             return InvoiceStatus.FAILED.value
         db.commit()
         return invoice.status.value
+
+
+# ---------------------------------------------------------------------------- ERP
+
+
+def sync_erp(db: Session, org_id: UUID | None = None) -> int:
+    """Read every active ERP connection, or one organization's. Returns how many syncs succeeded.
+
+    One failing customer's Odoo must not stop the others: each connection is its own transaction and
+    its own run row, and a failure is recorded rather than raised.
+    """
+    from app.core.auth import Principal
+    from app.domain.erp import service as erp_service
+    from app.domain.models import ErpConnection, MemberRole
+
+    succeeded = 0
+    for org in organizations(db):
+        if org_id is not None and org.id != org_id:
+            continue
+        with tenant(db, org):
+            connection = db.scalar(
+                select(ErpConnection).where(ErpConnection.org_id == org.id, ErpConnection.active.is_(True))
+            )
+            if connection is None:
+                continue
+            # The import pipeline works for a person; here the person is the schedule. The principal
+            # is synthetic and carries no user, which is exactly what the audit trail should show.
+            principal = Principal(org_id=org.id, user_id=None, role=MemberRole.OWNER, via="dev")
+            t = TenantSession(db, principal, org)
+            try:
+                erp_service.sync(t, connection)
+                db.commit()
+                succeeded += 1
+            except Exception:
+                db.rollback()
+                logger.exception("ERP sync failed for org %s", org.id)
+                _record_failure(db, org, connection)
+    return succeeded
+
+
+def _record_failure(db: Session, org: Organization, connection: object) -> None:
+    """Keep the failure visible after the rollback that discarded the run row."""
+    from app.domain.models import ErpSyncRun
+
+    db.add(
+        ErpSyncRun(
+            org_id=org.id,
+            connection_id=connection.id,  # type: ignore[attr-defined]
+            status=ErpSyncStatus.FAILED,
+            finished_at=datetime.now(UTC),
+            error="the sync failed; see the application logs for the reason",
+        )
+    )
+    db.commit()
 
 
 # ---------------------------------------------------------------------------- sending the digest

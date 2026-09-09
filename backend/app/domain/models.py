@@ -178,6 +178,16 @@ class AlertSeverity(enum.StrEnum):
     CRITICAL = "critical"
 
 
+class ErpKind(enum.StrEnum):
+    ODOO = "ODOO"
+
+
+class ErpSyncStatus(enum.StrEnum):
+    RUNNING = "RUNNING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+
+
 class RateBasis(enum.StrEnum):
     """How a rate card turns into an amount. What the forwarder's price list actually says."""
 
@@ -788,6 +798,54 @@ class RateCard(Timestamped, OrgScoped, Base):
     notes: Mapped[str | None] = mapped_column(String)
 
 
+class ErpConnection(Timestamped, OrgScoped, Base):
+    """How to reach one organization's ERP. One per organization, for now.
+
+    The API key is stored sealed (AES-GCM, `ERP_ENCRYPTION_KEY`) and never leaves this table in
+    clear: it is a credential to a customer's accounting system, which is about the most sensitive
+    thing this application will ever hold.
+    """
+
+    __tablename__ = "erp_connections"
+    __table_args__ = (UniqueConstraint("org_id", name="uq_erp_connections_org_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    kind: Mapped[ErpKind] = mapped_column(Enum(ErpKind, name="erp_kind"), nullable=False)
+    url: Mapped[str] = mapped_column(String, nullable=False)
+    database: Mapped[str] = mapped_column(String, nullable=False)
+    login: Mapped[str] = mapped_column(String, nullable=False)
+    api_key_sealed: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(String)
+    server_version: Mapped[str | None] = mapped_column(String)
+    company: Mapped[str | None] = mapped_column(String)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+
+
+class ErpSyncRun(OrgScoped, Base):
+    """One attempt at reading the ERP, kept whether it worked or not."""
+
+    __tablename__ = "erp_sync_runs"
+    __table_args__ = (Index("ix_erp_sync_runs_org_started", "org_id", "started_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    connection_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("erp_connections.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    status: Mapped[ErpSyncStatus] = mapped_column(
+        Enum(ErpSyncStatus, name="erp_sync_status"), nullable=False, default=ErpSyncStatus.RUNNING
+    )
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: The import job this run drove, so the same report is readable from either side.
+    import_job_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("import_jobs.id"))
+    purchase_orders: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    lines: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error: Mapped[str | None] = mapped_column(String)
+    detail: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
+
+
 # ---------------------------------------------------------------------------- audit
 
 
@@ -837,4 +895,6 @@ RLS_TABLES = [
     "invoice_lines",
     "audit_log",
     "rate_cards",
+    "erp_connections",
+    "erp_sync_runs",
 ]

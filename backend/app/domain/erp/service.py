@@ -1,0 +1,171 @@
+"""Turning what the ERP says into purchase orders, through the import pipeline we already have.
+
+The ERP rows are written as a CSV in our own canonical columns and handed to the same code a person
+uploading a spreadsheet goes through: the same validation, the same natural keys, the same
+idempotence, the same row-level report. A second, parallel writing path would be a second place for
+the rules to drift.
+"""
+
+from __future__ import annotations
+
+import csv
+import io
+import logging
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.core.crypto import decode_key, seal, unseal
+from app.core.errors import NotFound
+from app.core.settings import Settings, get_settings
+from app.core.tenancy import TenantSession
+from app.domain.erp.ports import ErpConnector, ErpPurchaseOrder
+from app.domain.imports import service as imports
+from app.domain.models import (
+    ErpConnection,
+    ErpKind,
+    ErpSyncRun,
+    ErpSyncStatus,
+    ImportKind,
+)
+
+logger = logging.getLogger(__name__)
+
+#: The container magic for a sealed ERP credential.
+ERP_MAGIC = b"FSERP1"
+KEY_NAME = "ERP_ENCRYPTION_KEY"
+
+#: The canonical columns of our own purchase-order import, in the order they are written.
+COLUMNS = (
+    "po_number",
+    "supplier_name",
+    "currency",
+    "order_date",
+    "line_no",
+    "sku",
+    "description",
+    "quantity",
+    "unit_price",
+    "unit_weight_kg",
+    "unit_volume_cbm",
+    "hs_code",
+)
+
+
+@dataclass(frozen=True)
+class SyncResult:
+    run: ErpSyncRun
+    purchase_orders: int
+    lines: int
+
+
+def seal_key(api_key: str, settings: Settings | None = None) -> bytes:
+    key = decode_key((settings or get_settings()).erp_encryption_key, KEY_NAME)
+    return seal(api_key.encode(), key, magic=ERP_MAGIC)
+
+
+def open_key(sealed: bytes, settings: Settings | None = None) -> str:
+    key = decode_key((settings or get_settings()).erp_encryption_key, KEY_NAME)
+    return unseal(bytes(sealed), key, magic=ERP_MAGIC).decode()
+
+
+def connector_for(connection: ErpConnection, settings: Settings | None = None) -> ErpConnector:
+    if connection.kind is ErpKind.ODOO:
+        from app.adapters.erp.odoo import OdooConnector
+
+        return OdooConnector(
+            connection.url,
+            connection.database,
+            connection.login,
+            open_key(connection.api_key_sealed, settings),
+        )
+    raise NotFound(f"ERP connector {connection.kind.value}")  # pragma: no cover - one kind so far
+
+
+def to_csv(orders: list[ErpPurchaseOrder]) -> tuple[bytes, int]:
+    """One row per order line, in our canonical columns. Returns the file and the line count."""
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=list(COLUMNS))
+    writer.writeheader()
+    written = 0
+    for order in orders:
+        for number, line in enumerate(order.lines, start=1):
+            writer.writerow(
+                {
+                    "po_number": order.number,
+                    "supplier_name": order.supplier or "",
+                    "currency": order.currency,
+                    "order_date": order.order_date.isoformat() if order.order_date else "",
+                    "line_no": number,
+                    "sku": line.sku or "",
+                    # The unit is kept in words: an importer reading "20 Dozens" in Odoo should find
+                    # the same words here, even though the quantity has been converted to units.
+                    "description": f"{line.description} ({line.uom})" if line.uom else line.description,
+                    "quantity": line.quantity,
+                    "unit_price": line.unit_price,
+                    "unit_weight_kg": line.unit_weight_kg or "",
+                    "unit_volume_cbm": line.unit_volume_cbm or "",
+                    "hs_code": line.hs_code or "",
+                }
+            )
+            written += 1
+    return buffer.getvalue().encode(), written
+
+
+def sync(
+    t: TenantSession,
+    connection: ErpConnection,
+    connector: ErpConnector | None = None,
+    *,
+    since: datetime | None = None,
+    limit: int | None = None,
+) -> SyncResult:
+    """Read the ERP and import what it says. One run row, whatever happens."""
+    run = ErpSyncRun(org_id=t.org_id, connection_id=connection.id, status=ErpSyncStatus.RUNNING, detail={})
+    t.db.add(run)
+    t.db.flush()
+
+    impl = connector or connector_for(connection)
+    try:
+        orders = impl.fetch_purchase_orders(since=since, limit=limit)
+        content, line_count = to_csv(orders)
+        if not orders or not line_count:
+            run.status = ErpSyncStatus.SUCCEEDED
+            run.finished_at = datetime.now(UTC)
+            run.detail = {"message": "nothing new in the ERP"}
+            connection.last_sync_at = run.finished_at
+            connection.last_error = None
+            t.db.flush()
+            return SyncResult(run=run, purchase_orders=0, lines=0)
+
+        job = imports.create_job(t, ImportKind.PURCHASE_ORDERS, content, "odoo-sync.csv")
+        # Our own columns, so the mapping is the identity: no guessing, no remembered mapping.
+        mapping = {column: column for column in COLUMNS}
+        report = imports.run_job(t, job, mapping, dry_run=False, on_error="skip_rows")
+
+        run.status = ErpSyncStatus.SUCCEEDED
+        run.import_job_id = job.id
+        run.purchase_orders = len(orders)
+        run.lines = line_count
+        run.detail = report.to_dict()
+        run.finished_at = datetime.now(UTC)
+        connection.last_sync_at = run.finished_at
+        connection.last_error = None
+        t.db.flush()
+        return SyncResult(run=run, purchase_orders=len(orders), lines=line_count)
+    except Exception as exc:
+        # The run row is the point: a sync that failed silently is a customer who thinks their orders
+        # are up to date. It is written even though the import itself rolled back.
+        run.status = ErpSyncStatus.FAILED
+        run.error = str(exc)[:1000]
+        run.finished_at = datetime.now(UTC)
+        connection.last_error = run.error
+        logger.exception("ERP sync failed for org %s", t.org_id)
+        raise
+
+
+def connection_for(db: Session, org_id: UUID) -> ErpConnection | None:
+    return db.scalar(select(ErpConnection).where(ErpConnection.org_id == org_id))

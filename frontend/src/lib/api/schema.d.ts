@@ -367,6 +367,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/erp/connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Connection */
+        get: operations["get_connection_api_v1_erp_connection_get"];
+        put?: never;
+        /**
+         * Create Connection
+         * @description Store the connection — after proving it works.
+         *
+         *     The test happens before anything is written: a saved connection that has never authenticated is
+         *     a promise the next sync will break, and the error the ERP gives is far more useful now, while
+         *     the person who typed the credentials is still looking at them.
+         */
+        post: operations["create_connection_api_v1_erp_connection_post"];
+        /**
+         * Delete Connection
+         * @description Forget the ERP. The orders already imported stay: they are ours now.
+         */
+        delete: operations["delete_connection_api_v1_erp_connection_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/erp/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync Now
+         * @description Read the ERP now, in this request.
+         *
+         *     Deliberately synchronous: someone has just connected their Odoo and is watching this button.
+         *     The daily refresh is the job; this is the reassurance.
+         */
+        post: operations["sync_now_api_v1_erp_sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/erp/sync-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sync Runs */
+        get: operations["list_sync_runs_api_v1_erp_sync_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/costs": {
         parameters: {
             query?: never;
@@ -1356,6 +1425,90 @@ export interface components {
          * @enum {string}
          */
         DndRisk: "NONE" | "LOW" | "MEDIUM" | "HIGH" | "INCURRING";
+        /**
+         * ErpConnectionCreate
+         * @description Everything needed to reach an Odoo. The API key is sealed before it is stored.
+         */
+        ErpConnectionCreate: {
+            /** @default ODOO */
+            kind: components["schemas"]["ErpKind"];
+            /** Url */
+            url: string;
+            /** Database */
+            database: string;
+            /** Login */
+            login: string;
+            /** Api Key */
+            api_key: string;
+        };
+        /** ErpConnectionResponse */
+        ErpConnectionResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["ErpKind"];
+            /** Url */
+            url: string;
+            /** Database */
+            database: string;
+            /** Login */
+            login: string;
+            /** Active */
+            active: boolean;
+            /** Server Version */
+            server_version: string | null;
+            /** Company */
+            company: string | null;
+            /** Last Sync At */
+            last_sync_at: string | null;
+            /** Last Error */
+            last_error: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * ErpKind
+         * @enum {string}
+         */
+        ErpKind: "ODOO";
+        /** ErpSyncRunResponse */
+        ErpSyncRunResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["ErpSyncStatus"];
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Purchase Orders */
+            purchase_orders: number;
+            /** Lines */
+            lines: number;
+            /** Import Job Id */
+            import_job_id: string | null;
+            /** Error */
+            error: string | null;
+            /** Detail */
+            detail: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * ErpSyncStatus
+         * @enum {string}
+         */
+        ErpSyncStatus: "RUNNING" | "SUCCEEDED" | "FAILED";
         /**
          * EstimateResponse
          * @description What applying the rate cards to a container produced, and what it did not.
@@ -3465,6 +3618,165 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LoadResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_connection_api_v1_erp_connection_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpConnectionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_connection_api_v1_erp_connection_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ErpConnectionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpConnectionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_connection_api_v1_erp_connection_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_now_api_v1_erp_sync_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpSyncRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sync_runs_api_v1_erp_sync_runs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpSyncRunResponse"][];
                 };
             };
             /** @description Validation Error */

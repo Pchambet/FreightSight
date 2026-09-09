@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     alerts_from_email: str | None = None
     resend_base_url: str = "https://api.resend.com"
 
+    # ERP connectors. The key that seals customers' ERP credentials at rest.
+    erp_encryption_key: str | None = None
+
     # Observability. Without a DSN the application logs exactly the same and reports nothing.
     sentry_dsn: str | None = None
     sentry_traces_sample_rate: float = 0.1

@@ -120,3 +120,16 @@ def extract_invoice(org_id: str, invoice_id: str) -> None:
     with handlers.session() as db:
         status = handlers.extract_invoice(db, UUID(org_id), UUID(invoice_id))
     logger.info("invoice %s extraction ended in %s", invoice_id, status)
+
+
+@app.periodic(cron="15 5 * * *")
+@app.task(
+    name="erp.sync",
+    queueing_lock="erp:sync",
+    retry=RetryStrategy(max_attempts=2, exponential_wait=120),
+)
+def sync_erp(timestamp: int) -> None:
+    """The daily read of every connected ERP. On-demand syncs go through the API, not through here."""
+    with handlers.session() as db:
+        synced = handlers.sync_erp(db)
+    logger.info("synchronised %s ERP connection(s)", synced)
