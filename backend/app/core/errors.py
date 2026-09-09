@@ -11,6 +11,11 @@ class DomainError(Exception):
         super().__init__(message)
         self.message = message
         self.errors = errors
+        # `code="..."` overrides the class default on this instance rather than travelling as an
+        # extra field: callers pass it to say what went wrong, and readers expect `exc.code` to say it.
+        code = extra.pop("code", None)
+        if isinstance(code, str):
+            self.code = code
         self.extra = extra
 
 

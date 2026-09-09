@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     alerts_from_email: str | None = None
     resend_base_url: str = "https://api.resend.com"
 
+    # Invoice extraction. Without a key, invoices are read by the pattern extractor only.
+    extraction_api_key: str | None = None
+    extraction_model: str = "claude-opus-5"
+    extraction_api_url: str = "https://api.anthropic.com/v1/messages"
+
     # Document storage. Without a complete S3 configuration, uploads are kept in Postgres.
     documents_s3_bucket: str | None = None
     documents_s3_region: str = "fr-par"
