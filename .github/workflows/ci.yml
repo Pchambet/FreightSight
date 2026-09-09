@@ -64,7 +64,11 @@ jobs:
           cache-dependency-glob: backend/uv.lock
       - run: uv python install 3.13
       # pg_dump/pg_restore of the same major as the Postgres service, for the backup round-trip test.
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+      # Ubuntu's own repositories stop at client 16, hence the PGDG repository.
+      - run: |
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
+          echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
       - run: uv sync --frozen --all-groups
       - run: uv run ruff check .
       - run: uv run ruff format --check .
