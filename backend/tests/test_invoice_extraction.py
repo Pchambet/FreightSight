@@ -291,3 +291,58 @@ def test_the_patterns_are_always_available_and_the_model_only_with_a_key(
     get_settings.cache_clear()
     assert [e.name for e in get_extractors()] == ["llm", "regex"]
     get_settings.cache_clear()
+
+
+# ---------------------------------------------------------------------------- a real invoice
+
+
+def test_a_real_forwarder_invoice_reads_exactly(db: Session, org: Organization) -> None:
+    """The one fixture nobody wrote to be easy: a French forwarder invoice produced for a production
+    walkthrough, which caught two bugs the invented ones did not — a header line naming a B/L and a
+    container size, and a VAT line stating its taxable base."""
+    from pathlib import Path
+
+    pdf = (Path(__file__).parent / "fixtures" / "facture_transitaire_fr.pdf").read_bytes()
+    invoice = RegexExtractor().extract(
+        ExtractionInput(pdf, "application/pdf", "facture_transitaire_fr.pdf"), CONTEXT
+    )
+
+    assert invoice.invoice_number == "FAC-2026-08871"
+    assert invoice.invoice_date == date(2026, 9, 5)
+    assert invoice.total == "3517.00"
+    assert invoice.vat == "167.00"  # computed as TTC - HT, not read off the label
+    assert invoice.container_numbers == ["MSCU1234567"]
+
+    charges = [(ln.cost_type, ln.amount) for ln in invoice.lines]
+    assert charges == [
+        (CostType.OCEAN_FREIGHT, "2450.00"),
+        (CostType.THC, "285.00"),
+        (CostType.BL_FEE, "65.00"),
+        (CostType.CUSTOMS_BROKERAGE, "120.00"),
+        (CostType.DRAYAGE, "430.00"),
+    ]
+    holds, difference = arithmetic_holds(invoice)
+    assert holds and difference == Decimal("0.00")
+
+
+def test_a_header_naming_a_charge_is_not_a_charge() -> None:
+    """« … · B/L MEDUSH2604417 · Conteneur MSCU1234567 (40' HC) · Navire … » once became a
+    bill-of-lading fee of 40. A charge line ends on its amount; a sentence does not."""
+    from app.adapters.extraction.regex_extractor import trailing_amount
+
+    header = "Dossier import LEH-26-4417 · B/L MEDUSH2604417 · Conteneur MSCU1234567 (40' HC) · Navire"
+    assert trailing_amount(header) is None
+    assert trailing_amount("Frais de B/L (Bill of lading fee) 1 65,00 65,00") == Decimal("65.00")
+    assert trailing_amount("Total TTC 3 517,00 EUR") == Decimal("3517.00")
+
+
+def test_a_registration_number_is_not_an_amount_of_tax() -> None:
+    lines = [
+        "TRANSITEX SAS - TVA FR12812345678",
+        "Fret maritime 2 400,00",
+        "Total HT 2 400,00",
+        "TVA 20 % (sur prestations taxables : 835,00) 167,00",
+        "Total TTC 2 567,00",
+    ]
+    invoice = read(lines)
+    assert invoice.vat == "167.00"
