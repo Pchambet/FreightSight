@@ -93,3 +93,17 @@ def dispatch_alerts(timestamp: int) -> None:
     with handlers.session() as db:
         sent = handlers.dispatch_alerts(db)
     logger.info("sent %s alert digests", sent)
+
+
+@app.task(
+    name="invoices.extract",
+    retry=RetryStrategy(max_attempts=3, exponential_wait=30),
+)
+def extract_invoice(org_id: str, invoice_id: str) -> None:
+    """Read an uploaded invoice. Deferred inside the upload's own transaction, so a job never exists
+    for an invoice that was never stored."""
+    from uuid import UUID
+
+    with handlers.session() as db:
+        status = handlers.extract_invoice(db, UUID(org_id), UUID(invoice_id))
+    logger.info("invoice %s extraction ended in %s", invoice_id, status)

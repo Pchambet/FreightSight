@@ -20,6 +20,7 @@ from app.domain.models import (
     ImportKind,
     ImportStatus,
     Incoterm,
+    InvoiceStatus,
     MemberRole,
     MilestoneCode,
     TrackingState,
@@ -597,3 +598,69 @@ class AlertResponse(BaseModel):
 
 class AlertsRead(BaseModel):
     marked: int
+
+
+# ---------------------------------------------------------------------------- invoices
+
+
+class InvoiceLineResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    line_no: int
+    description: str
+    amount: Money
+    currency: str
+    cost_type: CostType | None
+    scope: CostScope | None
+    target_id: UUID | None
+    confidence: Decimal
+    accepted: bool
+    notes: str | None
+    cost_id: UUID | None
+
+
+class InvoiceSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    status: InvoiceStatus
+    vendor: str | None
+    invoice_number: str | None
+    invoice_date: date | None
+    currency: str | None
+    total_amount: Money | None
+    vat_amount: Money | None
+    confidence: Decimal | None
+    extractor: str | None
+    error: str | None
+    document_id: UUID
+    filename: str | None = None
+    created_at: datetime
+
+
+class InvoiceResponse(InvoiceSummary):
+    lines: list[InvoiceLineResponse] = Field(default_factory=list)
+    document_url: str  # this API's own route; the bytes never come from a storage URL
+    notes: list[str] = Field(default_factory=list)
+
+
+class InvoiceLineUpdate(BaseModel):
+    """A correction made by a person. Everything is optional; nothing is inferred."""
+
+    amount: Decimal | None = Field(default=None, gt=0, max_digits=14, decimal_places=2)
+    currency: str | None = None
+    cost_type: CostType | None = None
+    scope: CostScope | None = None
+    target_id: UUID | None = None
+    accepted: bool | None = None
+    description: str | None = None
+
+    @field_validator("currency")
+    @classmethod
+    def _currency(cls, v: str | None) -> str | None:
+        return None if v is None else currency_code(v)
+
+
+class InvoiceConfirmResponse(BaseModel):
+    invoice: InvoiceResponse
+    costs_created: int
+    cost_ids: list[UUID]

@@ -488,6 +488,153 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Invoices */
+        get: operations["list_invoices_api_v1_invoices_get"];
+        put?: never;
+        /**
+         * Upload Invoice
+         * @description Accept a file and open an invoice on it. Reading happens in a job; this answers immediately.
+         *
+         *     The extraction job is deferred inside this transaction: if the upload rolls back, the job never
+         *     existed either.
+         */
+        post: operations["upload_invoice_api_v1_invoices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoice_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Invoice */
+        get: operations["get_invoice_api_v1_invoices__invoice_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoice_id}/document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Invoice Document
+         * @description The file itself, streamed by the API.
+         *
+         *     Never a storage URL: a document stays behind the same authentication and the same tenancy checks
+         *     as its metadata, wherever its bytes happen to live.
+         */
+        get: operations["get_invoice_document_api_v1_invoices__invoice_id__document_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoice_id}/lines/{line_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Line
+         * @description Correct what was read, and accept the line or not. This is the human half of the loop.
+         */
+        patch: operations["update_line_api_v1_invoices__invoice_id__lines__line_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoice_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm
+         * @description Create the accepted lines as costs — all of them, or none of them.
+         *
+         *     One transaction: the costs, the invoice's new status and the recomputed allocations land
+         *     together. A line pointing at something that is not ours stops the whole confirmation.
+         */
+        post: operations["confirm_api_v1_invoices__invoice_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoice_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject
+         * @description Not our invoice, a duplicate, an error: it stays on file, it creates nothing.
+         */
+        post: operations["reject_api_v1_invoices__invoice_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoice_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry
+         * @description Read the document again — after a fix on our side, or once a model key exists.
+         */
+        post: operations["retry_api_v1_invoices__invoice_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/fx-rates": {
         parameters: {
             query?: never;
@@ -730,6 +877,11 @@ export interface components {
         Body_create_import_api_v1_imports_post: {
             /** @default PURCHASE_ORDERS */
             kind: components["schemas"]["ImportKind"];
+            /** File */
+            file: string;
+        };
+        /** Body_upload_invoice_api_v1_invoices_post */
+        Body_upload_invoice_api_v1_invoices_post: {
             /** File */
             file: string;
         };
@@ -1121,6 +1273,150 @@ export interface components {
             mismatches: {
                 [key: string]: string;
             }[];
+        };
+        /** InvoiceConfirmResponse */
+        InvoiceConfirmResponse: {
+            invoice: components["schemas"]["InvoiceResponse"];
+            /** Costs Created */
+            costs_created: number;
+            /** Cost Ids */
+            cost_ids: string[];
+        };
+        /** InvoiceLineResponse */
+        InvoiceLineResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Line No */
+            line_no: number;
+            /** Description */
+            description: string;
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            cost_type: components["schemas"]["CostType"] | null;
+            scope: components["schemas"]["CostScope"] | null;
+            /** Target Id */
+            target_id: string | null;
+            /** Confidence */
+            confidence: string;
+            /** Accepted */
+            accepted: boolean;
+            /** Notes */
+            notes: string | null;
+            /** Cost Id */
+            cost_id: string | null;
+        };
+        /**
+         * InvoiceLineUpdate
+         * @description A correction made by a person. Everything is optional; nothing is inferred.
+         */
+        InvoiceLineUpdate: {
+            /** Amount */
+            amount?: number | string | null;
+            /** Currency */
+            currency?: string | null;
+            cost_type?: components["schemas"]["CostType"] | null;
+            scope?: components["schemas"]["CostScope"] | null;
+            /** Target Id */
+            target_id?: string | null;
+            /** Accepted */
+            accepted?: boolean | null;
+            /** Description */
+            description?: string | null;
+        };
+        /** InvoiceResponse */
+        InvoiceResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["InvoiceStatus"];
+            /** Vendor */
+            vendor: string | null;
+            /** Invoice Number */
+            invoice_number: string | null;
+            /** Invoice Date */
+            invoice_date: string | null;
+            /** Currency */
+            currency: string | null;
+            /** Total Amount */
+            total_amount: string | null;
+            /** Vat Amount */
+            vat_amount: string | null;
+            /** Confidence */
+            confidence: string | null;
+            /** Extractor */
+            extractor: string | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Filename */
+            filename?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Lines */
+            lines?: components["schemas"]["InvoiceLineResponse"][];
+            /** Document Url */
+            document_url: string;
+            /** Notes */
+            notes?: string[];
+        };
+        /**
+         * InvoiceStatus
+         * @description An invoice's life. Nothing becomes a cost without a human passing through NEEDS_REVIEW.
+         * @enum {string}
+         */
+        InvoiceStatus: "UPLOADED" | "EXTRACTING" | "NEEDS_REVIEW" | "CONFIRMED" | "FAILED" | "REJECTED";
+        /** InvoiceSummary */
+        InvoiceSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["InvoiceStatus"];
+            /** Vendor */
+            vendor: string | null;
+            /** Invoice Number */
+            invoice_number: string | null;
+            /** Invoice Date */
+            invoice_date: string | null;
+            /** Currency */
+            currency: string | null;
+            /** Total Amount */
+            total_amount: string | null;
+            /** Vat Amount */
+            vat_amount: string | null;
+            /** Confidence */
+            confidence: string | null;
+            /** Extractor */
+            extractor: string | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Filename */
+            filename?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** LandedCostReport */
         LandedCostReport: {
@@ -3139,6 +3435,277 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImportJobResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_invoices_api_v1_invoices_get: {
+        parameters: {
+            query?: {
+                invoice_status?: components["schemas"]["InvoiceStatus"] | null;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_invoice_api_v1_invoices_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_invoice_api_v1_invoices_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_invoice_api_v1_invoices__invoice_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_invoice_document_api_v1_invoices__invoice_id__document_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_line_api_v1_invoices__invoice_id__lines__line_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                invoice_id: string;
+                line_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceLineUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_api_v1_invoices__invoice_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceConfirmResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_api_v1_invoices__invoice_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_api_v1_invoices__invoice_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceResponse"];
                 };
             };
             /** @description Validation Error */

@@ -13,14 +13,21 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.adapters.fx_ecb import make_fetcher
 from app.core.db import get_sessionmaker
+from app.core.settings import get_settings
 from app.core.tenancy import set_current_org
 from app.domain.alerts.notifier import Notification, Notifier, make_notifier
 from app.domain.alerts.service import raise_alert
+from app.domain.documents.registry import get_store
+from app.domain.fx.service import FxService
+from app.domain.invoices import service as invoices_service
+from app.domain.invoices.registry import get_extractors
 from app.domain.models import (
     Alert,
     AlertKind,
@@ -28,6 +35,8 @@ from app.domain.models import (
     Container,
     DndRisk,
     EtaHistory,
+    Invoice,
+    InvoiceStatus,
     Membership,
     Organization,
     TrackingEvent,
@@ -326,6 +335,41 @@ def alert_on_eta_changes(db: Session, *, now: datetime | None = None, lookback_h
                 raised += 1 if alert is not None else 0
             db.commit()
     return raised
+
+
+# ---------------------------------------------------------------------------- invoice extraction
+
+
+def extract_invoice(db: Session, org_id: UUID, invoice_id: UUID) -> str:
+    """Read one uploaded invoice. Returns the status it ended in.
+
+    Reading is the slow, failure-prone part — a PDF library, sometimes a model over the network — so
+    it happens here rather than in the request. Nothing it produces is a cost: the invoice comes out
+    in NEEDS_REVIEW, waiting for a person, or in FAILED with the reason.
+    """
+    org = db.get(Organization, org_id)
+    if org is None:  # pragma: no cover - the caller just wrote it
+        return "unknown-organization"
+    with tenant(db, org):
+        invoice = db.scalar(select(Invoice).where(Invoice.id == invoice_id, Invoice.org_id == org_id))
+        if invoice is None:
+            logger.warning("invoice %s no longer exists", invoice_id)
+            return "unknown-invoice"
+        store = get_store(db)
+        fx = FxService(make_fetcher(get_settings().fx_api_url))
+        try:
+            invoices_service.extract(db, store, fx, org, invoice, get_extractors())
+        except Exception as exc:
+            db.rollback()
+            logger.exception("extraction of invoice %s failed", invoice_id)
+            failed = db.scalar(select(Invoice).where(Invoice.id == invoice_id))
+            if failed is not None:
+                failed.status = InvoiceStatus.FAILED
+                failed.error = str(exc)[:500]
+            db.commit()
+            return InvoiceStatus.FAILED.value
+        db.commit()
+        return invoice.status.value
 
 
 # ---------------------------------------------------------------------------- sending the digest

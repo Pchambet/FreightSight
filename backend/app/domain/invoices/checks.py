@@ -16,12 +16,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from app.domain.fx.service import FxService
 from app.domain.invoices.ports import ExtractionContext, FreightInvoice
-from app.domain.models import CostScope
+from app.domain.models import CostScope, CostType
 
 #: How far the sum of the lines may be from the stated total before we stop believing the reading.
 TOLERANCE = Decimal("0.02")
@@ -34,9 +35,9 @@ class CheckedLine:
     description: str
     amount: Decimal
     currency: str
-    cost_type: object | None
+    cost_type: CostType | None
     scope: CostScope | None
-    target_id: object | None
+    target_id: UUID | None
     confidence: float
     notes: list[str]
 
