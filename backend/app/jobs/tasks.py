@@ -80,3 +80,16 @@ def alert_on_eta_changes(timestamp: int) -> None:
     with handlers.session() as db:
         raised = handlers.alert_on_eta_changes(db, now=_moment(timestamp))
     logger.info("raised %s ETA alerts", raised)
+
+
+@app.periodic(cron="*/5 * * * *")
+@app.task(
+    name="alerts.dispatch",
+    queueing_lock="alerts:dispatch",
+    retry=RetryStrategy(max_attempts=3, exponential_wait=60),
+)
+def dispatch_alerts(timestamp: int) -> None:
+    """One digest per organization, every five minutes, for whatever is not yet notified."""
+    with handlers.session() as db:
+        sent = handlers.dispatch_alerts(db)
+    logger.info("sent %s alert digests", sent)

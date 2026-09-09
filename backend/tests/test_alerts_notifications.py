@@ -1,0 +1,193 @@
+"""Sending alert digests: grouping, recipients, and the Resend adapter against a mocked transport."""
+
+from __future__ import annotations
+
+import json
+import uuid
+from datetime import UTC, datetime
+
+import httpx
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.adapters.notifications.log_notifier import LogNotifier
+from app.adapters.notifications.resend import ResendNotifier
+from app.domain.alerts.notifier import Notification, make_notifier
+from app.domain.alerts.service import raise_alert
+from app.domain.models import Alert, AlertKind, AlertSeverity, Membership, Organization, User
+from app.domain.tracking.ports import ProviderUnavailable
+from app.jobs import handlers
+
+
+class RecordingNotifier:
+    name = "recording"
+
+    def __init__(self) -> None:
+        self.sent: list[Notification] = []
+
+    def send(self, notification: Notification) -> None:
+        self.sent.append(notification)
+
+
+class BrokenNotifier:
+    name = "broken"
+
+    def send(self, notification: Notification) -> None:
+        raise ProviderUnavailable("the mail provider is down")
+
+
+@pytest.fixture
+def org(client: TestClient, db: Session, org_id: uuid.UUID) -> Organization:
+    assert client.get("/api/v1/organization").status_code == 200
+    organization = db.get(Organization, org_id)
+    assert organization is not None
+    user = User(external_id="user_1", email="pierre@example.test", name="Pierre")
+    db.add(user)
+    db.flush()
+    db.add(Membership(org_id=organization.id, user_id=user.id))
+    db.commit()
+    return organization
+
+
+def make_alerts(db: Session, org: Organization, count: int) -> None:
+    for i in range(count):
+        raise_alert(
+            db,
+            org.id,
+            kind=AlertKind.DND_RISK,
+            severity=AlertSeverity.CRITICAL if i == 0 else AlertSeverity.WARNING,
+            title=f"MSCU482199{i}: demurrage risk HIGH",
+            body="Last free day 2026-09-10, 1 day left.",
+            dedup_key=f"dnd:{i}:HIGH",
+        )
+    db.commit()
+
+
+def test_one_digest_per_organization_not_one_per_alert(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    make_alerts(db, org, 3)
+    notifier = RecordingNotifier()
+
+    assert handlers.dispatch_alerts(db, notifier=notifier) == 1
+    (notification,) = notifier.sent
+    assert len(notification.alerts) == 3
+    assert notification.recipients == ["pierre@example.test"]
+    assert notification.subject == "FreightSight: 3 alerts"
+    assert "demurrage risk HIGH" in notification.text()
+
+    # nothing left to say on the next round
+    assert handlers.dispatch_alerts(db, notifier=notifier) == 0
+    assert len(notifier.sent) == 1
+
+    # and an alert raised afterwards goes out on its own, next round
+    make_alerts(db, org, 4)
+    assert handlers.dispatch_alerts(db, notifier=notifier) == 1
+    assert len(notifier.sent[-1].alerts) == 1
+
+
+def test_a_single_alert_keeps_its_own_title(client: TestClient, db: Session, org: Organization) -> None:
+    make_alerts(db, org, 1)
+    notifier = RecordingNotifier()
+    handlers.dispatch_alerts(db, notifier=notifier)
+    assert notifier.sent[0].subject == "FreightSight: MSCU4821990: demurrage risk HIGH"
+
+
+def test_a_failed_send_leaves_the_alerts_for_the_next_round(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    make_alerts(db, org, 2)
+    assert handlers.dispatch_alerts(db, notifier=BrokenNotifier()) == 0
+    db.expire_all()
+    unnotified = list(db.scalars(select(Alert).where(Alert.notified_at.is_(None))))
+    assert len(unnotified) == 2
+
+    notifier = RecordingNotifier()
+    assert handlers.dispatch_alerts(db, notifier=notifier) == 1
+    assert len(notifier.sent[0].alerts) == 2
+
+
+def test_without_a_key_the_digest_is_logged_and_still_marked_sent(
+    client: TestClient, db: Session, org: Organization, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Otherwise the day a real key is added, the first round would mail out the whole backlog."""
+    make_alerts(db, org, 2)
+    with caplog.at_level("INFO", logger="freightsight.alerts"):
+        assert handlers.dispatch_alerts(db, notifier=LogNotifier()) == 1
+    assert "alert digest" in caplog.text
+    db.expire_all()
+    assert list(db.scalars(select(Alert).where(Alert.notified_at.is_(None)))) == []
+
+
+def test_the_notifier_is_the_log_one_until_both_settings_exist(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.core.settings import get_settings
+
+    get_settings.cache_clear()
+    assert make_notifier().name == "log"
+
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    get_settings.cache_clear()
+    assert make_notifier().name == "log"  # a key without a sender address is not enough
+
+    monkeypatch.setenv("ALERTS_FROM_EMAIL", "alerts@freightsight.test")
+    get_settings.cache_clear()
+    assert make_notifier().name == "resend"
+    get_settings.cache_clear()
+
+
+# ---------------------------------------------------------------------------- the Resend adapter
+
+
+def notification(recipients: list[str]) -> Notification:
+    alert = Alert(
+        org_id=uuid.uuid4(),
+        kind=AlertKind.DND_RISK,
+        severity=AlertSeverity.CRITICAL,
+        title="MSCU4821990: demurrage risk HIGH",
+        body="Last free day 2026-09-10.",
+        dedup_key="k",
+        created_at=datetime.now(UTC),
+    )
+    return Notification(org_id=uuid.uuid4(), org_name="Acme", recipients=recipients, alerts=[alert])
+
+
+def test_resend_posts_one_plain_message() -> None:
+    seen: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        seen["auth"] = request.headers["authorization"]
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"id": "email-1"})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler), base_url="https://api.resend.test")
+    ResendNotifier("re_key", "alerts@freightsight.test", client=client).send(
+        notification(["pierre@example.test", "ops@example.test"])
+    )
+
+    assert seen["url"] == "https://api.resend.test/emails"
+    assert seen["auth"] == "Bearer re_key"
+    body = seen["body"]
+    assert isinstance(body, dict)
+    assert body["from"] == "alerts@freightsight.test"
+    assert body["to"] == ["pierre@example.test", "ops@example.test"]
+    assert "demurrage risk HIGH" in body["text"]
+
+
+def test_resend_failures_are_raised_so_the_alerts_are_retried() -> None:
+    client = httpx.Client(
+        transport=httpx.MockTransport(lambda _: httpx.Response(422, text="invalid from address")),
+        base_url="https://api.resend.test",
+    )
+    with pytest.raises(ProviderUnavailable):
+        ResendNotifier("re_key", "nope", client=client).send(notification(["a@example.test"]))
+
+
+def test_resend_does_not_call_the_api_without_a_recipient() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover - must not be called
+        raise AssertionError("no recipient, no request")
+
+    client = httpx.Client(transport=httpx.MockTransport(handler), base_url="https://api.resend.test")
+    ResendNotifier("re_key", "alerts@freightsight.test", client=client).send(notification([]))

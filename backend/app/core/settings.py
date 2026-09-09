@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     terminal49_base_url: str = "https://api.terminal49.com/v2"
     tracking_webhook_max_age_seconds: int = 900
 
+    # Alert e-mails. Without both of these the application logs its digests instead of sending them.
+    resend_api_key: str | None = None
+    alerts_from_email: str | None = None
+    resend_base_url: str = "https://api.resend.com"
+
     @property
     def is_prod(self) -> bool:
         return self.app_env == "prod"

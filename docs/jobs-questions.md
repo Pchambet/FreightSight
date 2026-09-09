@@ -48,7 +48,16 @@ retard, jamais un e-mail par alerte. Sans clé Resend, le notifieur écrit dans 
 quand même les alertes comme notifiées — sinon la première vraie clé déclencherait un envoi de tout
 l'historique.
 
-## 6. Ce qui n'est pas fait
+## 6. Variables et service worker
+
+Le worker est `python -m app.worker`, même image que l'API. Variables : `DATABASE_URL` (obligatoire,
+la même que l'API), `APP_ENV`, et facultativement `WORKER_CONCURRENCY` (défaut 2) et `WORKER_QUEUES`
+(défaut : toutes). Pour les alertes par e-mail : `RESEND_API_KEY` et `ALERTS_FROM_EMAIL` — sans les
+deux, les digests partent dans les logs. Pour le tracking, le worker a besoin des mêmes clés que
+l'API (`TRACKING_WEBHOOK_SECRET_TERMINAL49`, `TERMINAL49_API_KEY`) pour pouvoir rejouer une livraison
+ou interroger un abonnement muet.
+
+## 7. Ce qui n'est pas fait
 
 - `process_import` et `extract_invoice` ne sont pas encore des jobs (l'import reste synchrone, il est
   rapide ; l'extraction n'existe pas).

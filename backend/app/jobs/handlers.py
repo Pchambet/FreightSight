@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_sessionmaker
 from app.core.tenancy import set_current_org
+from app.domain.alerts.notifier import Notification, Notifier, make_notifier
 from app.domain.alerts.service import raise_alert
 from app.domain.models import (
     Alert,
@@ -27,10 +28,12 @@ from app.domain.models import (
     Container,
     DndRisk,
     EtaHistory,
+    Membership,
     Organization,
     TrackingEvent,
     TrackingState,
     TrackingSubscription,
+    User,
     WebhookDelivery,
 )
 from app.domain.tracking.delivery import process_stored_delivery
@@ -323,6 +326,52 @@ def alert_on_eta_changes(db: Session, *, now: datetime | None = None, lookback_h
                 raised += 1 if alert is not None else 0
             db.commit()
     return raised
+
+
+# ---------------------------------------------------------------------------- sending the digest
+
+
+def dispatch_alerts(db: Session, *, notifier: Notifier | None = None) -> int:
+    """Send one digest per organization for everything not yet notified. Returns digests sent.
+
+    Grouping is the point: an alert raised just after a round waits for the next one, five minutes
+    later at worst, and nobody receives four e-mails in a minute. A send that raises leaves its
+    alerts unnotified, so the next round picks them up again.
+    """
+    sender = notifier or make_notifier()
+    sent = 0
+    for org in organizations(db):
+        with tenant(db, org):
+            alerts = unnotified_alerts(db, org)
+            if not alerts:
+                continue
+            recipients = _recipients(db, org)
+            try:
+                sender.send(
+                    Notification(org_id=org.id, org_name=org.name, recipients=recipients, alerts=list(alerts))
+                )
+            except Exception:
+                logger.exception("could not send the alert digest for org %s", org.id)
+                db.rollback()
+                continue
+            now = datetime.now(UTC)
+            for alert in alerts:
+                alert.notified_at = now
+            db.commit()
+            sent += 1
+    return sent
+
+
+def _recipients(db: Session, org: Organization) -> list[str]:
+    """Everyone in the organization. There is no per-user notification preference yet, and inventing
+    one from nothing would be worse than sending to all of a two-person team."""
+    rows = db.execute(
+        select(User.email)
+        .join(Membership, Membership.user_id == User.id)
+        .where(Membership.org_id == org.id)
+        .order_by(User.email)
+    ).scalars()
+    return [email for email in rows if email]
 
 
 # ---------------------------------------------------------------------------- helpers for the tasks
