@@ -189,6 +189,17 @@ class ImportKind(enum.StrEnum):
     LEGACY_PO_CONTAINER = "LEGACY_PO_CONTAINER"  # Phase 0 format: one row per PO with a container
 
 
+class InvoiceStatus(enum.StrEnum):
+    """An invoice's life. Nothing becomes a cost without a human passing through NEEDS_REVIEW."""
+
+    UPLOADED = "UPLOADED"
+    EXTRACTING = "EXTRACTING"
+    NEEDS_REVIEW = "NEEDS_REVIEW"
+    CONFIRMED = "CONFIRMED"
+    FAILED = "FAILED"
+    REJECTED = "REJECTED"
+
+
 class ImportStatus(enum.StrEnum):
     PARSED = "PARSED"
     VALIDATED = "VALIDATED"
@@ -614,6 +625,98 @@ class Alert(OrgScoped, Base):
     notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+# ---------------------------------------------------------------------------- documents and invoices
+
+
+class Document(OrgScoped, Base):
+    """An uploaded file. The bytes live wherever the document store puts them — today the database,
+    tomorrow object storage — and this row is the metadata either way."""
+
+    __tablename__ = "documents"
+    __table_args__ = (
+        UniqueConstraint("org_id", "storage_key", name="uq_documents_org_id"),
+        # The same invoice cannot be uploaded twice. Named explicitly because the convention would
+        # give both constraints the same name, which is the sort of thing `alembic check` catches.
+        UniqueConstraint("org_id", "sha256", name="uq_documents_org_id_sha256"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    storage: Mapped[str] = mapped_column(String, nullable=False)  # postgres | s3
+    storage_key: Mapped[str] = mapped_column(String, nullable=False)
+    filename: Mapped[str | None] = mapped_column(String)
+    content_type: Mapped[str] = mapped_column(String, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    sha256: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+
+
+class DocumentBlob(OrgScoped, Base):
+    """The bytes, when the store is the database. Temporary, and deliberately its own table: object
+    storage replaces this one row type and nothing else."""
+
+    __tablename__ = "document_blobs"
+    __table_args__ = (UniqueConstraint("org_id", "storage_key"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    storage_key: Mapped[str] = mapped_column(String, nullable=False)
+    content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+
+
+class Invoice(Timestamped, OrgScoped, Base):
+    """A supplier invoice on its way to becoming costs — never automatically."""
+
+    __tablename__ = "invoices"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    document_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("documents.id"), nullable=False, index=True)
+    status: Mapped[InvoiceStatus] = mapped_column(
+        Enum(InvoiceStatus, name="invoice_status"), nullable=False, default=InvoiceStatus.UPLOADED
+    )
+    vendor: Mapped[str | None] = mapped_column(String)
+    invoice_number: Mapped[str | None] = mapped_column(String)
+    invoice_date: Mapped[date | None] = mapped_column(Date)
+    currency: Mapped[str | None] = mapped_column(CHAR(3))
+    total_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    vat_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    extractor: Mapped[str | None] = mapped_column(String)  # regex | llm
+    confidence: Mapped[Decimal | None] = mapped_column(Numeric(3, 2))
+    error: Mapped[str | None] = mapped_column(String)
+    raw: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+
+    document: Mapped[Document] = relationship()
+    lines: Mapped[list[InvoiceLine]] = relationship(
+        back_populates="invoice", cascade="all, delete-orphan", order_by="InvoiceLine.line_no"
+    )
+
+
+class InvoiceLine(OrgScoped, Base):
+    """One proposed cost. `accepted` starts false and only a person sets it."""
+
+    __tablename__ = "invoice_lines"
+    __table_args__ = (UniqueConstraint("invoice_id", "line_no"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    invoice_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    line_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    description: Mapped[str] = mapped_column(String, nullable=False, default="")
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(CHAR(3), nullable=False)
+    cost_type: Mapped[CostType | None] = mapped_column(Enum(CostType, name="cost_type"))
+    scope: Mapped[CostScope | None] = mapped_column(Enum(CostScope, name="cost_scope"))
+    target_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    confidence: Mapped[Decimal] = mapped_column(Numeric(3, 2), nullable=False, default=Decimal("0"))
+    accepted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    notes: Mapped[str | None] = mapped_column(String)  # why a human should look twice
+    cost_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("costs.id", ondelete="SET NULL"))
+
+    invoice: Mapped[Invoice] = relationship(back_populates="lines")
+
+
 # Tables that carry org_id and get a Row Level Security policy in migration 0003 (0004 for tracking).
 RLS_TABLES = [
     "suppliers",
@@ -630,4 +733,8 @@ RLS_TABLES = [
     "tracking_events",
     "eta_history",
     "alerts",
+    "documents",
+    "document_blobs",
+    "invoices",
+    "invoice_lines",
 ]

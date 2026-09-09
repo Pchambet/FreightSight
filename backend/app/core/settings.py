@@ -37,6 +37,19 @@ class Settings(BaseSettings):
     alerts_from_email: str | None = None
     resend_base_url: str = "https://api.resend.com"
 
+    # Document storage. Without a complete S3 configuration, uploads are kept in Postgres.
+    documents_s3_bucket: str | None = None
+    documents_s3_region: str = "fr-par"
+    documents_s3_endpoint: str = "https://s3.fr-par.scw.cloud"
+    documents_s3_access_key: str | None = None
+    documents_s3_secret_key: str | None = None
+
+    @property
+    def s3_documents_enabled(self) -> bool:
+        return bool(
+            self.documents_s3_bucket and self.documents_s3_access_key and self.documents_s3_secret_key
+        )
+
     @property
     def is_prod(self) -> bool:
         return self.app_env == "prod"
