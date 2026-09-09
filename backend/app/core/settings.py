@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     # FX rates: Frankfurter (ECB reference rates), no key needed.
     fx_api_url: str = "https://api.frankfurter.dev/v1"
 
+    # Container tracking. The signing secret alone is enough to receive and verify webhooks; the API
+    # key is only needed to subscribe or poll, so a deployment can run webhook-only.
+    tracking_webhook_secret_terminal49: str | None = None
+    terminal49_api_key: str | None = None
+    terminal49_base_url: str = "https://api.terminal49.com/v2"
+    tracking_webhook_max_age_seconds: int = 900
+
     @property
     def is_prod(self) -> bool:
         return self.app_env == "prod"
