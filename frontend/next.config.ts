@@ -1,4 +1,7 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
+
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 // Security headers for every response. No Content-Security-Policy yet: Clerk injects inline scripts
 // and loads from its own domain, a nonce-based policy is planned with the Sentry setup.
@@ -17,4 +20,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);
