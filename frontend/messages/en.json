@@ -17,7 +17,8 @@
     "containers": "Containers",
     "purchaseOrders": "Purchase orders",
     "imports": "Imports",
-    "settings": "Settings"
+    "settings": "Settings",
+    "alerts": "Alerts"
   },
   "containers": {
     "title": "Containers",
@@ -438,6 +439,17 @@
       "container_quantity": "Quantity in container",
       "total_value": "Total value",
       "allocation_percentage": "Allocation % (ignored)"
+    },
+    "alertKind": {
+      "DND_RISK": "Demurrage risk",
+      "ETA_CHANGED": "ETA changed",
+      "TRACKING_DATA_MISSING": "Tracking data missing",
+      "TRACKING_DELIVERY_FAILED": "Tracking delivery failed"
+    },
+    "alertSeverity": {
+      "info": "info",
+      "warning": "warning",
+      "critical": "critical"
     }
   },
   "errors": {
@@ -506,5 +518,19 @@
     "etaFirst": "First ETA {to}",
     "etaDelta": "{hours} h",
     "unknownCode": "Unrecognised event"
+  },
+  "alerts": {
+    "title": "Alerts",
+    "subtitle": "{unread} unread · {total} in total",
+    "empty": "No alert. They show up here when a container changes risk level, when an ETA moves by more than 12 h, or when tracking stays silent for 48 h.",
+    "markRead": "Mark as read",
+    "markAllRead": "Mark all as read",
+    "marked": "Alert marked as read",
+    "allMarked": "{count} alerts marked as read",
+    "failed": "Could not update the alert",
+    "openContainer": "Open the container",
+    "bell": "Alerts, {count} unread",
+    "unreadOnly": "Unread only",
+    "showAll": "Show all"
   }
 }

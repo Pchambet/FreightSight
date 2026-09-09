@@ -132,6 +132,24 @@ export async function addTrackingEvent(
   return { ok: true, data: null };
 }
 
+export async function markAlertRead(alertId: string): Promise<ActionResult<null>> {
+  await protectAction();
+  const { error } = await api.POST("/api/v1/alerts/{alert_id}/read", { params: { path: { alert_id: alertId } } });
+  if (error) return await fail(error, "alerts.failed");
+  revalidatePath("/alerts");
+  revalidatePath("/", "layout");
+  return { ok: true, data: null };
+}
+
+export async function markAllAlertsRead(): Promise<ActionResult<{ marked: number }>> {
+  await protectAction();
+  const { data, error } = await api.POST("/api/v1/alerts/read-all");
+  if (error || !data) return await fail(error, "alerts.failed");
+  revalidatePath("/alerts");
+  revalidatePath("/", "layout");
+  return { ok: true, data: { marked: data.marked } };
+}
+
 export async function createContainer(containerNumber: string): Promise<ActionResult<{ id: string }>> {
   const { data, error } = await api.POST("/api/v1/containers", {
     body: { container_number: containerNumber.trim().toUpperCase() },

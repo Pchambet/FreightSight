@@ -2,17 +2,17 @@ import { AppShell } from "@/components/layout/AppShell";
 import { api } from "@/lib/api/client";
 import { requireAuth } from "@/lib/auth";
 
-async function orgName(): Promise<string | undefined> {
+async function org(): Promise<{ name?: string; unreadAlerts: number }> {
   try {
     const { data } = await api.GET("/api/v1/organization");
-    return data?.name;
+    return { name: data?.name, unreadAlerts: data?.unread_alerts ?? 0 };
   } catch {
-    return undefined;
+    return { unreadAlerts: 0 };
   }
 }
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   await requireAuth();
-  const name = await orgName();
-  return <AppShell orgName={name}>{children}</AppShell>;
+  const { name, unreadAlerts } = await org();
+  return <AppShell orgName={name} unreadAlerts={unreadAlerts}>{children}</AppShell>;
 }

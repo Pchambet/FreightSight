@@ -17,7 +17,8 @@
     "containers": "Conteneurs",
     "purchaseOrders": "Commandes",
     "imports": "Imports",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "alerts": "Alertes"
   },
   "containers": {
     "title": "Conteneurs",
@@ -438,6 +439,17 @@
       "container_quantity": "Quantité dans le conteneur",
       "total_value": "Valeur totale",
       "allocation_percentage": "% de ventilation (ignoré)"
+    },
+    "alertKind": {
+      "DND_RISK": "Risque de surestaries",
+      "ETA_CHANGED": "ETA modifiée",
+      "TRACKING_DATA_MISSING": "Donnée de suivi manquante",
+      "TRACKING_DELIVERY_FAILED": "Livraison de suivi en échec"
+    },
+    "alertSeverity": {
+      "info": "info",
+      "warning": "attention",
+      "critical": "critique"
     }
   },
   "errors": {
@@ -506,5 +518,19 @@
     "etaFirst": "Première ETA {to}",
     "etaDelta": "{hours} h",
     "unknownCode": "Événement non reconnu"
+  },
+  "alerts": {
+    "title": "Alertes",
+    "subtitle": "{unread} non lues · {total} au total",
+    "empty": "Aucune alerte. Elles apparaîtront ici quand un conteneur change de niveau de risque, quand une ETA bouge de plus de 12 h ou quand un suivi reste muet 48 h.",
+    "markRead": "Marquer comme lue",
+    "markAllRead": "Tout marquer comme lu",
+    "marked": "Alerte marquée comme lue",
+    "allMarked": "{count} alertes marquées comme lues",
+    "failed": "Impossible de mettre à jour l'alerte",
+    "openContainer": "Ouvrir le conteneur",
+    "bell": "Alertes, {count} non lues",
+    "unreadOnly": "Non lues seulement",
+    "showAll": "Tout afficher"
   }
 }

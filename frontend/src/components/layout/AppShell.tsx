@@ -1,7 +1,7 @@
 import { OrganizationSwitcher, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Ship } from "lucide-react";
+import { Bell, Ship } from "lucide-react";
 import LocaleSwitcher from "@/components/layout/LocaleSwitcher";
 
 const NAV = [
@@ -11,7 +11,7 @@ const NAV = [
   { href: "/settings", key: "settings" },
 ] as const;
 
-export function AppShell({ children, orgName }: { children: React.ReactNode; orgName?: string }) {
+export function AppShell({ children, orgName, unreadAlerts = 0 }: { children: React.ReactNode; orgName?: string; unreadAlerts?: number }) {
   const t = useTranslations();
   return (
     <div className="min-h-screen">
@@ -35,6 +35,10 @@ export function AppShell({ children, orgName }: { children: React.ReactNode; org
           <div className="ml-auto flex items-center gap-3 text-xs text-slate-500">
             <span className="hidden sm:inline">{t("common.preAlpha")}</span>
             <LocaleSwitcher />
+            <Link href="/alerts" aria-label={t("alerts.bell", { count: unreadAlerts })} className="relative p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900">
+              <Bell className="w-4 h-4" />
+              {unreadAlerts > 0 ? <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center tabular-nums">{unreadAlerts > 99 ? "99+" : unreadAlerts}</span> : null}
+            </Link>
             <OrganizationSwitcher hidePersonal afterSelectOrganizationUrl="/containers" afterCreateOrganizationUrl="/containers" />
             <UserButton />
             {orgName ? <span className="sr-only">{orgName}</span> : null}
