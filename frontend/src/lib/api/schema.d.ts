@@ -2250,9 +2250,18 @@ export interface components {
             incoterm: components["schemas"]["Incoterm"] | null;
             /** Order Date */
             order_date: string | null;
+            status: components["schemas"]["PurchaseOrderStatus"];
+            /** Cancelled At */
+            cancelled_at: string | null;
             /** Lines */
             lines: components["schemas"]["PoLineResponse"][];
         };
+        /**
+         * PurchaseOrderStatus
+         * @description Open, or cancelled upstream. Cancelling never deletes: the order may already carry costs.
+         * @enum {string}
+         */
+        PurchaseOrderStatus: "OPEN" | "CANCELLED";
         /** PurchaseOrderSummary */
         PurchaseOrderSummary: {
             /**

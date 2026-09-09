@@ -30,6 +30,8 @@ from app.domain.models import (
     ErpSyncRun,
     ErpSyncStatus,
     ImportKind,
+    PurchaseOrder,
+    PurchaseOrderStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -85,6 +87,29 @@ def connector_for(connection: ErpConnection, settings: Settings | None = None) -
     raise NotFound(f"ERP connector {connection.kind.value}")  # pragma: no cover - one kind so far
 
 
+def mark_cancelled(db: Session, org_id: UUID, orders: list[ErpPurchaseOrder]) -> int:
+    """Mark the orders the ERP has cancelled, and only the ones we already know about.
+
+    Never a delete, and never a creation: an order cancelled upstream may already carry costs and
+    containers here, and one we have never seen has nothing to say to us.
+    """
+    numbers = [order.number for order in orders if order.cancelled]
+    if not numbers:
+        return 0
+    known = list(
+        db.scalars(
+            select(PurchaseOrder).where(PurchaseOrder.org_id == org_id, PurchaseOrder.po_number.in_(numbers))
+        )
+    )
+    now = datetime.now(UTC)
+    for po in known:
+        if po.status is not PurchaseOrderStatus.CANCELLED:
+            po.status = PurchaseOrderStatus.CANCELLED
+            po.cancelled_at = now
+    db.flush()
+    return len(known)
+
+
 def to_csv(orders: list[ErpPurchaseOrder]) -> tuple[bytes, int]:
     """One row per order line, in our canonical columns. Returns the file and the line count."""
     buffer = io.StringIO()
@@ -130,12 +155,14 @@ def sync(
 
     impl = connector or connector_for(connection)
     try:
-        orders = impl.fetch_purchase_orders(since=since, limit=limit)
+        fetched = impl.fetch_purchase_orders(since=since, limit=limit)
+        cancelled = mark_cancelled(t.db, t.org_id, fetched)
+        orders = [order for order in fetched if not order.cancelled]
         content, line_count = to_csv(orders)
         if not orders or not line_count:
             run.status = ErpSyncStatus.SUCCEEDED
             run.finished_at = datetime.now(UTC)
-            run.detail = {"message": "nothing new in the ERP"}
+            run.detail = {"message": "nothing new in the ERP", "cancelled": cancelled}
             connection.last_sync_at = run.finished_at
             connection.last_error = None
             t.db.flush()
@@ -150,7 +177,7 @@ def sync(
         run.import_job_id = job.id
         run.purchase_orders = len(orders)
         run.lines = line_count
-        run.detail = report.to_dict()
+        run.detail = {**report.to_dict(), "cancelled": cancelled}
         run.finished_at = datetime.now(UTC)
         connection.last_sync_at = run.finished_at
         connection.last_error = None

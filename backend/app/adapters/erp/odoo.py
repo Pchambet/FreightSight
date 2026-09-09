@@ -41,6 +41,11 @@ NAME = "odoo"
 CONFIRMED_STATES = ("purchase", "done")
 #: Fields we ask for on the product, when the instance has them.
 OPTIONAL_PRODUCT_FIELDS = ("hs_code", "l10n_in_hsn_code")
+#: Orders read per round trip. Odoo's own default page in the web client is 80; a customer with ten
+#: thousand orders should not be one `search_read` away from an XML document nobody can hold.
+PAGE_SIZE = 200
+#: States that mean "this order is no longer a commitment".
+CANCELLED_STATES = ("cancel",)
 
 ProxyFactory = Callable[[str], Any]
 
@@ -149,17 +154,7 @@ class OdooConnector:
     def fetch_purchase_orders(
         self, since: datetime | None = None, limit: int | None = None
     ) -> list[ErpPurchaseOrder]:
-        domain: list[Any] = [["state", "in", list(CONFIRMED_STATES)]]
-        if since is not None:
-            domain.append(["write_date", ">=", since.strftime("%Y-%m-%d %H:%M:%S")])
-        orders = self._kw(
-            "purchase.order",
-            "search_read",
-            domain,
-            fields=["name", "partner_id", "currency_id", "date_order", "state", "order_line"],
-            order="write_date",
-            **({"limit": limit} if limit else {}),
-        )
+        orders = self._paged_orders(since, limit)
         if not orders:
             return []
 
@@ -219,10 +214,43 @@ class OdooConnector:
                 currency=str(order["currency_id"][1]) if order.get("currency_id") else "",
                 supplier=str(order["partner_id"][1]) if order.get("partner_id") else None,
                 order_date=_as_date(order.get("date_order")),
+                cancelled=str(order.get("state")) in CANCELLED_STATES,
                 lines=by_order.get(order["id"], []),
             )
             for order in orders
         ]
+
+    def _paged_orders(self, since: datetime | None, limit: int | None) -> list[dict[str, Any]]:
+        """Read the orders in pages, walking forward on the id.
+
+        A cursor on the id rather than an offset: the customer's staff keep confirming orders while
+        this runs, and an offset would skip whatever was inserted between two pages.
+        """
+        base: list[Any] = [["state", "in", [*CONFIRMED_STATES, *CANCELLED_STATES]]]
+        if since is not None:
+            base.append(["write_date", ">=", since.strftime("%Y-%m-%d %H:%M:%S")])
+
+        collected: list[dict[str, Any]] = []
+        after = 0
+        while True:
+            page_size = PAGE_SIZE if limit is None else min(PAGE_SIZE, limit - len(collected))
+            if page_size <= 0:
+                break
+            page = self._kw(
+                "purchase.order",
+                "search_read",
+                [*base, ["id", ">", after]],
+                fields=["name", "partner_id", "currency_id", "date_order", "state", "order_line"],
+                order="id",
+                limit=page_size,
+            )
+            if not page:
+                break
+            collected.extend(page)
+            after = int(page[-1]["id"])
+            if len(page) < page_size:
+                break
+        return collected
 
     # ------------------------------------------------------------------ details
 

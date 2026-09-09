@@ -36,10 +36,12 @@ ligne est montrable à un humain — c'est ce que fait `_fault_reason`.
   mais je n'en ai pas créé une sur l'instance de test. → À confirmer chez le premier client.
 - **Odoo Online (odoo.com)** : XML-RPC y est ouvert, mais avec des limites de débit dont je n'ai pas
   la valeur. → À surveiller au premier client hébergé chez eux.
-- **Les grosses bases.** La lecture fait quatre appels (commandes, lignes, produits, UdM) sans
-  pagination. Sur 50 000 commandes, `search_read` sans limite est une mauvaise idée. Le filtre
-  `write_date >=` existe déjà dans le port ; ce qui manque, c'est de s'en servir pour un import
-  incrémental et de paginer. → À faire avant le premier client à gros volume, pas avant.
+- **Les grosses bases.** Les commandes sont maintenant lues par pages de 200 avec un **curseur sur
+  l'id** (jamais un offset : le personnel du client continue de confirmer des commandes pendant la
+  synchronisation, et un offset sauterait ce qui s'insère entre deux pages). Les lignes, produits et
+  UdM d'une même page restent lus en un appel chacun. Le filtre `write_date >=` existe dans le port
+  mais **rien ne s'en sert encore** : chaque synchronisation relit tout. → L'import incrémental est
+  le prochain geste, avant le premier client à gros volume.
 
 ## 3. Choix de conception
 
@@ -67,9 +69,12 @@ ligne est montrable à un humain — c'est ce que fait `_fault_reason`.
   client qui croit ses commandes à jour.
 - Le job traite chaque organisation dans sa propre transaction : l'Odoo cassé d'un client n'empêche
   pas les autres de se synchroniser.
-- **Pas de suppression.** Une commande annulée dans Odoo n'est pas retirée de chez nous : elle a
-  peut-être déjà des coûts et des conteneurs. → À trancher avec un partenaire : ignorer, marquer, ou
-  supprimer si rien n'y est rattaché ?
+- **Une commande annulée est marquée, jamais supprimée** (`purchase_orders.status = CANCELLED`,
+  `cancelled_at`) — décision provisoire prise avec freightsight-fa, à confirmer avec un partenaire.
+  Elle peut déjà porter des coûts et des conteneurs, et la supprimer réécrirait un coût de revient en
+  silence. Une commande annulée que nous n'avons **jamais vue** n'est pas créée : elle n'a rien à
+  nous dire. Le statut ne change rien à la ventilation : les chargements existants continuent de
+  recevoir leur part, parce que la marchandise, elle, a bien voyagé.
 
 ## 5. Reproduire l'instance de test
 

@@ -214,6 +214,13 @@ class Incoterm(enum.StrEnum):
     DDP = "DDP"
 
 
+class PurchaseOrderStatus(enum.StrEnum):
+    """Open, or cancelled upstream. Cancelling never deletes: the order may already carry costs."""
+
+    OPEN = "OPEN"
+    CANCELLED = "CANCELLED"
+
+
 class ImportKind(enum.StrEnum):
     PURCHASE_ORDERS = "PURCHASE_ORDERS"  # one row per PO line
     LEGACY_PO_CONTAINER = "LEGACY_PO_CONTAINER"  # Phase 0 format: one row per PO with a container
@@ -378,6 +385,12 @@ class PurchaseOrder(Timestamped, OrgScoped, Base):
     fx_date: Mapped[date | None] = mapped_column(Date)
     incoterm: Mapped[Incoterm | None] = mapped_column(Enum(Incoterm, name="incoterm"))
     order_date: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[PurchaseOrderStatus] = mapped_column(
+        Enum(PurchaseOrderStatus, name="purchase_order_status"),
+        nullable=False,
+        default=PurchaseOrderStatus.OPEN,
+    )
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     supplier: Mapped[Supplier | None] = relationship()
     lines: Mapped[list[PurchaseOrderLine]] = relationship(

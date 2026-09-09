@@ -8958,6 +8958,21 @@
             ],
             "title": "Order Date"
           },
+          "status": {
+            "$ref": "#/components/schemas/PurchaseOrderStatus"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
           "lines": {
             "items": {
               "$ref": "#/components/schemas/PoLineResponse"
@@ -8976,9 +8991,20 @@
           "fx_date",
           "incoterm",
           "order_date",
+          "status",
+          "cancelled_at",
           "lines"
         ],
         "title": "PurchaseOrderResponse"
+      },
+      "PurchaseOrderStatus": {
+        "type": "string",
+        "enum": [
+          "OPEN",
+          "CANCELLED"
+        ],
+        "title": "PurchaseOrderStatus",
+        "description": "Open, or cancelled upstream. Cancelling never deletes: the order may already carry costs."
       },
       "PurchaseOrderSummary": {
         "properties": {

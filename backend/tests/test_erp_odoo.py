@@ -371,3 +371,120 @@ def test_erp_rows_are_invisible_to_another_organization(
     finally:
         db.execute(text("RESET ROLE"))
         set_current_org(db, org.id)
+
+
+# ---------------------------------------------------------------------------- pagination
+
+
+class PagedOdoo(FakeOdoo):
+    """An Odoo with more orders than one page, answering the id cursor honestly."""
+
+    def __init__(self, count: int = 450) -> None:
+        super().__init__()
+        self.orders = [
+            {
+                "id": index,
+                "name": f"P{index:05d}",
+                "partner_id": [9, "Wood Corner"],
+                "currency_id": [1, "USD"],
+                "date_order": "2026-09-04 10:47:02",
+                "state": "purchase",
+                "order_line": [],
+            }
+            for index in range(1, count + 1)
+        ]
+        self.pages: list[tuple[int, int]] = []
+
+    def proxy(self, url: str) -> Any:
+        return _Common(self) if url.endswith("/common") else _PagedModels(self)
+
+
+class _PagedModels(_Models):
+    def execute_kw(
+        self, db: str, uid: int, password: str, model: str, method: str, args: list[Any], kwargs: Any
+    ) -> Any:
+        if (model, method) == ("purchase.order", "search_read"):
+            after = next((int(clause[2]) for clause in args[0] if clause[0] == "id" and clause[1] == ">"), 0)
+            limit = kwargs["limit"]
+            self.odoo.pages.append((after, limit))  # type: ignore[attr-defined]
+            page = [o for o in self.odoo.orders if o["id"] > after][:limit]  # type: ignore[attr-defined]
+            return page
+        return super().execute_kw(db, uid, password, model, method, args, kwargs)
+
+
+def test_orders_are_read_in_pages_with_a_cursor_on_the_id() -> None:
+    """An offset would skip whatever the customer's staff confirm while the sync is running."""
+    odoo = PagedOdoo(count=450)
+    orders = connector(odoo).fetch_purchase_orders()
+
+    assert len(orders) == 450
+    assert [after for after, _ in odoo.pages] == [0, 200, 400]  # a cursor, never an offset
+    assert {limit for _, limit in odoo.pages} == {200}
+
+
+def test_a_limit_is_respected_across_pages() -> None:
+    odoo = PagedOdoo(count=450)
+    assert len(connector(odoo).fetch_purchase_orders(limit=250)) == 250
+    assert [limit for _, limit in odoo.pages] == [200, 50]
+
+
+# ---------------------------------------------------------------------------- cancellations
+
+
+class CancellingOdoo(FakeOdoo):
+    """The same orders, with P00009 cancelled upstream."""
+
+    def proxy(self, url: str) -> Any:
+        return _Common(self) if url.endswith("/common") else _CancellingModels(self)
+
+
+class _CancellingModels(_Models):
+    def execute_kw(
+        self, db: str, uid: int, password: str, model: str, method: str, args: list[Any], kwargs: Any
+    ) -> Any:
+        if (model, method) == ("purchase.order", "search_read"):
+            orders = [dict(order) for order in FIXTURE["orders"]]
+            for order in orders:
+                if order["name"] == "P00009":
+                    order["state"] = "cancel"
+            return orders
+        return super().execute_kw(db, uid, password, model, method, args, kwargs)
+
+
+def test_an_order_cancelled_upstream_is_marked_never_deleted(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """It may already carry costs and containers here; deleting it would rewrite a landed cost."""
+    from app.adapters.erp import odoo as odoo_module
+
+    connect(client, FakeOdoo(), monkeypatch)
+    assert client.post("/api/v1/erp/sync").status_code == 202
+    before = {po["po_number"]: po for po in client.get("/api/v1/purchase-orders").json()}
+    assert sorted(before) == ["P00008", "P00009", "P00010"]
+
+    monkeypatch.setattr(odoo_module, "_default_proxy", CancellingOdoo().proxy)
+    second = client.post("/api/v1/erp/sync")
+    assert second.status_code == 202, second.text
+    assert second.json()["detail"]["cancelled"] == 1
+
+    after = {po["po_number"]: po for po in client.get("/api/v1/purchase-orders").json()}
+    assert sorted(after) == ["P00008", "P00009", "P00010"]  # still there
+    cancelled = client.get(f"/api/v1/purchase-orders/{before['P00009']['id']}").json()
+    assert cancelled["status"] == "CANCELLED"
+    assert cancelled["cancelled_at"] is not None
+    assert client.get(f"/api/v1/purchase-orders/{before['P00008']['id']}").json()["status"] == "OPEN"
+
+
+def test_an_order_cancelled_before_we_ever_saw_it_is_not_created(
+    client: TestClient, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An order we have never seen, already cancelled, has nothing to say to us."""
+    from app.adapters.erp import odoo as odoo_module
+
+    connect(client, FakeOdoo(), monkeypatch)
+    monkeypatch.setattr(odoo_module, "_default_proxy", CancellingOdoo().proxy)
+    assert client.post("/api/v1/erp/sync").status_code == 202
+    assert sorted(po["po_number"] for po in client.get("/api/v1/purchase-orders").json()) == [
+        "P00008",
+        "P00010",
+    ]

@@ -65,6 +65,9 @@ class ErpPurchaseOrder:
     currency: str
     supplier: str | None = None
     order_date: date | None = None
+    #: Cancelled in the ERP. Provisional decision: we mark, we never delete — the order may already
+    #: carry costs and containers here, and deleting it would rewrite a landed cost silently.
+    cancelled: bool = False
     lines: list[ErpLine] = field(default_factory=list)
 
 

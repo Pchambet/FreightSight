@@ -26,6 +26,7 @@ from app.domain.models import (
     InvoiceStatus,
     MemberRole,
     MilestoneCode,
+    PurchaseOrderStatus,
     RateBasis,
     TrackingState,
 )
@@ -215,6 +216,8 @@ class PurchaseOrderResponse(BaseModel):
     fx_date: date | None
     incoterm: Incoterm | None
     order_date: date | None
+    status: PurchaseOrderStatus
+    cancelled_at: datetime | None
     lines: list[PoLineResponse]
 
 
