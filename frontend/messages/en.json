@@ -55,6 +55,35 @@
     "risk": {
       "over": "{days} d over",
       "left": "D-{days}"
+    },
+    "kpi": {
+      "fobActive": "FOB in transit",
+      "allocated": "Allocated costs",
+      "atRisk": "At demurrage risk",
+      "noCost": "No cost recorded",
+      "nextLfd": "next last free day on {date}",
+      "activeCount": "{count} active containers",
+      "ofActive": "of {count} active",
+      "noneAtRisk": "no last free day within 3 days"
+    },
+    "todo": {
+      "title": "To handle this week",
+      "empty": "Nothing urgent: no last free day within 7 days, every active container has loads and costs.",
+      "lfd": "last free day on {date}",
+      "lfdOver": "last free day passed on {date}",
+      "noLoads": "no purchase-order line loaded",
+      "noCost": "no cost recorded",
+      "open": "Open"
+    },
+    "steps": {
+      "title": "Three steps to a first landed cost",
+      "one": "Import your purchase orders",
+      "oneHint": "CSV or Excel, Sage, EBP or Odoo export: columns are detected, nothing is written before you confirm.",
+      "two": "Add a container and load lines into it",
+      "twoHint": "ISO number above, then inside the container: which quantity of which line is on board.",
+      "three": "Record a cost and read the landed cost",
+      "threeHint": "Ocean freight, THC, duty: one amount, one method, and the unit cost per SKU appears.",
+      "or": "or"
     }
   },
   "container": {

@@ -55,6 +55,35 @@
     "risk": {
       "over": "{days} j de dépassement",
       "left": "J-{days}"
+    },
+    "kpi": {
+      "fobActive": "FOB en cours",
+      "allocated": "Coûts ventilés",
+      "atRisk": "Exposés aux surestaries",
+      "noCost": "Sans coût saisi",
+      "nextLfd": "prochain dernier jour franc le {date}",
+      "activeCount": "{count} conteneurs en cours",
+      "ofActive": "sur {count} en cours",
+      "noneAtRisk": "aucun dernier jour franc sous 3 jours"
+    },
+    "todo": {
+      "title": "À traiter cette semaine",
+      "empty": "Rien d'urgent : aucun dernier jour franc sous 7 jours, tous les conteneurs en cours ont des lignes et des coûts.",
+      "lfd": "dernier jour franc le {date}",
+      "lfdOver": "dernier jour franc dépassé depuis le {date}",
+      "noLoads": "aucune ligne de commande chargée",
+      "noCost": "aucun coût saisi",
+      "open": "Ouvrir"
+    },
+    "steps": {
+      "title": "Trois étapes pour un premier coût rendu",
+      "one": "Importez vos commandes",
+      "oneHint": "CSV ou Excel, export Sage, EBP ou Odoo : les colonnes sont détectées, rien n'est écrit avant votre validation.",
+      "two": "Ajoutez un conteneur et chargez-y des lignes",
+      "twoHint": "Numéro ISO ci-dessus, puis dans le conteneur : quelle quantité de quelle ligne est à bord.",
+      "three": "Saisissez un coût et lisez le coût rendu",
+      "threeHint": "Fret, THC, droits : un montant, une méthode, et le coût unitaire par référence apparaît.",
+      "or": "ou"
     }
   },
   "container": {
