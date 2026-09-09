@@ -12,6 +12,7 @@ import AddCostForm from "@/features/costs/AddCostForm";
 import LoadsEditor from "@/features/containers/LoadsEditor";
 import TrackingPanel from "@/features/containers/TrackingPanel";
 import TimelinePanel from "@/features/containers/TimelinePanel";
+import AuditTrail from "@/features/audit/AuditTrail";
 import { api, type ContainerResponse, type EtaHistoryResponse, type LandedCostReport, type LoadResponse, type PurchaseOrderSummary, type TrackingEventResponse } from "@/lib/api/client";
 import { dateShort, daysUntil } from "@/lib/format";
 
@@ -112,6 +113,7 @@ export default async function ContainerPage({ params }: Params) {
           </div>
           <AllocationPanel key={report.costs.map((c) => c.id).join(",")} containerId={container.id} report={report} />
           <CostLedger report={report} currency={cur} revalidate={revalidate} />
+          <AuditTrail entityType="container" entityId={container.id} />
         </div>
       </div>
     </>

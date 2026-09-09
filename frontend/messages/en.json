@@ -19,7 +19,8 @@
     "imports": "Imports",
     "settings": "Settings",
     "alerts": "Alerts",
-    "invoices": "Invoices"
+    "invoices": "Invoices",
+    "audit": "History"
   },
   "containers": {
     "title": "Containers",
@@ -465,6 +466,16 @@
       "CONTAINER": "Container",
       "PO": "Purchase order",
       "PO_LINE": "Purchase-order line"
+    },
+    "auditAction": {
+      "cost_created": "Cost created",
+      "cost_updated": "Cost updated",
+      "cost_deleted": "Cost deleted",
+      "invoice_confirmed": "Invoice confirmed",
+      "invoice_rejected": "Invoice rejected",
+      "container_loads_replaced": "Loads changed",
+      "organization_updated": "Settings changed",
+      "container_tracking_event_added": "Tracking event added"
     }
   },
   "errors": {
@@ -619,6 +630,27 @@
       "failed": "Could not update the line",
       "needsTarget": "An accepted line needs a target",
       "notes": "Notes"
+    }
+  },
+  "audit": {
+    "title": "History",
+    "nav": "History",
+    "subtitle": "Append-only log: what was done, by whom, when. Nothing here can be edited.",
+    "empty": "No entry yet.",
+    "cardTitle": "History",
+    "seeAll": "Full history",
+    "before": "before",
+    "after": "after",
+    "unchanged": "no detail",
+    "next": "Older entries",
+    "filterAll": "All actions",
+    "actor": "user {id}",
+    "system": "system",
+    "entity": {
+      "cost": "Cost",
+      "container": "Container",
+      "invoice": "Invoice",
+      "organization": "Organization"
     }
   }
 }

@@ -19,7 +19,8 @@
     "imports": "Imports",
     "settings": "Paramètres",
     "alerts": "Alertes",
-    "invoices": "Factures"
+    "invoices": "Factures",
+    "audit": "Historique"
   },
   "containers": {
     "title": "Conteneurs",
@@ -465,6 +466,16 @@
       "CONTAINER": "Conteneur",
       "PO": "Commande",
       "PO_LINE": "Ligne de commande"
+    },
+    "auditAction": {
+      "cost_created": "Coût créé",
+      "cost_updated": "Coût modifié",
+      "cost_deleted": "Coût supprimé",
+      "invoice_confirmed": "Facture confirmée",
+      "invoice_rejected": "Facture rejetée",
+      "container_loads_replaced": "Chargements modifiés",
+      "organization_updated": "Réglages modifiés",
+      "container_tracking_event_added": "Événement de suivi ajouté"
     }
   },
   "errors": {
@@ -619,6 +630,27 @@
       "failed": "Impossible de mettre à jour la ligne",
       "needsTarget": "Une ligne acceptée doit avoir une cible",
       "notes": "Notes"
+    }
+  },
+  "audit": {
+    "title": "Historique",
+    "nav": "Historique",
+    "subtitle": "Journal en ajout seul : ce qui a été fait, par qui, quand. Rien n'y est modifiable.",
+    "empty": "Aucune entrée pour l'instant.",
+    "cardTitle": "Historique",
+    "seeAll": "Tout l'historique",
+    "before": "avant",
+    "after": "après",
+    "unchanged": "sans détail",
+    "next": "Entrées plus anciennes",
+    "filterAll": "Toutes les actions",
+    "actor": "utilisateur {id}",
+    "system": "système",
+    "entity": {
+      "cost": "Coût",
+      "container": "Conteneur",
+      "invoice": "Facture",
+      "organization": "Société"
     }
   }
 }

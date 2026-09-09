@@ -11,6 +11,7 @@ export type ContainerResponse = Schemas["ContainerResponse"];
 export type LandedCostReport = Schemas["LandedCostReport"];
 export type TrackingEventResponse = Schemas["TrackingEventResponse"];
 export type InvoiceResponse = Schemas["InvoiceResponse"];
+export type AuditEntry = Schemas["AuditEntryResponse"];
 export type InvoiceSummary = Schemas["InvoiceSummary"];
 export type InvoiceLineResponse = Schemas["InvoiceLineResponse"];
 export type EtaHistoryResponse = Schemas["EtaHistoryResponse"];
