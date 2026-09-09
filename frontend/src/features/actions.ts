@@ -259,6 +259,34 @@ export async function deleteRateCard(cardId: string): Promise<ActionResult<null>
   return { ok: true, data: null };
 }
 
+// ---------------------------------------------------------------------------- erp
+
+export async function connectErp(input: { url: string; database: string; login: string; api_key: string }): Promise<ActionResult<null>> {
+  await protectAction();
+  const { error } = await api.POST("/api/v1/erp/connection", { body: { kind: "ODOO", url: input.url.trim(), database: input.database.trim(), login: input.login.trim(), api_key: input.api_key } });
+  if (error) return await fail(error, "erp.connectFailed");
+  revalidatePath("/settings");
+  return { ok: true, data: null };
+}
+
+export async function disconnectErp(): Promise<ActionResult<null>> {
+  await protectAction();
+  const { error } = await api.DELETE("/api/v1/erp/connection");
+  if (error) return await fail(error, "erp.connectFailed");
+  revalidatePath("/settings");
+  return { ok: true, data: null };
+}
+
+export async function syncErp(): Promise<ActionResult<{ orders: number; lines: number; status: string; error: string | null }>> {
+  await protectAction();
+  const { data, error } = await api.POST("/api/v1/erp/sync");
+  if (error || !data) return await fail(error, "erp.syncFailed");
+  revalidatePath("/settings");
+  revalidatePath("/purchase-orders");
+  revalidatePath("/containers");
+  return { ok: true, data: { orders: data.purchase_orders, lines: data.lines, status: data.status, error: data.error ?? null } };
+}
+
 export async function createContainer(containerNumber: string): Promise<ActionResult<{ id: string }>> {
   const { data, error } = await api.POST("/api/v1/containers", {
     body: { container_number: containerNumber.trim().toUpperCase() },

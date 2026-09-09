@@ -1,0 +1,115 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
+import { Download } from "lucide-react";
+import { Card, PageHeader, btnSecondary, input, label, td, tdRight, th, thRight } from "@/components/layout/AppShell";
+import { Money } from "@/components/shared/Money";
+import { api, type DndAnalysis, type LandedCostAnalysis } from "@/lib/api/client";
+import { qty } from "@/lib/format";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("reports");
+  return { title: t("title") };
+}
+
+const GROUPS = ["supplier", "route", "month", "cost_type"] as const;
+type Group = (typeof GROUPS)[number];
+
+export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ group_by?: string; from?: string; to?: string }> }) {
+  const [sp, t, tt, locale] = await Promise.all([searchParams, getTranslations("reports"), getTranslations("domain.costType"), getLocale()]);
+  const groupBy: Group = (GROUPS as readonly string[]).includes(sp.group_by ?? "") ? (sp.group_by as Group) : "supplier";
+  const isDate = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
+  const period = { period_from: isDate(sp.from), period_to: isDate(sp.to) };
+  const [lc, dnd] = await Promise.all([
+    api.GET("/api/v1/reports/landed-cost", { params: { query: { group_by: groupBy, ...period } } }),
+    api.GET("/api/v1/reports/dnd", { params: { query: period } }),
+  ]);
+  const a: LandedCostAnalysis | undefined = lc.data;
+  const d: DndAnalysis | undefined = dnd.data;
+  const cur = a?.base_currency ?? "EUR";
+  const bucketLabel = (b: { key: string; label: string }) => (groupBy === "cost_type" && tt.has(b.key as never) ? tt(b.key as never) : b.label === "unknown route" ? t("unknownRoute") : b.label);
+  const csvQuery = new URLSearchParams({ locale, ...(period.period_from ? { period_from: period.period_from } : {}), ...(period.period_to ? { period_to: period.period_to } : {}) }).toString();
+
+  return (
+    <>
+      <PageHeader title={t("title")} subtitle={t("subtitle")} actions={<Link href="/reports/variance" className="text-sm text-blue-600 hover:underline">{t("variance")}</Link>} />
+
+      <form method="get" className="flex flex-wrap items-end gap-3 mb-6">
+        <div><label className={label} htmlFor="group_by">{t("groupBy")}</label><select id="group_by" name="group_by" defaultValue={groupBy} className={input}>{GROUPS.map((g) => <option key={g} value={g}>{t(`group.${g}`)}</option>)}</select></div>
+        <div><label className={label} htmlFor="from">{t("from")}</label><input id="from" name="from" type="date" defaultValue={period.period_from ?? ""} className={input} /></div>
+        <div><label className={label} htmlFor="to">{t("to")}</label><input id="to" name="to" type="date" defaultValue={period.period_to ?? ""} className={input} /></div>
+        <button type="submit" className={btnSecondary}>{t("apply")}</button>
+      </form>
+
+      <Card title={t("landed")} className="mb-6">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50"><tr><th className={th}>{t("th.label")}</th><th className={thRight}>{t("th.loads")}</th><th className={thRight}>{t("th.quantity")}</th><th className={thRight}>{t("th.fob")}</th><th className={thRight}>{t("th.allocated")}</th><th className={thRight}>{t("th.landed")}</th><th className={thRight}>{t("th.freightShare")}</th></tr></thead>
+            <tbody className="divide-y divide-slate-200">
+              {!a || a.buckets.length === 0 ? <tr><td colSpan={7} className="px-5 py-8 text-center text-sm text-slate-500">{t("empty")}</td></tr> : (
+                <>
+                  {a.buckets.map((b) => (
+                    <tr key={b.key} className="hover:bg-slate-50">
+                      <td className={td}>{bucketLabel(b)}</td>
+                      <td className={tdRight}>{b.load_count}</td>
+                      <td className={tdRight}>{qty(b.quantity, locale)}</td>
+                      <td className={tdRight}><Money amount={b.fob} currency={cur} /></td>
+                      <td className={tdRight}><Money amount={b.allocated} currency={cur} className="text-blue-700" /></td>
+                      <td className={`${tdRight} font-medium`}><Money amount={b.landed} currency={cur} /></td>
+                      <td className={tdRight}>{b.freight_share_pct != null ? `${Number(b.freight_share_pct).toFixed(1)} %` : "—"}</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-slate-50 font-medium">
+                    <td className={td}>Total</td><td className={tdRight}>{a.totals.load_count}</td><td className={tdRight}>{qty(a.totals.quantity, locale)}</td>
+                    <td className={tdRight}><Money amount={a.totals.fob} currency={cur} /></td><td className={tdRight}><Money amount={a.totals.allocated} currency={cur} /></td><td className={tdRight}><Money amount={a.totals.landed} currency={cur} /></td>
+                    <td className={tdRight}>{a.totals.freight_share_pct != null ? `${Number(a.totals.freight_share_pct).toFixed(1)} %` : "—"}</td>
+                  </tr>
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <div className="grid gap-6 xl:grid-cols-2 items-start mb-6">
+        <Card title={t("skus")} right={<span className="text-xs text-slate-400">{t("since")}</span>}>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50"><tr><th className={th}>{t("th.sku")}</th><th className={thRight}>{t("th.quantity")}</th><th className={thRight}>{t("th.fob")}</th><th className={thRight}>{t("th.landed")}</th><th className={thRight}>{t("th.unit")}</th></tr></thead>
+              <tbody className="divide-y divide-slate-200">
+                {!a || a.skus.length === 0 ? <tr><td colSpan={5} className="px-5 py-6 text-center text-sm text-slate-500">{t("empty")}</td></tr> : a.skus.map((s) => (
+                  <tr key={s.sku}><td className={`${td} font-mono`}>{s.sku}</td><td className={tdRight}>{qty(s.quantity, locale)}</td><td className={tdRight}><Money amount={s.fob} currency={cur} /></td><td className={tdRight}><Money amount={s.landed} currency={cur} /></td><td className={`${tdRight} font-medium text-emerald-700`}><Money amount={s.unit_landed_cost} currency={cur} /></td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        <Card title={t("dnd")} right={<span className="text-xs text-slate-400 max-w-sm text-right">{t("dndHint")}</span>}>
+          <div className="px-5 py-3 flex gap-8 border-b border-slate-200 text-sm">
+            <div><div className="text-xs text-slate-500 uppercase tracking-wider">{t("th.paid")}</div><div className="font-semibold tabular-nums text-red-700"><Money amount={d?.paid ?? "0.00"} currency={cur} /></div></div>
+            <div><div className="text-xs text-slate-500 uppercase tracking-wider">{t("th.avoided")}</div><div className="font-semibold tabular-nums text-emerald-700"><Money amount={d?.avoided ?? "0.00"} currency={cur} /></div></div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50"><tr><th className={th}>{t("th.container")}</th><th className={thRight}>{t("th.paid")}</th><th className={thRight}>{t("th.avoided")}</th><th className={th}>{t("th.rule")}</th></tr></thead>
+              <tbody className="divide-y divide-slate-200">
+                {!d || d.lines.length === 0 ? <tr><td colSpan={4} className="px-5 py-6 text-center text-sm text-slate-500">{t("dndEmpty")}</td></tr> : d.lines.map((l) => (
+                  <tr key={l.container_id}><td className={td}><Link href={`/container/${l.container_id}`} className="font-mono text-blue-600 hover:underline">{l.container_number}</Link></td><td className={tdRight}><Money amount={l.paid} currency={cur} /></td><td className={tdRight}>{l.avoided != null ? <Money amount={l.avoided} currency={cur} /> : <span className="text-slate-400">{t("notEstimable")}</span>}</td><td className={`${td} text-xs text-slate-500 whitespace-normal max-w-md`}>{l.rule}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+
+      <Card title={t("exports")} right={<span className="text-xs text-slate-400 max-w-md text-right">{t("exportsHint")}</span>}>
+        <div className="p-5 flex flex-wrap gap-3">
+          {(["landed-costs", "costs", "purchase-orders", "containers"] as const).map((n) => (
+            <a key={n} href={`/api/exports/${n}?${csvQuery}`} className={btnSecondary}><Download className="w-4 h-4 mr-2" />{t(`export.${n}`)}</a>
+          ))}
+        </div>
+      </Card>
+    </>
+  );
+}

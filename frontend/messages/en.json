@@ -21,7 +21,8 @@
     "alerts": "Alerts",
     "invoices": "Invoices",
     "audit": "History",
-    "variance": "Variance"
+    "variance": "Variance",
+    "reports": "Reports"
   },
   "containers": {
     "title": "Containers",
@@ -687,7 +688,7 @@
   },
   "rateCards": {
     "title": "Estimation rate cards",
-    "hint": "One rate card per cost type. Applied on demand to a container to create estimated costs, later replaced by the real invoice.",
+    "hint": "One rate card per cost type. Applied on demand to a container to create estimated costs, later replaced by the real invoice. A DEMURRAGE rate card is read as a daily rate and feeds the avoided-demurrage estimate.",
     "empty": "No rate card.",
     "costType": "Cost type",
     "scope": "Scope",
@@ -722,5 +723,90 @@
       "actual": "Actual",
       "variance": "Variance"
     }
+  },
+  "erp": {
+    "title": "ERP connection",
+    "hint": "Read only: confirmed purchase orders from your ERP are imported into FreightSight through the same path as a file. Nothing is written back.",
+    "kind": "ERP",
+    "url": "Address (https://…odoo.com)",
+    "database": "Database",
+    "login": "Login",
+    "apiKey": "API key",
+    "apiKeyHint": "Created in Odoo, Preferences → Account Security → API keys. Sealed on our side, never shown again.",
+    "connect": "Test and connect",
+    "connected": "Connected",
+    "connectedDetail": "{kind} {version} · {company}",
+    "lastSync": "last sync on {date}",
+    "neverSynced": "never synced",
+    "lastError": "Last error: {error}",
+    "sync": "Sync now",
+    "syncing": "Syncing…",
+    "synced": "{orders} orders, {lines} lines read",
+    "syncFailed": "Sync failed",
+    "disconnect": "Disconnect",
+    "disconnected": "ERP disconnected",
+    "connectFailed": "Could not connect",
+    "runs": "Recent syncs",
+    "noRuns": "No sync yet.",
+    "run": {
+      "status": "Status",
+      "started": "Started",
+      "orders": "Orders",
+      "lines": "Lines",
+      "error": "Error"
+    },
+    "status": {
+      "RUNNING": "Running",
+      "SUCCEEDED": "Succeeded",
+      "FAILED": "Failed"
+    }
+  },
+  "reports": {
+    "title": "Reports",
+    "nav": "Reports",
+    "subtitle": "Landed cost by supplier, route or month; demurrage paid and avoided; exports for Excel and accounting. The time axis is the arrival of the goods, not the invoice date.",
+    "landed": "Landed cost",
+    "groupBy": "Group by",
+    "group": {
+      "supplier": "Supplier",
+      "route": "Route",
+      "month": "Arrival month",
+      "cost_type": "Cost type"
+    },
+    "from": "From",
+    "to": "To",
+    "apply": "Apply",
+    "th": {
+      "label": "Label",
+      "loads": "Lines",
+      "quantity": "Qty",
+      "fob": "FOB",
+      "allocated": "Charges",
+      "landed": "Landed",
+      "freightShare": "% freight / FOB",
+      "sku": "SKU",
+      "unit": "Avg unit cost",
+      "container": "Container",
+      "paid": "Paid",
+      "avoided": "Avoided",
+      "rule": "Rule"
+    },
+    "unknownRoute": "unknown route",
+    "empty": "No goods arrived in the period. A container with no discharge, arrival or ETA date is not counted.",
+    "skus": "Unit cost per SKU",
+    "dnd": "Demurrage and detention",
+    "dndHint": "\"Paid\" = actual demurrage and detention costs. \"Avoided\" = days between the first risk alert and pickup, at the daily rate of your DEMURRAGE rate card. No rate card, no figure.",
+    "dndEmpty": "No container concerned in the period.",
+    "notEstimable": "not estimable",
+    "exports": "CSV exports",
+    "exportsHint": "Separator and decimals suited to French Excel (semicolon, comma), UTF-8 with BOM. Dates in ISO.",
+    "export": {
+      "landed-costs": "Landed cost per loaded line",
+      "costs": "Costs",
+      "purchase-orders": "Purchase orders",
+      "containers": "Containers"
+    },
+    "variance": "See the month's estimated → actual variance",
+    "since": "History recorded since 9 September 2026, at each recomputation."
   }
 }

@@ -21,7 +21,8 @@
     "alerts": "Alertes",
     "invoices": "Factures",
     "audit": "Historique",
-    "variance": "Écarts"
+    "variance": "Écarts",
+    "reports": "Rapports"
   },
   "containers": {
     "title": "Conteneurs",
@@ -687,7 +688,7 @@
   },
   "rateCards": {
     "title": "Barèmes d'estimation",
-    "hint": "Un barème par type de coût. Appliqué à la demande sur un conteneur pour créer des coûts estimés, remplacés ensuite par la facture réelle.",
+    "hint": "Un barème par type de coût. Appliqué à la demande sur un conteneur pour créer des coûts estimés, remplacés ensuite par la facture réelle. Un barème DEMURRAGE est lu comme un tarif journalier, il sert au calcul des surestaries évitées.",
     "empty": "Aucun barème.",
     "costType": "Type de coût",
     "scope": "Périmètre",
@@ -722,5 +723,90 @@
       "actual": "Réel",
       "variance": "Écart"
     }
+  },
+  "erp": {
+    "title": "Connexion ERP",
+    "hint": "Lecture seule : les commandes d'achat confirmées de votre ERP sont importées dans FreightSight par le même chemin qu'un fichier. Aucune écriture vers l'ERP.",
+    "kind": "ERP",
+    "url": "Adresse (https://…odoo.com)",
+    "database": "Base de données",
+    "login": "Identifiant",
+    "apiKey": "Clé API",
+    "apiKeyHint": "Créée dans Odoo, Préférences → Sécurité du compte → Clés API. Scellée chez nous, jamais réaffichée.",
+    "connect": "Tester et connecter",
+    "connected": "Connecté",
+    "connectedDetail": "{kind} {version} · {company}",
+    "lastSync": "dernière synchronisation le {date}",
+    "neverSynced": "jamais synchronisé",
+    "lastError": "Dernière erreur : {error}",
+    "sync": "Synchroniser maintenant",
+    "syncing": "Synchronisation…",
+    "synced": "{orders} commandes, {lines} lignes lues",
+    "syncFailed": "Synchronisation en échec",
+    "disconnect": "Déconnecter",
+    "disconnected": "ERP déconnecté",
+    "connectFailed": "Connexion impossible",
+    "runs": "Dernières synchronisations",
+    "noRuns": "Aucune synchronisation pour l'instant.",
+    "run": {
+      "status": "Statut",
+      "started": "Début",
+      "orders": "Commandes",
+      "lines": "Lignes",
+      "error": "Erreur"
+    },
+    "status": {
+      "RUNNING": "En cours",
+      "SUCCEEDED": "Réussie",
+      "FAILED": "Échouée"
+    }
+  },
+  "reports": {
+    "title": "Rapports",
+    "nav": "Rapports",
+    "subtitle": "Coût rendu par fournisseur, route ou mois ; surestaries payées et évitées ; exports pour Excel et la compta. L'axe temporel est l'arrivée de la marchandise, pas la date de facture.",
+    "landed": "Coût rendu",
+    "groupBy": "Regrouper par",
+    "group": {
+      "supplier": "Fournisseur",
+      "route": "Route",
+      "month": "Mois d'arrivée",
+      "cost_type": "Type de coût"
+    },
+    "from": "Du",
+    "to": "Au",
+    "apply": "Appliquer",
+    "th": {
+      "label": "Libellé",
+      "loads": "Lignes",
+      "quantity": "Qté",
+      "fob": "FOB",
+      "allocated": "Frais",
+      "landed": "Coût rendu",
+      "freightShare": "% fret / FOB",
+      "sku": "Référence",
+      "unit": "Coût unitaire moyen",
+      "container": "Conteneur",
+      "paid": "Payé",
+      "avoided": "Évité",
+      "rule": "Règle"
+    },
+    "unknownRoute": "route inconnue",
+    "empty": "Aucune marchandise arrivée sur la période. Un conteneur sans date de déchargement, d'arrivée ni d'ETA n'est pas compté.",
+    "skus": "Coût unitaire par référence",
+    "dnd": "Surestaries et détention",
+    "dndHint": "« Payé » = coûts réels de surestaries et détention. « Évité » = jours entre la première alerte et l'enlèvement, au tarif journalier du barème DEMURRAGE de vos réglages. Sans barème, pas de chiffre.",
+    "dndEmpty": "Aucun conteneur concerné sur la période.",
+    "notEstimable": "non estimable",
+    "exports": "Exports CSV",
+    "exportsHint": "Séparateur et décimales adaptés à Excel français (point-virgule, virgule), UTF-8 avec BOM. Dates en ISO.",
+    "export": {
+      "landed-costs": "Coût rendu par ligne chargée",
+      "costs": "Coûts",
+      "purchase-orders": "Commandes",
+      "containers": "Conteneurs"
+    },
+    "variance": "Voir les écarts estimé → réel du mois",
+    "since": "Historique enregistré depuis le 9 septembre 2026, à chaque recalcul."
   }
 }
