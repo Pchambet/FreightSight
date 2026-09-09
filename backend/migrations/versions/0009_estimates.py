@@ -57,8 +57,10 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_column("containers", "detention_deadline")
     op.drop_index("ix_costs_org_status", table_name="costs")
-    op.drop_constraint("ck_costs_actual_only_supersede", "costs", type_="check")
-    op.drop_constraint("ck_costs_estimate_only_close", "costs", type_="check")
+    # The bare names: the metadata naming convention adds the ck_costs_ prefix on the way out, and
+    # passing the rendered name would ask Postgres for ck_costs_ck_costs_...
+    op.drop_constraint("actual_only_supersede", "costs", type_="check")
+    op.drop_constraint("estimate_only_close", "costs", type_="check")
     op.drop_column("costs", "close_reason")
     op.drop_column("costs", "closed_at")
     op.drop_constraint("uq_costs_supersedes_cost_id", "costs", type_="unique")
