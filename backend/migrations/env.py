@@ -22,9 +22,7 @@ def include_name(name: str | None, type_: str, _parent: object) -> bool:
     by our models; without this, `alembic check` sees tables it does not know and proposes to drop
     the whole queue.
     """
-    if type_ == "table" and name and name.startswith("procrastinate"):
-        return False
-    return True
+    return not (type_ == "table" and name and name.startswith("procrastinate"))
 
 
 def run_migrations_offline() -> None:
