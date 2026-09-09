@@ -42,7 +42,9 @@ def database_url() -> Iterator[str]:
     except ImportError:  # older testcontainers
         from testcontainers.postgres import PostgresContainer
 
-    with PostgresContainer("postgres:17", driver="psycopg") as pg:
+    # The same major as production (Amsterdam runs 18.6): a test suite on another major is
+    # a test suite that can bless a migration production will refuse.
+    with PostgresContainer("postgres:18", driver="psycopg") as pg:
         yield pg.get_connection_url()
 
 
