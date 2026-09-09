@@ -13,13 +13,20 @@ from app.api.v1.deps import ProviderFactoryDep, WriterDep
 from app.core.errors import Conflict, NotFound
 from app.core.tenancy import TenantDep
 from app.domain.audit.service import TRACKING_EVENT_ADDED, record
-from app.domain.models import Container, EtaHistory, TrackingState, TrackingSubscription
+from app.domain.models import Container, EtaHistory, Organization, TrackingState, TrackingSubscription
 from app.domain.tracking.manual import NAME as MANUAL
 from app.domain.tracking.manual import manual_event
 from app.domain.tracking.ports import ProviderNotConfigured, SubscribeRequest
 from app.domain.tracking.service import history, ingest, refresh
 
 router = APIRouter(prefix="/containers", tags=["tracking"])
+
+
+def default_provider(org: Organization) -> str:
+    """Which tracker this organization uses when nobody says. A setting, not a guess."""
+    settings = org.settings if isinstance(org.settings, dict) else {}
+    chosen = settings.get("tracking_provider_default")
+    return str(chosen) if isinstance(chosen, str) and chosen else MANUAL
 
 
 def _container(t: TenantDep, container_id: UUID) -> Container:
@@ -129,7 +136,7 @@ def subscribe(
     if existing is not None and existing.ended_at is None:
         raise Conflict(f"Container {c.container_number} is already tracked by {existing.provider}")
 
-    provider = make_provider(payload.provider)
+    provider = make_provider(payload.provider or default_provider(t.org))
     now = datetime.now(UTC)
     provider_ref: str | None
     if payload.provider_ref:

@@ -74,3 +74,56 @@ dans la foulée. Tant qu'il n'y a pas de charge, c'est la version la plus simple
 reprise (rejouer une livraison `failed`), la relance périodique (`fetch` sur un abonnement muet depuis
 48 h) et le recalcul quotidien du risque à 06:00 viendront avec Procrastinate, en même temps que
 l'extraction de factures.
+
+
+---
+
+# Shipsgo (ajouté le 9 septembre 2026)
+
+## 8. J'ai écrit l'adapter sur leur API v2, pas sur la v1.2 demandée
+
+La v1.2 est un PDF (crédit par conteneur, `POST .../ContainerService/PostContainerInfo`, puis
+`GET .../GetContainerInfo?authCode=&requestId=`, données rafraîchies trois fois par jour). Elle ne
+documente **aucun webhook** ni aucune signature — la page marketing en promet, le document n'en parle
+pas. Suivre cette version voulait dire soit un endpoint non authentifié, soit un secret dans l'URL,
+c'est-à-dire un secret dans les logs de tous les intermédiaires.
+
+La **v2** (`https://api.shipsgo.com/v2`) est publiée en OpenAPI lisible par une machine, avec
+authentification par en-tête `X-Shipsgo-User-Token`, et **des webhooks signés en HMAC-SHA256** dans
+`X-Shipsgo-Webhook-Signature`. Mieux : leur documentation publie un **vecteur de test** (secret,
+charge utile, signature attendue). Notre implémentation est vérifiée contre **leur** valeur, pas
+contre ma lecture de leur prose — c'est le test `test_the_signature_matches_the_vendors_own_published_vector`.
+
+Les fixtures de test sont **leurs propres exemples de réponse**, extraits de la spécification.
+
+→ Si Pierre a un compte v1.2 (crédits déjà achetés) et pas de v2, il faudra un second adapter. À
+vérifier au moment de créer le compte : la v2 est-elle incluse dans la même offre ?
+
+## 9. Ce que la v2 ne documente pas
+
+**La forme de la charge utile d'un webhook.** Le schéma `WebhookEvent` ne décrit que l'enveloppe
+(`id`, `name`, `triggered_by`) ; ce qui accompagne l'événement n'est pas spécifié. L'adapter accepte
+donc l'expédition là où elle se trouve (racine, `shipment`, ou `data`) plutôt que de parier sur une
+forme et de casser sur l'autre. → À confirmer sur une vraie livraison.
+
+**Les noms d'événements** auxquels on peut s'abonner ne sont pas listés dans la spécification (ils
+sont dans le tableau de bord). → À noter au moment de configurer le webhook.
+
+## 10. Choix de correspondance
+
+Leurs huit codes de mouvement ont tous un équivalent chez nous : `EMSH → GATE_OUT_EMPTY_ORIGIN`,
+`GTIN → GATE_IN_FULL_ORIGIN`, `LOAD → LOADED`, `DEPA → VESSEL_DEPARTED`, `ARRV → VESSEL_ARRIVED`,
+`DISC → DISCHARGED`, `GTOT → GATE_OUT_FULL`, `EMRT → GATE_IN_EMPTY_RETURN`. Leur champ `status`
+(`EST` / `ACT`) donne notre `is_estimate` — le lire à l'envers daterait une arrivée qui n'a pas eu
+lieu, et c'est exactement ce sur quoi l'horloge des surestaries se déclenche.
+
+Une expédition **sans mouvement** (Shipsgo n'a pas encore apparié la boîte avec l'armateur) produit
+un seul événement dérivé de son statut, daté de `checked_at` et **marqué comme estimation** : un
+statut n'est pas un mouvement daté, et lui donner une date réelle inventerait un fait.
+
+## 11. Interrogation plutôt que webhook, pour l'instant
+
+Le job `fetch` existant suffit : Shipsgo facture le crédit à la création du suivi, pas à la lecture,
+donc interroger un abonnement déjà payé ne coûte rien de plus. Leurs données bougent trois fois par
+jour en v1.2 ; la v2 ne le dit pas, mais notre interrogation toutes les 4 heures est du même ordre.
+Le webhook est prêt côté vérification et pourra être branché sans changer le reste.

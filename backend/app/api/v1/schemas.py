@@ -578,7 +578,9 @@ class TrackingSubscriptionCreate(BaseModel):
     """`provider_ref` is the provider's own handle for this box. Leave it out when the provider is
     subscribed through its API; give it when deliveries arrive webhook-only (no API key)."""
 
-    provider: str = "manual"
+    #: Omitted, the organization's `tracking_provider_default` setting decides, and failing that the
+    #: person doing it by hand.
+    provider: str | None = None
     provider_ref: str | None = None
     identifier_type: Literal["container", "bill_of_lading", "booking"] = "container"
     identifier: str | None = None  # defaults to the container number

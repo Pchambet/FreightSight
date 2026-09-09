@@ -477,7 +477,8 @@ export interface paths {
          * @description Read the ERP now, in this request.
          *
          *     Deliberately synchronous: someone has just connected their Odoo and is watching this button.
-         *     The daily refresh is the job; this is the reassurance.
+         *     The daily refresh is the job; this is the reassurance. `full=true` re-reads the whole history
+         *     instead of what has changed — the button for "this looks wrong, start again".
          */
         post: operations["sync_now_api_v1_erp_sync_post"];
         delete?: never;
@@ -2672,11 +2673,8 @@ export interface components {
          *     subscribed through its API; give it when deliveries arrive webhook-only (no API key).
          */
         TrackingSubscriptionCreate: {
-            /**
-             * Provider
-             * @default manual
-             */
-            provider: string;
+            /** Provider */
+            provider?: string | null;
             /** Provider Ref */
             provider_ref?: string | null;
             /**
@@ -4101,7 +4099,9 @@ export interface operations {
     };
     sync_now_api_v1_erp_sync_post: {
         parameters: {
-            query?: never;
+            query?: {
+                full?: boolean;
+            };
             header?: {
                 "X-Org-Id"?: string | null;
             };

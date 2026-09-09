@@ -27,9 +27,16 @@ def _terminal49(settings: Settings) -> TrackingProvider:
     )
 
 
+def _shipsgo(settings: Settings) -> TrackingProvider:
+    from app.adapters.tracking.shipsgo import ShipsgoConnector
+
+    return ShipsgoConnector(settings.shipsgo_api_key, settings.tracking_webhook_secret_shipsgo)
+
+
 BUILDERS: dict[str, Callable[[Settings], TrackingProvider]] = {
     "manual": lambda _: ManualProvider(),
     "terminal49": _terminal49,
+    "shipsgo": _shipsgo,
 }
 
 

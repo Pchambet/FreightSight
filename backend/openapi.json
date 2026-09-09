@@ -2375,9 +2375,19 @@
           "erp"
         ],
         "summary": "Sync Now",
-        "description": "Read the ERP now, in this request.\n\nDeliberately synchronous: someone has just connected their Odoo and is watching this button.\nThe daily refresh is the job; this is the reassurance.",
+        "description": "Read the ERP now, in this request.\n\nDeliberately synchronous: someone has just connected their Odoo and is watching this button.\nThe daily refresh is the job; this is the reassurance. `full=true` re-reads the whole history\ninstead of what has changed — the button for \"this looks wrong, start again\".",
         "operationId": "sync_now_api_v1_erp_sync_post",
         "parameters": [
+          {
+            "name": "full",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Full"
+            }
+          },
           {
             "name": "X-Org-Id",
             "in": "header",
@@ -10325,9 +10335,15 @@
       "TrackingSubscriptionCreate": {
         "properties": {
           "provider": {
-            "type": "string",
-            "title": "Provider",
-            "default": "manual"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
           },
           "provider_ref": {
             "anyOf": [
