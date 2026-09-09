@@ -84,10 +84,26 @@ docker run -d --name odoo-db --network odoo-test \
   -e POSTGRES_USER=odoo -e POSTGRES_PASSWORD=odoo -e POSTGRES_DB=postgres postgres:16
 docker run -d --name odoo17 --network odoo-test -p 8169:8069 \
   -e HOST=odoo-db -e USER=odoo -e PASSWORD=odoo odoo:17
-docker exec odoo17 odoo -d fstest -i purchase --stop-after-init \
+docker exec odoo17 odoo -d fstest -i purchase,stock_landed_costs --stop-after-init \
   --db_host odoo-db --db_user odoo --db_password odoo
 # puis : http://localhost:8169, base fstest, admin / admin
+python backend/scripts/odoo_seed.py --url http://localhost:8169 --db fstest
 ```
+
+`stock_landed_costs` est nécessaire pour l'écriture retour ; `purchase` seul suffit pour la lecture.
+
+`scripts/odoo_seed.py` amène l'instance à l'état exact d'où une landed cost est poussable, en
+XML-RPC uniquement (aucun écran) : catégorie `fifo` + `real_time`, produit `TYR-20555R16` avec SKU,
+commande confirmée, réception **validée**. Il est idempotent — deux exécutions donnent le même état
+et le même résumé — et il imprime le numéro de commande, le SKU et la quantité à recréer côté
+FreightSight. Sur une base `fstest` fraîche il redonne les identifiants des fixtures (produit 37,
+commande `P00012`, réception `WH/IN/00007`, mouvement 40), ce qui rend les captures rejouables.
+
+Deux pièges qu'il encapsule : la catégorie doit être écrite en `fifo` / `real_time` (tous les
+produits de démonstration sont en `standard` / `manual_periodic`, et Odoo ne refuse qu'**à la
+validation**, donc après notre écriture) ; et en 17 il faut poser `quantity` **et** `picked` sur
+chaque mouvement avant `button_validate`, sinon Odoo répond un assistant « transfert immédiat » —
+un dictionnaire là où on attendait un état.
 
 Les tests n'en ont pas besoin : ils rejouent les fixtures capturées.
 
