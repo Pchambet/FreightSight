@@ -261,7 +261,7 @@ def test_the_list_can_be_filtered_by_status(client: TestClient, db: Session, org
 def test_invoices_are_invisible_to_another_organization(
     client: TestClient, db: Session, org: Organization
 ) -> None:
-    invoice_id, _ = review(client, db, org)
+    review(client, db, org)
     db.execute(text("SET ROLE freightsight_app"))
     try:
         set_current_org(db, org.id)
