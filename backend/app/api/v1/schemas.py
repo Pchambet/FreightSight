@@ -19,6 +19,7 @@ from app.domain.models import (
     ImportStatus,
     Incoterm,
     MemberRole,
+    MilestoneCode,
     TrackingState,
 )
 
@@ -496,3 +497,80 @@ class FxRateResponse(BaseModel):
     rate_date: date
     rate: Rate
     source: str
+
+
+# ---------------------------------------------------------------------------- tracking
+
+
+class TrackingEventCreate(BaseModel):
+    """A milestone typed in by hand. `occurred_at` is when it happened, not when it was entered."""
+
+    code: MilestoneCode
+    occurred_at: datetime
+    is_estimate: bool = False
+    location_unlocode: str | None = Field(default=None, min_length=5, max_length=5)
+    location_name: str | None = None
+    vessel_name: str | None = None
+    voyage: str | None = None
+    note: str | None = None
+
+
+class TrackingEventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    container_id: UUID
+    provider: str
+    code: MilestoneCode
+    occurred_at: datetime
+    is_estimate: bool
+    location_unlocode: str | None
+    location_name: str | None
+    vessel_name: str | None
+    voyage: str | None
+    raw_description: str | None
+    source: str
+    inserted_at: datetime
+
+
+class TrackingSubscriptionCreate(BaseModel):
+    """`provider_ref` is the provider's own handle for this box. Leave it out when the provider is
+    subscribed through its API; give it when deliveries arrive webhook-only (no API key)."""
+
+    provider: str = "manual"
+    provider_ref: str | None = None
+    identifier_type: Literal["container", "bill_of_lading", "booking"] = "container"
+    identifier: str | None = None  # defaults to the container number
+
+
+class TrackingSubscriptionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    container_id: UUID
+    provider: str
+    provider_ref: str | None
+    status: str
+    last_error: str | None
+    subscribed_at: datetime | None
+    ended_at: datetime | None
+
+
+class EtaHistoryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    container_id: UUID
+    eta: datetime
+    previous_eta: datetime | None
+    delta_hours: Decimal
+    severity: str
+    source: str
+    recorded_at: datetime
+
+
+class WebhookAck(BaseModel):
+    """What a provider gets back. Always 200 once the delivery is stored; `status` says what we did
+    with it, and a provider must not retry on `duplicate` or `failed`."""
+
+    delivery_id: UUID
+    status: Literal["processed", "duplicate", "failed", "unroutable"]
+    events_ingested: int = 0
+    detail: str | None = None

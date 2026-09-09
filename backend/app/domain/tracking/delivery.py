@@ -1,0 +1,154 @@
+"""Receiving a webhook, from the raw bytes to the container's new state.
+
+The rules, in order:
+  1. the body has to be provably the provider's, or nothing is written at all (401);
+  2. the delivery is stored whole, and that alone is what the 200 acknowledges;
+  3. processing happens after, in its own transaction, and can never turn a stored delivery into a
+     retry storm: a failure is recorded on the delivery and still answered 200.
+
+A delivery arrives with no tenant context. `tracking_resolve_subscription` — a SECURITY DEFINER
+function created in migration 0004 — is the only lookup allowed to cross organizations, and it
+returns two ids and nothing else.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy import select, text
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import Session
+
+from app.core.tenancy import set_current_org
+from app.domain.models import Container, Organization, TrackingState, WebhookDelivery
+from app.domain.tracking.ports import TrackingProvider, WebhookEnvelope
+from app.domain.tracking.service import ingest, refresh
+
+logger = logging.getLogger(__name__)
+
+#: Headers worth keeping for a post-mortem. Anything else (cookies, proxy noise) is dropped.
+KEEP_HEADERS = ("content-type", "user-agent", "x-t49-webhook-signature", "x-vizion-signature")
+
+
+@dataclass(frozen=True)
+class Received:
+    delivery_id: UUID
+    status: str  # processed | duplicate | failed | unroutable
+    events_ingested: int = 0
+    detail: str | None = None
+
+
+def _kept_headers(headers: dict[str, str]) -> dict[str, Any]:
+    lowered = {k.lower(): v for k, v in headers.items()}
+    return {k: lowered[k] for k in KEEP_HEADERS if k in lowered}
+
+
+def _store(
+    db: Session, provider: str, envelope: WebhookEnvelope, headers: dict[str, str], body: bytes
+) -> tuple[UUID, bool]:
+    """Store the delivery. Returns its id and whether this call is the one that created it."""
+    stmt = (
+        insert(WebhookDelivery)
+        .values(
+            provider=provider,
+            delivery_id=envelope.delivery_id,
+            headers=_kept_headers(headers),
+            body=body,
+            signature_ok=True,
+            status="received",
+        )
+        .on_conflict_do_nothing(index_elements=["provider", "delivery_id"])
+        .returning(WebhookDelivery.id)
+    )
+    created = db.scalar(stmt)
+    db.commit()
+    if created is not None:
+        return created, True
+    existing = db.scalar(
+        select(WebhookDelivery.id).where(
+            WebhookDelivery.provider == provider, WebhookDelivery.delivery_id == envelope.delivery_id
+        )
+    )
+    assert existing is not None  # the conflict we just lost means the row is there
+    return existing, False
+
+
+def _route(db: Session, provider: str, envelope: WebhookEnvelope) -> tuple[UUID, UUID] | None:
+    rows = db.execute(
+        text(
+            "SELECT org_id, container_id FROM tracking_resolve_subscription("
+            ":provider, :provider_ref, :container_number)"
+        ),
+        {
+            "provider": provider,
+            "provider_ref": envelope.provider_ref,
+            "container_number": envelope.container_number,
+        },
+    ).all()
+    if len(rows) != 1:
+        return None
+    return UUID(str(rows[0][0])), UUID(str(rows[0][1]))
+
+
+def _finish(db: Session, delivery_id: UUID, status: str, error: str | None = None) -> None:
+    row = db.get(WebhookDelivery, delivery_id)
+    if row is not None:
+        row.status = status
+        row.processed_at = datetime.now(UTC)
+        row.error = error
+    db.commit()
+
+
+def receive(
+    db: Session,
+    provider: TrackingProvider,
+    headers: dict[str, str],
+    body: bytes,
+    *,
+    now: datetime | None = None,
+) -> Received:
+    """Verify, store, then process. Raises `InvalidSignature` before anything is written."""
+    envelope = provider.verify_and_parse(headers, body)
+    delivery_id, created = _store(db, provider.name, envelope, headers, body)
+    if not created:
+        return Received(delivery_id, "duplicate")
+
+    try:
+        routed = _route(db, provider.name, envelope)
+        if routed is None:
+            _finish(db, delivery_id, "unroutable", "No single tracking subscription matches this delivery")
+            return Received(delivery_id, "unroutable", detail="No matching tracking subscription")
+        org_id, container_id = routed
+        set_current_org(db, org_id)
+        org = db.get(Organization, org_id)
+        container = db.get(Container, container_id)
+        if org is None or container is None:  # pragma: no cover - the resolver just proved they exist
+            _finish(db, delivery_id, "failed", "Organization or container vanished mid-delivery")
+            return Received(delivery_id, "failed")
+        count = ingest(
+            db,
+            org_id,
+            container_id,
+            envelope.events,
+            provider=provider.name,
+            delivery_id=delivery_id,
+        )
+        if envelope.destination_unlocode and container.shipment is not None:
+            container.shipment.destination_unlocode = envelope.destination_unlocode
+        container.tracking_state = TrackingState.ACTIVE
+        refresh(db, org, container, source=provider.name, now=now)
+        db.commit()
+    except Exception as exc:  # a bad delivery must not turn into a provider retry storm
+        db.rollback()
+        logger.exception("tracking delivery %s failed", delivery_id)
+        _finish(db, delivery_id, "failed", str(exc)[:500])
+        return Received(delivery_id, "failed", detail=str(exc)[:200])
+    finally:
+        set_current_org(db, None)
+
+    _finish(db, delivery_id, "processed")
+    return Received(delivery_id, "processed", events_ingested=count)

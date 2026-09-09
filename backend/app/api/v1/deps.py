@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from functools import lru_cache
 from typing import Annotated
 
@@ -9,6 +10,8 @@ from app.adapters.fx_ecb import make_fetcher
 from app.core.auth import WRITE_ROLES, Principal, require_role
 from app.core.settings import get_settings
 from app.domain.fx.service import FxService
+from app.domain.tracking.ports import TrackingProvider
+from app.domain.tracking.registry import get_provider
 
 WriterDep = Annotated[Principal, Depends(require_role(*WRITE_ROLES))]
 
@@ -19,3 +22,11 @@ def get_fx_service() -> FxService:
 
 
 FxDep = Annotated[FxService, Depends(get_fx_service)]
+
+
+def get_provider_factory() -> Callable[[str], TrackingProvider]:
+    """Indirection so tests (and, later, a sandbox mode) can hand the webhook route a fake provider."""
+    return get_provider
+
+
+ProviderFactoryDep = Annotated[Callable[[str], TrackingProvider], Depends(get_provider_factory)]

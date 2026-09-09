@@ -111,11 +111,11 @@ def apply_snapshot(container: Container, snapshot: ContainerSnapshot) -> None:
 
 
 def eta_shift(previous: datetime | None, new: datetime | None) -> tuple[Decimal, str] | None:
-    """`(delta_hours, severity)` when an ETA move is worth recording, else None. Decimal, never float."""
-    if new is None:
+    """`(delta_hours, severity)` when an ETA *move* is worth recording, else None. Decimal, never float.
+
+    A first ETA is not a change: it is recorded on the container, not in the history."""
+    if new is None or previous is None:
         return None
-    if previous is None:
-        return (Decimal("0.0"), "info")
     seconds = Decimal(int((new - previous).total_seconds()))
     hours = (seconds / Decimal(3600)).quantize(Decimal("0.1"))
     if abs(hours) < Decimal(ETA_SHIFT_HOURS):

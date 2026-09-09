@@ -2679,6 +2679,432 @@
           }
         }
       }
+    },
+    "/api/v1/containers/{container_id}/events": {
+      "get": {
+        "tags": [
+          "tracking"
+        ],
+        "summary": "List Events",
+        "description": "The container's timeline, oldest first, estimates included.",
+        "operationId": "list_events_api_v1_containers__container_id__events_get",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Container Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackingEventResponse"
+                  },
+                  "title": "Response List Events Api V1 Containers  Container Id  Events Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "tracking"
+        ],
+        "summary": "Add Event",
+        "description": "Record a milestone by hand and re-derive the container from its whole history.\n\nEntering the same milestone at the same instant twice is not an error and writes nothing new.",
+        "operationId": "add_event_api_v1_containers__container_id__events_post",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Container Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackingEventCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackingEventResponse"
+                  },
+                  "title": "Response Add Event Api V1 Containers  Container Id  Events Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/containers/{container_id}/eta-history": {
+      "get": {
+        "tags": [
+          "tracking"
+        ],
+        "summary": "List Eta History",
+        "operationId": "list_eta_history_api_v1_containers__container_id__eta_history_get",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Container Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EtaHistoryResponse"
+                  },
+                  "title": "Response List Eta History Api V1 Containers  Container Id  Eta History Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/containers/{container_id}/tracking": {
+      "get": {
+        "tags": [
+          "tracking"
+        ],
+        "summary": "Get Subscription",
+        "operationId": "get_subscription_api_v1_containers__container_id__tracking_get",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Container Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingSubscriptionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "tracking"
+        ],
+        "summary": "Subscribe",
+        "description": "Start tracking this container.\n\nWith a `provider_ref` the deployment is in webhook-only mode: the provider was subscribed\nelsewhere (its dashboard, another account) and we only need to know how to route its deliveries.\nWithout one, the provider's API is called, which needs a key.",
+        "operationId": "subscribe_api_v1_containers__container_id__tracking_post",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Container Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackingSubscriptionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingSubscriptionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "tracking"
+        ],
+        "summary": "Unsubscribe",
+        "description": "Stop tracking. The events already collected stay: they are the container's history.",
+        "operationId": "unsubscribe_api_v1_containers__container_id__tracking_delete",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Container Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/tracking/{provider}": {
+      "post": {
+        "tags": [
+          "webhooks"
+        ],
+        "summary": "Tracking Webhook",
+        "description": "Accept one tracking delivery.\n\nAnswers 401 when the signature does not check out or the delivery is too old, and 200 for\neverything else — including a replay and a delivery we cannot route — because a provider retries\non anything else and there is nothing to gain from being retried.",
+        "operationId": "tracking_webhook_api_v1_webhooks_tracking__provider__post",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookAck"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3768,6 +4194,67 @@
         ],
         "title": "DndRisk"
       },
+      "EtaHistoryResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "container_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Container Id"
+          },
+          "eta": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Eta"
+          },
+          "previous_eta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Eta"
+          },
+          "delta_hours": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Delta Hours"
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Recorded At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "container_id",
+          "eta",
+          "previous_eta",
+          "delta_hours",
+          "severity",
+          "source",
+          "recorded_at"
+        ],
+        "title": "EtaHistoryResponse"
+      },
       "FxRateResponse": {
         "properties": {
           "base": {
@@ -4252,6 +4739,33 @@
           "VIEWER"
         ],
         "title": "MemberRole"
+      },
+      "MilestoneCode": {
+        "type": "string",
+        "enum": [
+          "BOOKED",
+          "GATE_OUT_EMPTY_ORIGIN",
+          "GATE_IN_FULL_ORIGIN",
+          "LOADED",
+          "VESSEL_DEPARTED",
+          "TRANSSHIPMENT_ARRIVED",
+          "TRANSSHIPMENT_DISCHARGED",
+          "TRANSSHIPMENT_LOADED",
+          "TRANSSHIPMENT_DEPARTED",
+          "VESSEL_ARRIVED",
+          "DISCHARGED",
+          "AVAILABLE_FOR_PICKUP",
+          "GATE_OUT_FULL",
+          "RAIL_LOADED",
+          "RAIL_DEPARTED",
+          "RAIL_ARRIVED",
+          "RAIL_UNLOADED",
+          "DELIVERED",
+          "GATE_IN_EMPTY_RETURN",
+          "UNKNOWN"
+        ],
+        "title": "MilestoneCode",
+        "description": "Tracking timeline vocabulary: every milestone a provider can report.\n\nA superset of `ContainerMilestone` (the coarser state carried on the container itself); the extra\ncodes — empty pickup at origin, transshipment and rail legs, `UNKNOWN` — stay in the timeline."
       },
       "OrganizationResponse": {
         "properties": {
@@ -5603,6 +6117,198 @@
         "type": "object",
         "title": "SupplierUpdate"
       },
+      "TrackingEventCreate": {
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/MilestoneCode"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Occurred At"
+          },
+          "is_estimate": {
+            "type": "boolean",
+            "title": "Is Estimate",
+            "default": false
+          },
+          "location_unlocode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5,
+                "minLength": 5
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Unlocode"
+          },
+          "location_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Name"
+          },
+          "vessel_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vessel Name"
+          },
+          "voyage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voyage"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "occurred_at"
+        ],
+        "title": "TrackingEventCreate",
+        "description": "A milestone typed in by hand. `occurred_at` is when it happened, not when it was entered."
+      },
+      "TrackingEventResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "container_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Container Id"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "code": {
+            "$ref": "#/components/schemas/MilestoneCode"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Occurred At"
+          },
+          "is_estimate": {
+            "type": "boolean",
+            "title": "Is Estimate"
+          },
+          "location_unlocode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Unlocode"
+          },
+          "location_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Name"
+          },
+          "vessel_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vessel Name"
+          },
+          "voyage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voyage"
+          },
+          "raw_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Description"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "inserted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Inserted At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "container_id",
+          "provider",
+          "code",
+          "occurred_at",
+          "is_estimate",
+          "location_unlocode",
+          "location_name",
+          "vessel_name",
+          "voyage",
+          "raw_description",
+          "source",
+          "inserted_at"
+        ],
+        "title": "TrackingEventResponse"
+      },
       "TrackingState": {
         "type": "string",
         "enum": [
@@ -5614,6 +6320,130 @@
           "ENDED"
         ],
         "title": "TrackingState"
+      },
+      "TrackingSubscriptionCreate": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "default": "manual"
+          },
+          "provider_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Ref"
+          },
+          "identifier_type": {
+            "type": "string",
+            "enum": [
+              "container",
+              "bill_of_lading",
+              "booking"
+            ],
+            "title": "Identifier Type",
+            "default": "container"
+          },
+          "identifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identifier"
+          }
+        },
+        "type": "object",
+        "title": "TrackingSubscriptionCreate",
+        "description": "`provider_ref` is the provider's own handle for this box. Leave it out when the provider is\nsubscribed through its API; give it when deliveries arrive webhook-only (no API key)."
+      },
+      "TrackingSubscriptionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "container_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Container Id"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "provider_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Ref"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "subscribed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subscribed At"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "container_id",
+          "provider",
+          "provider_ref",
+          "status",
+          "last_error",
+          "subscribed_at",
+          "ended_at"
+        ],
+        "title": "TrackingSubscriptionResponse"
       },
       "ValidationError": {
         "properties": {
@@ -5654,6 +6484,48 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WebhookAck": {
+        "properties": {
+          "delivery_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Delivery Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "processed",
+              "duplicate",
+              "failed",
+              "unroutable"
+            ],
+            "title": "Status"
+          },
+          "events_ingested": {
+            "type": "integer",
+            "title": "Events Ingested",
+            "default": 0
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "delivery_id",
+          "status"
+        ],
+        "title": "WebhookAck",
+        "description": "What a provider gets back. Always 200 once the delivery is stored; `status` says what we did\nwith it, and a provider must not retry on `duplicate` or `failed`."
       }
     }
   }

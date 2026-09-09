@@ -96,7 +96,7 @@ def test_free_days_container_then_carrier_then_org_default() -> None:
 
 
 def test_eta_shift_ignores_noise_and_flags_two_days() -> None:
-    assert eta_shift(None, at(1)) == (Decimal("0.0"), "info")
+    assert eta_shift(None, at(1)) is None  # a first ETA is not a change
     assert eta_shift(at(1), at(1) + timedelta(hours=6)) is None
     assert eta_shift(at(1), at(1) + timedelta(hours=13)) == (Decimal("13.0"), "info")
     assert eta_shift(at(1), at(1) + timedelta(hours=60)) == (Decimal("60.0"), "warning")

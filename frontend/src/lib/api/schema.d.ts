@@ -508,6 +508,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/containers/{container_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Events
+         * @description The container's timeline, oldest first, estimates included.
+         */
+        get: operations["list_events_api_v1_containers__container_id__events_get"];
+        put?: never;
+        /**
+         * Add Event
+         * @description Record a milestone by hand and re-derive the container from its whole history.
+         *
+         *     Entering the same milestone at the same instant twice is not an error and writes nothing new.
+         */
+        post: operations["add_event_api_v1_containers__container_id__events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/containers/{container_id}/eta-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Eta History */
+        get: operations["list_eta_history_api_v1_containers__container_id__eta_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/containers/{container_id}/tracking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Subscription */
+        get: operations["get_subscription_api_v1_containers__container_id__tracking_get"];
+        put?: never;
+        /**
+         * Subscribe
+         * @description Start tracking this container.
+         *
+         *     With a `provider_ref` the deployment is in webhook-only mode: the provider was subscribed
+         *     elsewhere (its dashboard, another account) and we only need to know how to route its deliveries.
+         *     Without one, the provider's API is called, which needs a key.
+         */
+        post: operations["subscribe_api_v1_containers__container_id__tracking_post"];
+        /**
+         * Unsubscribe
+         * @description Stop tracking. The events already collected stay: they are the container's history.
+         */
+        delete: operations["unsubscribe_api_v1_containers__container_id__tracking_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/tracking/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tracking Webhook
+         * @description Accept one tracking delivery.
+         *
+         *     Answers 401 when the signature does not check out or the delivery is too old, and 200 for
+         *     everything else — including a replay and a delivery we cannot route — because a provider retries
+         *     on anything else and there is nothing to gain from being retried.
+         */
+        post: operations["tracking_webhook_api_v1_webhooks_tracking__provider__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -778,6 +874,37 @@ export interface components {
          * @enum {string}
          */
         DndRisk: "NONE" | "LOW" | "MEDIUM" | "HIGH" | "INCURRING";
+        /** EtaHistoryResponse */
+        EtaHistoryResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Container Id
+             * Format: uuid
+             */
+            container_id: string;
+            /**
+             * Eta
+             * Format: date-time
+             */
+            eta: string;
+            /** Previous Eta */
+            previous_eta: string | null;
+            /** Delta Hours */
+            delta_hours: string;
+            /** Severity */
+            severity: string;
+            /** Source */
+            source: string;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+        };
         /** FxRateResponse */
         FxRateResponse: {
             /** Base */
@@ -972,6 +1099,15 @@ export interface components {
          * @enum {string}
          */
         MemberRole: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
+        /**
+         * MilestoneCode
+         * @description Tracking timeline vocabulary: every milestone a provider can report.
+         *
+         *     A superset of `ContainerMilestone` (the coarser state carried on the container itself); the extra
+         *     codes — empty pickup at origin, transshipment and rail legs, `UNKNOWN` — stay in the timeline.
+         * @enum {string}
+         */
+        MilestoneCode: "BOOKED" | "GATE_OUT_EMPTY_ORIGIN" | "GATE_IN_FULL_ORIGIN" | "LOADED" | "VESSEL_DEPARTED" | "TRANSSHIPMENT_ARRIVED" | "TRANSSHIPMENT_DISCHARGED" | "TRANSSHIPMENT_LOADED" | "TRANSSHIPMENT_DEPARTED" | "VESSEL_ARRIVED" | "DISCHARGED" | "AVAILABLE_FOR_PICKUP" | "GATE_OUT_FULL" | "RAIL_LOADED" | "RAIL_DEPARTED" | "RAIL_ARRIVED" | "RAIL_UNLOADED" | "DELIVERED" | "GATE_IN_EMPTY_RETURN" | "UNKNOWN";
         /** OrganizationResponse */
         OrganizationResponse: {
             /**
@@ -1319,10 +1455,124 @@ export interface components {
             default_currency?: string | null;
         };
         /**
+         * TrackingEventCreate
+         * @description A milestone typed in by hand. `occurred_at` is when it happened, not when it was entered.
+         */
+        TrackingEventCreate: {
+            code: components["schemas"]["MilestoneCode"];
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /**
+             * Is Estimate
+             * @default false
+             */
+            is_estimate: boolean;
+            /** Location Unlocode */
+            location_unlocode?: string | null;
+            /** Location Name */
+            location_name?: string | null;
+            /** Vessel Name */
+            vessel_name?: string | null;
+            /** Voyage */
+            voyage?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** TrackingEventResponse */
+        TrackingEventResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Container Id
+             * Format: uuid
+             */
+            container_id: string;
+            /** Provider */
+            provider: string;
+            code: components["schemas"]["MilestoneCode"];
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Is Estimate */
+            is_estimate: boolean;
+            /** Location Unlocode */
+            location_unlocode: string | null;
+            /** Location Name */
+            location_name: string | null;
+            /** Vessel Name */
+            vessel_name: string | null;
+            /** Voyage */
+            voyage: string | null;
+            /** Raw Description */
+            raw_description: string | null;
+            /** Source */
+            source: string;
+            /**
+             * Inserted At
+             * Format: date-time
+             */
+            inserted_at: string;
+        };
+        /**
          * TrackingState
          * @enum {string}
          */
         TrackingState: "UNTRACKED" | "MANUAL" | "PENDING" | "ACTIVE" | "FAILED" | "ENDED";
+        /**
+         * TrackingSubscriptionCreate
+         * @description `provider_ref` is the provider's own handle for this box. Leave it out when the provider is
+         *     subscribed through its API; give it when deliveries arrive webhook-only (no API key).
+         */
+        TrackingSubscriptionCreate: {
+            /**
+             * Provider
+             * @default manual
+             */
+            provider: string;
+            /** Provider Ref */
+            provider_ref?: string | null;
+            /**
+             * Identifier Type
+             * @default container
+             * @enum {string}
+             */
+            identifier_type: "container" | "bill_of_lading" | "booking";
+            /** Identifier */
+            identifier?: string | null;
+        };
+        /** TrackingSubscriptionResponse */
+        TrackingSubscriptionResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Container Id
+             * Format: uuid
+             */
+            container_id: string;
+            /** Provider */
+            provider: string;
+            /** Provider Ref */
+            provider_ref: string | null;
+            /** Status */
+            status: string;
+            /** Last Error */
+            last_error: string | null;
+            /** Subscribed At */
+            subscribed_at: string | null;
+            /** Ended At */
+            ended_at: string | null;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -1335,6 +1585,30 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * WebhookAck
+         * @description What a provider gets back. Always 200 once the delivery is stored; `status` says what we did
+         *     with it, and a provider must not retry on `duplicate` or `failed`.
+         */
+        WebhookAck: {
+            /**
+             * Delivery Id
+             * Format: uuid
+             */
+            delivery_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "processed" | "duplicate" | "failed" | "unroutable";
+            /**
+             * Events Ingested
+             * @default 0
+             */
+            events_ingested: number;
+            /** Detail */
+            detail?: string | null;
         };
     };
     responses: never;
@@ -2782,6 +3056,241 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FxRateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_events_api_v1_containers__container_id__events_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                container_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackingEventResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_event_api_v1_containers__container_id__events_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                container_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrackingEventCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackingEventResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_eta_history_api_v1_containers__container_id__eta_history_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                container_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EtaHistoryResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_subscription_api_v1_containers__container_id__tracking_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                container_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackingSubscriptionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    subscribe_api_v1_containers__container_id__tracking_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                container_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrackingSubscriptionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackingSubscriptionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unsubscribe_api_v1_containers__container_id__tracking_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                container_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tracking_webhook_api_v1_webhooks_tracking__provider__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookAck"];
                 };
             };
             /** @description Validation Error */

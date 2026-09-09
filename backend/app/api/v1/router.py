@@ -10,6 +10,8 @@ from app.api.v1 import (
     purchase_orders,
     shipments,
     suppliers,
+    tracking,
+    webhooks,
 )
 
 router = APIRouter(prefix="/api/v1")
@@ -23,5 +25,7 @@ for r in (
     landed_costs.router,
     imports.router,
     fx.router,
+    tracking.router,
+    webhooks.router,
 ):
     router.include_router(r)
