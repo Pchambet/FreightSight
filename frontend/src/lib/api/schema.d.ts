@@ -1209,6 +1209,11 @@ export interface components {
             amount_base: string;
             /** Load Ids */
             load_ids: string[];
+            /**
+             * Load Labels
+             * @default []
+             */
+            load_labels: string[];
         };
         /**
          * SampleDataResponse

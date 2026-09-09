@@ -407,6 +407,9 @@ class ReportWarning(BaseModel):
     message: str
     amount_base: Money
     load_ids: list[UUID]
+    # "PO-2026-101 #1 SKU" per affected load, so the UI can compose a translated sentence
+    # instead of parsing `message`.
+    load_labels: list[str] = []
 
 
 class ReportLine(BaseModel):

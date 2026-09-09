@@ -2235,7 +2235,7 @@
           "landed-costs"
         ],
         "summary": "Integrity",
-        "description": "Every cost is either fully allocated (\u03a3 allocations == amount_base) or reported as unallocated.",
+        "description": "Every cost is either fully allocated (Σ allocations == amount_base) or reported as unallocated.",
         "operationId": "integrity_api_v1_reports_integrity_get",
         "parameters": [
           {
@@ -5143,6 +5143,14 @@
             },
             "type": "array",
             "title": "Load Ids"
+          },
+          "load_labels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Load Labels",
+            "default": []
           }
         },
         "type": "object",

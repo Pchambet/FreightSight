@@ -41,6 +41,7 @@ class Warning_:
     message: str
     amount_base: Decimal
     load_ids: list[UUID] = field(default_factory=list)
+    load_labels: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -110,9 +111,8 @@ def _report(comp: Computation, base_currency: str, load_filter: set[UUID], cost_
         labels = [_load_label(comp, lid) for lid in u.load_ids if lid in comp.load_rows]
         if labels:
             message = f"{message}: {', '.join(labels)}"
-        warnings.append(
-            Warning_(u.cost_id, u.code, message, comp.cost_rows[u.cost_id].amount_base, list(u.load_ids))
-        )
+        amount = comp.cost_rows[u.cost_id].amount_base
+        warnings.append(Warning_(u.cost_id, u.code, message, amount, list(u.load_ids), labels))
     fob = sum((ln.fob for ln in lines), ZERO)
     allocated_total = sum((ln.allocated for ln in lines), ZERO)
     vat_total = sum((ln.vat for ln in lines), ZERO)
