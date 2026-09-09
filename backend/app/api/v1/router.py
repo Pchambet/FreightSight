@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    alerts,
     containers,
     costs,
     fx,
@@ -25,6 +26,7 @@ for r in (
     landed_costs.router,
     imports.router,
     fx.router,
+    alerts.router,
     tracking.router,
     webhooks.router,
 ):

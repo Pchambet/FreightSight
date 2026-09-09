@@ -10,6 +10,8 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, field_validator, model_validator
 
 from app.domain.models import (
+    AlertKind,
+    AlertSeverity,
     AllocationMethod,
     ContainerMilestone,
     CostScope,
@@ -68,6 +70,7 @@ class OrganizationResponse(BaseModel):
     free_days_demurrage: int
     free_days_detention: int
     settings: dict[str, Any]
+    unread_alerts: int = 0  # what the bell shows
 
 
 class SampleDataResponse(BaseModel):
@@ -574,3 +577,23 @@ class WebhookAck(BaseModel):
     status: Literal["processed", "duplicate", "failed", "unroutable"]
     events_ingested: int = 0
     detail: str | None = None
+
+
+# ---------------------------------------------------------------------------- alerts
+
+
+class AlertResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    container_id: UUID | None
+    kind: AlertKind
+    severity: AlertSeverity
+    title: str
+    body: str
+    payload: dict[str, Any]
+    created_at: datetime
+    read_at: datetime | None
+
+
+class AlertsRead(BaseModel):
+    marked: int

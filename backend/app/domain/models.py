@@ -154,6 +154,19 @@ class DndRisk(enum.StrEnum):
     INCURRING = "INCURRING"
 
 
+class AlertKind(enum.StrEnum):
+    DND_RISK = "DND_RISK"  # the demurrage clock crossed a threshold
+    ETA_CHANGED = "ETA_CHANGED"
+    TRACKING_DATA_MISSING = "TRACKING_DATA_MISSING"  # a subscription has gone quiet
+    TRACKING_DELIVERY_FAILED = "TRACKING_DELIVERY_FAILED"  # a webhook we could not process
+
+
+class AlertSeverity(enum.StrEnum):
+    INFO = "info"
+    WARNING = "warning"
+    CRITICAL = "critical"
+
+
 class MemberRole(enum.StrEnum):
     OWNER = "OWNER"
     ADMIN = "ADMIN"
@@ -523,6 +536,7 @@ class WebhookDelivery(Base):
     status: Mapped[str] = mapped_column(
         String, nullable=False, default="received"
     )  # received|processed|failed
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error: Mapped[str | None] = mapped_column(String)
 
@@ -571,6 +585,35 @@ class EtaHistory(OrgScoped, Base):
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
 
 
+class Alert(OrgScoped, Base):
+    """Something the user should look at. `dedup_key` is what stops the same fact being repeated:
+    one alert per organization per key, so a daily recompute cannot pile up ten identical warnings."""
+
+    __tablename__ = "alerts"
+    __table_args__ = (
+        UniqueConstraint("org_id", "dedup_key"),
+        Index("ix_alerts_org_unread", "org_id", "created_at", postgresql_where=text("read_at IS NULL")),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    container_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("containers.id"), index=True)
+    kind: Mapped[AlertKind] = mapped_column(Enum(AlertKind, name="alert_kind"), nullable=False)
+    severity: Mapped[AlertSeverity] = mapped_column(
+        # The Postgres enum holds the lowercase values, not the member names: severities are shown
+        # as they are stored, and `info` reads better than `INFO` in an API payload.
+        Enum(AlertSeverity, name="alert_severity", values_callable=lambda e: [m.value for m in e]),
+        nullable=False,
+        default=AlertSeverity.INFO,
+    )
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    body: Mapped[str] = mapped_column(String, nullable=False, default="")
+    dedup_key: Mapped[str] = mapped_column(String, nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 # Tables that carry org_id and get a Row Level Security policy in migration 0003 (0004 for tracking).
 RLS_TABLES = [
     "suppliers",
@@ -586,4 +629,5 @@ RLS_TABLES = [
     "tracking_subscriptions",
     "tracking_events",
     "eta_history",
+    "alerts",
 ]

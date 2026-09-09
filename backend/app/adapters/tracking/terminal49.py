@@ -138,6 +138,11 @@ class Terminal49Provider:
         self._check_age(payload)
         return self._parse(payload)
 
+    def parse(self, body: bytes) -> WebhookEnvelope:
+        """Translate a delivery we already verified once. Replaying our own stored body does not need
+        the signature again — and must not be refused for being old, which is the point of a replay."""
+        return self._parse(json.loads(body))
+
     def _check_age(self, payload: dict[str, Any]) -> None:
         """Terminal49 publishes no timestamp header, so freshness is judged on the notification's own
         `created_at`. A replay of an old, correctly signed body is refused."""

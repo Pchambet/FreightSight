@@ -79,6 +79,9 @@ class FakeProvider:
     def fetch(self, provider_ref: str) -> WebhookEnvelope:
         raise ProviderNotConfigured("no polling in tests")
 
+    def parse(self, body: bytes) -> WebhookEnvelope:
+        return self._envelope(json.loads(body))
+
     def verify_and_parse(self, headers: Mapping[str, str], body: bytes) -> WebhookEnvelope:
         lowered = {k.lower(): v for k, v in headers.items()}
         given = lowered.get(SIGNATURE_HEADER, "")
@@ -88,6 +91,9 @@ class FakeProvider:
         sent_at = datetime.fromisoformat(data["sent_at"])
         if datetime.now(UTC) - sent_at > MAX_AGE:
             raise InvalidSignature("Delivery too old")
+        return self._envelope(data)
+
+    def _envelope(self, data: dict[str, Any]) -> WebhookEnvelope:
         return WebhookEnvelope(
             provider=self.name,
             delivery_id=data["delivery_id"],

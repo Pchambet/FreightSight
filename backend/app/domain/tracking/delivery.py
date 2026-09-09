@@ -94,12 +94,15 @@ def _route(db: Session, provider: str, envelope: WebhookEnvelope) -> tuple[UUID,
     return UUID(str(rows[0][0])), UUID(str(rows[0][1]))
 
 
-def _finish(db: Session, delivery_id: UUID, status: str, error: str | None = None) -> None:
+def _finish(
+    db: Session, delivery_id: UUID, status: str, error: str | None = None, *, attempt: int = 1
+) -> None:
     row = db.get(WebhookDelivery, delivery_id)
     if row is not None:
         row.status = status
         row.processed_at = datetime.now(UTC)
         row.error = error
+        row.attempts = attempt
     db.commit()
 
 
@@ -116,18 +119,58 @@ def receive(
     delivery_id, created = _store(db, provider.name, envelope, headers, body)
     if not created:
         return Received(delivery_id, "duplicate")
+    return _run(db, provider, envelope, delivery_id, attempt=1, now=now)
 
+
+def process_stored_delivery(
+    db: Session,
+    provider: TrackingProvider,
+    delivery: WebhookDelivery,
+    *,
+    attempt: int,
+    now: datetime | None = None,
+) -> Received:
+    """Replay a delivery we already verified once, after a failure on our side.
+
+    The signature is not checked again: it was checked at receipt, `signature_ok` records that, and
+    the body has not left our own table since. Nor is freshness — a replay is old by definition.
+    """
+    try:
+        envelope = provider.parse(delivery.body)
+    except Exception as exc:
+        _finish(db, delivery.id, "failed", f"unparseable on replay: {exc}"[:500], attempt=attempt)
+        return Received(delivery.id, "failed", detail=str(exc)[:200])
+    return _run(db, provider, envelope, delivery.id, attempt=attempt, now=now)
+
+
+def _run(
+    db: Session,
+    provider: TrackingProvider,
+    envelope: WebhookEnvelope,
+    delivery_id: UUID,
+    *,
+    attempt: int,
+    now: datetime | None = None,
+) -> Received:
+    """Route the delivery to a container and apply it. Never raises: a delivery that cannot be
+    processed is marked and answered, because the alternative is a provider retrying forever."""
     try:
         routed = _route(db, provider.name, envelope)
         if routed is None:
-            _finish(db, delivery_id, "unroutable", "No single tracking subscription matches this delivery")
+            _finish(
+                db,
+                delivery_id,
+                "unroutable",
+                "No single tracking subscription matches this delivery",
+                attempt=attempt,
+            )
             return Received(delivery_id, "unroutable", detail="No matching tracking subscription")
         org_id, container_id = routed
         set_current_org(db, org_id)
         org = db.get(Organization, org_id)
         container = db.get(Container, container_id)
         if org is None or container is None:  # pragma: no cover - the resolver just proved they exist
-            _finish(db, delivery_id, "failed", "Organization or container vanished mid-delivery")
+            _finish(db, delivery_id, "failed", "Organization or container vanished", attempt=attempt)
             return Received(delivery_id, "failed")
         count = ingest(
             db,
@@ -145,10 +188,10 @@ def receive(
     except Exception as exc:  # a bad delivery must not turn into a provider retry storm
         db.rollback()
         logger.exception("tracking delivery %s failed", delivery_id)
-        _finish(db, delivery_id, "failed", str(exc)[:500])
+        _finish(db, delivery_id, "failed", str(exc)[:500], attempt=attempt)
         return Received(delivery_id, "failed", detail=str(exc)[:200])
     finally:
         set_current_org(db, None)
 
-    _finish(db, delivery_id, "processed")
+    _finish(db, delivery_id, "processed", attempt=attempt)
     return Received(delivery_id, "processed", events_ingested=count)

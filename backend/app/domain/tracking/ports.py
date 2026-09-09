@@ -148,3 +148,7 @@ class TrackingProvider(Protocol):
     def verify_and_parse(self, headers: Mapping[str, str], body: bytes) -> WebhookEnvelope:
         """Raise `InvalidSignature` unless the body is provably the provider's, then translate it."""
         ...
+
+    def parse(self, body: bytes) -> WebhookEnvelope:
+        """Translate a body whose signature was already checked, for replaying a stored delivery."""
+        ...

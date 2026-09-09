@@ -71,3 +71,6 @@ class ManualProvider:
 
     def verify_and_parse(self, headers: Mapping[str, str], body: bytes) -> WebhookEnvelope:
         raise DomainError("Manual tracking does not receive webhooks", code="NO_WEBHOOK")
+
+    def parse(self, body: bytes) -> WebhookEnvelope:
+        raise DomainError("Manual tracking does not receive webhooks", code="NO_WEBHOOK")

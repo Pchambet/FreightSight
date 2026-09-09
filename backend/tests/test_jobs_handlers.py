@@ -1,0 +1,252 @@
+"""The background jobs, called directly: no worker, no queue, a clock passed in as an argument."""
+
+from __future__ import annotations
+
+import uuid
+from datetime import UTC, datetime, timedelta
+
+import fakes
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.domain.models import (
+    Alert,
+    AlertKind,
+    Container,
+    DndRisk,
+    EtaHistory,
+    MilestoneCode,
+    Organization,
+    TrackingEvent,
+    TrackingState,
+    TrackingSubscription,
+    WebhookDelivery,
+)
+from app.jobs import handlers
+
+NOW = datetime(2026, 9, 9, 12, 0, tzinfo=UTC)
+
+
+@pytest.fixture
+def org(client: TestClient, db: Session, org_id: uuid.UUID) -> Organization:
+    assert client.get("/api/v1/organization").status_code == 200
+    organization = db.get(Organization, org_id)
+    assert organization is not None
+    return organization
+
+
+def make_container(client: TestClient, number: str = "MSCU4821990") -> str:
+    res = client.post("/api/v1/containers", json={"container_number": number, "carrier_scac": "MSCU"})
+    assert res.status_code == 201, res.text
+    return str(res.json()["id"])
+
+
+def alerts_of(db: Session, kind: AlertKind) -> list[Alert]:
+    return list(db.scalars(select(Alert).where(Alert.kind == kind).order_by(Alert.created_at)))
+
+
+# ---------------------------------------------------------------------------- demurrage
+
+
+def test_the_morning_pass_alerts_once_per_threshold(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    container_id = make_container(client)
+    container = db.get(Container, uuid.UUID(container_id))
+    assert container is not None
+    container.discharged_at = NOW - timedelta(days=2)  # five free days: two left, MEDIUM
+    container.dnd_risk = DndRisk.NONE
+    db.commit()
+
+    assert handlers.recompute_dnd_risk(db, now=NOW) == 1
+    db.expire_all()
+    recomputed = db.get(Container, uuid.UUID(container_id))
+    assert recomputed is not None and recomputed.dnd_risk is DndRisk.MEDIUM
+    assert len(alerts_of(db, AlertKind.DND_RISK)) == 1
+
+    # run it again the same day: nothing changed, nothing said
+    assert handlers.recompute_dnd_risk(db, now=NOW) == 0
+    assert len(alerts_of(db, AlertKind.DND_RISK)) == 1
+
+    # a day later the threshold moves and that is worth saying
+    assert handlers.recompute_dnd_risk(db, now=NOW + timedelta(days=2)) == 1
+    risks = [a.payload["risk"] for a in alerts_of(db, AlertKind.DND_RISK)]
+    assert risks == ["MEDIUM", "HIGH"]
+
+
+def test_a_picked_up_container_is_left_alone(client: TestClient, db: Session, org: Organization) -> None:
+    container_id = make_container(client, "TGHU7245081")
+    container = db.get(Container, uuid.UUID(container_id))
+    assert container is not None
+    container.discharged_at = NOW - timedelta(days=9)
+    container.gate_out_at = NOW - timedelta(days=1)
+    db.commit()
+    assert handlers.recompute_dnd_risk(db, now=NOW) == 0
+    assert alerts_of(db, AlertKind.DND_RISK) == []
+
+
+def test_the_daily_hour_is_read_in_paris() -> None:
+    assert handlers.is_daily_risk_hour(datetime(2026, 9, 9, 4, 0, tzinfo=UTC))  # 06:00 Paris, summer
+    assert not handlers.is_daily_risk_hour(datetime(2026, 9, 9, 6, 0, tzinfo=UTC))
+    assert handlers.is_daily_risk_hour(datetime(2026, 12, 9, 5, 0, tzinfo=UTC))  # 06:00 Paris, winter
+
+
+# ---------------------------------------------------------------------------- ETA
+
+
+def test_eta_history_becomes_one_alert_per_row(client: TestClient, db: Session, org: Organization) -> None:
+    container_id = make_container(client)
+    db.add(
+        EtaHistory(
+            org_id=org.id,
+            container_id=uuid.UUID(container_id),
+            eta=NOW + timedelta(days=8),
+            previous_eta=NOW + timedelta(days=5),
+            delta_hours=72,
+            severity="warning",
+            source="fake",
+            recorded_at=NOW - timedelta(hours=1),
+        )
+    )
+    db.commit()
+
+    assert handlers.alert_on_eta_changes(db, now=NOW) == 1
+    (alert,) = alerts_of(db, AlertKind.ETA_CHANGED)
+    assert alert.severity.value == "warning"
+    assert "72" in alert.title and "later" in alert.title
+
+    # running again says nothing new: the alert is keyed on the history row
+    assert handlers.alert_on_eta_changes(db, now=NOW) == 0
+    assert len(alerts_of(db, AlertKind.ETA_CHANGED)) == 1
+
+
+# ---------------------------------------------------------------------------- silent feeds
+
+
+def test_a_silent_subscription_is_reported(client: TestClient, db: Session, org: Organization) -> None:
+    container_id = make_container(client)
+    db.add(
+        TrackingSubscription(
+            org_id=org.id,
+            container_id=uuid.UUID(container_id),
+            provider="terminal49",
+            provider_ref=None,  # webhook-only: nothing to poll
+            status="active",
+            subscribed_at=NOW - timedelta(days=5),
+        )
+    )
+    db.commit()
+
+    assert handlers.poll_stale_subscriptions(db, now=NOW) == 1
+    (alert,) = alerts_of(db, AlertKind.TRACKING_DATA_MISSING)
+    assert "MSCU4821990" in alert.title
+    assert alert.severity.value == "warning"
+    db.expire_all()
+    silent = db.get(Container, uuid.UUID(container_id))
+    assert silent is not None and silent.tracking_state is TrackingState.MANUAL
+
+    # same day, same silence: one alert
+    handlers.poll_stale_subscriptions(db, now=NOW)
+    assert len(alerts_of(db, AlertKind.TRACKING_DATA_MISSING)) == 1
+
+
+def test_a_recently_fed_subscription_is_not_reported(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    container_id = make_container(client)
+    db.add(
+        TrackingSubscription(
+            org_id=org.id,
+            container_id=uuid.UUID(container_id),
+            provider="terminal49",
+            provider_ref="t49-1",
+            status="active",
+            subscribed_at=NOW - timedelta(days=5),
+        )
+    )
+    db.add(
+        TrackingEvent(
+            org_id=org.id,
+            container_id=uuid.UUID(container_id),
+            provider="terminal49",
+            provider_event_key="k1",
+            code="DISCHARGED",
+            occurred_at=NOW - timedelta(hours=6),
+            inserted_at=NOW - timedelta(hours=6),
+        )
+    )
+    db.commit()
+    assert handlers.poll_stale_subscriptions(db, now=NOW) == 0
+    assert alerts_of(db, AlertKind.TRACKING_DATA_MISSING) == []
+
+
+# ---------------------------------------------------------------------------- failed deliveries
+
+
+def test_a_failed_delivery_is_replayed_and_then_left_alone(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """A delivery that failed on our side is recoverable: the raw body is still in the table."""
+    from app.api.v1.deps import get_provider_factory
+    from app.main import app as fastapi_app
+
+    provider = fakes.FakeProvider()
+    fastapi_app.dependency_overrides[get_provider_factory] = lambda: lambda name: provider
+
+    container_id = make_container(client)
+    body = fakes.payload(
+        delivery_id="stored-1",
+        provider_ref="fake-ref-9",
+        events=[fakes.event(MilestoneCode.DISCHARGED, NOW - timedelta(days=1))],
+    )
+    res = client.post(
+        "/api/v1/webhooks/tracking/fake",
+        content=body,
+        headers={fakes.SIGNATURE_HEADER: fakes.sign(body)},
+    )
+    assert res.json()["status"] == "unroutable"  # no subscription yet: that is the failure to recover
+
+    # the subscription arrives late, as it does when someone wires tracking up after the fact
+    client.post(
+        f"/api/v1/containers/{container_id}/tracking",
+        json={"provider": "fake", "provider_ref": "fake-ref-9"},
+    )
+    delivery = db.scalar(select(WebhookDelivery).where(WebhookDelivery.delivery_id == "stored-1"))
+    assert delivery is not None
+    delivery.status = "failed"
+    db.commit()
+
+    try:
+        assert handlers.retry_failed_deliveries(db, now=NOW, provider_factory=lambda _: provider) == 1
+        db.expire_all()
+        replayed = db.get(Container, uuid.UUID(container_id))
+        assert replayed is not None
+        assert replayed.milestone.value == "DISCHARGED"
+
+        # already processed: not picked up again
+        assert handlers.retry_failed_deliveries(db, now=NOW, provider_factory=lambda _: provider) == 0
+    finally:
+        fastapi_app.dependency_overrides.clear()
+
+
+def test_retries_stop_after_five_attempts(client: TestClient, db: Session, org: Organization) -> None:
+    delivery = WebhookDelivery(
+        provider="fake",
+        delivery_id="exhausted",
+        headers={},
+        body=b"{}",
+        signature_ok=True,
+        status="failed",
+        attempts=handlers.MAX_DELIVERY_ATTEMPTS,
+        processed_at=NOW - timedelta(days=1),
+    )
+    db.add(delivery)
+    db.commit()
+    assert handlers.retry_failed_deliveries(db, now=NOW) == 0
+
+
+def test_backoff_grows_exponentially() -> None:
+    waits = [handlers._backoff(n).total_seconds() / 60 for n in range(5)]
+    assert waits == [1, 2, 4, 8, 16]
