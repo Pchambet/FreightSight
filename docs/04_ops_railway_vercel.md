@@ -121,3 +121,61 @@ curl -s -H "Authorization: Bearer x" $API/api/v1/me                          # 4
 
 Puis se connecter sur le front, créer une organisation, importer le CSV d'exemple, et vérifier dans la
 console SQL que `SET ROLE freightsight; SELECT count(*) FROM containers;` renvoie 0 sans `app.org_id`.
+
+## 6. Sauvegardes hors fournisseur (Scaleway Paris)
+
+Railway sauvegarde son propre volume ; ça ne protège de rien si le compte Railway est perdu. La copie
+souveraine est un service cron Railway qui lance `python -m app.backup` (même image que l'API).
+
+**Variables du service `backup`** — sans l'une d'elles, la commande refuse de tourner et dit laquelle :
+
+| Variable | Rôle |
+|---|---|
+| `MIGRATIONS_DATABASE_URL` | la base à sauvegarder, **en tant que propriétaire** |
+| `BACKUP_ENCRYPTION_KEY` | 32 octets en base64 (`openssl rand -base64 32`) |
+| `SCW_ACCESS_KEY`, `SCW_SECRET_KEY` | clé API Scaleway |
+| `SCW_BUCKET` | `freightsight-backups` |
+| `SCW_REGION`, `SCW_ENDPOINT` | facultatifs (`fr-par`, `https://s3.fr-par.scw.cloud`) |
+| `APP_ENV` | sépare les préfixes `backups/prod/`, `backups/preview/`… |
+
+**Pourquoi le rôle propriétaire :** la RLS s'applique au rôle applicatif. Un `pg_dump` fait avec
+`freightsight` produirait une sauvegarde **silencieusement partielle** — le pire cas possible, puisqu'elle
+se restaure sans erreur.
+
+**Ce que ça écrit :** `backups/<env>/<AAAA-MM-JJ>T<HHMM>.dump.enc`, un `pg_dump --format=custom`
+chiffré en AES-256-GCM avant de quitter le processus (le bucket contient les données de tous les
+clients ; une ACL mal réglée doit laisser fuir un chiffré, pas une base). Rétention : 30 jours
+glissants + la première sauvegarde de chacun des 12 derniers mois. Une ligne de log JSON par exécution
+avec la taille, la durée et le sha256 du dump en clair.
+
+**⚠️ La clé de chiffrement ne doit pas vivre uniquement dans Railway.** Si le compte Railway est
+perdu, la clé l'est aussi et les sauvegardes ne servent plus à rien. Elle va dans un gestionnaire de
+mots de passe, hors du fournisseur.
+
+### Restaurer, en cinq commandes
+
+```bash
+# 1. Lister ce qu'on a (depuis n'importe quelle machine ayant les variables)
+aws s3 ls s3://freightsight-backups/backups/prod/ --endpoint-url https://s3.fr-par.scw.cloud
+
+# 2. Créer une base cible vide (jamais la base de production directement)
+psql "$MIGRATIONS_DATABASE_URL" -c 'CREATE DATABASE restore_check'
+
+# 3. Restaurer la sauvegarde choisie dedans
+python -m app.restore backups/prod/2026-09-09T0300.dump.enc \
+  --to "postgresql://…@…/restore_check" --yes
+
+# 4. Vérifier qu'elle contient quelque chose de crédible
+psql "postgresql://…@…/restore_check" -c \
+  "SELECT (SELECT count(*) FROM organizations) AS orgs, (SELECT count(*) FROM costs) AS costs"
+
+# 5. Basculer : renommer, ou repointer DATABASE_URL sur la base restaurée
+psql "$MIGRATIONS_DATABASE_URL" -c \
+  'ALTER DATABASE freightsight RENAME TO freightsight_broken; ALTER DATABASE restore_check RENAME TO freightsight'
+```
+
+L'étape 4 n'est pas décorative : **une sauvegarde qu'on n'a jamais restaurée est une rumeur.** À faire
+une fois pour de vrai, et à refaire après tout changement de schéma majeur.
+
+`pg_dump` et `pg_restore` sont dans l'image (`postgresql-client-17`, la même majeure que le serveur :
+`pg_dump` refuse un serveur plus récent que lui, donc cette version suit celle de la base).
