@@ -35,7 +35,32 @@ export default defineRailway(() => {
     },
   });
 
+  // Nightly encrypted pg_dump to Scaleway Object Storage (Paris). Dumps as the OWNER role: with the
+  // application role, Row Level Security would silently drop every tenant row from the backup.
+  // The secrets (SCW_*, BACKUP_ENCRYPTION_KEY) live on the FreightSight service and are referenced.
+  const Backup = service("backup", {
+    source: github("Pchambet/FreightSight", { checkSuites: false, rootDirectory: "/backend" }),
+    build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "/backend/Dockerfile" },
+    startCommand: "python -m app.backup",
+    cronSchedule: "0 3 * * *",
+    replicas: { "europe-west4-drams3a": 1 },
+    env: {
+      APP_ENV: "prod",
+      MIGRATIONS_DATABASE_URL: "${{FreightSight.MIGRATIONS_DATABASE_URL}}",
+      BACKUP_ENCRYPTION_KEY: "${{FreightSight.BACKUP_ENCRYPTION_KEY}}",
+      SCW_ACCESS_KEY: "${{FreightSight.SCW_ACCESS_KEY}}",
+      SCW_SECRET_KEY: "${{FreightSight.SCW_SECRET_KEY}}",
+      SCW_BUCKET: "${{FreightSight.SCW_BUCKET}}",
+      SCW_REGION: "${{FreightSight.SCW_REGION}}",
+      PYTHONDONTWRITEBYTECODE: "1",
+      PYTHONUNBUFFERED: "1",
+      UV_COMPILE_BYTECODE: "1",
+      UV_LINK_MODE: "copy",
+      UV_PROJECT_ENVIRONMENT: "/opt/venv",
+    },
+  });
+
   return project("steadfast-balance", {
-    resources: [FreightSight, Worker, PostgresEU, postgreseuVolume],
+    resources: [FreightSight, Worker, Backup, PostgresEU, postgreseuVolume],
   });
 });
