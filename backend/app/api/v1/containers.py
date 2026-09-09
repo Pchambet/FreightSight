@@ -13,6 +13,7 @@ from app.api.v1.deps import WriterDep
 from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.money import q2
 from app.core.tenancy import TenantDep, TenantSession
+from app.domain.audit.service import LOADS_REPLACED, record
 from app.domain.costing.service import compute, recompute_org
 from app.domain.models import (
     Container,
@@ -189,7 +190,7 @@ def _load_response(ld: ContainerLoad) -> schemas.LoadResponse:
 
 @router.put("/{container_id}/loads", response_model=list[schemas.LoadResponse])
 def replace_loads(
-    container_id: UUID, payload: list[schemas.LoadIn], t: TenantDep, _: WriterDep
+    container_id: UUID, payload: list[schemas.LoadIn], t: TenantDep, p: WriterDep
 ) -> list[schemas.LoadResponse]:
     """Replace the full list of loads for this container. Refuses to over-allocate a PO line."""
     c = _get(t, container_id)
@@ -235,6 +236,7 @@ def replace_loads(
             )
     if errors:
         raise Unprocessable("Some lines would be over-allocated", code="OVER_ALLOCATED", errors=errors)
+    before = {str(ld.po_line_id): str(ld.quantity) for ld in c.loads}
     existing = {ld.po_line_id: ld for ld in c.loads}
     for line_id, ld in existing.items():
         if line_id not in wanted:
@@ -245,6 +247,18 @@ def replace_loads(
         else:
             t.add(ContainerLoad(container_id=c.id, po_line_id=line_id, quantity=qty))
     t.db.flush()
+    # What is in the box decides how every cost is split, so this is one of the changes someone will
+    # want explained later.
+    record(
+        t.db,
+        t.org_id,
+        actor_user_id=p.user_id,
+        action=LOADS_REPLACED,
+        entity_type="container",
+        entity_id=c.id,
+        before=before,
+        after={str(line_id): str(qty) for line_id, qty in wanted.items()},
+    )
     recompute_org(t.db, t.org)
     t.db.commit()
     return get_loads(container_id, t)

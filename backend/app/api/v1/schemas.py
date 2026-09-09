@@ -664,3 +664,25 @@ class InvoiceConfirmResponse(BaseModel):
     invoice: InvoiceResponse
     costs_created: int
     cost_ids: list[UUID]
+
+
+# ---------------------------------------------------------------------------- audit log
+
+
+class AuditEntryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    actor_user_id: UUID | None
+    action: str
+    entity_type: str
+    entity_id: UUID | None
+    before: dict[str, Any] | None
+    after: dict[str, Any] | None
+    at: datetime
+
+
+class AuditPage(BaseModel):
+    """A page of history, newest first. `next_cursor` is null when there is nothing older."""
+
+    entries: list[AuditEntryResponse]
+    next_cursor: str | None = None

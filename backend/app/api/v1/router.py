@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     alerts,
+    audit,
     containers,
     costs,
     fx,
@@ -29,6 +30,7 @@ for r in (
     invoices.router,
     fx.router,
     alerts.router,
+    audit.router,
     tracking.router,
     webhooks.router,
 ):

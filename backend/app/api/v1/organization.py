@@ -8,6 +8,7 @@ from app.core.auth import PrincipalDep
 from app.core.errors import Conflict
 from app.core.tenancy import TenantDep
 from app.domain.alerts.service import unread_count
+from app.domain.audit.service import ORGANIZATION_UPDATED, record
 from app.domain.costing.service import recompute_org
 from app.domain.sample_data import has_data, seed_sample_data
 from app.domain.tracking.state import derive_dnd
@@ -33,11 +34,22 @@ def get_organization(t: TenantDep) -> schemas.OrganizationResponse:
 
 @router.patch("/organization", response_model=schemas.OrganizationResponse)
 def update_organization(
-    payload: schemas.OrganizationUpdate, t: TenantDep, _: WriterDep
+    payload: schemas.OrganizationUpdate, t: TenantDep, p: PrincipalDep, _: WriterDep
 ) -> schemas.OrganizationResponse:
     changes = payload.model_dump(exclude_unset=True)
+    before = {k: getattr(t.org, k) for k in changes}
     for k, v in changes.items():
         setattr(t.org, k, v)
+    record(
+        t.db,
+        t.org_id,
+        actor_user_id=p.user_id,
+        action=ORGANIZATION_UPDATED,
+        entity_type="organization",
+        entity_id=t.org_id,
+        before=before,
+        after=changes,
+    )
     if "default_allocation_method" in changes:
         recompute_org(t.db, t.org)
     t.db.commit()

@@ -12,6 +12,7 @@ from app.api.v1 import schemas
 from app.api.v1.deps import ProviderFactoryDep, WriterDep
 from app.core.errors import Conflict, NotFound
 from app.core.tenancy import TenantDep
+from app.domain.audit.service import TRACKING_EVENT_ADDED, record
 from app.domain.models import Container, EtaHistory, TrackingState, TrackingSubscription
 from app.domain.tracking.manual import NAME as MANUAL
 from app.domain.tracking.manual import manual_event
@@ -41,7 +42,7 @@ def list_events(container_id: UUID, t: TenantDep) -> list[schemas.TrackingEventR
     status_code=status.HTTP_201_CREATED,
 )
 def add_event(
-    container_id: UUID, payload: schemas.TrackingEventCreate, t: TenantDep, _: WriterDep
+    container_id: UUID, payload: schemas.TrackingEventCreate, t: TenantDep, p: WriterDep
 ) -> list[schemas.TrackingEventResponse]:
     """Record a milestone by hand and re-derive the container from its whole history.
 
@@ -62,6 +63,21 @@ def add_event(
     if c.tracking_state is TrackingState.UNTRACKED:
         c.tracking_state = TrackingState.MANUAL
     refresh(t.db, t.org, c, source=MANUAL)
+    record(
+        t.db,
+        t.org_id,
+        actor_user_id=p.user_id,
+        action=TRACKING_EVENT_ADDED,
+        entity_type="container",
+        entity_id=c.id,
+        after={
+            "code": payload.code,
+            "occurred_at": payload.occurred_at,
+            "is_estimate": payload.is_estimate,
+            "milestone": c.milestone,
+            "last_free_day": c.last_free_day,
+        },
+    )
     t.db.commit()
     return list_events(container_id, t)
 

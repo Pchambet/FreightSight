@@ -11,6 +11,14 @@ from app.api.v1.deps import FxDep, WriterDep
 from app.core.errors import Unprocessable
 from app.core.money import q2, to_base
 from app.core.tenancy import TenantDep, TenantSession
+from app.domain.audit.service import (
+    COST_CREATED,
+    COST_DELETED,
+    COST_FIELDS,
+    COST_UPDATED,
+    record,
+    snapshot,
+)
 from app.domain.costing.engine import DUTIABLE
 from app.domain.costing.service import recompute_org
 from app.domain.fx.service import FxService
@@ -143,6 +151,15 @@ def create_cost(payload: schemas.CostCreate, t: TenantDep, fx: FxDep, p: WriterD
     _apply_fx(t, fx, cost, payload.fx_rate)
     t.add(cost)
     t.db.flush()
+    record(
+        t.db,
+        t.org_id,
+        actor_user_id=p.user_id,
+        action=COST_CREATED,
+        entity_type="cost",
+        entity_id=cost.id,
+        after=snapshot(cost, COST_FIELDS),
+    )
     recompute_org(t.db, t.org)
     t.db.commit()
     t.db.refresh(cost)
@@ -155,8 +172,9 @@ def get_cost(cost_id: UUID, t: TenantDep) -> Cost:
 
 
 @router.patch("/{cost_id}", response_model=schemas.CostResponse)
-def update_cost(cost_id: UUID, payload: schemas.CostUpdate, t: TenantDep, fx: FxDep, _: WriterDep) -> Cost:
+def update_cost(cost_id: UUID, payload: schemas.CostUpdate, t: TenantDep, fx: FxDep, p: WriterDep) -> Cost:
     cost = t.get_or_404(Cost, cost_id, "Cost")
+    before = snapshot(cost, COST_FIELDS)
     changes = payload.model_dump(exclude_unset=True)
     splits = changes.pop("manual_splits", None)
     manual_rate = changes.pop("fx_rate", None)
@@ -181,6 +199,16 @@ def update_cost(cost_id: UUID, payload: schemas.CostUpdate, t: TenantDep, fx: Fx
     if any(k in changes for k in ("amount", "currency", "cost_date")) or manual_rate is not None:
         _apply_fx(t, fx, cost, manual_rate)
     t.db.flush()
+    record(
+        t.db,
+        t.org_id,
+        actor_user_id=p.user_id,
+        action=COST_UPDATED,
+        entity_type="cost",
+        entity_id=cost.id,
+        before=before,
+        after=snapshot(cost, COST_FIELDS),
+    )
     recompute_org(t.db, t.org)
     t.db.commit()
     t.db.refresh(cost)
@@ -188,8 +216,19 @@ def update_cost(cost_id: UUID, payload: schemas.CostUpdate, t: TenantDep, fx: Fx
 
 
 @router.delete("/{cost_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_cost(cost_id: UUID, t: TenantDep, _: WriterDep) -> None:
+def delete_cost(cost_id: UUID, t: TenantDep, p: WriterDep) -> None:
     cost = t.get_or_404(Cost, cost_id, "Cost")
+    # Recorded before the row is gone: this is the entry someone will look for when a landed cost
+    # changes and nobody remembers why.
+    record(
+        t.db,
+        t.org_id,
+        actor_user_id=p.user_id,
+        action=COST_DELETED,
+        entity_type="cost",
+        entity_id=cost.id,
+        before=snapshot(cost, COST_FIELDS),
+    )
     t.db.delete(cost)
     t.db.flush()
     recompute_org(t.db, t.org)

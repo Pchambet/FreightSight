@@ -717,6 +717,33 @@ class InvoiceLine(OrgScoped, Base):
     invoice: Mapped[Invoice] = relationship(back_populates="lines")
 
 
+# ---------------------------------------------------------------------------- audit
+
+
+class AuditLog(OrgScoped, Base):
+    """Who changed what, kept forever and never rewritten.
+
+    Append-only in the strong sense: the application role holds SELECT and INSERT and nothing else,
+    and a trigger refuses UPDATE and DELETE even to the owner. A log that can be edited by whoever
+    is being investigated is not evidence.
+    """
+
+    __tablename__ = "audit_log"
+    __table_args__ = (
+        Index("ix_audit_log_org_at", "org_id", "at"),
+        Index("ix_audit_log_entity", "org_id", "entity_type", "entity_id", "at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    action: Mapped[str] = mapped_column(String, nullable=False)  # cost.created, invoice.confirmed…
+    entity_type: Mapped[str] = mapped_column(String, nullable=False)
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    before: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
+    after: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+
+
 # Tables that carry org_id and get a Row Level Security policy in migration 0003 (0004 for tracking).
 RLS_TABLES = [
     "suppliers",
@@ -737,4 +764,5 @@ RLS_TABLES = [
     "document_blobs",
     "invoices",
     "invoice_lines",
+    "audit_log",
 ]

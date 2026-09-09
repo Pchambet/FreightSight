@@ -16,6 +16,7 @@ from app.api.v1 import schemas
 from app.api.v1.deps import FxDep, WriterDep
 from app.core.errors import NotFound
 from app.core.tenancy import TenantDep, TenantSession
+from app.domain.audit.service import INVOICE_CONFIRMED, INVOICE_REJECTED, record
 from app.domain.documents.registry import get_store
 from app.domain.invoices.service import confirm as confirm_invoice
 from app.domain.invoices.service import create_invoice
@@ -151,6 +152,20 @@ def confirm(invoice_id: UUID, t: TenantDep, fx: FxDep, p: WriterDep) -> schemas.
         # behind, not even for the rest of this session.
         t.db.rollback()
         raise
+    record(
+        t.db,
+        t.org_id,
+        actor_user_id=p.user_id,
+        action=INVOICE_CONFIRMED,
+        entity_type="invoice",
+        entity_id=invoice.id,
+        after={
+            "invoice_number": invoice.invoice_number,
+            "vendor": invoice.vendor,
+            "cost_ids": [c.id for c in result.costs],
+            "total_amount": invoice.total_amount,
+        },
+    )
     t.db.commit()
     t.db.refresh(invoice)
     return schemas.InvoiceConfirmResponse(
@@ -161,12 +176,23 @@ def confirm(invoice_id: UUID, t: TenantDep, fx: FxDep, p: WriterDep) -> schemas.
 
 
 @router.post("/{invoice_id}/reject", response_model=schemas.InvoiceResponse)
-def reject(invoice_id: UUID, t: TenantDep, _: WriterDep) -> schemas.InvoiceResponse:
+def reject(invoice_id: UUID, t: TenantDep, p: WriterDep) -> schemas.InvoiceResponse:
     """Not our invoice, a duplicate, an error: it stays on file, it creates nothing."""
     invoice = _get(t, invoice_id)
     if invoice.status is InvoiceStatus.CONFIRMED:
         raise NotFound("Invoice")  # confirmed costs are undone by deleting the costs, not the invoice
+    before = {"status": invoice.status}
     invoice.status = InvoiceStatus.REJECTED
+    record(
+        t.db,
+        t.org_id,
+        actor_user_id=p.user_id,
+        action=INVOICE_REJECTED,
+        entity_type="invoice",
+        entity_id=invoice.id,
+        before=before,
+        after={"status": invoice.status},
+    )
     t.db.commit()
     t.db.refresh(invoice)
     return _response(invoice)

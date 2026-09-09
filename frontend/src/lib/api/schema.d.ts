@@ -726,6 +726,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audit-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Audit Log
+         * @description History, newest first, paginated by cursor.
+         *
+         *     A cursor rather than an offset because the log grows while it is being read: with an offset, an
+         *     entry written between two pages shifts everything and something is silently skipped.
+         */
+        get: operations["list_audit_log_api_v1_audit_log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/containers/{container_id}/events": {
         parameters: {
             query?: never;
@@ -873,6 +896,45 @@ export interface components {
          * @enum {string}
          */
         AllocationMethod: "BY_VALUE" | "BY_WEIGHT" | "BY_VOLUME" | "BY_QUANTITY" | "MANUAL" | "BY_CIF_VALUE" | "BY_THEORETICAL_DUTY";
+        /** AuditEntryResponse */
+        AuditEntryResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Actor User Id */
+            actor_user_id: string | null;
+            /** Action */
+            action: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Entity Id */
+            entity_id: string | null;
+            /** Before */
+            before: {
+                [key: string]: unknown;
+            } | null;
+            /** After */
+            after: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
+        /**
+         * AuditPage
+         * @description A page of history, newest first. `next_cursor` is null when there is nothing older.
+         */
+        AuditPage: {
+            /** Entries */
+            entries: components["schemas"]["AuditEntryResponse"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
         /** Body_create_import_api_v1_imports_post */
         Body_create_import_api_v1_imports_post: {
             /** @default PURCHASE_ORDERS */
@@ -3870,6 +3932,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AlertsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_audit_log_api_v1_audit_log_get: {
+        parameters: {
+            query?: {
+                entity_type?: string | null;
+                entity_id?: string | null;
+                action?: string | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditPage"];
                 };
             };
             /** @description Validation Error */
