@@ -937,6 +937,9 @@ class SkuHistoryResponse(BaseModel):
 class ErpBlocker(BaseModel):
     code: str
     message: str
+    #: The moving parts of `message`, so a screen can write the sentence in its own language
+    #: instead of showing ours. Empty for the blockers that have none.
+    params: dict[str, str] = Field(default_factory=dict)
 
 
 class ErpPlannedLine(BaseModel):

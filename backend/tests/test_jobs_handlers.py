@@ -218,16 +218,21 @@ def test_a_failed_delivery_is_replayed_and_then_left_alone(
     assert delivery is not None
     delivery.status = "failed"
     db.commit()
+    # The delivery was stamped by the real clock when the webhook came in, and the retry is only
+    # due after its backoff. Take the moment from the row rather than from a constant, or this
+    # test passes on the day it is written and fails the next morning.
+    assert delivery.processed_at is not None
+    retry_at = delivery.processed_at + timedelta(minutes=5)
 
     try:
-        assert handlers.retry_failed_deliveries(db, now=NOW, provider_factory=lambda _: provider) == 1
+        assert handlers.retry_failed_deliveries(db, now=retry_at, provider_factory=lambda _: provider) == 1
         db.expire_all()
         replayed = db.get(Container, uuid.UUID(container_id))
         assert replayed is not None
         assert replayed.milestone.value == "DISCHARGED"
 
         # already processed: not picked up again
-        assert handlers.retry_failed_deliveries(db, now=NOW, provider_factory=lambda _: provider) == 0
+        assert handlers.retry_failed_deliveries(db, now=retry_at, provider_factory=lambda _: provider) == 0
     finally:
         fastapi_app.dependency_overrides.clear()
 

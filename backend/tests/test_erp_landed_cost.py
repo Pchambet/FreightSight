@@ -100,7 +100,20 @@ class _Models:
             case ("purchase.order.line", "read"):
                 return FIXTURE["purchase_order_lines"]
             case ("product.product", "read"):
-                return FIXTURE["products_valued"] if self.odoo.valued else FIXTURE["products_unvalued"]
+                if self.odoo.valued:
+                    return FIXTURE["products_valued"]
+                # The same product the receipt actually moves, carrying the valuation the demo
+                # products really have. Returning the captured "Large Desk" instead would answer
+                # about a product this receipt never mentions, and the blocker would name nobody.
+                unvalued = FIXTURE["products_unvalued"][0]
+                return [
+                    {
+                        **product,
+                        "valuation": unvalued["valuation"],
+                        "cost_method": unvalued["cost_method"],
+                    }
+                    for product in FIXTURE["products_valued"]
+                ]
             case ("product.product", "search"):
                 return [p["id"] for p in FIXTURE["landed_cost_products"]]
             case ("account.journal", "search"):
@@ -251,6 +264,34 @@ def test_a_product_odoo_cannot_value_stops_the_push(
     blocker = next(b for b in body["blockers"] if b["code"] == "not_valued")
     assert "automated valuation" in blocker["message"]
     assert "FIFO or average" in blocker["message"]
+    assert blocker["params"] == {"products": "FS Tyre 205/55R16"}
+
+
+def test_recoverable_vat_never_reaches_the_erp(
+    client: TestClient, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Import VAT is allocated for the cash view and got back from the state. Pushing it would
+    inflate the customer's stock valuation by a tax they do not bear."""
+    connect(client, WritableOdoo(), monkeypatch)
+    container_id = seed_container(client)
+    vat = client.post(
+        "/api/v1/costs",
+        json={
+            "scope": "CONTAINER",
+            "target_id": container_id,
+            "cost_type": "IMPORT_VAT",
+            "amount": "553.33",
+            "currency": "EUR",
+            "cost_date": "2026-03-12",
+            "invoice_number": "TVA-2026-0912",
+        },
+    )
+    assert vat.status_code == 201, vat.text
+
+    body = preview(client, container_id)
+    assert body["pushable"] is True
+    assert [cost["label"] for cost in body["costs"]] == ["Ocean Freight — invoice FA-2026-0912 — Transitex"]
+    assert body["total"] == "2766.67"  # the freight alone, not 3320.00
 
 
 def test_no_receipt_means_nothing_to_attach_to(
@@ -261,6 +302,7 @@ def test_no_receipt_means_nothing_to_attach_to(
     body = preview(client, container_id)
     assert [b["code"] for b in body["blockers"]] == ["no_receipt"]
     assert "received there first" in body["blockers"][0]["message"]
+    assert body["blockers"][0]["params"] == {"po_numbers": PO_NUMBER}
 
 
 def test_several_receipts_are_refused_rather_than_guessed(
@@ -272,8 +314,13 @@ def test_several_receipts_are_refused_rather_than_guessed(
     container_id = seed_container(client)
     body = preview(client, container_id)
     assert body["pushable"] is False
-    assert "2 receipts match" in body["blockers"][0]["message"]
-    assert "by hand" in body["blockers"][0]["message"]
+    blocker = body["blockers"][0]
+    # Its own code: a screen cannot write "no receipt for P00012" and "2 receipts match" from
+    # the same key, and it is the code the front translates on.
+    assert blocker["code"] == "multiple_receipts"
+    assert "2 receipts match" in blocker["message"]
+    assert "by hand" in blocker["message"]
+    assert blocker["params"] == {"count": "2", "receipts": "WH/IN/00007, WH/IN/00008"}
 
 
 # ---------------------------------------------------------------------------- the push

@@ -23,6 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.money import q2
+from app.domain.costing.engine import EXCLUDED_FROM_LANDED
 from app.domain.costing.service import Computation, compute
 from app.domain.erp.ports import ErpCostLine, ErpReceipt, ErpReceiptLine, ErpWriter
 from app.domain.models import (
@@ -40,6 +41,7 @@ logger = logging.getLogger(__name__)
 NO_CONNECTION = "no_erp_connection"
 NO_COSTS = "no_actual_costs"
 NO_RECEIPT = "no_receipt"
+MULTIPLE_RECEIPTS = "multiple_receipts"
 UNMATCHED_LINE = "unmatched_line"
 NOT_VALUED = "not_valued"
 ALREADY_PUSHED = "already_pushed"
@@ -47,8 +49,18 @@ ALREADY_PUSHED = "already_pushed"
 
 @dataclass(frozen=True)
 class Blocker:
+    """A reason, in English, plus its moving parts on the side.
+
+    `message` is the sentence an API client gets and is not going to change shape. `params` carries
+    the same values separately so a screen can build its own sentence in its own language instead of
+    showing ours underneath a translated title. Every value is a string, already formatted for
+    reading: a list is joined with ", " and a missing SKU is "", so the front decides what "no SKU"
+    says rather than parsing our English out of it.
+    """
+
     code: str
     message: str
+    params: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -93,6 +105,11 @@ def _allocations(comp: Computation, container_id: UUID) -> dict[UUID, dict[UUID,
             continue
         if cost.status is not CostStatus.ACTUAL:
             continue  # an estimate is ours to hold, not theirs to book
+        if cost.cost_type.value in EXCLUDED_FROM_LANDED:
+            # Recoverable VAT is allocated for the cash view and excluded from the landed cost —
+            # the engine's own list, so the two can never drift apart. Pushing it would inflate
+            # the customer's stock valuation by a tax they get back.
+            continue
         out.setdefault(cost.id, {})[allocation.load_id] = allocation.amount_base
     return out
 
@@ -137,6 +154,7 @@ def plan(
                 NO_RECEIPT,
                 f"No done receipt found in the ERP for {', '.join(po_numbers)}. A landed cost "
                 "attaches to a receipt, so the goods have to have been received there first.",
+                {"po_numbers": ", ".join(po_numbers)},
             )
         )
     if len(receipts) > 1:
@@ -144,10 +162,11 @@ def plan(
         # costs across them is a decision nobody has made yet. Said out loud rather than guessed.
         blockers.append(
             Blocker(
-                NO_RECEIPT,
+                MULTIPLE_RECEIPTS,
                 f"{len(receipts)} receipts match these orders ("
                 + ", ".join(r.name for r in receipts)
                 + "). Pushing to one of several receipts is not decided yet; do it by hand for now.",
+                {"count": str(len(receipts)), "receipts": ", ".join(r.name for r in receipts)},
             )
         )
         receipt = None
@@ -158,6 +177,7 @@ def plan(
             Blocker(
                 ALREADY_PUSHED,
                 f"These costs were already pushed as {existing.odoo_name or existing.odoo_id}.",
+                {"existing": existing.odoo_name or str(existing.odoo_id)},
             )
         )
 
@@ -173,6 +193,7 @@ def plan(
                     f"Odoo cannot value a landed cost for {names}: their product category is not in "
                     "automated valuation with a real cost method (FIFO or average). Odoo refuses "
                     "this at validation, so it is refused here instead.",
+                    {"products": names},
                 )
             )
         for cost_id, allocations in sorted(by_cost.items(), key=lambda item: str(item[0])):
@@ -192,6 +213,12 @@ def plan(
                             f"{line.purchase_order.po_number} line {line.line_no} "
                             f"({line.sku or 'no SKU'}) has no matching line on receipt "
                             f"{receipt.name}. Costs are pushed per line, so every line has to match.",
+                            {
+                                "po_number": line.purchase_order.po_number,
+                                "line_no": str(line.line_no),
+                                "sku": line.sku or "",
+                                "receipt": receipt.name,
+                            },
                         )
                     )
                     continue
@@ -272,7 +299,7 @@ def push(
         raise Unprocessable(
             "This container cannot be pushed yet: " + "; ".join(b.message for b in prepared.blockers),
             code="ERP_PUSH_BLOCKED",
-            blockers=[{"code": b.code, "message": b.message} for b in prepared.blockers],
+            blockers=[{"code": b.code, "message": b.message, "params": b.params} for b in prepared.blockers],
         )
 
     assert prepared.receipt is not None

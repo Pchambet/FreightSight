@@ -139,7 +139,7 @@ def _preview_response(plan: landed_cost.Plan) -> schemas.ErpLandedCostPreview:
             for cost in plan.costs
         ],
         total=plan.total,
-        blockers=[schemas.ErpBlocker(code=b.code, message=b.message) for b in plan.blockers],
+        blockers=[schemas.ErpBlocker(code=b.code, message=b.message, params=b.params) for b in plan.blockers],
         pushable=plan.pushable,
         already_pushed_as=(
             plan.existing_push.odoo_name or str(plan.existing_push.odoo_id) if plan.existing_push else None

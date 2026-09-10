@@ -157,6 +157,40 @@ ventilations, et le comptable ne voit pas un total qui ne correspond pas à ses 
 - **Coûts déjà poussés** : un second appel renvoie le premier `erp_pushes`, il n'écrit pas un
   deuxième document dans les livres de quelqu'un.
 
+## 13 bis. La TVA import ne part jamais dans Odoo (audit externe, 10 septembre 2026)
+
+`_allocations` ne filtrait que sur `status is ACTUAL`. Une TVA import facturée — allouée pour la vue
+trésorerie mais **récupérable**, donc exclue du coût de revient partout ailleurs — serait donc partie
+dans la landed cost et aurait gonflé la valorisation de stock du client d'une taxe qu'il récupère.
+Corrigé en réutilisant `engine.EXCLUDED_FROM_LANDED`, la liste du moteur lui-même : une seconde liste
+ici aurait dérivé de la première au premier type de coût ajouté. Test : conteneur avec fret + TVA
+import → l'aperçu ne montre que le fret, et le total aussi.
+
+## 13 ter. Les bloquants sont traduisibles
+
+Chaque bloquant porte maintenant `params`, les valeurs dynamiques de sa phrase, à côté du `message`
+anglais qui ne bouge pas (les clients API le lisent). Un écran écrit donc sa propre phrase dans sa
+propre langue au lieu d'afficher la nôtre en dessous d'un titre traduit.
+
+| code | params |
+|---|---|
+| `no_erp_connection` | — |
+| `no_actual_costs` | — |
+| `no_receipt` | `po_numbers` |
+| `multiple_receipts` | `count`, `receipts` |
+| `not_valued` | `products` |
+| `unmatched_line` | `po_number`, `line_no`, `sku`, `receipt` |
+| `already_pushed` | `existing` |
+
+Deux conventions : les listes sont **déjà jointes par « , »** (une chaîne, pas un tableau), et un SKU
+absent vaut `""` — c'est à l'écran de décider si ça se dit « sans SKU » ou « SKU manquant », pas à
+nous de lui faire analyser notre anglais.
+
+**`multiple_receipts` est un code nouveau.** Il partageait `no_receipt` avec « aucune réception
+trouvée », et aucun écran ne peut écrire deux phrases différentes à partir d'une seule clé de
+traduction : « aucune réception pour P00012 » et « 2 réceptions correspondent » ne sont pas la même
+information.
+
 ## 14. Ce que je n'ai pas vérifié
 
 **Je n'ai pas regardé l'écran Odoo.** Me connecter à l'interface demandait de taper un mot de passe
