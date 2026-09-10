@@ -744,7 +744,7 @@
   },
   "erp": {
     "title": "ERP connection",
-    "hint": "Read only: confirmed purchase orders from your ERP are imported into FreightSight through the same path as a file. Nothing is written back.",
+    "hint": "Reads the confirmed purchase orders of your ERP, imported through the same path as a file. The other way, a single write: a container's landed cost, created as a draft from its page, never validated by FreightSight.",
     "kind": "ERP",
     "url": "Address (https://…odoo.com)",
     "database": "Database",

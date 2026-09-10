@@ -744,7 +744,7 @@
   },
   "erp": {
     "title": "Connexion ERP",
-    "hint": "Lecture seule : les commandes d'achat confirmées de votre ERP sont importées dans FreightSight par le même chemin qu'un fichier. Aucune écriture vers l'ERP.",
+    "hint": "Lecture des commandes d'achat confirmées de votre ERP, importées par le même chemin qu'un fichier. Dans l'autre sens, une seule écriture possible : le coût de réception d'un conteneur, créé en brouillon depuis sa fiche, jamais validé par FreightSight.",
     "kind": "ERP",
     "url": "Adresse (https://…odoo.com)",
     "database": "Base de données",

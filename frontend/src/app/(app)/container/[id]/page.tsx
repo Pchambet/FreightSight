@@ -118,7 +118,7 @@ export default async function ContainerPage({ params }: Params) {
           <EstimatePanel report={report} currency={cur} containerId={container.id} />
           <AllocationPanel key={report.costs.map((c) => c.id).join(",")} containerId={container.id} report={report} />
           <CostLedger report={report} currency={cur} revalidate={revalidate} />
-          {erpConnected ? <LandedCostPush containerId={container.id} currency={cur} /> : null}
+          {erpConnected ? <LandedCostPush key={report.costs.map((c) => `${c.id}:${c.status ?? ""}:${c.amount_base ?? ""}`).join(",")} containerId={container.id} currency={cur} /> : null}
           <AuditTrail entityType="container" entityId={container.id} />
         </div>
       </div>
