@@ -7008,6 +7008,13 @@
           "message": {
             "type": "string",
             "title": "Message"
+          },
+          "params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Params"
           }
         },
         "type": "object",

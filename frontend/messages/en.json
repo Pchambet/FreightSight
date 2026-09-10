@@ -799,12 +799,14 @@
       "showLines": "Show the split per line",
       "hideLines": "Hide the split",
       "blocker": {
-        "no_erp_connection": "No ERP connected (Settings → ERP connection).",
-        "no_actual_costs": "No invoiced cost is allocated to this container.",
-        "no_receipt": "Receipt not found, or ambiguous, in the ERP.",
-        "unmatched_line": "An order line matches no line on the receipt.",
-        "not_valued": "A product is not in automated valuation (FIFO or average) in Odoo.",
-        "already_pushed": "Already pushed."
+        "no_erp_connection": "No ERP is connected. Go to Settings, ERP connection.",
+        "no_actual_costs": "No invoiced cost is allocated to this container. Estimates are never pushed.",
+        "no_receipt": "No done receipt in the ERP for {po_numbers}. A landed cost attaches to a receipt: the goods have to be received there first.",
+        "multiple_receipts": "{count} receipts match these orders ({receipts}). Pushing to one of several receipts is not decided yet: do it by hand for now.",
+        "not_valued": "Odoo cannot value a landed cost for {products}: their product category is not in automated valuation with a real cost method (FIFO or average). Odoo would refuse it at validation, so it is refused here.",
+        "unmatched_line": "{po_number} line {line_no} ({sku}) matches no line on receipt {receipt}. Costs are pushed per line: every line has to match.",
+        "already_pushed": "These costs were already pushed as {existing}.",
+        "noSku": "no SKU"
       }
     }
   },

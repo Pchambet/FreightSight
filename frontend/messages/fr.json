@@ -799,12 +799,14 @@
       "showLines": "Voir la ventilation par ligne",
       "hideLines": "Masquer la ventilation",
       "blocker": {
-        "no_erp_connection": "Aucun ERP connecté (Réglages → Connexion ERP).",
-        "no_actual_costs": "Aucun coût facturé ventilé sur ce conteneur.",
-        "no_receipt": "Réception introuvable ou ambiguë dans l'ERP.",
-        "unmatched_line": "Une ligne de commande ne correspond à aucune ligne de la réception.",
-        "not_valued": "Un produit n'est pas en valorisation automatisée (FIFO ou coût moyen) dans Odoo.",
-        "already_pushed": "Déjà poussé."
+        "no_erp_connection": "Aucun ERP n'est connecté. Rendez-vous dans Paramètres, Connexion ERP.",
+        "no_actual_costs": "Aucun coût facturé n'est ventilé sur ce conteneur. Les estimations ne sont jamais poussées.",
+        "no_receipt": "Aucune réception validée dans l'ERP pour {po_numbers}. Le coût de réception s'accroche à une réception : la marchandise doit d'abord y être reçue.",
+        "multiple_receipts": "{count} réceptions correspondent à ces commandes ({receipts}). Pousser vers l'une de plusieurs réceptions n'est pas décidé : à faire à la main pour l'instant.",
+        "not_valued": "Odoo ne peut pas valoriser un coût de réception pour {products} : leur catégorie de produit n'est pas en valorisation automatisée avec une vraie méthode de coût (FIFO ou coût moyen). Odoo le refuserait à la validation, on le refuse donc ici.",
+        "unmatched_line": "{po_number} ligne {line_no} ({sku}) ne correspond à aucune ligne de la réception {receipt}. Les coûts sont poussés ligne à ligne : chaque ligne doit correspondre.",
+        "already_pushed": "Ces coûts ont déjà été poussés sous le nom {existing}.",
+        "noSku": "sans SKU"
       }
     }
   },

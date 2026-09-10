@@ -1654,6 +1654,10 @@ export interface components {
             code: string;
             /** Message */
             message: string;
+            /** Params */
+            params?: {
+                [key: string]: string;
+            };
         };
         /**
          * ErpConnectionCreate

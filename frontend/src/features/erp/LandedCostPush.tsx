@@ -9,7 +9,7 @@ import { btnPrimary, btnSecondary, Card } from "@/components/layout/AppShell";
 import { Money } from "@/components/shared/Money";
 import { previewErpLandedCost, pushErpLandedCost, type ErpLandedCostPreview } from "@/features/actions";
 
-const BLOCKER_TITLES = new Set(["no_erp_connection", "no_actual_costs", "no_receipt", "unmatched_line", "not_valued", "already_pushed"]);
+const KNOWN_BLOCKERS = new Set(["no_erp_connection", "no_actual_costs", "no_receipt", "multiple_receipts", "not_valued", "unmatched_line", "already_pushed"]);
 
 /**
  * The landed cost as it would land in the ERP, shown before it exists. The preview is loaded after
@@ -50,6 +50,13 @@ export default function LandedCostPush({ containerId, currency }: { containerId:
     });
 
   const blockers = preview?.blockers ?? [];
+  /** The blocker in the reader's language, from its code and moving parts; the API's own sentence only for a code this screen does not know. */
+  const blockerText = (b: { code: string; message: string; params?: Record<string, string> }) => {
+    if (!KNOWN_BLOCKERS.has(b.code)) return b.message;
+    const params = { ...(b.params ?? {}) };
+    if (b.code === "unmatched_line" && !params.sku) params.sku = t("blocker.noSku");
+    return t(`blocker.${b.code}` as never, params as never);
+  };
   const alreadyPushed = preview?.already_pushed_as ?? blockers.find((b) => b.code === "already_pushed") ?? null;
 
   return (
@@ -74,10 +81,7 @@ export default function LandedCostPush({ containerId, currency }: { containerId:
           {blockers.filter((b) => b.code !== "already_pushed").map((b, i) => (
             <div key={`${b.code}-${i}`} className="flex items-start text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
               <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 shrink-0 text-amber-600" />
-              <span>
-                <span className="font-medium">{BLOCKER_TITLES.has(b.code) ? t(`blocker.${b.code}` as never) : b.code}</span>
-                <span className="block text-xs text-amber-800 mt-0.5">{b.message}</span>
-              </span>
+              <span>{blockerText(b)}</span>
             </div>
           ))}
 
