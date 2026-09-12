@@ -674,6 +674,10 @@
       "TRACKING_PROVIDER_DOWN": {
         "title": "{provider} ne répond pas",
         "body": "Impossible de joindre {provider} pour plusieurs conteneurs d'affilée : les mises à jour de suivi sont en pause jusqu'à ce qu'il réponde. Les conteneurs eux-mêmes n'ont rien : rien à faire ici, le prochain passage reprendra où celui-ci s'est arrêté."
+      },
+      "TRACKING_DELIVERY_FAILED": {
+        "title": "{container} : une mise à jour de suivi n'a pas pu être traitée",
+        "body": "{provider} a envoyé une mise à jour le {received} que nous n'avons pas réussi à traiter après {attempts, plural, one {# tentative} other {# tentatives}}. Le suivi de ce conteneur peut être en retard. La donnée brute est conservée : rien n'est perdu, et elle peut être rejouée."
       }
     }
   },

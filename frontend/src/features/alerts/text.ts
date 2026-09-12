@@ -47,6 +47,16 @@ export function alertText(a: Alert, t: T, risk: (code: string) => string, locale
         if (!provider) break;
         return { title: t("text.TRACKING_PROVIDER_DOWN.title", { provider }), body: t("text.TRACKING_PROVIDER_DOWN.body", { provider }) };
       }
+      case "TRACKING_DELIVERY_FAILED": {
+        const provider = str("provider");
+        const attempts = num("attempts");
+        const received = str("received_at");
+        if (!provider || attempts === null || !received || !container) break;
+        return {
+          title: t("text.TRACKING_DELIVERY_FAILED.title", { container }),
+          body: t("text.TRACKING_DELIVERY_FAILED.body", { provider, received: dateTimeShort(received, locale), attempts }),
+        };
+      }
       default:
         break;
     }

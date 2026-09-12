@@ -674,6 +674,10 @@
       "TRACKING_PROVIDER_DOWN": {
         "title": "{provider} is not answering",
         "body": "We could not reach {provider} for several containers in a row, so tracking updates are paused until it answers again. Nothing is wrong with the containers themselves, and nothing needs doing here: the next round picks up where this one stopped."
+      },
+      "TRACKING_DELIVERY_FAILED": {
+        "title": "{container}: a tracking update could not be processed",
+        "body": "{provider} sent an update on {received} that we could not process after {attempts, plural, one {# attempt} other {# attempts}}. This container's tracking may be behind. The raw delivery is kept: nothing is lost, and it can be replayed."
       }
     }
   },
