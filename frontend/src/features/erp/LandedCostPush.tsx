@@ -37,7 +37,7 @@ async function loadAll(containerId: string): Promise<{ ok: true; data: Loaded } 
  * the container page down. A push creates a draft only; forgetting one is a marked row plus an
  * audit entry, never a deletion.
  */
-export default function LandedCostPush({ containerId, currency }: { containerId: string; currency: string }) {
+export default function LandedCostPush({ containerId, currency, embedded = false }: { containerId: string; currency: string; embedded?: boolean }) {
   const t = useTranslations("erp.push");
   const tp = useTranslations("erp.pushes");
   const locale = useLocale();
@@ -105,7 +105,7 @@ export default function LandedCostPush({ containerId, currency }: { containerId:
   const latestLivePush = pushes.find((p) => !p.forgotten_at && p.record_url);
 
   return (
-    <Card title={t("title")}>
+    <Card title={embedded ? undefined : t("title")}>
       <p className="text-sm text-slate-500 mb-3">{t("hint")}</p>
       {loading ? (
         <div className="flex items-center text-sm text-slate-500"><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t("loading")}</div>

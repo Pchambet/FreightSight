@@ -155,7 +155,7 @@ export default async function ContainerPage({ params }: Params) {
         {erpConnected ? (
           <CollapsibleSection title={t("sections.erp")}>
             <div className="p-5">
-              <LandedCostPush key={report.costs.map((c) => `${c.id}:${c.status ?? ""}:${c.amount_base ?? ""}`).join(",")} containerId={container.id} currency={cur} />
+              <LandedCostPush key={report.costs.map((c) => `${c.id}:${c.status ?? ""}:${c.amount_base ?? ""}`).join(",")} containerId={container.id} currency={cur} embedded />
             </div>
           </CollapsibleSection>
         ) : null}
