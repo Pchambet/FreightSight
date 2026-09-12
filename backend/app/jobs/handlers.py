@@ -23,7 +23,7 @@ from app.core.db import get_sessionmaker
 from app.core.settings import get_settings
 from app.core.tenancy import TenantSession, set_current_org
 from app.domain.alerts.notifier import Notification, Notifier, make_notifier
-from app.domain.alerts.service import raise_alert
+from app.domain.alerts.service import raise_alert, raise_dnd_risk_alert
 from app.domain.documents.registry import get_store
 from app.domain.fx.service import FxService
 from app.domain.invoices import service as invoices_service
@@ -71,12 +71,6 @@ DAILY_RISK_HOUR = 6
 PARIS = "Europe/Paris"
 
 RISK_ORDER = [DndRisk.NONE, DndRisk.LOW, DndRisk.MEDIUM, DndRisk.HIGH, DndRisk.INCURRING]
-RISK_SEVERITY = {
-    DndRisk.LOW: AlertSeverity.INFO,
-    DndRisk.MEDIUM: AlertSeverity.WARNING,
-    DndRisk.HIGH: AlertSeverity.CRITICAL,
-    DndRisk.INCURRING: AlertSeverity.CRITICAL,
-}
 
 
 class ProviderCircuit:
@@ -326,7 +320,12 @@ def _poll_one(
         ),
         dedup_key=f"tracking-stale:{container.id}:{moment.date().isoformat()}",
         container_id=container.id,
-        payload={"provider": subscription.provider, "days_since_subscribed": days},
+        payload={
+            "provider": subscription.provider,
+            "days_since_subscribed": days,
+            "hours": int(STALE_AFTER.total_seconds() // 3600),
+            "reason": reason,
+        },
     )
     subscription.last_error = reason or "no data"
     if subscription.status == "active" and container.tracking_state is TrackingState.ACTIVE:
@@ -430,24 +429,7 @@ def recompute_dnd_risk(db: Session, *, now: datetime | None = None) -> int:
 
 
 def _alert_risk(db: Session, org: Organization, container: Container, moment: datetime) -> None:
-    lfd = container.last_free_day
-    remaining = (lfd - moment.date()).days if lfd else None
-    if container.dnd_risk is DndRisk.INCURRING:
-        body = f"The last free day was {lfd}. Demurrage is running."
-    else:
-        body = f"Last free day {lfd}" + (f", {remaining} day(s) left." if remaining is not None else ".")
-    raise_alert(
-        db,
-        org.id,
-        kind=AlertKind.DND_RISK,
-        severity=RISK_SEVERITY.get(container.dnd_risk, AlertSeverity.INFO),
-        title=f"{container.container_number}: demurrage risk {container.dnd_risk.value}",
-        body=body,
-        # One alert per threshold per container: crossing back and forth cannot spam.
-        dedup_key=f"dnd:{container.id}:{container.dnd_risk.value}",
-        container_id=container.id,
-        payload={"risk": container.dnd_risk.value, "last_free_day": lfd.isoformat() if lfd else None},
-    )
+    raise_dnd_risk_alert(db, org, container, moment)
 
 
 # ---------------------------------------------------------------------------- ETA moves
@@ -494,7 +476,11 @@ def alert_on_eta_changes(db: Session, *, now: datetime | None = None, lookback_h
                     else f"New ETA {row.eta:%Y-%m-%d %H:%M} UTC.",
                     dedup_key=f"eta:{row.id}",
                     container_id=container.id,
-                    payload={"delta_hours": str(hours), "eta": row.eta.isoformat()},
+                    payload={
+                        "delta_hours": str(hours),
+                        "eta": row.eta.isoformat(),
+                        "previous_eta": row.previous_eta.isoformat() if row.previous_eta else None,
+                    },
                 )
                 raised += 1 if alert is not None else 0
             db.commit()

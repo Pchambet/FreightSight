@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, status
 
 from app.api.v1 import schemas
@@ -7,7 +9,7 @@ from app.api.v1.deps import WriterDep
 from app.core.auth import PrincipalDep
 from app.core.errors import Conflict, Unprocessable
 from app.core.tenancy import TenantDep
-from app.domain.alerts.service import unread_count
+from app.domain.alerts.service import raise_dnd_risk_alert, unread_count
 from app.domain.audit.service import ORGANIZATION_UPDATED, record
 from app.domain.costing.service import recompute_org
 from app.domain.sample_data import has_data, seed_sample_data
@@ -82,8 +84,10 @@ def load_sample_data(t: TenantDep, _: WriterDep) -> schemas.SampleDataResponse:
     if has_data(t.db, t.org_id):
         raise Conflict("This organization already has purchase orders or containers")
     sample = seed_sample_data(t.db, t.org)
+    now = datetime.now(UTC)
     for c in sample.containers:
-        derive_dnd(c, t.org)
+        derive_dnd(c, t.org, now)
+        raise_dnd_risk_alert(t.db, t.org, c, now)
     t.db.flush()
     t.db.commit()
     return schemas.SampleDataResponse(

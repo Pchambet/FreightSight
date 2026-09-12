@@ -17,7 +17,14 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.domain.models import Alert, AlertKind, AlertSeverity
+from app.domain.models import Alert, AlertKind, AlertSeverity, Container, DndRisk, Organization
+
+_DND_SEVERITY = {
+    DndRisk.LOW: AlertSeverity.INFO,
+    DndRisk.MEDIUM: AlertSeverity.WARNING,
+    DndRisk.HIGH: AlertSeverity.CRITICAL,
+    DndRisk.INCURRING: AlertSeverity.CRITICAL,
+}
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +63,35 @@ def raise_alert(
     if alert is not None:
         logger.info("alert %s raised for org %s: %s", kind.value, org_id, title)
     return alert
+
+
+def raise_dnd_risk_alert(
+    db: Session,
+    org: Organization,
+    container: Container,
+    moment: datetime | None = None,
+) -> Alert | None:
+    """State the container's current demurrage risk — idempotent via dedup_key."""
+    if container.gate_out_at is not None or container.dnd_risk in (None, DndRisk.NONE):
+        return None
+    moment = moment or datetime.now(UTC)
+    lfd = container.last_free_day
+    remaining = (lfd - moment.date()).days if lfd else None
+    if container.dnd_risk is DndRisk.INCURRING:
+        body = f"The last free day was {lfd}. Demurrage is running."
+    else:
+        body = f"Last free day {lfd}" + (f", {remaining} day(s) left." if remaining is not None else ".")
+    return raise_alert(
+        db,
+        org.id,
+        kind=AlertKind.DND_RISK,
+        severity=_DND_SEVERITY.get(container.dnd_risk, AlertSeverity.INFO),
+        title=f"{container.container_number}: demurrage risk {container.dnd_risk.value}",
+        body=body,
+        dedup_key=f"dnd:{container.id}:{container.dnd_risk.value}",
+        container_id=container.id,
+        payload={"risk": container.dnd_risk.value, "last_free_day": lfd.isoformat() if lfd else None},
+    )
 
 
 def unread_count(db: Session, org_id: UUID) -> int:

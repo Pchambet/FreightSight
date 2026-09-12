@@ -100,3 +100,32 @@ def test_alerts_are_invisible_to_another_organization(
     finally:
         db.execute(text("RESET ROLE"))
         set_current_org(db, org_id)
+
+
+def test_an_alert_carries_its_container_number(client: TestClient, db: Session, org_id: uuid.UUID) -> None:
+    """A screen writes the alert in its own language from kind, payload and the box number, so the
+    number rides along instead of costing a second call per alert."""
+    created = client.post("/api/v1/containers", json={"container_number": "MSCU4821990"})
+    assert created.status_code == 201, created.text
+    container_id = uuid.UUID(created.json()["id"])
+    set_current_org(db, org_id)
+    alert = raise_alert(
+        db,
+        org_id,
+        kind=AlertKind.DND_RISK,
+        severity=AlertSeverity.WARNING,
+        title="MSCU4821990: demurrage risk HIGH",
+        dedup_key="dnd:box:HIGH",
+        container_id=container_id,
+        payload={"risk": "HIGH", "last_free_day": "2026-09-20"},
+    )
+    assert alert is not None
+    db.commit()
+    make_alert(db, org_id, dedup_key="no-box", title="provider down")
+    db.commit()
+
+    by_title = {a["title"]: a for a in client.get("/api/v1/alerts").json()}
+    assert by_title["MSCU4821990: demurrage risk HIGH"]["container_number"] == "MSCU4821990"
+    assert by_title["provider down"]["container_number"] is None
+    read = client.post(f"/api/v1/alerts/{alert.id}/read")
+    assert read.status_code == 200 and read.json()["container_number"] == "MSCU4821990"

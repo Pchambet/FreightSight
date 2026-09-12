@@ -4,6 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { Bell } from "lucide-react";
 import { Card, PageHeader } from "@/components/layout/AppShell";
 import { MarkAllReadButton, MarkReadButton } from "@/features/alerts/AlertActions";
+import { alertText } from "@/features/alerts/text";
 import { api, type Schemas } from "@/lib/api/client";
 import { dateTimeShort } from "@/lib/format";
 
@@ -21,13 +22,15 @@ const SEVERITY_STYLE: Record<Alert["severity"], string> = {
 };
 
 export default async function AlertsPage({ searchParams }: { searchParams: Promise<{ all?: string }> }) {
-  const [{ all }, t, kind, severity, locale] = await Promise.all([
+  const [{ all }, t, kind, severity, risk, locale] = await Promise.all([
     searchParams,
     getTranslations("alerts"),
     getTranslations("domain.alertKind"),
     getTranslations("domain.alertSeverity"),
+    getTranslations("domain.risk"),
     getLocale(),
   ]);
+  const text = (a: Alert) => alertText(a, t as never, (code) => (risk.has(code) ? risk(code as never) : code), locale);
   const unreadOnly = all !== "1";
   const res = await api.GET("/api/v1/alerts", { params: { query: unreadOnly ? { unread: true } : {} } });
   const alerts: Alert[] = res.data ?? [];
@@ -57,8 +60,8 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
               <li key={a.id} className={`px-5 py-3.5 flex gap-4 ${a.read_at ? "opacity-60" : ""}`}>
                 <span className={`mt-0.5 shrink-0 inline-flex px-2 py-0.5 rounded text-[11px] font-medium uppercase tracking-wider ${SEVERITY_STYLE[a.severity]}`}>{severity(a.severity)}</span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-slate-900">{a.title}</div>
-                  <div className="text-sm text-slate-600">{a.body}</div>
+                  <div className="text-sm font-medium text-slate-900">{text(a).title}</div>
+                  <div className="text-sm text-slate-600">{text(a).body}</div>
                   <div className="text-xs text-slate-400 mt-1 tabular-nums">{kind(a.kind)} · {dateTimeShort(a.created_at, locale)}</div>
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
