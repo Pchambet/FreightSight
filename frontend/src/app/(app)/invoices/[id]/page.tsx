@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { ArrowLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Card } from "@/components/layout/AppShell";
+import Breadcrumb from "@/components/shared/Breadcrumb";
 import AutoRefresh from "@/features/invoices/AutoRefresh";
+import { containerLinksFromLines } from "@/features/invoices/containerLinks";
+import { formatInvoiceNote } from "@/features/invoices/lineNotes";
+import RejectedInvoiceActions from "@/features/invoices/RejectedInvoiceActions";
 import ReviewPanel, { type Targets } from "@/features/invoices/ReviewPanel";
+import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
+import { invoiceDetailStep } from "@/features/workflow/steps";
 import { api, type InvoiceResponse } from "@/lib/api/client";
 import { dateShort, money } from "@/lib/format";
 
@@ -38,18 +43,27 @@ export default async function InvoicePage({ params }: Params) {
   const { invoice, targets } = data;
   const lines = invoice.lines ?? [];
   const notes = invoice.notes ?? [];
-  const [t, statusLabel, locale] = await Promise.all([getTranslations("invoices.detail"), getTranslations("domain.invoiceStatus"), getLocale()]);
+  const [t, noteT, costType, statusLabel, locale] = await Promise.all([
+    getTranslations("invoices.detail"),
+    getTranslations("invoices.lineNotes"),
+    getTranslations("domain.costType"),
+    getTranslations("domain.invoiceStatus"),
+    getLocale(),
+  ]);
   const inProgress = invoice.status === "UPLOADED" || invoice.status === "EXTRACTING";
   const isPdf = (invoice.filename ?? "").toLowerCase().endsWith(".pdf");
+  const continueContainers = invoice.status === "CONFIRMED" ? containerLinksFromLines(lines, targets) : [];
+  const primaryContainer = continueContainers[0];
+  const detailStep = invoiceDetailStep(invoice.status, primaryContainer ? { id: primaryContainer.id, number: primaryContainer.container_number } : undefined);
 
   return (
     <>
       {inProgress ? <AutoRefresh /> : null}
-      <div className="flex items-center text-sm text-slate-500 mb-4">
-        <Link href="/invoices" className="hover:text-slate-900 flex items-center gap-1.5"><ArrowLeft className="w-4 h-4" />{t("back")}</Link>
-        <ChevronRight className="w-4 h-4 mx-2 text-slate-300" />
-        <span className="text-slate-900">{invoice.vendor ?? invoice.filename ?? invoice.id.slice(0, 8)}</span>
-      </div>
+      <Breadcrumb
+        backHref="/invoices"
+        backLabel={t("back")}
+        current={invoice.invoice_number ?? invoice.vendor ?? invoice.filename ?? invoice.id.slice(0, 8)}
+      />
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-semibold">{invoice.vendor ?? "—"} <span className="text-slate-400 font-normal">{invoice.invoice_number ?? ""}</span></h1>
@@ -65,12 +79,25 @@ export default async function InvoicePage({ params }: Params) {
 
       {inProgress ? <div className="rounded-md border border-blue-200 bg-blue-50 text-blue-800 text-sm px-4 py-3 mb-6 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />{t("reading")} <span className="text-blue-600/70">{t("readingHint")}</span></div> : null}
       {invoice.status === "FAILED" ? <div className="rounded-md border border-red-200 bg-red-50 text-red-800 text-sm px-4 py-3 mb-6"><span className="font-medium">{t("failedTitle")}</span>{invoice.error ? ` · ${invoice.error}` : ""}</div> : null}
-      {invoice.status === "CONFIRMED" ? <div className="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm px-4 py-3 mb-6">{t("confirmedBanner", { count: lines.filter((l) => l.cost_id).length, date: dateShort(invoice.created_at, locale) })}</div> : null}
-      {invoice.status === "REJECTED" ? <div className="rounded-md border border-slate-200 bg-slate-50 text-slate-600 text-sm px-4 py-3 mb-6">{t("rejectedBanner")}</div> : null}
+      {invoice.status === "NEEDS_REVIEW" && invoice.confidence != null && Number(invoice.confidence) < 0.7 ? (
+        <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 text-sm px-4 py-3 mb-6">
+          <span className="font-medium">{t("lowConfidenceTitle")}</span> {t("lowConfidenceBody", { confidence: Number(invoice.confidence).toFixed(2) })}
+        </div>
+      ) : null}
+      {detailStep ? <WorkflowNextStep step={detailStep} /> : null}
+      {invoice.status === "CONFIRMED" ? (
+        <p className="text-sm text-slate-500 mb-6">{t("confirmedBanner", { count: lines.filter((l) => l.cost_id).length, date: dateShort(invoice.created_at, locale) })}</p>
+      ) : null}
+      {invoice.status === "REJECTED" ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 text-amber-950 text-sm px-4 py-4 mb-6">
+          <p>{t("rejectedBanner")} {t("rejectedHint")}</p>
+          <RejectedInvoiceActions invoiceId={invoice.id} hasLines={lines.length > 0} />
+        </div>
+      ) : null}
       {notes.length ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 text-amber-800 text-sm px-4 py-3 mb-6">
           <div className="text-xs font-medium uppercase tracking-wider mb-1">{t("notes")}</div>
-          <ul className="list-disc pl-5 space-y-0.5">{notes.map((n, i) => <li key={i}>{n}</li>)}</ul>
+          <ul className="list-disc pl-5 space-y-0.5">{notes.map((n, i) => <li key={i}>{formatInvoiceNote(n, noteT, (k) => costType(k as never))}</li>)}</ul>
         </div>
       ) : null}
 
@@ -84,7 +111,9 @@ export default async function InvoicePage({ params }: Params) {
           )}
         </Card>
         <Card title={t("lines")} right={<span className="text-xs text-slate-400">{lines.length}</span>} className="xl:col-span-3">
-          <ReviewPanel invoice={invoice} targets={targets} />
+          <div id="lignes" className="scroll-mt-6">
+            <ReviewPanel invoice={invoice} targets={targets} />
+          </div>
         </Card>
       </div>
     </>

@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Receipt } from "lucide-react";
-import { Card, PageHeader, td, tdRight, th, thRight } from "@/components/layout/AppShell";
+import { Card, PageHeader, btnPrimary, td, tdRight, th, thRight } from "@/components/layout/AppShell";
 import UploadForm from "@/features/invoices/UploadForm";
+import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
+import { invoicesHubStep } from "@/features/workflow/steps";
 import { api, type InvoiceSummary } from "@/lib/api/client";
 import type { InvoiceStatus } from "@/lib/domain";
 import { dateShort, money } from "@/lib/format";
@@ -25,15 +27,23 @@ const STATUS_STYLE: Record<InvoiceStatus, string> = {
 export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
   const [{ filter }, t, statusLabel, locale] = await Promise.all([searchParams, getTranslations("invoices"), getTranslations("domain.invoiceStatus"), getLocale()]);
   const query = filter === "review" ? { invoice_status: "NEEDS_REVIEW" as const } : filter === "confirmed" ? { invoice_status: "CONFIRMED" as const } : {};
-  const res = await api.GET("/api/v1/invoices", { params: { query } });
+  const [res, reviewRes] = await Promise.all([
+    api.GET("/api/v1/invoices", { params: { query } }),
+    api.GET("/api/v1/invoices", { params: { query: { invoice_status: "NEEDS_REVIEW" } } }),
+  ]);
   const invoices: InvoiceSummary[] = res.data ?? [];
-  const review = invoices.filter((i) => i.status === "NEEDS_REVIEW").length;
+  const reviewList = reviewRes.data ?? [];
+  const review = reviewList.length;
+  const hubStep = invoicesHubStep(review, reviewList[0]?.id);
 
   return (
     <>
       <PageHeader title={t("title")} subtitle={t("subtitle", { review, total: invoices.length })} />
+      <WorkflowNextStep step={hubStep} />
       <Card title={t("upload.title")} right={<span className="text-xs text-slate-400 max-w-md text-right">{t("upload.hint")}</span>} className="mb-6">
-        <UploadForm />
+        <div id="depot" className="scroll-mt-6">
+          <UploadForm />
+        </div>
       </Card>
       <div className="flex gap-1 text-sm mb-3">
         {(["all", "review", "confirmed"] as const).map((f) => (
@@ -51,7 +61,11 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
             </thead>
             <tbody className="divide-y divide-slate-200">
               {invoices.length === 0 ? (
-                <tr><td colSpan={7} className="px-5 py-14 text-center text-slate-400"><Receipt className="w-10 h-10 mx-auto mb-3 text-slate-300" /><p className="text-sm text-slate-600">{t("empty")}</p></td></tr>
+                <tr><td colSpan={7} className="px-5 py-14 text-center text-slate-400">
+                  <Receipt className="w-10 h-10 mx-auto mb-3 text-slate-300" aria-hidden />
+                  <p className="text-sm text-slate-600 mb-4">{t("empty")}</p>
+                  <Link href="#depot" className={btnPrimary}>{t("emptyAction")}</Link>
+                </td></tr>
               ) : invoices.map((i) => (
                 <tr key={i.id} className="hover:bg-slate-50">
                   <td className={td}><Link href={`/invoices/${i.id}`} className="font-medium text-blue-600 hover:underline">{i.vendor ?? "—"}</Link></td>

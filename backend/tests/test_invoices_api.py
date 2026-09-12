@@ -246,6 +246,20 @@ def test_rejecting_creates_nothing(client: TestClient, db: Session, org: Organiz
     assert client.post(f"/api/v1/invoices/{invoice_id}/confirm").status_code == 422
 
 
+def test_a_rejected_invoice_can_be_reopened_for_review(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    invoice_id, lines = review(client, db, org)
+    client.post(f"/api/v1/invoices/{invoice_id}/reject")
+    reopened = client.post(f"/api/v1/invoices/{invoice_id}/reopen")
+    assert reopened.status_code == 200
+    assert reopened.json()["status"] == "NEEDS_REVIEW"
+    client.patch(f"/api/v1/invoices/{invoice_id}/lines/{lines[1]['id']}", json={"accepted": True})
+    confirmed = client.post(f"/api/v1/invoices/{invoice_id}/confirm")
+    assert confirmed.status_code == 200
+    assert confirmed.json()["costs_created"] == 1
+
+
 def test_the_list_can_be_filtered_by_status(client: TestClient, db: Session, org: Organization) -> None:
     seed_container(client)
     first = upload(client, make_pdf(FRENCH_ONE_CONTAINER)).json()["id"]

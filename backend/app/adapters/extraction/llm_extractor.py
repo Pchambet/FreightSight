@@ -39,13 +39,16 @@ SYSTEM = """You read freight forwarder invoices and return structured data. Rule
 - Use only container numbers and purchase order numbers from the lists provided. If a reference on
   the invoice is not in the list, leave the field empty; do not guess or correct it.
 - One line per charge. Do not include totals, subtotals or VAT as charges.
+- subtotal is the pre-tax total the invoice itself prints ("Total HT", "Subtotal", "Net"), copied as
+  written. Leave it null when the invoice does not print one; never compute it, and never subtract
+  the VAT from the total to obtain it.
 - cost_type must be one of the given values, or null when you are not sure.
 - Set confidence honestly: 0.9 when the line is unambiguous, 0.3 when you are guessing.
 Return only the JSON object, with no commentary."""
 
 SCHEMA_HINT = """{
   "vendor": str|null, "invoice_number": str|null, "invoice_date": "YYYY-MM-DD"|null,
-  "currency": "EUR"|..., "total": str|null, "vat": str|null,
+  "currency": "EUR"|..., "total": str|null, "subtotal": str|null, "vat": str|null,
   "lines": [{"description": str, "amount": str, "currency": str|null,
              "cost_type": str|null, "container_number": str|null, "po_number": str|null,
              "confidence": float}],

@@ -59,6 +59,10 @@ class FreightInvoice(BaseModel):
     invoice_date: date | None = None
     currency: str | None = None
     total: str | None = None
+    #: What the invoice itself states as the pre-tax total — its own "Total HT", not total minus
+    #: VAT. Kept apart from the arithmetic precisely so the two can be compared: a charge the
+    #: extractor missed shows up as lines that do not reach the figure the invoice prints.
+    subtotal: str | None = None
     vat: str | None = None
     lines: list[ExtractedLine] = Field(default_factory=list)
     container_numbers: list[str] = Field(default_factory=list)

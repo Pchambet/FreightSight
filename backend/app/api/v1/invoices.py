@@ -10,17 +10,18 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, File, Response, UploadFile, status
-from sqlalchemy.orm import selectinload
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
 
 from app.api.v1 import schemas
 from app.api.v1.deps import FxDep, WriterDep
-from app.core.errors import NotFound
+from app.core.errors import NotFound, Unprocessable
 from app.core.tenancy import TenantDep, TenantSession
-from app.domain.audit.service import INVOICE_CONFIRMED, INVOICE_REJECTED, record
+from app.domain.audit.service import INVOICE_CONFIRMED, INVOICE_REJECTED, INVOICE_REOPENED, record
 from app.domain.documents.registry import get_store
 from app.domain.invoices.service import confirm as confirm_invoice
 from app.domain.invoices.service import create_invoice
-from app.domain.models import Invoice, InvoiceStatus
+from app.domain.models import Container, Cost, Invoice, InvoiceStatus
 from app.jobs.app import defer
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -35,6 +36,14 @@ def _get(t: TenantSession, invoice_id: UUID) -> Invoice:
     if invoice is None:
         raise NotFound("Invoice")
     return invoice
+
+
+def _containers_from_costs(db: Session, costs: list[Cost]) -> list[schemas.InvoiceContainerLink]:
+    ids = {cost.container_id for cost in costs if cost.container_id is not None}
+    if not ids:
+        return []
+    rows = db.scalars(select(Container).where(Container.id.in_(ids)).order_by(Container.container_number))
+    return [schemas.InvoiceContainerLink(id=row.id, container_number=row.container_number) for row in rows]
 
 
 def _response(invoice: Invoice) -> schemas.InvoiceResponse:
@@ -172,9 +181,41 @@ def confirm(invoice_id: UUID, t: TenantDep, fx: FxDep, p: WriterDep) -> schemas.
         invoice=_response(invoice),
         costs_created=len(result.costs),
         cost_ids=[c.id for c in result.costs],
+        containers=_containers_from_costs(t.db, result.costs),
         superseded_estimate_ids=result.superseded,
         notes=result.notes,
     )
+
+
+@router.post("/{invoice_id}/reopen", response_model=schemas.InvoiceResponse)
+def reopen(invoice_id: UUID, t: TenantDep, p: WriterDep) -> schemas.InvoiceResponse:
+    """Put a rejected invoice back in review without re-uploading the file."""
+    invoice = _get(t, invoice_id)
+    if invoice.status is not InvoiceStatus.REJECTED:
+        raise Unprocessable(
+            f"Only a rejected invoice can be reopened (this one is {invoice.status.value})",
+            code="INVALID_STATUS",
+        )
+    if not invoice.lines:
+        raise Unprocessable(
+            "This invoice has no extracted lines — relaunch extraction instead",
+            code="NO_LINES",
+        )
+    before = {"status": invoice.status}
+    invoice.status = InvoiceStatus.NEEDS_REVIEW
+    record(
+        t.db,
+        t.org_id,
+        actor_user_id=p.user_id,
+        action=INVOICE_REOPENED,
+        entity_type="invoice",
+        entity_id=invoice.id,
+        before=before,
+        after={"status": invoice.status},
+    )
+    t.db.commit()
+    t.db.refresh(invoice)
+    return _response(invoice)
 
 
 @router.post("/{invoice_id}/reject", response_model=schemas.InvoiceResponse)

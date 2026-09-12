@@ -166,6 +166,40 @@ def trailing_amount(line: str) -> Decimal | None:
     return parse_amount(matches[-1].group(0))
 
 
+def describe(line: str) -> str:
+    """The words of a table row, without the numeric columns that follow them.
+
+    « Fret maritime Shanghai / Le Havre (Ocean freight) 1 2 450,00 2 450,00 » is a description and
+    three columns — quantity, unit price, amount — and showing the columns back to whoever is
+    reviewing the charge is showing them the table's plumbing. Only a run of numbers that reaches
+    the end of the line is cut, so a quantity inside the wording (« Surestaries 5 jours ») stays.
+    """
+    tail_free = TRAILING_NOISE_RE.sub("", line)  # the € or the EUR the last column ends with
+    matches = list(AMOUNT_RE.finditer(tail_free))
+    if not matches:
+        return line
+    cut = len(tail_free)
+    for match in reversed(matches):
+        if tail_free[match.end() : cut].strip():
+            break  # something other than whitespace between the columns: the wording starts here
+        cut = match.start()
+    return _without_separators(tail_free[:cut]) or line
+
+
+#: What an invoice leaves between the wording and its columns, once the numbers are gone.
+COLUMN_SEPARATORS = " \t\u00b7\u2013\u2014-:*"
+
+
+def _without_separators(head: str) -> str:
+    """Trim what joined the wording to the columns, and nothing that belongs to a word."""
+    head = head.rstrip(COLUMN_SEPARATORS)
+    # « Surestaries 5 jours x 80,00 » leaves a dangling multiplication sign. Bordeaux keeps its
+    # last letter: the sign stands alone, the letter does not.
+    while head[-1:] in ("x", "\u00d7") and (len(head) == 1 or head[-2:-1].isspace()):
+        head = head[:-1].rstrip(COLUMN_SEPARATORS)
+    return head
+
+
 def find_currency(text: str) -> str | None:
     match = CURRENCY_RE.search(text)
     if not match:
@@ -233,7 +267,7 @@ class RegexExtractor:
                 continue
             charges.append(
                 ExtractedLine(
-                    description=raw,
+                    description=describe(raw),
                     amount=f"{amount:.2f}",
                     currency=find_currency(raw) or currency,
                     cost_type=cost_type,
@@ -249,6 +283,7 @@ class RegexExtractor:
             invoice_date=find_date(text),
             currency=currency,
             total=f"{total:.2f}" if total is not None else None,
+            subtotal=f"{subtotal:.2f}" if subtotal is not None else None,
             vat=f"{vat:.2f}" if vat is not None else None,
             lines=charges,
             container_numbers=containers_in(text),

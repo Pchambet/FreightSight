@@ -16,7 +16,7 @@ from pdfs import make_pdf, make_pdf_without_text
 from sqlalchemy.orm import Session
 
 from app.adapters.extraction.llm_extractor import LlmExtractor
-from app.adapters.extraction.regex_extractor import RegexExtractor, last_amount
+from app.adapters.extraction.regex_extractor import RegexExtractor, describe, last_amount
 from app.domain.fx.service import FxService
 from app.domain.invoices.checks import CAPPED_CONFIDENCE, arithmetic_holds, check
 from app.domain.invoices.ports import (
@@ -140,16 +140,71 @@ def test_a_missing_line_caps_the_confidence_and_says_which_way(db: Session, org:
     invoice.confidence = 0.9
     invoice.lines.pop()
 
-    checked = check(db, fx(), invoice, CONTEXT, base_currency="EUR", invoice_date=date(2026, 3, 12))
+    checked = check(
+        db, fx(), invoice, CONTEXT, org_id=org.id, base_currency="EUR", invoice_date=date(2026, 3, 12)
+    )
     assert checked.confidence == CAPPED_CONFIDENCE
-    assert "missing or misread" in " ".join(checked.notes)
+    assert "@arithmetic_mismatch" in " ".join(checked.notes)
 
 
 def test_every_line_is_charged_to_the_only_container_named(db: Session, org: Organization) -> None:
     invoice = read(FRENCH_ONE_CONTAINER)
-    checked = check(db, fx(), invoice, CONTEXT, base_currency="EUR", invoice_date=date(2026, 3, 12))
+    checked = check(
+        db, fx(), invoice, CONTEXT, org_id=org.id, base_currency="EUR", invoice_date=date(2026, 3, 12)
+    )
     assert [ln.scope for ln in checked.lines] == [CostScope.CONTAINER] * 4
     assert {ln.target_id for ln in checked.lines} == {CONTAINER_A}
+    assert all("@single_container|MSCU4821990" in " ".join(ln.notes) for ln in checked.lines)
+
+
+def test_an_invoiced_cost_of_the_same_type_is_flagged(db: Session, org: Organization) -> None:
+    from app.domain.models import (
+        AllocationMethod,
+        Container,
+        ContainerMilestone,
+        Cost,
+        CostScope,
+        CostStatus,
+        TrackingState,
+    )
+
+    db.add(
+        Container(
+            id=CONTAINER_A,
+            org_id=org.id,
+            container_number="MSCU4821990",
+            milestone=ContainerMilestone.DISCHARGED,
+            tracking_state=TrackingState.MANUAL,
+        )
+    )
+    db.add(
+        Cost(
+            org_id=org.id,
+            scope=CostScope.CONTAINER,
+            container_id=CONTAINER_A,
+            cost_type=CostType.OCEAN_FREIGHT,
+            amount=Decimal("3000.00"),
+            currency="EUR",
+            fx_rate=Decimal("1"),
+            fx_date=date(2026, 3, 1),
+            fx_source="same",
+            amount_base=Decimal("3000.00"),
+            allocation_method=AllocationMethod.BY_WEIGHT,
+            cost_date=date(2026, 3, 1),
+            status=CostStatus.ACTUAL,
+            vendor="Kuehne + Nagel France",
+            invoice_number="KN-26-118377",
+        )
+    )
+    db.flush()
+
+    invoice = read(FRENCH_ONE_CONTAINER)
+    checked = check(
+        db, fx(), invoice, CONTEXT, org_id=org.id, base_currency="EUR", invoice_date=date(2026, 3, 12)
+    )
+    freight = next(ln for ln in checked.lines if ln.cost_type == CostType.OCEAN_FREIGHT)
+    assert any(n.startswith("@duplicate_cost|OCEAN_FREIGHT|") for n in freight.notes)
+    assert freight.confidence <= CAPPED_CONFIDENCE
 
 
 def test_a_container_we_do_not_have_is_dropped_and_said_out_loud(db: Session, org: Organization) -> None:
@@ -166,31 +221,39 @@ def test_a_container_we_do_not_have_is_dropped_and_said_out_loud(db: Session, or
             )
         ],
     )
-    checked = check(db, fx(), invoice, CONTEXT, base_currency="EUR", invoice_date=date(2026, 3, 12))
+    checked = check(
+        db, fx(), invoice, CONTEXT, org_id=org.id, base_currency="EUR", invoice_date=date(2026, 3, 12)
+    )
     (line,) = checked.lines
     assert line.scope is None and line.target_id is None
     assert line.confidence <= CAPPED_CONFIDENCE
-    assert "not one of this organization's containers" in " ".join(line.notes)
+    assert "@unknown_container|ZZZU0000000" in " ".join(line.notes)
 
 
 def test_a_currency_without_a_rate_marks_the_line_for_review(db: Session, org: Organization) -> None:
     invoice = read(USD_INVOICE)
     assert invoice.currency == "USD"
-    checked = check(db, fx(), invoice, CONTEXT, base_currency="EUR", invoice_date=date(2026, 3, 5))
+    checked = check(
+        db, fx(), invoice, CONTEXT, org_id=org.id, base_currency="EUR", invoice_date=date(2026, 3, 5)
+    )
     assert checked.lines  # the charges were read
     for line in checked.lines:
         assert line.currency == "USD"
     # the fake fetcher knows USD, so nothing is flagged; an unknown currency is another story
     invoice.lines[0].currency = "SEK"
-    checked = check(db, fx(), invoice, CONTEXT, base_currency="EUR", invoice_date=date(2026, 3, 5))
-    assert "has to be entered by hand" in " ".join(checked.lines[0].notes)
+    checked = check(
+        db, fx(), invoice, CONTEXT, org_id=org.id, base_currency="EUR", invoice_date=date(2026, 3, 5)
+    )
+    assert "@no_fx_rate|SEK" in " ".join(checked.lines[0].notes)
     assert checked.lines[0].confidence <= CAPPED_CONFIDENCE
 
 
 def test_several_containers_asks_for_a_second_look(db: Session, org: Organization) -> None:
     invoice = read(FRENCH_TWO_CONTAINERS)
-    checked = check(db, fx(), invoice, CONTEXT, base_currency="EUR", invoice_date=date(2026, 3, 18))
-    assert "several containers" in " ".join(checked.notes)
+    checked = check(
+        db, fx(), invoice, CONTEXT, org_id=org.id, base_currency="EUR", invoice_date=date(2026, 3, 18)
+    )
+    assert "@multi_container" in " ".join(checked.notes)
     targets = {ln.target_id for ln in checked.lines}
     assert targets == {CONTAINER_A, CONTAINER_B}
 
@@ -309,8 +372,10 @@ def test_a_real_forwarder_invoice_reads_exactly(db: Session, org: Organization) 
 
     assert invoice.invoice_number == "FAC-2026-08871"
     assert invoice.invoice_date == date(2026, 9, 5)
-    assert invoice.total == "3517.00"
+    # The three totals the invoice prints, each read rather than inferred from the others.
+    assert invoice.subtotal == "3350.00"
     assert invoice.vat == "167.00"  # computed as TTC - HT, not read off the label
+    assert invoice.total == "3517.00"
     assert invoice.container_numbers == ["MSCU1234567"]
 
     charges = [(ln.cost_type, ln.amount) for ln in invoice.lines]
@@ -321,6 +386,83 @@ def test_a_real_forwarder_invoice_reads_exactly(db: Session, org: Organization) 
         (CostType.CUSTOMS_BROKERAGE, "120.00"),
         (CostType.DRAYAGE, "430.00"),
     ]
+    # and what a reviewer reads is the charge, not the table's quantity and unit-price columns
+    assert [ln.description for ln in invoice.lines] == [
+        "Fret maritime Shanghai / Le Havre (Ocean freight)",
+        "THC destination Le Havre (Terminal Handling Charges)",
+        "Frais de B/L (Bill of lading fee)",
+        "Dédouanement import (customs brokerage)",
+        "Camionnage Le Havre →  entrepôt client (drayage)",
+    ]
+    holds, difference = arithmetic_holds(invoice)
+    assert holds and difference == Decimal("0.00")
+
+
+def test_the_description_keeps_the_wording_and_drops_the_columns() -> None:
+    """A table row is wording followed by quantity, unit price and amount. Only a run of numbers
+    that reaches the end of the line is a set of columns; one inside the wording is part of it."""
+    assert (
+        describe("Fret maritime Shanghai / Le Havre (Ocean freight) 1 2 450,00 2 450,00")
+        == "Fret maritime Shanghai / Le Havre (Ocean freight)"
+    )
+    assert describe("THC destination Le Havre 1 285,00 285,00") == "THC destination Le Havre"
+    # a quantity that belongs to the wording survives, because words follow it
+    assert describe("Surestaries 5 jours x 80,00 400,00") == "Surestaries 5 jours"
+    # the sign of a multiplication goes; the last letter of a word that happens to be x stays
+    assert describe("Camionnage Bordeaux 1 250,00 250,00") == "Camionnage Bordeaux"
+    # the currency the last column ends with is not a reason to give up and show the whole row
+    assert describe("Dédouanement import 120,00 €") == "Dédouanement import"
+    assert describe("Frais de B/L 65,00 EUR") == "Frais de B/L"
+    assert describe("Conteneur 40' HC — manutention 150,00") == "Conteneur 40' HC — manutention"
+    # nothing to cut, nothing cut
+    assert describe("Frais de dossier") == "Frais de dossier"
+    # and a row that is only numbers keeps something rather than becoming empty
+    assert describe("1 2 450,00 2 450,00") == "1 2 450,00 2 450,00"
+
+
+def test_a_missed_line_is_caught_by_the_invoice_s_own_pre_tax_total() -> None:
+    """The failure that matters: a charge the patterns did not recognise.
+
+    Against the grand total it hides behind the VAT — when the tax cannot be read, a total short by
+    exactly the missing charge looks like a total short by exactly the tax. The invoice's own
+    « Total HT » has no such excuse in it.
+    """
+    missing_the_bl_fee = FreightInvoice(
+        currency="EUR",
+        subtotal="3350.00",
+        vat=None,  # unreadable, as it is on plenty of layouts
+        total="3517.00",
+        lines=[
+            ExtractedLine(description="Fret maritime", amount="2450.00"),
+            ExtractedLine(description="THC", amount="285.00"),
+            ExtractedLine(description="Dédouanement", amount="120.00"),
+            ExtractedLine(description="Camionnage", amount="430.00"),
+        ],
+    )
+    holds, difference = arithmetic_holds(missing_the_bl_fee)
+    assert not holds
+    assert difference == Decimal("-65.00")  # exactly the charge nobody saw
+
+    complete = missing_the_bl_fee.model_copy(
+        update={
+            "lines": [
+                *missing_the_bl_fee.lines,
+                ExtractedLine(description="Frais de B/L", amount="65.00"),
+            ]
+        }
+    )
+    holds, difference = arithmetic_holds(complete)
+    assert holds and difference == Decimal("0.00")
+
+
+def test_without_a_stated_pre_tax_total_the_old_check_still_applies() -> None:
+    """Not every invoice prints one; the grand total is then the only yardstick there is."""
+    invoice = FreightInvoice(
+        currency="EUR",
+        total="3517.00",
+        vat="167.00",
+        lines=[ExtractedLine(description="Fret maritime", amount="3350.00")],
+    )
     holds, difference = arithmetic_holds(invoice)
     assert holds and difference == Decimal("0.00")
 

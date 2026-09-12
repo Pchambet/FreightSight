@@ -156,6 +156,7 @@ def extract(
         fx,
         reading,
         context,
+        org_id=org.id,
         base_currency=org.base_currency,
         invoice_date=reading.invoice_date,
     )
