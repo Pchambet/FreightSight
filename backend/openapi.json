@@ -9170,6 +9170,10 @@
             "type": "integer",
             "title": "Free Days Detention"
           },
+          "locale": {
+            "type": "string",
+            "title": "Locale"
+          },
           "settings": {
             "additionalProperties": true,
             "type": "object",
@@ -9191,6 +9195,7 @@
           "default_incoterm",
           "free_days_demurrage",
           "free_days_detention",
+          "locale",
           "settings"
         ],
         "title": "OrganizationResponse"
@@ -9266,6 +9271,17 @@
               }
             ],
             "title": "Free Days Detention"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locale"
           },
           "settings": {
             "anyOf": [

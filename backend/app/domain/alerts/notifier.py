@@ -7,10 +7,11 @@ e-mails in a minute is what makes people filter you into a folder.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 from uuid import UUID
 
+from app.domain.alerts.text import DEFAULT_LOCALE, alert_text, normalise_locale, severity_label, t
 from app.domain.models import Alert
 
 
@@ -20,20 +21,33 @@ class Notification:
     org_name: str
     recipients: list[str]
     alerts: list[Alert]
+    #: The organization's language. The digest is written in it, exactly as the screen would.
+    locale: str = DEFAULT_LOCALE
+    #: Container number per container id, so a sentence can name the box without a query per alert.
+    container_numbers: dict[UUID, str] = field(default_factory=dict)
+
+    def _written(self, alert: Alert) -> tuple[str, str]:
+        number = self.container_numbers.get(alert.container_id) if alert.container_id else None
+        return alert_text(alert, self.locale, container_number=number)
 
     @property
     def subject(self) -> str:
+        locale = normalise_locale(self.locale)
         if len(self.alerts) == 1:
-            return f"FreightSight: {self.alerts[0].title}"
-        return f"FreightSight: {len(self.alerts)} alerts"
+            return t(locale, "digest.subjectOne", title=self._written(self.alerts[0])[0])
+        return t(locale, "digest.subjectMany", count=len(self.alerts))
 
     def text(self) -> str:
-        lines = [f"{self.org_name} — {len(self.alerts)} alert(s)", ""]
+        locale = normalise_locale(self.locale)
+        count = len(self.alerts)
+        heading = "digest.headingOne" if count == 1 else "digest.headingMany"
+        lines = [t(locale, heading, org=self.org_name, count=count), ""]
         for alert in self.alerts:
-            lines.append(f"[{alert.severity.value.upper()}] {alert.title}")
-            if alert.body:
-                lines.append(f"    {alert.body}")
-        lines += ["", "Open FreightSight to acknowledge these."]
+            title, body = self._written(alert)
+            lines.append(f"[{severity_label(alert.severity, locale)}] {title}")
+            if body:
+                lines.append(f"    {body}")
+        lines += ["", t(locale, "digest.footer")]
         return "\n".join(lines)
 
 

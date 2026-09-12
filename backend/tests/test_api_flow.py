@@ -76,6 +76,18 @@ def test_me_and_organization(client: TestClient, org_id: uuid.UUID) -> None:
     assert res.status_code == 200 and res.json()["free_days_demurrage"] == 7
 
 
+def test_the_language_an_organization_is_written_to_in(client: TestClient) -> None:
+    assert client.get("/api/v1/organization").json()["locale"] == "fr"
+    assert client.patch("/api/v1/organization", json={"locale": "en"}).json()["locale"] == "en"
+
+    # a language we cannot write is refused rather than quietly turned back into French: the setting
+    # would read as saved, and the e-mails would arrive in another language than the one chosen
+    res = client.patch("/api/v1/organization", json={"locale": "de"})
+    assert res.status_code == 422
+    assert res.json()["errors"][0]["code"] == "ORG_LOCALE_UNKNOWN"
+    assert client.get("/api/v1/organization").json()["locale"] == "en"
+
+
 def test_t5_through_the_api(client: TestClient) -> None:
     s = setup_t5(client)
     post(

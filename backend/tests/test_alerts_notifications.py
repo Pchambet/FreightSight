@@ -75,8 +75,8 @@ def test_one_digest_per_organization_not_one_per_alert(
     (notification,) = notifier.sent
     assert len(notification.alerts) == 3
     assert notification.recipients == ["pierre@example.test"]
-    assert notification.subject == "FreightSight: 3 alerts"
-    assert "demurrage risk HIGH" in notification.text()
+    assert notification.subject == "FreightSight : 3 alertes"  # French by default
+    assert "demurrage risk HIGH" in notification.text()  # no payload: the stored words stand
 
     # nothing left to say on the next round
     assert handlers.dispatch_alerts(db, notifier=notifier) == 0
@@ -92,7 +92,77 @@ def test_a_single_alert_keeps_its_own_title(client: TestClient, db: Session, org
     make_alerts(db, org, 1)
     notifier = RecordingNotifier()
     handlers.dispatch_alerts(db, notifier=notifier)
-    assert notifier.sent[0].subject == "FreightSight: MSCU4821990: demurrage risk HIGH"
+    assert notifier.sent[0].subject == "FreightSight : MSCU4821990: demurrage risk HIGH"
+
+
+# ---------------------------------------------------------------------------- the reader's language
+
+
+def container_with_alert(client: TestClient, db: Session, org: Organization) -> None:
+    """One alert carrying everything its sentence needs: the kind, the moving parts, the box."""
+    res = client.post("/api/v1/containers", json={"container_number": "MSCU4821990"})
+    assert res.status_code == 201, res.text
+    raise_alert(
+        db,
+        org.id,
+        kind=AlertKind.DND_RISK,
+        severity=AlertSeverity.CRITICAL,
+        title="MSCU4821990: demurrage risk HIGH",
+        body="Last free day 2026-09-20, 3 day(s) left.",
+        dedup_key="dnd:one",
+        container_id=uuid.UUID(res.json()["id"]),
+        payload={"risk": "HIGH", "last_free_day": "2026-09-20"},
+    )
+    db.commit()
+
+
+def test_the_digest_is_written_in_the_language_of_the_organization(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """The screen already writes its own sentence from the kind and the payload. A digest that kept
+    the stored English would have the same alert reading two different ways."""
+    container_with_alert(client, db, org)
+    notifier = RecordingNotifier()
+
+    handlers.dispatch_alerts(db, notifier=notifier)
+
+    body = notifier.sent[0].text()
+    assert notifier.sent[0].subject == "FreightSight : MSCU4821990 : risque de surestaries Élevé"
+    assert "[Critique] MSCU4821990 : risque de surestaries Élevé" in body
+    assert "Dernier jour franc le 20/09/2026" in body
+    assert "Ouvrez FreightSight" in body
+    assert "demurrage" not in body
+
+
+def test_an_english_organization_gets_the_english_sentences(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    org.locale = "en"
+    db.commit()
+    container_with_alert(client, db, org)
+    notifier = RecordingNotifier()
+
+    handlers.dispatch_alerts(db, notifier=notifier)
+
+    body = notifier.sent[0].text()
+    assert notifier.sent[0].subject == "FreightSight: MSCU4821990: demurrage risk High"
+    assert "Last free day 20 Sep 2026" in body
+    assert "Open FreightSight to acknowledge these." in body
+    assert "surestaries" not in body
+
+
+def test_an_alert_without_the_parts_of_its_sentence_is_sent_as_it_was_stored(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """Alerts raised before the payload carried what a sentence needs must still go out, in the
+    words they were written with, rather than as a phrase with a hole in it."""
+    make_alerts(db, org, 1)  # a DND_RISK with no payload and no container
+    notifier = RecordingNotifier()
+
+    handlers.dispatch_alerts(db, notifier=notifier)
+
+    assert "MSCU4821990: demurrage risk HIGH" in notifier.sent[0].text()
+    assert "Last free day 2026-09-10, 1 day left." in notifier.sent[0].text()
 
 
 def test_a_failed_send_leaves_the_alerts_for_the_next_round(

@@ -279,6 +279,10 @@ class Organization(Timestamped, Base):
     default_incoterm: Mapped[Incoterm | None] = mapped_column(Enum(Incoterm, name="incoterm"))
     free_days_demurrage: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     free_days_detention: Mapped[int] = mapped_column(Integer, nullable=False, default=7)
+    #: The language everything this organization is sent is written in — the alert digests today.
+    #: French by default: the product is sold to French importers, and a Clerk account says nothing
+    #: about what language the company works in.
+    locale: Mapped[str] = mapped_column(String(5), nullable=False, default="fr")
     settings: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
 
 

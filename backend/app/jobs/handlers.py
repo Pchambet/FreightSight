@@ -198,10 +198,15 @@ def poll_stale_subscriptions(
     Two things a provider outage must not be allowed to do, and both used to happen: mark every
     customer's containers as failed while telling them to go and check the carrier's site, and spend
     one timeout per container finding that out.
+
+    A third, subtler one: telling only the organization the circuit happened to trip on. Whose turn
+    it was is an accident of iteration order — every organization whose polling stopped this round
+    is told, once, and only once the provider is really down rather than on a single timeout.
     """
     moment = now or datetime.now(UTC)
     circuit = ProviderCircuit()
     polled = 0
+    stopped: dict[str, dict[UUID, Organization]] = {}
     for org in organizations(db):
         with tenant(db, org):
             subscriptions = list(
@@ -224,7 +229,10 @@ def poll_stale_subscriptions(
                 if since is not None and moment - since < STALE_AFTER:
                     continue
                 if circuit.is_open(subscription.provider):
-                    continue  # this provider is not answering; asking again costs a timeout
+                    # Asking again costs a timeout. This organization's tracking has stopped all
+                    # the same, so it is on the list of people to tell.
+                    stopped.setdefault(subscription.provider, {})[org.id] = org
+                    continue
                 container = db.get(Container, subscription.container_id)
                 if container is None:  # pragma: no cover - foreign key says otherwise
                     continue
@@ -239,10 +247,33 @@ def poll_stale_subscriptions(
                     continue
                 if outcome != "unreachable":
                     circuit.answered(subscription.provider)
-                elif circuit.failed(subscription.provider):
-                    _provider_is_down(db, org, subscription.provider, moment)
+                else:
+                    stopped.setdefault(subscription.provider, {})[org.id] = org
+                    circuit.failed(subscription.provider)
             db.commit()
+    _announce_outages(db, stopped, circuit, moment)
     return polled
+
+
+def _announce_outages(
+    db: Session,
+    stopped: dict[str, dict[UUID, Organization]],
+    circuit: ProviderCircuit,
+    moment: datetime,
+) -> None:
+    """Tell every organization whose tracking stopped, once the provider is confirmed down.
+
+    At the end rather than as it happens: an organization polled before the third failure would
+    otherwise hear nothing, and an organization polled after it would hear about a provider that
+    answered again two containers later.
+    """
+    for provider, affected in stopped.items():
+        if not circuit.is_open(provider):
+            continue  # a timeout or two, and then it answered: not an outage anybody needs told
+        for org in affected.values():
+            with tenant(db, org):
+                _provider_is_down(db, org, provider, moment)
+                db.commit()
 
 
 def _provider_is_down(db: Session, org: Organization, provider: str, moment: datetime) -> None:
@@ -621,7 +652,14 @@ def dispatch_alerts(db: Session, *, notifier: Notifier | None = None) -> int:
             recipients = _recipients(db, org)
             try:
                 sender.send(
-                    Notification(org_id=org.id, org_name=org.name, recipients=recipients, alerts=list(alerts))
+                    Notification(
+                        org_id=org.id,
+                        org_name=org.name,
+                        recipients=recipients,
+                        alerts=list(alerts),
+                        locale=org.locale,
+                        container_numbers=_container_numbers(db, alerts),
+                    )
                 )
             except Exception:
                 logger.exception("could not send the alert digest for org %s", org.id)
@@ -633,6 +671,17 @@ def dispatch_alerts(db: Session, *, notifier: Notifier | None = None) -> int:
             db.commit()
             sent += 1
     return sent
+
+
+def _container_numbers(db: Session, alerts: list[Alert]) -> dict[UUID, str]:
+    """The box numbers the digest's sentences name, in one query rather than one per alert."""
+    ids = {alert.container_id for alert in alerts if alert.container_id is not None}
+    if not ids:
+        return {}
+    rows = db.execute(
+        select(Container.id, Container.container_number).where(Container.id.in_(ids))
+    ).all()
+    return {row.id: row.container_number for row in rows}
 
 
 def _recipients(db: Session, org: Organization) -> list[str]:

@@ -18,6 +18,28 @@ fichier (et son jumeau `en.json` si l'anglais bouge aussi).
 | `Pre-alpha` | Pré-alpha | (laissé en anglais) | Terme produit, pas métier : à supprimer plutôt qu'à traduire, une fois la bêta ouverte. |
 | `SKU` | Référence / SKU | Article, Code article | Les deux cohabitent chez les importateurs. |
 
+## Les e-mails d'alerte
+
+Le digest part dans la langue de l'organisation (`organizations.locale`, « fr » par défaut, réglable
+par `PATCH /organization`). Les phrases sont construites côté serveur depuis le `kind` et le
+`payload` de l'alerte, exactement comme l'écran le fait dans
+`frontend/src/features/alerts/text.ts` — elles sont dans `backend/app/domain/alerts/text.py` et un
+test (`test_the_email_says_exactly_what_the_screen_says`) compare les deux fichiers mot pour mot,
+pour que reformuler une alerte dans `frontend/messages/fr.json` fasse échouer la CI plutôt que de
+laisser l'e-mail de 6 h dire l'ancienne phrase pendant des mois.
+
+Ce qui reste ouvert :
+
+- **La langue est par organisation, pas par personne.** Une équipe franco-anglaise reçoit un seul
+  digest, dans une seule langue. Une préférence par utilisateur demanderait un digest par langue et
+  une colonne sur `users` : pas fait tant que personne ne l'a demandé.
+- **`TRACKING_DELIVERY_FAILED` n'a pas de phrase**, ni sur l'écran ni dans l'e-mail : l'alerte part
+  avec son titre anglais stocké. C'est une panne interne (un webhook qu'on n'a pas su traiter), pas
+  une nouvelle sur la marchandise ; à traduire le jour où elle est montrée aux clients.
+- **Les dates sont écrites en UTC** dans les e-mails comme sur l'écran (`20/09/2026 06:30`). Une ETA
+  lue dans deux fuseaux est deux faits différents ; le fuseau de l'organisation viendra avec le
+  réglage correspondant, s'il est demandé.
+
 Deux points hors vocabulaire :
 
 - **Les messages d'erreur du backend restent en anglais.** Le front traduit le `code` (`OVER_ALLOCATED`,

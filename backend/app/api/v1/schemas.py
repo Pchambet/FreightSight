@@ -10,6 +10,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 
+from app.domain.alerts.text import LOCALES
 from app.domain.models import (
     AlertKind,
     AlertSeverity,
@@ -78,6 +79,8 @@ class OrganizationResponse(BaseModel):
     default_incoterm: Incoterm | None
     free_days_demurrage: int
     free_days_detention: int
+    #: The language this organization is written to in: "fr" or "en". What the digest e-mails use.
+    locale: str
     settings: dict[str, Any]
     unread_alerts: int = 0  # what the bell shows
 
@@ -100,7 +103,21 @@ class OrganizationUpdate(BaseModel):
     default_incoterm: Incoterm | None = None
     free_days_demurrage: int | None = Field(default=None, ge=0, le=60)
     free_days_detention: int | None = Field(default=None, ge=0, le=60)
+    locale: str | None = None
     settings: dict[str, Any] | None = None
+
+    @field_validator("locale")
+    @classmethod
+    def _locale(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        # Not silently coerced to French: a language we cannot write is a setting someone would
+        # believe was saved. The code is for the screen, which shows this in a form.
+        if v not in LOCALES:
+            raise PydanticCustomError(
+                "ORG_LOCALE_UNKNOWN", "locale must be one of: {allowed}", {"allowed": ", ".join(LOCALES)}
+            )
+        return v
 
     @field_validator("base_currency")
     @classmethod

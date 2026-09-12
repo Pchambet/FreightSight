@@ -154,6 +154,36 @@ def test_the_provider_being_down_is_said_once_about_the_provider(
     assert len(alerts_of(db, AlertKind.TRACKING_PROVIDER_DOWN)) == 1
 
 
+def test_every_organization_whose_tracking_stopped_is_told_not_just_one(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """Whose turn it was when the third failure landed is an accident of iteration order. Both of
+    these companies stopped being tracked this round, so both hear about it — once each."""
+    containers(client, db, org, 4)
+    other = Organization(name="Other importer", base_currency="EUR")
+    db.add(other)
+    db.flush()
+    for index in range(3):
+        container = Container(
+            org_id=other.id,
+            container_number=f"TGHU76543{index:02d}",
+            milestone=ContainerMilestone.VESSEL_DEPARTED,
+            tracking_state=TrackingState.ACTIVE,
+        )
+        db.add(container)
+        db.flush()
+        subscribe(db, other, container.id)
+    db.commit()
+    provider = DeadProvider()
+
+    handlers.poll_stale_subscriptions(db, now=NOW, provider_factory=lambda _: provider)
+
+    told = {alert.org_id for alert in alerts_of(db, AlertKind.TRACKING_PROVIDER_DOWN)}
+    assert told == {org.id, other.id}
+    # still one ask per failure up to the trip, for both companies together
+    assert provider.asked == handlers.CIRCUIT_TRIPS_AFTER
+
+
 def test_a_provider_that_answers_still_reports_a_quiet_container(
     client: TestClient, db: Session, org: Organization
 ) -> None:
