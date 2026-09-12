@@ -70,8 +70,9 @@ export default async function InvoicePage({ params }: Params) {
           <p className="text-sm text-slate-500 mt-1">
             {statusLabel(invoice.status)}
             {invoice.invoice_date ? ` · ${dateShort(invoice.invoice_date, locale)}` : ""}
-            {invoice.total_amount && invoice.currency ? ` · ${t("total")} ${money(invoice.total_amount, invoice.currency, locale)}` : ""}
-            {invoice.vat_amount && invoice.currency ? ` · ${t("vat")} ${money(invoice.vat_amount, invoice.currency, locale)}` : ""}
+            {invoice.currency && (invoice.total_amount || invoice.vat_amount || invoice.subtotal_amount)
+              ? ` · ${t("subtotal")} ${invoice.subtotal_amount ? money(invoice.subtotal_amount, invoice.currency, locale) : t("subtotalMissing")} · ${t("vat")} ${invoice.vat_amount ? money(invoice.vat_amount, invoice.currency, locale) : "—"} · ${t("total")} ${invoice.total_amount ? money(invoice.total_amount, invoice.currency, locale) : "—"}`
+              : ""}
             {invoice.extractor ? ` · ${t("extractor", { extractor: invoice.extractor, confidence: invoice.confidence ? Number(invoice.confidence).toFixed(2) : "—" })}` : ""}
           </p>
         </div>

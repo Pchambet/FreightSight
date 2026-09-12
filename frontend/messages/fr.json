@@ -732,7 +732,9 @@
       "vendor": "Émetteur",
       "number": "N° de facture",
       "date": "Date de facture",
-      "total": "Total",
+      "total": "TTC",
+      "subtotal": "HT",
+      "subtotalMissing": "non imprimé",
       "vat": "TVA",
       "lowConfidenceTitle": "Confiance de lecture faible —",
       "lowConfidenceBody": "vérifiez chaque ligne avant de confirmer (confiance {confidence})."

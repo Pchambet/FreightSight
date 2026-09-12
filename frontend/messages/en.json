@@ -732,7 +732,9 @@
       "vendor": "Vendor",
       "number": "Invoice no.",
       "date": "Invoice date",
-      "total": "Total",
+      "total": "Total incl. VAT",
+      "subtotal": "Pre-tax",
+      "subtotalMissing": "not printed",
       "vat": "VAT",
       "lowConfidenceTitle": "Low read confidence —",
       "lowConfidenceBody": "check every line before confirming (confidence {confidence})."

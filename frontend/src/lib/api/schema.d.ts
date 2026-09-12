@@ -1007,6 +1007,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/invoices/{invoice_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen
+         * @description Put a rejected invoice back in review without re-uploading the file.
+         */
+        post: operations["reopen_api_v1_invoices__invoice_id__reopen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invoices/{invoice_id}/reject": {
         parameters: {
             query?: never;
@@ -1021,23 +1041,6 @@ export interface paths {
          * @description Not our invoice, a duplicate, an error: it stays on file, it creates nothing.
          */
         post: operations["reject_api_v1_invoices__invoice_id__reject_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/invoices/{invoice_id}/reopen": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Put a rejected invoice back in review without re-uploading the file. */
-        post: operations["reopen_api_v1_invoices__invoice_id__reopen_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1700,7 +1703,10 @@ export interface components {
         };
         /** DndAtRiskLine */
         DndAtRiskLine: {
-            /** Container Id */
+            /**
+             * Container Id
+             * Format: uuid
+             */
             container_id: string;
             /** Container Number */
             container_number: string;
@@ -2159,6 +2165,8 @@ export interface components {
             currency: string | null;
             /** Total Amount */
             total_amount: string | null;
+            /** Subtotal Amount */
+            subtotal_amount: string | null;
             /** Vat Amount */
             vat_amount: string | null;
             /** Confidence */
@@ -2210,6 +2218,8 @@ export interface components {
             currency: string | null;
             /** Total Amount */
             total_amount: string | null;
+            /** Subtotal Amount */
+            subtotal_amount: string | null;
             /** Vat Amount */
             vat_amount: string | null;
             /** Confidence */
@@ -5441,7 +5451,7 @@ export interface operations {
             };
         };
     };
-    reject_api_v1_invoices__invoice_id__reject_post: {
+    reopen_api_v1_invoices__invoice_id__reopen_post: {
         parameters: {
             query?: never;
             header?: {
@@ -5474,7 +5484,7 @@ export interface operations {
             };
         };
     };
-    reopen_api_v1_invoices__invoice_id__reopen_post: {
+    reject_api_v1_invoices__invoice_id__reject_post: {
         parameters: {
             query?: never;
             header?: {
