@@ -103,9 +103,10 @@ Prerequisites: Docker, Node 22+, [uv](https://docs.astral.sh/uv/).
 ```bash
 git clone https://github.com/Pchambet/FreightSight.git && cd FreightSight
 
-# Backend + Postgres (migrations run automatically)
+# Backend + Postgres + background worker (migrations run automatically)
 docker compose up -d --build
 # API on http://localhost:8001, Swagger on http://localhost:8001/docs
+# Worker: invoice extraction, tracking polls, alerts — check with `docker compose logs -f worker`
 
 # Frontend: needs a Clerk development instance (free) with Organizations enabled
 cd frontend

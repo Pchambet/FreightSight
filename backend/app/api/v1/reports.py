@@ -197,6 +197,16 @@ def demurrage_and_detention(
             )
             for line in report.lines
         ],
+        at_risk=[
+            schemas.DndAtRiskLine(
+                container_id=line.container_id,
+                container_number=line.container_number,
+                dnd_risk=line.dnd_risk,
+                last_free_day=line.last_free_day,
+                rule=line.rule,
+            )
+            for line in report.at_risk
+        ],
     )
 
 

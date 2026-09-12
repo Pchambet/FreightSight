@@ -49,7 +49,7 @@ export default function EstimatePanel({ report, currency, containerId }: { repor
         <div className={`text-base font-semibold tabular-nums ${variance > 0 ? "text-red-700" : variance < 0 ? "text-emerald-700" : "text-slate-700"}`}>{variance > 0 ? "+" : ""}<Money amount={report.totals.variance ?? "0.00"} currency={currency} /></div>
       </div>
       <div className="min-w-[12rem]">
-        <div className="text-xs text-slate-500 uppercase tracking-wider">{t("completeness")}</div>
+        <div className="text-xs text-slate-500 uppercase tracking-wider" title={t("completenessHint")}>{t("completeness")}</div>
         {expected.length === 0 ? (
           <div className="text-sm text-slate-400">{t("noExpected")}</div>
         ) : (

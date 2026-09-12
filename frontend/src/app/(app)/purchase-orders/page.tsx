@@ -3,6 +3,8 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Card, PageHeader, btnSecondary, td, tdRight, th, thRight } from "@/components/layout/AppShell";
 import { Money } from "@/components/shared/Money";
+import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
+import { purchaseOrdersHubStep } from "@/features/workflow/steps";
 import { api } from "@/lib/api/client";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -19,9 +21,11 @@ export default async function PurchaseOrdersPage() {
   ]);
   const pos = p.data ?? [];
   const cur = o.data?.base_currency ?? "EUR";
+  const hubStep = purchaseOrdersHubStep(pos);
   return (
     <>
       <PageHeader title={t("title")} subtitle={t("subtitle", { count: pos.length })} actions={<Link href="/imports/new" className={btnSecondary}>{t("importCta")}</Link>} />
+      <WorkflowNextStep step={hubStep} />
       <Card>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-sm">

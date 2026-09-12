@@ -625,9 +625,13 @@ class WebhookAck(BaseModel):
 
 
 class AlertResponse(BaseModel):
+    """`title` and `body` are English sentences kept for API clients and logs. A screen builds its
+    own sentence from `kind`, `payload` and `container_number` in the reader's language."""
+
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     container_id: UUID | None
+    container_number: str | None = None
     kind: AlertKind
     severity: AlertSeverity
     title: str
@@ -701,10 +705,17 @@ class InvoiceLineUpdate(BaseModel):
         return None if v is None else currency_code(v)
 
 
+class InvoiceContainerLink(BaseModel):
+    id: UUID
+    container_number: str
+
+
 class InvoiceConfirmResponse(BaseModel):
     invoice: InvoiceResponse
     costs_created: int
     cost_ids: list[UUID]
+    #: Containers whose landed cost changed — where to look next.
+    containers: list[InvoiceContainerLink] = Field(default_factory=list)
     #: Estimates these costs replaced, when exactly one was waiting for them.
     superseded_estimate_ids: list[UUID] = Field(default_factory=list)
     #: What the confirmation deliberately did not decide, in plain words.
@@ -923,6 +934,14 @@ class DndReportLine(BaseModel):
     rule: str
 
 
+class DndAtRiskLine(BaseModel):
+    container_id: UUID
+    container_number: str
+    dnd_risk: DndRisk
+    last_free_day: date | None
+    rule: str
+
+
 class DndAnalysis(BaseModel):
     base_currency: str
     period_from: date | None
@@ -932,6 +951,7 @@ class DndAnalysis(BaseModel):
     estimable: int
     not_estimable: int
     lines: list[DndReportLine]
+    at_risk: list[DndAtRiskLine] = Field(default_factory=list)
 
 
 class SkuHistoryPoint(BaseModel):
@@ -1007,6 +1027,8 @@ class ErpPushResponse(BaseModel):
     odoo_model: str
     odoo_id: int
     odoo_name: str | None
+    #: Deep link into the customer's Odoo web client for this document.
+    record_url: str | None = None
     #: Always `draft`: validating a landed cost posts entries in someone else's books.
     status: str
     #: The costs this document carries — the subset that was still pending when it was written.

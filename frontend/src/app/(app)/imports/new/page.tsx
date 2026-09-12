@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { PageHeader } from "@/components/layout/AppShell";
+import Breadcrumb from "@/components/shared/Breadcrumb";
 import ImportWizard from "@/features/imports/ImportWizard";
+import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
+import { importNewStep } from "@/features/workflow/steps";
 import { api } from "@/lib/api/client";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -10,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function NewImportPage({ searchParams }: { searchParams: Promise<{ job?: string }> }) {
-  const [{ job }, t] = await Promise.all([searchParams, getTranslations("importWizard")]);
+  const [{ job }, t, ti] = await Promise.all([searchParams, getTranslations("importWizard"), getTranslations("imports")]);
   let initial = null;
   if (job) {
     const { data } = await api.GET("/api/v1/imports/{import_id}", { params: { path: { import_id: job } } });
@@ -18,8 +21,12 @@ export default async function NewImportPage({ searchParams }: { searchParams: Pr
   }
   return (
     <>
+      <Breadcrumb backHref="/imports" backLabel={ti("title")} current={t("title")} />
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
-      <ImportWizard initialJob={initial} />
+      <WorkflowNextStep step={importNewStep(!!initial)} />
+      <div id="wizard" className="scroll-mt-6">
+        <ImportWizard initialJob={initial} />
+      </div>
     </>
   );
 }

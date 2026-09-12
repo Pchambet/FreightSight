@@ -19,6 +19,7 @@ from app.core.tenancy import TenantDep
 from app.domain.audit.service import ERP_LANDED_COST_PUSHED, ERP_PUSH_FORGOTTEN
 from app.domain.audit.service import record as record_audit
 from app.domain.erp import landed_cost, service
+from app.domain.erp.urls import odoo_record_url
 from app.domain.models import Container, ErpConnection, ErpPush, ErpSyncRun
 
 router = APIRouter(prefix="/erp", tags=["erp"])
@@ -210,15 +211,21 @@ def push_landed_cost(container_id: UUID, t: TenantDep, p: WriterDep) -> schemas.
     )
     t.db.commit()
     t.db.refresh(record)
-    return _push_response(record)
+    return _push_response(record, connection)
 
 
-def _push_response(record: ErpPush) -> schemas.ErpPushResponse:
+def _push_response(record: ErpPush, connection: ErpConnection | None) -> schemas.ErpPushResponse:
+    record_url = (
+        odoo_record_url(connection.url, connection.database, record.odoo_model, record.odoo_id)
+        if connection is not None
+        else None
+    )
     return schemas.ErpPushResponse(
         id=record.id,
         odoo_model=record.odoo_model,
         odoo_id=record.odoo_id,
         odoo_name=record.odoo_name,
+        record_url=record_url,
         status=record.status,
         cost_ids=[UUID(value) for value in record.cost_ids],
         created_at=record.created_at,
@@ -241,7 +248,8 @@ def list_pushes(container_id: UUID, t: TenantDep) -> list[schemas.ErpPushRespons
         .where(ErpPush.org_id == t.org_id, ErpPush.container_id == container.id)
         .order_by(ErpPush.created_at.desc())
     )
-    return [_push_response(record) for record in records]
+    connection = service.connection_for(t.db, t.org_id)
+    return [_push_response(record, connection) for record in records]
 
 
 @containers_router.delete("/{container_id}/erp/pushes/{push_id}", response_model=schemas.ErpPushResponse)
@@ -284,4 +292,4 @@ def forget_push(
     )
     t.db.commit()
     t.db.refresh(record)
-    return _push_response(record)
+    return _push_response(record, connection)

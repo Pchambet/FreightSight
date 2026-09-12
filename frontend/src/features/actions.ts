@@ -193,14 +193,23 @@ export async function updateInvoiceLine(
   return { ok: true, data: null };
 }
 
-export async function confirmInvoice(invoiceId: string): Promise<ActionResult<{ costsCreated: number }>> {
+export async function confirmInvoice(invoiceId: string): Promise<
+  ActionResult<{ costsCreated: number; containers: { id: string; container_number: string }[] }>
+> {
   await protectAction();
   const { data, error } = await api.POST("/api/v1/invoices/{invoice_id}/confirm", { params: { path: { invoice_id: invoiceId } } });
   if (error || !data) return await fail(error, "invoices.detail.failed");
   revalidatePath(`/invoices/${invoiceId}`);
   revalidatePath("/invoices");
   revalidatePath("/containers");
-  return { ok: true, data: { costsCreated: data.costs_created } };
+  for (const c of data.containers ?? []) revalidatePath(`/container/${c.id}`);
+  return {
+    ok: true,
+    data: {
+      costsCreated: data.costs_created,
+      containers: (data.containers ?? []).map((c) => ({ id: c.id, container_number: c.container_number })),
+    },
+  };
 }
 
 export async function rejectInvoice(invoiceId: string): Promise<ActionResult<null>> {
@@ -217,6 +226,16 @@ export async function retryInvoice(invoiceId: string): Promise<ActionResult<null
   const { error } = await api.POST("/api/v1/invoices/{invoice_id}/retry", { params: { path: { invoice_id: invoiceId } } });
   if (error) return await fail(error, "invoices.detail.failed");
   revalidatePath(`/invoices/${invoiceId}`);
+  revalidatePath("/invoices");
+  return { ok: true, data: null };
+}
+
+export async function reopenInvoice(invoiceId: string): Promise<ActionResult<null>> {
+  await protectAction();
+  const { error } = await api.POST("/api/v1/invoices/{invoice_id}/reopen", { params: { path: { invoice_id: invoiceId } } });
+  if (error) return await fail(error, "invoices.detail.failed");
+  revalidatePath(`/invoices/${invoiceId}`);
+  revalidatePath("/invoices");
   return { ok: true, data: null };
 }
 

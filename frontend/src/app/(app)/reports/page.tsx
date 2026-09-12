@@ -4,6 +4,8 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { Download } from "lucide-react";
 import { Card, PageHeader, btnSecondary, input, label, td, tdRight, th, thRight } from "@/components/layout/AppShell";
 import { Money } from "@/components/shared/Money";
+import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
+import { reportsHubStep } from "@/features/workflow/steps";
 import { api, type DndAnalysis, type LandedCostAnalysis } from "@/lib/api/client";
 import { qty } from "@/lib/format";
 
@@ -20,12 +22,15 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const groupBy: Group = (GROUPS as readonly string[]).includes(sp.group_by ?? "") ? (sp.group_by as Group) : "supplier";
   const isDate = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
   const period = { period_from: isDate(sp.from), period_to: isDate(sp.to) };
-  const [lc, dnd] = await Promise.all([
+  const [lc, dnd, containersRes] = await Promise.all([
     api.GET("/api/v1/reports/landed-cost", { params: { query: { group_by: groupBy, ...period } } }),
     api.GET("/api/v1/reports/dnd", { params: { query: period } }),
+    api.GET("/api/v1/containers"),
   ]);
   const a: LandedCostAnalysis | undefined = lc.data;
   const d: DndAnalysis | undefined = dnd.data;
+  const topContainer = containersRes.data?.find((c) => c.container_number === "MSCU4821990") ?? containersRes.data?.[0];
+  const hubStep = reportsHubStep(a?.skus ?? [], topContainer ? { id: topContainer.id, number: topContainer.container_number } : undefined);
   const cur = a?.base_currency ?? "EUR";
   const bucketLabel = (b: { key: string; label: string }) => (groupBy === "cost_type" && tt.has(b.key as never) ? tt(b.key as never) : b.label === "unknown route" ? t("unknownRoute") : b.label);
   const csvQuery = new URLSearchParams({ locale, ...(period.period_from ? { period_from: period.period_from } : {}), ...(period.period_to ? { period_to: period.period_to } : {}) }).toString();
@@ -33,6 +38,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   return (
     <>
       <PageHeader title={t("title")} subtitle={t("subtitle")} actions={<Link href="/reports/variance" className="text-sm text-blue-600 hover:underline">{t("variance")}</Link>} />
+
+      <WorkflowNextStep step={hubStep} />
 
       <form method="get" className="flex flex-wrap items-end gap-3 mb-6">
         <div><label className={label} htmlFor="group_by">{t("groupBy")}</label><select id="group_by" name="group_by" defaultValue={groupBy} className={input}>{GROUPS.map((g) => <option key={g} value={g}>{t(`group.${g}`)}</option>)}</select></div>
@@ -72,7 +79,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-2 items-start mb-6">
-        <Card title={t("skus")} right={<span className="text-xs text-slate-400">{t("since")}</span>}>
+        <Card title={t("skus")} right={<span className="text-xs text-slate-400 max-w-xs text-right">{t("skuAverageHint")}</span>}>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50"><tr><th className={th}>{t("th.sku")}</th><th className={thRight}>{t("th.quantity")}</th><th className={thRight}>{t("th.fob")}</th><th className={thRight}>{t("th.landed")}</th><th className={thRight}>{t("th.unit")}</th></tr></thead>
@@ -90,6 +97,19 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             <div><div className="text-xs text-slate-500 uppercase tracking-wider">{t("th.paid")}</div><div className="font-semibold tabular-nums text-red-700"><Money amount={d?.paid ?? "0.00"} currency={cur} /></div></div>
             <div><div className="text-xs text-slate-500 uppercase tracking-wider">{t("th.avoided")}</div><div className="font-semibold tabular-nums text-emerald-700"><Money amount={d?.avoided ?? "0.00"} currency={cur} /></div></div>
           </div>
+          {(d?.at_risk?.length ?? 0) > 0 ? (
+            <div className="px-5 py-3 border-b border-amber-200 bg-amber-50/60 text-sm">
+              <div className="text-xs font-semibold uppercase tracking-wider text-amber-900 mb-2">{t("atRiskTitle")}</div>
+              <ul className="space-y-2">
+                {d!.at_risk!.map((row) => (
+                  <li key={row.container_id} className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <Link href={`/container/${row.container_id}#suivi`} className="font-mono text-blue-700 hover:underline">{row.container_number}</Link>
+                    <span className="text-xs text-amber-800">{row.rule}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50"><tr><th className={th}>{t("th.container")}</th><th className={thRight}>{t("th.paid")}</th><th className={thRight}>{t("th.avoided")}</th><th className={th}>{t("th.rule")}</th></tr></thead>

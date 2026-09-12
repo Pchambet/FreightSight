@@ -251,6 +251,7 @@ def test_demurrage_paid_is_a_fact_and_avoided_needs_a_rate(
     assert body["not_estimable"] == 1
     assert body["lines"][0]["avoided"] is None
     assert body["lines"][0]["rule"] == "no risk alert and no pickup recorded: nothing to estimate"
+    assert isinstance(body["at_risk"], list)
 
 
 def test_an_avoided_amount_always_cites_the_rule_that_produced_it(
@@ -356,6 +357,12 @@ def test_the_other_three_exports_carry_what_they_promise(client: TestClient, org
     header, rows = parse_csv(client.get("/api/v1/exports/costs.csv").content, "fr")
     assert header[:4] == ["cost_date", "status", "cost_type", "scope"]
     assert rows[0][1] == "ACTUAL" and rows[0][2] == "OCEAN_FREIGHT"
+    target_col = header.index("target")
+    for row in rows:
+        target = row[target_col]
+        assert target
+        assert not (len(target) == 36 and target.count("-") == 4)  # human label, not a bare UUID
+    assert any(r[target_col] == "MSCU4821990" for r in rows)
 
     header, rows = parse_csv(client.get("/api/v1/exports/purchase-orders.csv").content, "fr")
     assert header[:3] == ["po_number", "supplier", "order_date"]

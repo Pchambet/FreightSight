@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -24,9 +24,11 @@ from app.domain.costing.engine import EXCLUDED_FROM_LANDED
 from app.domain.costing.service import Computation
 from app.domain.models import (
     Container,
+    ContainerMilestone,
     Cost,
     CostStatus,
     CostType,
+    DndRisk,
     Organization,
     SkuCostHistory,
 )
@@ -283,6 +285,15 @@ class DndLine:
 
 
 @dataclass
+class DndAtRiskLine:
+    container_id: UUID
+    container_number: str
+    dnd_risk: DndRisk
+    last_free_day: date | None
+    rule: str
+
+
+@dataclass
 class DndReport:
     base_currency: str
     period_from: date | None
@@ -292,6 +303,7 @@ class DndReport:
     estimable: int
     not_estimable: int
     lines: list[DndLine]
+    at_risk: list[DndAtRiskLine]
 
 
 def dnd_report(
@@ -381,6 +393,42 @@ def dnd_report(
             )
         )
 
+    at_risk: list[DndAtRiskLine] = []
+    terminal_left = {
+        ContainerMilestone.GATE_OUT_FULL,
+        ContainerMilestone.DELIVERED,
+        ContainerMilestone.GATE_IN_EMPTY_RETURN,
+    }
+    risky = {DndRisk.MEDIUM, DndRisk.HIGH, DndRisk.INCURRING}
+    today = datetime.now(UTC).date()
+    for container in containers.values():
+        if container.archived_at is not None:
+            continue
+        if container.dnd_risk not in risky:
+            continue
+        if container.milestone in terminal_left or container.gate_out_at is not None:
+            continue
+        if not _in_period(container, period_from, period_to):
+            continue
+        lfd = container.last_free_day
+        if lfd is not None:
+            days_left = (lfd - today).days
+            if days_left < 0:
+                rule = f"last free day was {lfd.isoformat()}; demurrage may be running"
+            else:
+                rule = f"last free day {lfd.isoformat()}, {days_left} day(s) left"
+        else:
+            rule = f"risk {container.dnd_risk.value}; no last free day recorded"
+        at_risk.append(
+            DndAtRiskLine(
+                container_id=container.id,
+                container_number=container.container_number,
+                dnd_risk=container.dnd_risk,
+                last_free_day=lfd,
+                rule=rule,
+            )
+        )
+
     return DndReport(
         base_currency=org.base_currency,
         period_from=period_from,
@@ -390,6 +438,7 @@ def dnd_report(
         estimable=estimable,
         not_estimable=not_estimable,
         lines=sorted(lines, key=lambda line: line.container_number),
+        at_risk=sorted(at_risk, key=lambda line: line.last_free_day or date.max),
     )
 
 

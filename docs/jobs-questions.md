@@ -59,7 +59,8 @@ ou interroger un abonnement muet.
 
 ## 7. Ce qui n'est pas fait
 
-- `process_import` et `extract_invoice` ne sont pas encore des jobs (l'import reste synchrone, il est
-  rapide ; l'extraction n'existe pas).
+- `process_import` n'est pas encore un job (l'import reste synchrone, il est rapide).
+- `extract_invoice` est un job Procrastinate ; en local il tourne via le service `worker` de
+  `docker compose` (ou `python -m app.worker` hors Docker).
 - Pas de `purge_soft_deleted` hebdomadaire.
 - Pas d'écran d'administration de la file : `procrastinate_jobs` se lit en SQL.

@@ -444,6 +444,7 @@ def test_pushing_creates_a_draft_carrying_our_own_split(
     assert body["odoo_model"] == "stock.landed.cost"
     assert body["odoo_id"] == 2
     assert body["status"] == "draft"  # never validated by us
+    assert body["record_url"] == "https://erp.example.test/web?db=fstest#id=2&model=stock.landed.cost"
 
     (values,) = odoo.created
     assert values["target_model"] == "picking"

@@ -10,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("title") };
 }
 
-const ACTIONS = ["cost.created", "cost.updated", "cost.deleted", "invoice.confirmed", "invoice.rejected", "container.loads_replaced", "container.tracking_event_added", "organization.updated"];
+const ACTIONS = ["cost.created", "cost.updated", "cost.deleted", "invoice.confirmed", "invoice.rejected", "invoice.reopened", "container.loads_replaced", "container.tracking_event_added", "organization.updated"];
 
 export default async function AuditPage({ searchParams }: { searchParams: Promise<{ entity_type?: string; entity_id?: string; action?: string; cursor?: string }> }) {
   const [sp, t, actionLabel] = await Promise.all([searchParams, getTranslations("audit"), getTranslations("domain.auditAction")]);

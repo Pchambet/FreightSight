@@ -2272,7 +2272,7 @@
           "erp"
         ],
         "summary": "Create Connection",
-        "description": "Store the connection — after proving it works.\n\nThe test happens before anything is written: a saved connection that has never authenticated is\na promise the next sync will break, and the error the ERP gives is far more useful now, while\nthe person who typed the credentials is still looking at them.",
+        "description": "Store the connection \u2014 after proving it works.\n\nThe test happens before anything is written: a saved connection that has never authenticated is\na promise the next sync will break, and the error the ERP gives is far more useful now, while\nthe person who typed the credentials is still looking at them.",
         "operationId": "create_connection_api_v1_erp_connection_post",
         "parameters": [
           {
@@ -2375,7 +2375,7 @@
           "erp"
         ],
         "summary": "Sync Now",
-        "description": "Read the ERP now, in this request.\n\nDeliberately synchronous: someone has just connected their Odoo and is watching this button.\nThe daily refresh is the job; this is the reassurance. `full=true` re-reads the whole history\ninstead of what has changed — the button for \"this looks wrong, start again\".",
+        "description": "Read the ERP now, in this request.\n\nDeliberately synchronous: someone has just connected their Odoo and is watching this button.\nThe daily refresh is the job; this is the reassurance. `full=true` re-reads the whole history\ninstead of what has changed \u2014 the button for \"this looks wrong, start again\".",
         "operationId": "sync_now_api_v1_erp_sync_post",
         "parameters": [
           {
@@ -3534,7 +3534,7 @@
           "costs"
         ],
         "summary": "Close Cost",
-        "description": "Close an estimate no invoice will ever match — \"the forwarder never billed the inspection\".\n\nThe estimate stops being allocated but is not deleted: what was expected and never charged is\npart of the story of the shipment, and deleting it would quietly change past landed costs.",
+        "description": "Close an estimate no invoice will ever match \u2014 \"the forwarder never billed the inspection\".\n\nThe estimate stops being allocated but is not deleted: what was expected and never charged is\npart of the story of the shipment, and deleting it would quietly change past landed costs.",
         "operationId": "close_cost_api_v1_costs__cost_id__close_post",
         "parameters": [
           {
@@ -3846,7 +3846,7 @@
           "landed-costs"
         ],
         "summary": "Integrity",
-        "description": "Every cost is either fully allocated (Σ allocations == amount_base) or reported as unallocated.",
+        "description": "Every cost is either fully allocated (\u03a3 allocations == amount_base) or reported as unallocated.",
         "operationId": "integrity_api_v1_reports_integrity_get",
         "parameters": [
           {
@@ -4540,7 +4540,7 @@
           "invoices"
         ],
         "summary": "Confirm",
-        "description": "Create the accepted lines as costs — all of them, or none of them.\n\nOne transaction: the costs, the invoice's new status and the recomputed allocations land\ntogether. A line pointing at something that is not ours stops the whole confirmation.",
+        "description": "Create the accepted lines as costs \u2014 all of them, or none of them.\n\nOne transaction: the costs, the invoice's new status and the recomputed allocations land\ntogether. A line pointing at something that is not ours stops the whole confirmation.",
         "operationId": "confirm_api_v1_invoices__invoice_id__confirm_post",
         "parameters": [
           {
@@ -4656,13 +4656,74 @@
         }
       }
     },
+    "/api/v1/invoices/{invoice_id}/reopen": {
+      "post": {
+        "tags": [
+          "invoices"
+        ],
+        "summary": "Reopen",
+        "description": "Put a rejected invoice back in review without re-uploading the file.",
+        "operationId": "reopen_api_v1_invoices__invoice_id__reopen_post",
+        "parameters": [
+          {
+            "name": "invoice_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Invoice Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/invoices/{invoice_id}/retry": {
       "post": {
         "tags": [
           "invoices"
         ],
         "summary": "Retry",
-        "description": "Read the document again — after a fix on our side, or once a model key exists.",
+        "description": "Read the document again \u2014 after a fix on our side, or once a model key exists.",
         "operationId": "retry_api_v1_invoices__invoice_id__retry_post",
         "parameters": [
           {
@@ -5557,7 +5618,7 @@
           "webhooks"
         ],
         "summary": "Tracking Webhook",
-        "description": "Accept one tracking delivery.\n\nAnswers 401 when the signature does not check out or the delivery is too old, and 200 for\neverything else — including a replay and a delivery we cannot route — because a provider retries\non anything else and there is nothing to gain from being retried.",
+        "description": "Accept one tracking delivery.\n\nAnswers 401 when the signature does not check out or the delivery is too old, and 200 for\neverything else \u2014 including a replay and a delivery we cannot route \u2014 because a provider retries\non anything else and there is nothing to gain from being retried.",
         "operationId": "tracking_webhook_api_v1_webhooks_tracking__provider__post",
         "parameters": [
           {
@@ -5627,6 +5688,17 @@
             ],
             "title": "Container Id"
           },
+          "container_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Number"
+          },
           "kind": {
             "$ref": "#/components/schemas/AlertKind"
           },
@@ -5676,7 +5748,8 @@
           "created_at",
           "read_at"
         ],
-        "title": "AlertResponse"
+        "title": "AlertResponse",
+        "description": "`title` and `body` are English sentences kept for API clients and logs. A screen builds its\nown sentence from `kind`, `payload` and `container_number` in the reader's language."
       },
       "AlertSeverity": {
         "type": "string",
@@ -6843,7 +6916,7 @@
           "ACTUAL"
         ],
         "title": "CostStatus",
-        "description": "A cost is either what someone expects to pay or what was actually invoiced.\n\nThe whole point of the distinction: a landed cost can be right on the day the container lands,\nfrom estimates, and become exact as invoices arrive — with the gap between the two visible."
+        "description": "A cost is either what someone expects to pay or what was actually invoiced.\n\nThe whole point of the distinction: a landed cost can be right on the day the container lands,\nfrom estimates, and become exact as invoices arrive \u2014 with the gap between the two visible."
       },
       "CostType": {
         "type": "string",
@@ -7033,6 +7106,47 @@
         "type": "object",
         "title": "CostUpdate"
       },
+      "DndAtRiskLine": {
+        "properties": {
+          "container_id": {
+            "format": "uuid",
+            "title": "Container Id",
+            "type": "string"
+          },
+          "container_number": {
+            "title": "Container Number",
+            "type": "string"
+          },
+          "dnd_risk": {
+            "$ref": "#/components/schemas/DndRisk"
+          },
+          "last_free_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Free Day"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "container_id",
+          "container_number",
+          "dnd_risk",
+          "last_free_day",
+          "rule"
+        ],
+        "title": "DndAtRiskLine",
+        "type": "object"
+      },
       "DndAnalysis": {
         "properties": {
           "base_currency": {
@@ -7085,6 +7199,13 @@
             },
             "type": "array",
             "title": "Lines"
+          },
+          "at_risk": {
+            "items": {
+              "$ref": "#/components/schemas/DndAtRiskLine"
+            },
+            "type": "array",
+            "title": "At Risk"
           }
         },
         "type": "object",
@@ -7096,7 +7217,8 @@
           "avoided",
           "estimable",
           "not_estimable",
-          "lines"
+          "lines",
+          "at_risk"
         ],
         "title": "DndAnalysis"
       },
@@ -7539,6 +7661,17 @@
               }
             ],
             "title": "Odoo Name"
+          },
+          "record_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Url"
           },
           "status": {
             "type": "string",
@@ -8049,6 +8182,13 @@
             "type": "array",
             "title": "Cost Ids"
           },
+          "containers": {
+            "items": {
+              "$ref": "#/components/schemas/InvoiceContainerLink"
+            },
+            "type": "array",
+            "title": "Containers"
+          },
           "superseded_estimate_ids": {
             "items": {
               "type": "string",
@@ -8072,6 +8212,25 @@
           "cost_ids"
         ],
         "title": "InvoiceConfirmResponse"
+      },
+      "InvoiceContainerLink": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "container_number": {
+            "type": "string",
+            "title": "Container Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "container_number"
+        ],
+        "title": "InvoiceContainerLink"
       },
       "InvoiceLineResponse": {
         "properties": {
@@ -8938,7 +9097,7 @@
           "UNKNOWN"
         ],
         "title": "MilestoneCode",
-        "description": "Tracking timeline vocabulary: every milestone a provider can report.\n\nA superset of `ContainerMilestone` (the coarser state carried on the container itself); the extra\ncodes — empty pickup at origin, transshipment and rail legs, `UNKNOWN` — stay in the timeline."
+        "description": "Tracking timeline vocabulary: every milestone a provider can report.\n\nA superset of `ContainerMilestone` (the coarser state carried on the container itself); the extra\ncodes \u2014 empty pickup at origin, transshipment and rail legs, `UNKNOWN` \u2014 stay in the timeline."
       },
       "OrganizationResponse": {
         "properties": {

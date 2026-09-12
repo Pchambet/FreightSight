@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { AlertTriangle, CheckCircle2, History, Loader2, RefreshCw, Send, Undo2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, History, Loader2, RefreshCw, Send, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { btnPrimary, btnSecondary, Card } from "@/components/layout/AppShell";
 import { Money } from "@/components/shared/Money";
@@ -14,6 +14,15 @@ const KNOWN_BLOCKERS = new Set(["no_erp_connection", "no_actual_costs", "no_rece
 
 type Loaded = { preview: ErpLandedCostPreview; pushes: ErpPushResponse[] };
 type State = { loading: boolean; data: Loaded | null; error: string | null };
+
+function OdooLink({ href, children, className }: { href: string; children: ReactNode; className?: string }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={className ?? "inline-flex items-center gap-1 text-blue-700 hover:text-blue-900 underline underline-offset-2"}>
+      {children}
+      <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden />
+    </a>
+  );
+}
 
 async function loadAll(containerId: string): Promise<{ ok: true; data: Loaded } | { ok: false; error: string }> {
   const [p, l] = await Promise.all([previewErpLandedCost(containerId), listErpPushes(containerId)]);
@@ -59,7 +68,13 @@ export default function LandedCostPush({ containerId, currency }: { containerId:
     start(async () => {
       const r = await pushErpLandedCost(containerId);
       if (!r.ok) return void toast.error(r.error);
-      toast.success(t("pushed", { name: r.data.odoo_name ?? String(r.data.odoo_id) }), { duration: 8000 });
+      const pushedName = r.data.odoo_name ?? String(r.data.odoo_id);
+      toast.success(t("pushed", { name: pushedName }), {
+        duration: 8000,
+        action: r.data.record_url
+          ? { label: t("openInOdoo"), onClick: () => window.open(r.data.record_url!, "_blank", "noopener,noreferrer") }
+          : undefined,
+      });
       load();
       router.refresh();
     });
@@ -87,6 +102,7 @@ export default function LandedCostPush({ containerId, currency }: { containerId:
   };
   const nothingNew = blockers.some((b) => b.code === "already_pushed");
   const going = preview ? preview.costs.filter((c) => !c.pushed_as) : [];
+  const latestLivePush = pushes.find((p) => !p.forgotten_at && p.record_url);
 
   return (
     <Card title={t("title")}>
@@ -103,7 +119,17 @@ export default function LandedCostPush({ containerId, currency }: { containerId:
           {nothingNew && preview.already_pushed_as ? (
             <div className="flex items-start text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
               <CheckCircle2 className="w-4 h-4 mr-2 mt-0.5 shrink-0" />
-              <span>{t("alreadyPushed", { name: preview.already_pushed_as })}<span className="block text-xs text-emerald-700 mt-0.5">{t("draftReminder")}</span></span>
+              <span>
+                {t("alreadyPushed", { name: preview.already_pushed_as })}
+                {latestLivePush?.record_url ? (
+                  <span className="block mt-1">
+                    <OdooLink href={latestLivePush.record_url} className="inline-flex items-center gap-1 text-emerald-900 hover:text-emerald-950 underline underline-offset-2 font-medium">
+                      {t("openInOdoo")}
+                    </OdooLink>
+                  </span>
+                ) : null}
+                <span className="block text-xs text-emerald-700 mt-0.5">{t("draftReminder")}</span>
+              </span>
             </div>
           ) : null}
 
@@ -167,7 +193,13 @@ export default function LandedCostPush({ containerId, currency }: { containerId:
                 {pushes.map((p) => (
                   <li key={p.id} className={`text-sm ${p.forgotten_at ? "text-slate-400" : "text-slate-700"}`}>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <span className={`font-medium ${p.forgotten_at ? "line-through" : ""}`}>{p.odoo_name ?? `#${p.odoo_id}`}</span>
+                      {p.record_url && !p.forgotten_at ? (
+                        <OdooLink href={p.record_url} className={`font-medium ${p.forgotten_at ? "line-through" : ""}`}>
+                          {p.odoo_name ?? `#${p.odoo_id}`}
+                        </OdooLink>
+                      ) : (
+                        <span className={`font-medium ${p.forgotten_at ? "line-through" : ""}`}>{p.odoo_name ?? `#${p.odoo_id}`}</span>
+                      )}
                       <span className="text-xs">{tp("costCount", { count: p.cost_ids.length })} · {tp("created", { date: dateTimeShort(p.created_at, locale) })}{p.adopted ? ` · ${tp("adopted")}` : ""}</span>
                       {p.forgotten_at ? (
                         <span className="text-xs">{tp("forgotten", { date: dateTimeShort(p.forgotten_at, locale) })}{p.forgotten_reason ? ` · ${tp("forgottenReason", { reason: p.forgotten_reason })}` : ""}</span>

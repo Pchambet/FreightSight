@@ -17,6 +17,7 @@ from collections.abc import Iterator
 from datetime import date
 from decimal import Decimal
 from typing import Any, Literal
+from uuid import UUID
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
@@ -28,8 +29,10 @@ from app.domain.models import (
     Container,
     ContainerLoad,
     Cost,
+    CostScope,
     PurchaseOrder,
     PurchaseOrderLine,
+    Shipment,
 )
 from app.domain.reporting.service import arrival_date
 
@@ -182,15 +185,34 @@ def costs_csv(
         "replaces_estimate",
     ]
 
+    containers = {c.id: c.container_number for c in t.db.scalars(t.q(Container))}
+    shipments = {s.id: s.reference for s in t.db.scalars(t.q(Shipment))}
+    purchase_orders = {p.id: p.po_number for p in t.db.scalars(t.q(PurchaseOrder))}
+    po_lines: dict[UUID, str] = {}
+    for line in t.db.scalars(
+        t.q(PurchaseOrderLine).options(selectinload(PurchaseOrderLine.purchase_order))
+    ):
+        po_lines[line.id] = f"{line.purchase_order.po_number}#{line.line_no}"
+
+    def target_label(cost: Cost) -> str:
+        if cost.scope == CostScope.CONTAINER and cost.container_id:
+            return containers.get(cost.container_id, str(cost.container_id))
+        if cost.scope == CostScope.SHIPMENT and cost.shipment_id:
+            return shipments.get(cost.shipment_id, str(cost.shipment_id))
+        if cost.scope == CostScope.PO and cost.po_id:
+            return purchase_orders.get(cost.po_id, str(cost.po_id))
+        if cost.scope == CostScope.PO_LINE and cost.po_line_id:
+            return po_lines.get(cost.po_line_id, str(cost.po_line_id))
+        return ""
+
     def rows() -> Iterator[list[Any]]:
         for cost in t.db.scalars(stmt):
-            target = cost.shipment_id or cost.container_id or cost.po_id or cost.po_line_id
             yield [
                 cost.cost_date.isoformat(),
                 cost.status.value,
                 cost.cost_type.value,
                 cost.scope.value,
-                str(target) if target else "",
+                target_label(cost),
                 cost.vendor or "",
                 cost.invoice_number or "",
                 number(cost.amount, mark),

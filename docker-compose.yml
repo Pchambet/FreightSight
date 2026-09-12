@@ -47,5 +47,28 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # Background jobs (invoice extraction, tracking polls, alerts, ERP sync). Same image and .env as the API.
+  # No HTTP server — disable the image HEALTHCHECK (it probes /healthz on the API port).
+  worker:
+    build: ./backend
+    command: python -m app.worker
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_ENV: dev
+      DATABASE_URL: postgresql+psycopg://fs:fs@db/fs
+      WORKER_CONCURRENCY: "2"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
 volumes:
   pgdata: {}

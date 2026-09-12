@@ -11,9 +11,13 @@
     "loading": "Chargement…",
     "total": "Total",
     "apiError": "L'API a renvoyé une erreur.",
-    "apiUnreachable": "L'API est injoignable. Le backend tourne-t-il ?"
+    "apiUnreachable": "L'API est injoignable. Le backend tourne-t-il ?",
+    "skipToContent": "Aller au contenu principal"
   },
   "nav": {
+    "main": "Navigation principale",
+    "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu",
     "containers": "Conteneurs",
     "purchaseOrders": "Commandes",
     "imports": "Imports",
@@ -52,6 +56,7 @@
       "failed": "Impossible de charger le jeu d'exemple"
     },
     "new": {
+      "label": "Numéro de conteneur",
       "title": "ISO 6346 : 4 lettres puis 7 chiffres",
       "submit": "Ajouter un conteneur",
       "added": "Conteneur ajouté",
@@ -107,6 +112,20 @@
     "cards": {
       "loads": "Chargements",
       "addCost": "Ajouter un coût"
+    },
+    "sections": {
+      "tracking": "Suivi & dates",
+      "trackingHint": "ETA, dernier jour franc, risque surestaries",
+      "loads": "Chargements",
+      "loadsHint": "Quelles lignes de commande sont dans ce conteneur",
+      "addCost": "Ajouter un coût manuellement",
+      "addCostHint": "Si la facture n'est pas encore arrivée ou l'extraction a échoué",
+      "allocation": "Ventilation détaillée",
+      "allocationHint": "Simuler une autre méthode de répartition par type de coût",
+      "ledger": "Journal des coûts",
+      "ledgerHint": "Tous les coûts saisis, avec statut estimé ou réel",
+      "audit": "Historique des modifications",
+      "erp": "Écriture dans l'ERP"
     },
     "notFound": {
       "title": "Conteneur introuvable",
@@ -202,6 +221,13 @@
       "deleteFailed": "Impossible de supprimer le coût"
     }
   },
+  "unitCostHighlight": {
+    "title": "Coût unitaire par référence",
+    "subtitle": "Ce que vous vendez vraiment",
+    "fobUnit": "FOB unitaire",
+    "landedUnit": "Coût rendu unitaire",
+    "quantity": "{qty} chargées"
+  },
   "allocation": {
     "title": "Coût rendu par ligne de commande",
     "preview": "simulation, non enregistrée",
@@ -246,6 +272,11 @@
     "ordered": "commandé le {date}",
     "linesCard": "Lignes",
     "addCostCard": "Ajouter un coût sur cette commande",
+    "sections": {
+      "addCostHint": "Coût appliqué à toute la commande, ventilé sur ses lignes chargées",
+      "ledger": "Journal des coûts",
+      "ledgerHint": "Tous les coûts saisis sur cette commande"
+    },
     "th": {
       "lineNo": "N°",
       "sku": "Référence",
@@ -281,6 +312,8 @@
       "result": "Résultat"
     },
     "empty": "Aucun import pour l'instant.",
+    "emptyLink": "Lancer un import",
+    "emptySuffix": "pour charger vos commandes.",
     "kind": {
       "PURCHASE_ORDERS": "Lignes de commande",
       "LEGACY_PO_CONTAINER": "Commande + conteneur (ancien format)"
@@ -371,6 +404,14 @@
     "demurrageDays": "Jours francs de surestaries",
     "detentionDays": "Jours francs de détention",
     "freeTimeHelp": "Jours calendaires à compter du déchargement. À redéfinir conteneur par conteneur quand la compagnie ou le terminal diffère.",
+    "sections": {
+      "organization": "Société & ventilation",
+      "organizationHint": "Devise de référence, méthode par défaut, jours francs surestaries",
+      "rateCards": "Barèmes d'estimation",
+      "rateCardsHint": "Estimer le fret et les frais avant l'arrivée des factures",
+      "erp": "Connexion ERP",
+      "erpHint": "Synchroniser les commandes Odoo et pousser les coûts de réception"
+    },
     "save": "Enregistrer",
     "saved": "Paramètres enregistrés",
     "failed": "Impossible d'enregistrer les paramètres"
@@ -495,6 +536,7 @@
       "cost_deleted": "Coût supprimé",
       "invoice_confirmed": "Facture confirmée",
       "invoice_rejected": "Facture rejetée",
+      "invoice_reopened": "Facture remise en relecture",
       "container_loads_replaced": "Chargements modifiés",
       "organization_updated": "Réglages modifiés",
       "container_tracking_event_added": "Événement de suivi ajouté",
@@ -551,7 +593,20 @@
     "ERP_PUSH_ALREADY_FORGOTTEN": "Ce push est déjà oublié.",
     "ERP_NO_CONNECTION": "Aucun ERP connecté : impossible de vérifier ce qui existe là-bas.",
     "ERP_URL_HAS_CREDENTIALS": "L'adresse ne doit pas contenir d'identifiant : mettez l'utilisateur dans « Identifiant » et le mot de passe dans « Clé API ».",
-    "ERP_URL_SCHEME": "L'adresse doit commencer par http:// ou https://."
+    "ERP_URL_SCHEME": "L'adresse doit commencer par http:// ou https://.",
+    "page": {
+      "title": "Une erreur est survenue",
+      "body": "Quelque chose s'est mal passé. Réessayez ou retournez à l'accueil.",
+      "apiTitle": "Données indisponibles",
+      "apiBody": "Impossible de charger les données. Vérifiez que le backend tourne, puis réessayez.",
+      "retry": "Réessayer",
+      "back": "Retour aux conteneurs"
+    },
+    "notFound": {
+      "title": "Page introuvable",
+      "body": "Cette page n'existe pas ou vous n'y avez pas accès.",
+      "back": "Retour aux conteneurs"
+    }
   },
   "timeline": {
     "title": "Chronologie",
@@ -591,7 +646,31 @@
     "openContainer": "Ouvrir le conteneur",
     "bell": "Alertes, {count} non lues",
     "unreadOnly": "Non lues seulement",
-    "showAll": "Tout afficher"
+    "showAll": "Tout afficher",
+    "text": {
+      "DND_RISK": {
+        "title": "{container} : risque de surestaries {risk}",
+        "body": "Dernier jour franc le {lfd}.",
+        "bodyRunning": "Le dernier jour franc était le {lfd}. Les surestaries courent.",
+        "bodyLeft": "Dernier jour franc le {lfd}, {days, plural, one {# jour restant} other {# jours restants}}.",
+        "bodyNoLfd": "Dernier jour franc inconnu."
+      },
+      "ETA_CHANGED": {
+        "title": "{container} : arrivée décalée de {hours} h {direction}",
+        "later": "plus tard",
+        "earlier": "plus tôt",
+        "body": "Nouvelle ETA {eta}, au lieu de {previous}.",
+        "bodyNoPrevious": "Nouvelle ETA {eta}."
+      },
+      "TRACKING_DATA_MISSING": {
+        "title": "Aucune donnée de suivi pour {container}",
+        "body": "{provider} n'a rien envoyé depuis au moins {hours} h. Vérifiez le conteneur sur le site du transporteur."
+      },
+      "TRACKING_PROVIDER_DOWN": {
+        "title": "{provider} ne répond pas",
+        "body": "Impossible de joindre {provider} pour plusieurs conteneurs d'affilée : les mises à jour de suivi sont en pause jusqu'à ce qu'il réponde. Les conteneurs eux-mêmes n'ont rien : rien à faire ici, le prochain passage reprendra où celui-ci s'est arrêté."
+      }
+    }
   },
   "invoices": {
     "title": "Factures",
@@ -600,6 +679,7 @@
     "upload": {
       "title": "Déposer une facture",
       "hint": "PDF, PNG ou JPEG, 20 Mo maximum. La facture est lue, puis chaque ligne est proposée : rien n'entre dans les coûts sans votre validation.",
+      "fileLabel": "Fichier facture",
       "choose": "Choisir un fichier",
       "submit": "Déposer et lire",
       "uploading": "Dépôt…",
@@ -616,7 +696,8 @@
       "confidence": "Confiance",
       "file": "Fichier"
     },
-    "empty": "Aucune facture. Déposez une facture transitaire pour la lire.",
+    "empty": "Aucune facture pour l'instant.",
+    "emptyAction": "Déposer une facture",
     "filter": {
       "all": "Toutes",
       "review": "À relire",
@@ -639,14 +720,31 @@
       "retried": "Lecture relancée",
       "failed": "Action impossible",
       "confirmedBanner": "Facture confirmée : {count} coûts créés le {date}. Pour revenir en arrière, supprimez les coûts dans le conteneur ou la commande.",
-      "rejectedBanner": "Facture rejetée.",
+      "continueTitle": "Étape suivante",
+      "continueHint": "Les coûts sont ventilés. Ouvrez le conteneur pour voir le coût unitaire par référence.",
+      "continueToContainer": "Voir le conteneur {container}",
+      "rejectedBanner": "Facture rejetée — aucun coût n'a été créé.",
+      "rejectedHint": "Rouvrez-la pour relecture ci-dessous (inutile de redéposer le PDF).",
+      "reopenAction": "Rouvrir pour relecture",
+      "reopened": "Facture rouverte — vous pouvez accepter les lignes et confirmer.",
       "notes": "Contrôles",
       "extractor": "Lue par {extractor}, confiance {confidence}",
       "vendor": "Émetteur",
       "number": "N° de facture",
       "date": "Date de facture",
       "total": "Total",
-      "vat": "TVA"
+      "vat": "TVA",
+      "lowConfidenceTitle": "Confiance de lecture faible —",
+      "lowConfidenceBody": "vérifiez chaque ligne avant de confirmer (confiance {confidence})."
+    },
+    "lineNotes": {
+      "singleContainer": "Facturé sur {container}, seul conteneur mentionné sur la facture.",
+      "duplicateCost": "Doublon probable : un {type} est déjà saisi ({vendor}, {invoice}, {amount} {currency}). Refusez cette ligne sauf si vous remplacez l'ancien coût.",
+      "unknownContainer": "{container} n'est pas un conteneur de votre organisation — choisissez la cible à la main.",
+      "noFxRate": "Pas de taux {currency} pour le {date} : saisissez le taux avant de confirmer.",
+      "arithmeticMore": "Les lignes lues dépassent le total de {amount} — une ligne manque peut-être ou est mal lue.",
+      "arithmeticLess": "Les lignes lues sont inférieures au total de {amount} — une ligne manque peut-être ou est mal lue.",
+      "multiContainer": "Cette facture mentionne plusieurs conteneurs — vérifiez que chaque ligne est sur le bon."
     },
     "line": {
       "accepted": "Accepter",
@@ -685,7 +783,22 @@
       "container": "Conteneur",
       "invoice": "Facture",
       "organization": "Société"
-    }
+    },
+    "fields": {
+      "status": "Statut",
+      "invoice_number": "N° facture",
+      "vendor": "Fournisseur",
+      "total_amount": "Montant",
+      "cost_ids": "Coûts créés"
+    },
+    "invoiceStatus": {
+      "NEEDS_REVIEW": "À relire",
+      "CONFIRMED": "Confirmée",
+      "REJECTED": "Rejetée",
+      "PROCESSING": "En traitement",
+      "FAILED": "Échec extraction"
+    },
+    "costCount": "{count, plural, one {# coût créé} other {# coûts créés}}"
   },
   "estimates": {
     "title": "Estimé → réel",
@@ -694,7 +807,8 @@
     "variance": "Écart",
     "varianceHint": "réel − estimé, sur les postes qui ont les deux",
     "completeness": "Postes facturés",
-    "completenessDetail": "{actual} sur {expected} types de coûts ont une facture",
+    "completenessDetail": "{actual} sur {expected} types de coûts facturés",
+    "completenessHint": "Compte les types de coûts (fret, THC…), pas les lignes de facture.",
     "noExpected": "aucun poste attendu",
     "apply": "Estimer avec les barèmes",
     "applied": "{created} estimés créés",
@@ -741,6 +855,9 @@
     "byType": "Par type de coût",
     "byPo": "Par commande",
     "empty": "Aucun coût réel apparié à un estimé sur ce mois.",
+    "emptyHint": "Les écarts apparaissent quand un estimé (barème) est remplacé par une facture réelle. Utilisez « Estimer avec les barèmes » sur un conteneur, puis confirmez une facture.",
+    "backContainers": "Voir les conteneurs",
+    "depositInvoice": "Déposer une facture",
     "th": {
       "label": "Libellé",
       "estimated": "Estimé",
@@ -795,6 +912,7 @@
       "push": "Créer le brouillon dans Odoo",
       "notPushable": "Voir ce qui bloque ci-dessus.",
       "pushed": "Brouillon {name} créé dans Odoo. Rien n'est validé : à vous de le faire dans Odoo.",
+      "openInOdoo": "Ouvrir dans Odoo",
       "pushFailed": "Création dans l'ERP impossible",
       "previewFailed": "Aperçu impossible : l'ERP n'a pas répondu",
       "alreadyPushed": "Tout est déjà dans Odoo : {name}.",
@@ -877,7 +995,9 @@
     "skus": "Coût unitaire par référence",
     "dnd": "Surestaries et détention",
     "dndHint": "« Payé » = coûts réels de surestaries et détention. « Évité » = jours entre la première alerte et l'enlèvement, au tarif journalier du barème DEMURRAGE de vos réglages. Sans barème, pas de chiffre.",
-    "dndEmpty": "Aucun conteneur concerné sur la période.",
+    "dndEmpty": "Aucune surestarie payée ou évitée sur la période.",
+    "atRiskTitle": "À risque maintenant (encore au terminal)",
+    "skuAverageHint": "Moyenne pondérée sur tous les conteneurs — le coût unitaire peut varier selon le conteneur.",
     "notEstimable": "non estimable",
     "exports": "Exports CSV",
     "exportsHint": "Séparateur et décimales adaptés à Excel français (point-virgule, virgule), UTF-8 avec BOM. Dates en ISO.",
@@ -889,5 +1009,137 @@
     },
     "variance": "Voir les écarts estimé → réel du mois",
     "since": "Historique enregistré depuis le 9 septembre 2026, à chaque recalcul."
+  },
+  "workflow": {
+    "nextStep": "Prochaine étape",
+    "container": {
+      "noLoads": "Aucune ligne de commande n'est chargée dans ce conteneur. Sans chargement, aucun coût ne peut être ventilé.",
+      "loadAction": "Charger des lignes",
+      "viewPos": "Voir les commandes",
+      "invoicesWaiting": "{count, plural, one {# facture attend votre relecture} other {# factures attendent votre relecture}}",
+      "reviewInvoices": "Relire les factures",
+      "seeUnitCosts": "Voir les coûts unitaires",
+      "noCosts": "Aucun coût réel n'est encore saisi. Déposez la facture transitaire ou ajoutez un coût manuellement.",
+      "depositInvoice": "Déposer une facture",
+      "addCostManual": "Ajouter un coût",
+      "unallocated": "Une partie des coûts n'est pas encore ventilée sur les lignes de commande.",
+      "fixAllocation": "Voir la ventilation",
+      "dndRisk": "Le conteneur {container} est exposé aux surestaries — vérifiez les dates de sortie.",
+      "checkTracking": "Vérifier le suivi",
+      "viewReports": "Voir les rapports",
+      "unitCostsReady": "Les coûts sont ventilés. Comparez le prix FOB au coût rendu par référence.",
+      "detailBreakdown": "Détail de la ventilation",
+      "default": "Explorez la ventilation et les coûts unitaires du conteneur {container}."
+    },
+    "hub": {
+      "invoicesWaiting": "{count, plural, one {# facture à relire avant de continuer} other {# factures à relire avant de continuer}}",
+      "reviewInvoices": "Relire les factures",
+      "lfd": "Le conteneur {container} approche de son dernier jour franc.",
+      "dndRisk": "Le conteneur {container} est exposé aux surestaries — vérifiez les dates de sortie.",
+      "checkTracking": "Vérifier le suivi · {container}",
+      "todo": "Le conteneur {container} nécessite votre attention.",
+      "openContainer": "Ouvrir {container}",
+      "depositInvoice": "Déposer une facture",
+      "explore": "Les coûts sont ventilés — montrez le coût unitaire réel à votre prospect.",
+      "seeUnitCosts": "Coûts unitaires · {container}"
+    },
+    "invoices": {
+      "reviewWaiting": "{count, plural, one {# facture à relire} other {# factures à relire}}",
+      "openNext": "Ouvrir la prochaine facture",
+      "backContainers": "Retour aux conteneurs",
+      "deposit": "Déposez la facture transitaire : l'extraction propose les lignes, rien n'est créé sans votre validation.",
+      "depositAction": "Déposer une facture"
+    },
+    "invoiceDetail": {
+      "review": "Relisez chaque ligne proposée, corrigez si besoin, puis confirmez pour créer les coûts.",
+      "reviewAction": "Relire les lignes",
+      "backList": "Retour à la liste",
+      "confirmed": "Facture confirmée — les coûts sont ventilés. Ouvrez le conteneur pour voir le coût unitaire par référence.",
+      "seeUnitCosts": "Coûts unitaires · {container}",
+      "openContainer": "Fiche {container}",
+      "extracting": "La facture est en cours de lecture. La page se rafraîchit automatiquement.",
+      "waitLines": "Voir les lignes",
+      "failed": "La lecture a échoué. Relancez l'extraction ou saisissez les coûts à la main sur le conteneur.",
+      "retryAction": "Voir les options"
+    },
+    "reports": {
+      "explore": "Le coût unitaire de {sku} est calculé — ouvrez le conteneur pour le montrer en détail.",
+      "openContainer": "Coûts unitaires · {container}",
+      "viewVariance": "Écarts estimé → réel",
+      "default": "Consultez les rapports agrégés ou les écarts mensuels.",
+      "backContainers": "Retour aux conteneurs"
+    },
+    "variance": {
+      "empty": "Aucun écart ce mois : normal si vous n'avez pas encore remplacé des estimés par des factures réelles.",
+      "backContainers": "Voir les coûts unitaires",
+      "depositInvoice": "Déposer une facture",
+      "hasData": "Les écarts sont calculés — revenez aux rapports pour la vue agrégée.",
+      "backReports": "Retour aux rapports"
+    },
+    "imports": {
+      "start": "Commencez par importer vos commandes depuis un CSV ou Excel, ou chargez le jeu d'exemple.",
+      "startAction": "Lancer un import",
+      "sampleData": "Voir les conteneurs",
+      "resume": "Un import est en cours — reprenez le mapping ou la validation.",
+      "resumeAction": "Reprendre l'import",
+      "newImport": "Nouvel import",
+      "done": "Vos commandes sont importées. Vérifiez qu'elles sont bien chargées dans les conteneurs.",
+      "viewPos": "Voir les commandes",
+      "goContainers": "Aller aux conteneurs"
+    },
+    "importNew": {
+      "upload": "Choisissez un fichier CSV ou Excel : les colonnes seront détectées automatiquement.",
+      "uploadAction": "Choisir un fichier",
+      "resume": "Reprenez l'import en cours : vérifiez le mapping des colonnes.",
+      "continue": "Continuer l'import",
+      "backList": "Retour aux imports"
+    },
+    "pos": {
+      "empty": "Aucune commande pour l'instant. Importez un fichier ou chargez le jeu d'exemple.",
+      "import": "Importer des commandes",
+      "notLoaded": "La commande {po} n'est pas encore chargée dans un conteneur.",
+      "openPo": "Ouvrir {po}",
+      "goContainers": "Aller aux conteneurs",
+      "ready": "Vos commandes sont prêtes — déposez les factures transitaire pour ventiler les coûts."
+    },
+    "poDetail": {
+      "notLoaded": "Les lignes de cette commande ne sont pas encore dans un conteneur.",
+      "loadInContainer": "Charger dans un conteneur",
+      "backList": "Retour aux commandes",
+      "noCosts": "Aucun coût réel sur cette commande. Déposez la facture transitaire.",
+      "openContainer": "Fiche {container}",
+      "unitCosts": "Les coûts sont ventilés — voyez le coût unitaire par référence sur le conteneur.",
+      "seeUnitCosts": "Coûts unitaires · {container}",
+      "ready": "Ventilation à jour sur cette commande."
+    },
+    "settings": {
+      "noRateCards": "Ajoutez des barèmes pour estimer fret et frais avant les factures réelles.",
+      "addRateCards": "Configurer les barèmes",
+      "backContainers": "Retour aux conteneurs",
+      "ready": "La société est configurée. Connectez Odoo si vous synchronisez vos commandes.",
+      "connectErp": "Connecter l'ERP"
+    }
+  },
+  "glossary": {
+    "fob": "Valeur marchandise à l'embarquement, hors fret et frais locaux.",
+    "allocated": "Frais logistiques ventilés sur les lignes de commande.",
+    "vat": "TVA à l'import calculée sur la base douanière.",
+    "landed": "Coût rendu entrepôt : FOB + tous les frais ventilés.",
+    "unallocated": "Frais saisis mais pas encore répartis sur les lignes.",
+    "atRisk": "Conteneurs proches ou après le dernier jour franc — risque de surestaries.",
+    "noCost": "Conteneurs avec chargements mais sans facture ni coût saisi.",
+    "lastFreeDay": "Dernière date de sortie gratuite du terminal avant facturation des surestaries."
+  },
+  "onboarding": {
+    "title": "Premiers pas",
+    "subtitle": "{done} sur {total} étapes — suivez le fil pour votre premier coût rendu.",
+    "continue": "Étape suivante",
+    "steps": {
+      "import": "Avoir des commandes (import ou jeu d'exemple)",
+      "loads": "Charger des lignes dans un conteneur",
+      "costs": "Saisir des coûts (facture ou manuel)",
+      "invoice": "Confirmer une facture transitaire",
+      "unitCosts": "Voir le coût unitaire par référence"
+    }
   }
 }

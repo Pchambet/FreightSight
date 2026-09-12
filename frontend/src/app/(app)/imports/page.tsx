@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Card, PageHeader, btnPrimary, td, tdRight, th, thRight } from "@/components/layout/AppShell";
+import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
+import { importsHubStep } from "@/features/workflow/steps";
 import { api } from "@/lib/api/client";
 import { dateShort } from "@/lib/format";
 
@@ -25,16 +27,18 @@ export default async function ImportsPage() {
     getLocale(),
   ]);
   const jobs = data ?? [];
+  const hubStep = importsHubStep(jobs);
   return (
     <>
       <PageHeader title={t("title")} subtitle={t("subtitle")} actions={<Link href="/imports/new" className={btnPrimary}>{t("new")}</Link>} />
+      <WorkflowNextStep step={hubStep} />
       <Card>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50"><tr><th className={th}>{t("th.date")}</th><th className={th}>{t("th.file")}</th><th className={th}>{t("th.kind")}</th><th className={th}>{t("th.status")}</th><th className={thRight}>{t("th.rows")}</th><th className={thRight}>{t("th.errors")}</th><th className={th}>{t("th.result")}</th></tr></thead>
             <tbody className="divide-y divide-slate-200">
               {jobs.length === 0 ? (
-                <tr><td colSpan={7} className="px-5 py-14 text-center text-sm text-slate-500">{t("empty")}</td></tr>
+                <tr><td colSpan={7} className="px-5 py-14 text-center text-sm text-slate-500">{t("empty")} <Link href="/imports/new" className="text-blue-600 hover:underline font-medium">{t("emptyLink")}</Link> {t("emptySuffix")}</td></tr>
               ) : (
                 jobs.map((j) => {
                   const r = j.report as Record<string, number | undefined>;

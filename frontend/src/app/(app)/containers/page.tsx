@@ -5,8 +5,13 @@ import { AlertTriangle, ArrowRight } from "lucide-react";
 import { Card, PageHeader, td, tdRight, th, thRight } from "@/components/layout/AppShell";
 import { MilestoneBadge, RiskBadge } from "@/components/shared/Badges";
 import { Money } from "@/components/shared/Money";
+import CollapsibleSection from "@/components/shared/CollapsibleSection";
+import MetricLabel from "@/components/shared/MetricLabel";
 import LoadSampleDataButton from "@/features/containers/LoadSampleDataButton";
 import NewContainerForm from "@/features/containers/NewContainerForm";
+import OnboardingChecklist from "@/features/onboarding/OnboardingChecklist";
+import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
+import { containersHubStep } from "@/features/workflow/steps";
 import { api, type ContainerSummary } from "@/lib/api/client";
 import { dateShort, daysUntil } from "@/lib/format";
 
@@ -15,13 +20,19 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("title") };
 }
 
-async function load(): Promise<{ containers: ContainerSummary[]; currency: string; error: "api" | "unreachable" | null }> {
+async function load(): Promise<{ containers: ContainerSummary[]; currency: string; invoicesToReview: number; confirmedInvoiceCount: number; purchaseOrderCount: number; error: "api" | "unreachable" | null }> {
   try {
-    const [c, o] = await Promise.all([api.GET("/api/v1/containers"), api.GET("/api/v1/organization")]);
-    if (c.error || !c.data) return { containers: [], currency: "EUR", error: "api" };
-    return { containers: c.data, currency: o.data?.base_currency ?? "EUR", error: null };
+    const [c, o, inv, confirmed, pos] = await Promise.all([
+      api.GET("/api/v1/containers"),
+      api.GET("/api/v1/organization"),
+      api.GET("/api/v1/invoices", { params: { query: { invoice_status: "NEEDS_REVIEW" } } }),
+      api.GET("/api/v1/invoices", { params: { query: { invoice_status: "CONFIRMED" } } }),
+      api.GET("/api/v1/purchase-orders"),
+    ]);
+    if (c.error || !c.data) return { containers: [], currency: "EUR", invoicesToReview: 0, confirmedInvoiceCount: 0, purchaseOrderCount: 0, error: "api" };
+    return { containers: c.data, currency: o.data?.base_currency ?? "EUR", invoicesToReview: inv.data?.length ?? 0, confirmedInvoiceCount: confirmed.data?.length ?? 0, purchaseOrderCount: pos.data?.length ?? 0, error: null };
   } catch {
-    return { containers: [], currency: "EUR", error: "unreachable" };
+    return { containers: [], currency: "EUR", invoicesToReview: 0, confirmedInvoiceCount: 0, purchaseOrderCount: 0, error: "unreachable" };
   }
 }
 
@@ -36,25 +47,39 @@ function sumCents(values: string[]): string {
 
 type Todo = { container: ContainerSummary; kind: "lfd" | "lfdOver" | "noLoads" | "noCost"; date?: string | null };
 
+/** Still on the terminal: gate-out and closed milestones are past demurrage urgency. */
+function demurrageRelevant(c: ContainerSummary): boolean {
+  return !CLOSED.includes(c.milestone) && !c.gate_out_at;
+}
+
 function buildTodos(containers: ContainerSummary[]): Todo[] {
   const todos: Todo[] = [];
   for (const c of containers.filter((x) => !CLOSED.includes(x.milestone))) {
     const days = daysUntil(c.last_free_day);
-    if (days !== null && days < 0) todos.push({ container: c, kind: "lfdOver", date: c.last_free_day });
-    else if (days !== null && days <= 7) todos.push({ container: c, kind: "lfd", date: c.last_free_day });
+    if (demurrageRelevant(c)) {
+      if (days !== null && days < 0) todos.push({ container: c, kind: "lfdOver", date: c.last_free_day });
+      else if (days !== null && days <= 7) todos.push({ container: c, kind: "lfd", date: c.last_free_day });
+    }
     if (c.load_count === 0) todos.push({ container: c, kind: "noLoads" });
     else if (!c.cost_types_present?.length) todos.push({ container: c, kind: "noCost" });
   }
+  const riskOrder = (c: ContainerSummary) => (RISKY.includes(c.dnd_risk) && demurrageRelevant(c) ? 0 : 1);
   const order = { lfdOver: 0, lfd: 1, noLoads: 2, noCost: 3 };
-  return todos.sort((a, b) => order[a.kind] - order[b.kind] || (a.date ?? "").localeCompare(b.date ?? ""));
+  return todos.sort(
+    (a, b) =>
+      riskOrder(a.container) - riskOrder(b.container) ||
+      order[a.kind] - order[b.kind] ||
+      (a.date ?? "").localeCompare(b.date ?? ""),
+  );
 }
 
 export default async function ContainersPage() {
-  const [{ containers, currency, error }, t, tc, costType, locale] = await Promise.all([
+  const [{ containers, currency, invoicesToReview, confirmedInvoiceCount, purchaseOrderCount, error }, t, tc, costType, tg, locale] = await Promise.all([
     load(),
     getTranslations("containers"),
     getTranslations("common"),
     getTranslations("domain.costType"),
+    getTranslations("glossary"),
     getLocale(),
   ]);
   const active = containers.filter((c) => !CLOSED.includes(c.milestone));
@@ -62,6 +87,16 @@ export default async function ContainersPage() {
   const noCost = active.filter((c) => c.load_count > 0 && !c.cost_types_present?.length);
   const nextLfd = atRisk.map((c) => c.last_free_day).filter((d): d is string => !!d).sort()[0] ?? null;
   const todos = buildTodos(containers);
+  const demoContainer = containers.find((c) => c.container_number === "MSCU4821990") ?? containers[0];
+  const atRiskAtTerminal = active
+    .filter((c) => RISKY.includes(c.dnd_risk) && demurrageRelevant(c))
+    .sort((a, b) => (a.last_free_day ?? "").localeCompare(b.last_free_day ?? ""));
+  const hubStep = containersHubStep(
+    todos.map((x) => ({ containerId: x.container.id, containerNumber: x.container.container_number, kind: x.kind })),
+    invoicesToReview,
+    demoContainer ? { id: demoContainer.id, number: demoContainer.container_number } : undefined,
+    atRiskAtTerminal.map((c) => ({ id: c.id, number: c.container_number })),
+  );
 
   return (
     <>
@@ -72,24 +107,28 @@ export default async function ContainersPage() {
       />
       {error ? <div className="rounded-md border border-red-200 bg-red-50 text-red-700 text-sm px-4 py-3 mb-6">{error === "api" ? tc("apiError") : tc("apiUnreachable")}</div> : null}
 
+      <OnboardingChecklist containers={containers} purchaseOrderCount={purchaseOrderCount} confirmedInvoiceCount={confirmedInvoiceCount} />
+      {hubStep ? <WorkflowNextStep step={hubStep} /> : null}
+
       {containers.length > 0 ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-            <Kpi label={t("kpi.fobActive")} hint={t("kpi.activeCount", { count: active.length })}>
+            <Kpi label={t("kpi.fobActive")} tooltip={tg("fob")} hint={t("kpi.activeCount", { count: active.length })}>
               <Money amount={sumCents(active.map((c) => c.fob_base))} currency={currency} />
             </Kpi>
-            <Kpi label={t("kpi.allocated")} hint={t("kpi.ofActive", { count: active.length })}>
+            <Kpi label={t("kpi.allocated")} tooltip={tg("allocated")} hint={t("kpi.ofActive", { count: active.length })}>
               <Money amount={sumCents(active.map((c) => c.allocated_base))} currency={currency} className="text-blue-700" />
             </Kpi>
-            <Kpi label={t("kpi.atRisk")} hint={nextLfd ? t("kpi.nextLfd", { date: dateShort(nextLfd, locale) }) : t("kpi.noneAtRisk")} tone={atRisk.length ? "warn" : undefined}>
+            <Kpi label={t("kpi.atRisk")} tooltip={tg("atRisk")} hint={nextLfd ? t("kpi.nextLfd", { date: dateShort(nextLfd, locale) }) : t("kpi.noneAtRisk")} tone={atRisk.length ? "warn" : undefined}>
               {atRisk.length}
             </Kpi>
-            <Kpi label={t("kpi.noCost")} hint={t("kpi.ofActive", { count: active.length })} tone={noCost.length ? "warn" : undefined}>
+            <Kpi label={t("kpi.noCost")} tooltip={tg("noCost")} hint={t("kpi.ofActive", { count: active.length })} tone={noCost.length ? "warn" : undefined}>
               {noCost.length}
             </Kpi>
           </div>
 
-          <Card title={t("todo.title")} className="mb-6">
+          <div className="mb-6">
+          <CollapsibleSection title={t("todo.title")} defaultOpen={todos.length > 0 && todos.length <= 3}>
             {todos.length === 0 ? (
               <p className="px-5 py-4 text-sm text-slate-500">{t("todo.empty")}</p>
             ) : (
@@ -108,7 +147,8 @@ export default async function ContainersPage() {
                 ))}
               </ul>
             )}
-          </Card>
+          </CollapsibleSection>
+          </div>
         </>
       ) : null}
 
@@ -180,10 +220,10 @@ export default async function ContainersPage() {
   );
 }
 
-function Kpi({ label, hint, tone, children }: { label: string; hint?: string; tone?: "warn"; children: React.ReactNode }) {
+function Kpi({ label, tooltip, hint, tone, children }: { label: string; tooltip?: string; hint?: string; tone?: "warn"; children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-lg border border-slate-200 px-5 py-4">
-      <div className="text-xs font-medium uppercase tracking-wider text-slate-500">{label}</div>
+      <MetricLabel label={label} hint={tooltip} />
       <div className={`mt-1 text-2xl font-semibold tabular-nums ${tone === "warn" ? "text-amber-700" : ""}`}>{children}</div>
       {hint ? <div className="text-xs text-slate-400 mt-0.5">{hint}</div> : null}
     </div>

@@ -1,5 +1,8 @@
 # Check-list de démo et de recette humaine
 
+**Démo commerciale (15 min, valeur métier)** → voir [`demo-commercial.md`](demo-commercial.md).  
+Ce fichier = **recette technique Odoo** (sync, push, brouillon).
+
 Ce qui suit est **la partie que seule une personne peut vérifier** : le parcours dans le navigateur, avec
 une vraie session et un vrai Odoo. Tout le reste (bloquants, TVA exclue, idempotence, isolation entre
 organisations, rôle VIEWER refusé, erreur Odoo rendue en 502, clé API jamais réaffichée, sync
@@ -9,7 +12,7 @@ inutile de le refaire à la main avant chaque démo.
 ## Environnement
 
 ```bash
-docker compose up -d --build                      # API sur :8001
+docker compose up -d --build                      # API :8001 + worker (factures, alertes)
 # Odoo jetable : docs/odoo-questions.md §5 (modules purchase,stock_landed_costs), puis
 python3 backend/scripts/odoo_seed.py --url http://localhost:8169 --db fstest
 cd frontend && npm run dev                        # :3000
@@ -20,27 +23,35 @@ base `fstest`, identifiant `admin`, clé API `admin` (défauts de l'instance jet
 
 ## A · Parcours de démo, à connaître par cœur (≈ 15 min)
 
-| # | Geste | Attendu |
-|---|---|---|
-| A1 | Paramètres → Connexion ERP → « Tester et connecter » | Version Odoo et société affichées |
-| A2 | « Synchroniser maintenant » | Commandes importées, dont P00012 |
-| A3 | Nouveau conteneur, charger P00012 / TYR-20555R16 × 100 | FOB > 0 |
-| A4 | Ajouter un coût **réel** Fret maritime 2 766,67 € | Ventilé > 0, entrée « Coût créé » dans l'historique |
-| A5 | Carte « Écriture dans l'ERP », sans cliquer | Réception WH/IN/00007, total 2 766,67 €, bouton actif |
-| A6 | Ajouter un second coût réel (ex. camionnage 275 €) | La carte se met à jour seule : 2 coûts, 3 041,67 € |
-| A7 | « Créer le brouillon dans Odoo » | Toast avec le nom du brouillon, bannière « Déjà poussé », entrée « Écriture ERP créée (brouillon) » |
-| A8 | Odoo → Inventaire → Opérations → Ajustements → Coûts de réception | Brouillon « FreightSight MSCU… », deux lignes, **non validé** |
-| A9 | Recliquer le bouton | Grisé ; un second push par l'API renverrait le même document |
+
+| #   | Geste                                                             | Attendu                                                                                             |
+| --- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| A1  | Paramètres → Connexion ERP → « Tester et connecter »              | Version Odoo et société affichées                                                                   |
+| A2  | « Synchroniser maintenant »                                       | Commandes importées, dont P00012                                                                    |
+| A3  | Nouveau conteneur, charger P00012 / TYR-20555R16 × 100            | FOB > 0                                                                                             |
+| A4  | Ajouter un coût **réel** Fret maritime 2 766,67 €                 | Ventilé > 0, entrée « Coût créé » dans l'historique                                                 |
+| A5  | Carte « Écriture dans l'ERP », sans cliquer                       | Réception WH/IN/00007, total 2 766,67 €, bouton actif                                               |
+| A6  | Ajouter un second coût réel (ex. camionnage 275 €)                | La carte se met à jour seule : 2 coûts, 3 041,67 €                                                  |
+| A7  | « Créer le brouillon dans Odoo »                                  | Toast avec le nom du brouillon, bannière « Déjà poussé », entrée « Écriture ERP créée (brouillon) » |
+| A8  | Odoo → Inventaire → Opérations → Ajustements → Coûts de réception | Brouillon « FreightSight MSCU… », deux lignes, **non validé**                                       |
+| A9  | Recliquer le bouton                                               | Grisé ; un second push par l'API renverrait le même document                                        |
+
+
+
 
 ## B · Garde-fous à montrer si on vous les demande (≈ 10 min)
 
-| # | Provoquer | Attendu |
-|---|---|---|
-| B1 | Conteneur chargé, aucun coût | « Aucun coût facturé n'est ventilé sur ce conteneur… », bouton grisé |
-| B2 | Un coût en statut **Estimé** seulement | Même message : les estimations ne partent jamais |
-| B3 | Fret réel + TVA import réelle | L'aperçu ne montre que le fret |
-| B4 | Sélecteur de langue → English | Les mêmes phrases, complètes, en anglais |
-| B5 | Paramètres → Déconnecter | La carte disparaît de la fiche conteneur |
+
+| #   | Provoquer                              | Attendu                                                              |
+| --- | -------------------------------------- | -------------------------------------------------------------------- |
+| B1  | Conteneur chargé, aucun coût           | « Aucun coût facturé n'est ventilé sur ce conteneur… », bouton grisé |
+| B2  | Un coût en statut **Estimé** seulement | Même message : les estimations ne partent jamais                     |
+| B3  | Fret réel + TVA import réelle          | L'aperçu ne montre que le fret                                       |
+| B4  | Sélecteur de langue → English          | Les mêmes phrases, complètes, en anglais                             |
+| B5  | Paramètres → Déconnecter               | La carte disparaît de la fiche conteneur                             |
+
+
+
 
 ## Phrase à poser dès l'appel de découverte avec un prospect Odoo
 

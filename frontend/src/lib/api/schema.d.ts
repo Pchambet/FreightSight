@@ -1027,6 +1027,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/invoices/{invoice_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Put a rejected invoice back in review without re-uploading the file. */
+        post: operations["reopen_api_v1_invoices__invoice_id__reopen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invoices/{invoice_id}/retry": {
         parameters: {
             query?: never;
@@ -1266,7 +1283,11 @@ export interface components {
          * @enum {string}
          */
         AlertKind: "DND_RISK" | "ETA_CHANGED" | "TRACKING_DATA_MISSING" | "TRACKING_DELIVERY_FAILED" | "TRACKING_PROVIDER_DOWN";
-        /** AlertResponse */
+        /**
+         * AlertResponse
+         * @description `title` and `body` are English sentences kept for API clients and logs. A screen builds its
+         *     own sentence from `kind`, `payload` and `container_number` in the reader's language.
+         */
         AlertResponse: {
             /**
              * Id
@@ -1275,6 +1296,8 @@ export interface components {
             id: string;
             /** Container Id */
             container_id: string | null;
+            /** Container Number */
+            container_number?: string | null;
             kind: components["schemas"]["AlertKind"];
             severity: components["schemas"]["AlertSeverity"];
             /** Title */
@@ -1672,6 +1695,20 @@ export interface components {
             not_estimable: number;
             /** Lines */
             lines: components["schemas"]["DndReportLine"][];
+            /** At Risk */
+            at_risk: components["schemas"]["DndAtRiskLine"][];
+        };
+        /** DndAtRiskLine */
+        DndAtRiskLine: {
+            /** Container Id */
+            container_id: string;
+            /** Container Number */
+            container_number: string;
+            dnd_risk: components["schemas"]["DndRisk"];
+            /** Last Free Day */
+            last_free_day: string | null;
+            /** Rule */
+            rule: string;
         };
         /** DndReportLine */
         DndReportLine: {
@@ -1833,6 +1870,8 @@ export interface components {
             odoo_id: number;
             /** Odoo Name */
             odoo_name: string | null;
+            /** Record Url */
+            record_url?: string | null;
             /** Status */
             status: string;
             /** Cost Ids */
@@ -2039,10 +2078,22 @@ export interface components {
             costs_created: number;
             /** Cost Ids */
             cost_ids: string[];
+            /** Containers */
+            containers?: components["schemas"]["InvoiceContainerLink"][];
             /** Superseded Estimate Ids */
             superseded_estimate_ids?: string[];
             /** Notes */
             notes?: string[];
+        };
+        /** InvoiceContainerLink */
+        InvoiceContainerLink: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Container Number */
+            container_number: string;
         };
         /** InvoiceLineResponse */
         InvoiceLineResponse: {
@@ -5391,6 +5442,39 @@ export interface operations {
         };
     };
     reject_api_v1_invoices__invoice_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reopen_api_v1_invoices__invoice_id__reopen_post: {
         parameters: {
             query?: never;
             header?: {

@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
-import { Card, PageHeader, td, tdRight, th, thRight } from "@/components/layout/AppShell";
+import { Card, PageHeader, btnSecondary, td, tdRight, th, thRight } from "@/components/layout/AppShell";
+import Breadcrumb from "@/components/shared/Breadcrumb";
 import { Money } from "@/components/shared/Money";
+import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
+import { varianceHubStep } from "@/features/workflow/steps";
 import { api, type VarianceReport } from "@/lib/api/client";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -42,7 +45,7 @@ function Table({ rows, currency, title, thLabel, thEst, thAct, thVar }: { rows: 
 }
 
 export default async function VariancePage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
-  const [{ period: p }, t, tt, locale] = await Promise.all([searchParams, getTranslations("variance"), getTranslations("domain.costType"), getLocale()]);
+  const [{ period: p }, t, tr, tt, locale] = await Promise.all([searchParams, getTranslations("variance"), getTranslations("reports"), getTranslations("domain.costType"), getLocale()]);
   const now = new Date();
   const period = p && /^\d{4}-\d{2}$/.test(p) ? p : `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
   const res = await api.GET("/api/v1/reports/variance", { params: { query: { period } } });
@@ -51,9 +54,11 @@ export default async function VariancePage({ searchParams }: { searchParams: Pro
   const monthLabel = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${period}-01T00:00:00Z`));
   const byType = (r?.by_cost_type ?? []).map((row) => ({ ...row, label: tt.has(row.key as never) ? tt(row.key as never) : row.label }));
   const v = Number(r?.variance ?? "0");
+  const hubStep = varianceHubStep(r?.pairs ?? 0);
 
   return (
     <>
+      <Breadcrumb backHref="/reports" backLabel={tr("title")} current={t("title")} />
       <PageHeader
         title={t("title")}
         subtitle={t("subtitle")}
@@ -65,6 +70,7 @@ export default async function VariancePage({ searchParams }: { searchParams: Pro
           </div>
         }
       />
+      <WorkflowNextStep step={hubStep} />
       <div className="grid grid-cols-3 gap-3 mb-6">
         {[["estimated", r?.estimated, "text-violet-800"], ["actual", r?.actual, ""], ["variance", r?.variance, v > 0 ? "text-red-700" : v < 0 ? "text-emerald-700" : ""]].map(([k, val, cls]) => (
           <div key={k as string} className="bg-white rounded-lg border border-slate-200 px-4 py-3">
@@ -75,7 +81,16 @@ export default async function VariancePage({ searchParams }: { searchParams: Pro
       </div>
       <p className="text-sm text-slate-500 mb-4">{t("pairs", { count: r?.pairs ?? 0 })}</p>
       {(r?.pairs ?? 0) === 0 ? (
-        <Card><p className="px-5 py-8 text-sm text-slate-500 text-center">{t("empty")}</p></Card>
+        <Card>
+          <div className="px-5 py-8 text-center space-y-3">
+            <p className="text-sm text-slate-600">{t("empty")}</p>
+            <p className="text-xs text-slate-500 max-w-lg mx-auto">{t("emptyHint")}</p>
+            <div className="flex flex-wrap justify-center gap-2 pt-2">
+              <Link href="/containers" className={btnSecondary}>{t("backContainers")}</Link>
+              <Link href="/invoices#depot" className={btnSecondary}>{t("depositInvoice")}</Link>
+            </div>
+          </div>
+        </Card>
       ) : (
         <div className="grid gap-6 xl:grid-cols-2 items-start">
           <Table rows={byType} currency={cur} title={t("byType")} thLabel={t("th.label")} thEst={t("th.estimated")} thAct={t("th.actual")} thVar={t("th.variance")} />

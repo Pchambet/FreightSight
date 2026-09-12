@@ -11,9 +11,13 @@
     "loading": "Loading…",
     "total": "Total",
     "apiError": "The API returned an error.",
-    "apiUnreachable": "Cannot reach the API. Is the backend running?"
+    "apiUnreachable": "Cannot reach the API. Is the backend running?",
+    "skipToContent": "Skip to main content"
   },
   "nav": {
+    "main": "Main navigation",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
     "containers": "Containers",
     "purchaseOrders": "Purchase orders",
     "imports": "Imports",
@@ -52,6 +56,7 @@
       "failed": "Could not load the sample data"
     },
     "new": {
+      "label": "Container number",
       "title": "ISO 6346: 4 letters + 7 digits",
       "submit": "Add container",
       "added": "Container added",
@@ -107,6 +112,20 @@
     "cards": {
       "loads": "Loads",
       "addCost": "Add a cost"
+    },
+    "sections": {
+      "tracking": "Tracking & dates",
+      "trackingHint": "ETA, last free day, demurrage risk",
+      "loads": "Loads",
+      "loadsHint": "Which purchase-order lines are in this container",
+      "addCost": "Add a cost manually",
+      "addCostHint": "If the invoice has not arrived yet or extraction failed",
+      "allocation": "Allocation breakdown",
+      "allocationHint": "Simulate a different allocation method per cost type",
+      "ledger": "Cost ledger",
+      "ledgerHint": "All recorded costs, estimated or actual",
+      "audit": "Change history",
+      "erp": "ERP entry"
     },
     "notFound": {
       "title": "Container not found",
@@ -202,6 +221,13 @@
       "deleteFailed": "Could not delete the cost"
     }
   },
+  "unitCostHighlight": {
+    "title": "Unit cost per SKU",
+    "subtitle": "What you really sell at",
+    "fobUnit": "FOB unit",
+    "landedUnit": "Landed unit cost",
+    "quantity": "{qty} loaded"
+  },
   "allocation": {
     "title": "Landed cost per purchase-order line",
     "preview": "preview, not saved",
@@ -246,6 +272,11 @@
     "ordered": "ordered {date}",
     "linesCard": "Lines",
     "addCostCard": "Add a cost on this order",
+    "sections": {
+      "addCostHint": "Cost applied to the whole PO, allocated across loaded lines",
+      "ledger": "Cost ledger",
+      "ledgerHint": "All costs recorded on this purchase order"
+    },
     "th": {
       "lineNo": "#",
       "sku": "SKU",
@@ -281,6 +312,8 @@
       "result": "Result"
     },
     "empty": "No import yet.",
+    "emptyLink": "Start an import",
+    "emptySuffix": "to load your purchase orders.",
     "kind": {
       "PURCHASE_ORDERS": "PO lines",
       "LEGACY_PO_CONTAINER": "Legacy PO + container"
@@ -371,6 +404,14 @@
     "demurrageDays": "Demurrage free days",
     "detentionDays": "Detention free days",
     "freeTimeHelp": "Calendar days from discharge. Override per container when the carrier or terminal differs.",
+    "sections": {
+      "organization": "Organization & allocation",
+      "organizationHint": "Base currency, default method, demurrage free days",
+      "rateCards": "Estimate rate cards",
+      "rateCardsHint": "Estimate freight and fees before invoices arrive",
+      "erp": "ERP connection",
+      "erpHint": "Sync Odoo purchase orders and push landed costs"
+    },
     "save": "Save settings",
     "saved": "Settings saved",
     "failed": "Could not save the settings"
@@ -495,6 +536,7 @@
       "cost_deleted": "Cost deleted",
       "invoice_confirmed": "Invoice confirmed",
       "invoice_rejected": "Invoice rejected",
+      "invoice_reopened": "Invoice sent back for review",
       "container_loads_replaced": "Loads changed",
       "organization_updated": "Settings changed",
       "container_tracking_event_added": "Tracking event added",
@@ -551,7 +593,20 @@
     "ERP_PUSH_ALREADY_FORGOTTEN": "This push is already forgotten.",
     "ERP_NO_CONNECTION": "No ERP connected: cannot check what exists over there.",
     "ERP_URL_HAS_CREDENTIALS": "The address must not carry a login: put the user in “Login” and the password in “API key”.",
-    "ERP_URL_SCHEME": "The address must start with http:// or https://."
+    "ERP_URL_SCHEME": "The address must start with http:// or https://.",
+    "page": {
+      "title": "Something went wrong",
+      "body": "Something went wrong. Try again or return to the home screen.",
+      "apiTitle": "Data unavailable",
+      "apiBody": "Could not load data. Check that the backend is running, then try again.",
+      "retry": "Try again",
+      "back": "Back to containers"
+    },
+    "notFound": {
+      "title": "Page not found",
+      "body": "This page does not exist or you do not have access to it.",
+      "back": "Back to containers"
+    }
   },
   "timeline": {
     "title": "Timeline",
@@ -591,7 +646,31 @@
     "openContainer": "Open the container",
     "bell": "Alerts, {count} unread",
     "unreadOnly": "Unread only",
-    "showAll": "Show all"
+    "showAll": "Show all",
+    "text": {
+      "DND_RISK": {
+        "title": "{container}: demurrage risk {risk}",
+        "body": "Last free day {lfd}.",
+        "bodyRunning": "The last free day was {lfd}. Demurrage is running.",
+        "bodyLeft": "Last free day {lfd}, {days, plural, one {# day left} other {# days left}}.",
+        "bodyNoLfd": "Last free day unknown."
+      },
+      "ETA_CHANGED": {
+        "title": "{container}: arrival moved {hours} h {direction}",
+        "later": "later",
+        "earlier": "earlier",
+        "body": "New ETA {eta}, was {previous}.",
+        "bodyNoPrevious": "New ETA {eta}."
+      },
+      "TRACKING_DATA_MISSING": {
+        "title": "No tracking data for {container}",
+        "body": "{provider} has sent nothing for at least {hours} h. Check the container on the carrier's own site."
+      },
+      "TRACKING_PROVIDER_DOWN": {
+        "title": "{provider} is not answering",
+        "body": "We could not reach {provider} for several containers in a row, so tracking updates are paused until it answers again. Nothing is wrong with the containers themselves, and nothing needs doing here: the next round picks up where this one stopped."
+      }
+    }
   },
   "invoices": {
     "title": "Invoices",
@@ -600,6 +679,7 @@
     "upload": {
       "title": "Upload an invoice",
       "hint": "PDF, PNG or JPEG, 20 MB max. The invoice is read, then each line is proposed: nothing enters the costs without your confirmation.",
+      "fileLabel": "Invoice file",
       "choose": "Choose a file",
       "submit": "Upload and read",
       "uploading": "Uploading…",
@@ -616,7 +696,8 @@
       "confidence": "Confidence",
       "file": "File"
     },
-    "empty": "No invoice. Upload a forwarder invoice to read it.",
+    "empty": "No invoice yet.",
+    "emptyAction": "Upload an invoice",
     "filter": {
       "all": "All",
       "review": "To review",
@@ -639,14 +720,31 @@
       "retried": "Reading restarted",
       "failed": "Action failed",
       "confirmedBanner": "Invoice confirmed: {count} costs created on {date}. To undo, delete the costs on the container or the purchase order.",
-      "rejectedBanner": "Invoice rejected.",
+      "continueTitle": "Next step",
+      "continueHint": "Costs are allocated. Open the container to see the unit cost per SKU.",
+      "continueToContainer": "View container {container}",
+      "rejectedBanner": "Invoice rejected — no costs were created.",
+      "rejectedHint": "Reopen it for review below (no need to upload the PDF again).",
+      "reopenAction": "Reopen for review",
+      "reopened": "Invoice reopened — you can accept lines and confirm.",
       "notes": "Checks",
       "extractor": "Read by {extractor}, confidence {confidence}",
       "vendor": "Vendor",
       "number": "Invoice no.",
       "date": "Invoice date",
       "total": "Total",
-      "vat": "VAT"
+      "vat": "VAT",
+      "lowConfidenceTitle": "Low read confidence —",
+      "lowConfidenceBody": "check every line before confirming (confidence {confidence})."
+    },
+    "lineNotes": {
+      "singleContainer": "Charged to {container}, the only container named on the invoice.",
+      "duplicateCost": "Likely duplicate: {type} already invoiced ({vendor}, {invoice}, {amount} {currency}). Reject this line unless you intend to replace the existing cost.",
+      "unknownContainer": "{container} is not one of your containers — choose the target manually.",
+      "noFxRate": "No {currency} rate for {date}: enter the rate before confirming.",
+      "arithmeticMore": "Lines read exceed the total by {amount} — a line may be missing or misread.",
+      "arithmeticLess": "Lines read are short of the total by {amount} — a line may be missing or misread.",
+      "multiContainer": "This invoice mentions several containers — check each line is on the right one."
     },
     "line": {
       "accepted": "Accept",
@@ -685,7 +783,22 @@
       "container": "Container",
       "invoice": "Invoice",
       "organization": "Organization"
-    }
+    },
+    "fields": {
+      "status": "Status",
+      "invoice_number": "Invoice no.",
+      "vendor": "Vendor",
+      "total_amount": "Amount",
+      "cost_ids": "Costs created"
+    },
+    "invoiceStatus": {
+      "NEEDS_REVIEW": "Needs review",
+      "CONFIRMED": "Confirmed",
+      "REJECTED": "Rejected",
+      "PROCESSING": "Processing",
+      "FAILED": "Extraction failed"
+    },
+    "costCount": "{count, plural, one {# cost created} other {# costs created}}"
   },
   "estimates": {
     "title": "Estimated → actual",
@@ -694,7 +807,8 @@
     "variance": "Variance",
     "varianceHint": "actual − estimated, on the cost types that have both",
     "completeness": "Invoiced cost types",
-    "completenessDetail": "{actual} of {expected} expected cost types have an invoice",
+    "completenessDetail": "{actual} of {expected} cost types invoiced",
+    "completenessHint": "Counts cost types (freight, THC…), not invoice lines.",
     "noExpected": "nothing expected yet",
     "apply": "Estimate from rate cards",
     "applied": "{created} estimates created",
@@ -741,6 +855,9 @@
     "byType": "By cost type",
     "byPo": "By purchase order",
     "empty": "No actual cost paired with an estimate this month.",
+    "emptyHint": "Variance appears when an estimate (rate card) is replaced by a real invoice. Use “Estimate from rate cards” on a container, then confirm an invoice.",
+    "backContainers": "View containers",
+    "depositInvoice": "Upload an invoice",
     "th": {
       "label": "Label",
       "estimated": "Estimated",
@@ -795,6 +912,7 @@
       "push": "Create the draft in Odoo",
       "notPushable": "See what is blocking above.",
       "pushed": "Draft {name} created in Odoo. Nothing is validated: that is yours to do in Odoo.",
+      "openInOdoo": "Open in Odoo",
       "pushFailed": "Could not create in the ERP",
       "previewFailed": "Preview unavailable: the ERP did not answer",
       "alreadyPushed": "Everything is already in Odoo: {name}.",
@@ -877,7 +995,9 @@
     "skus": "Unit cost per SKU",
     "dnd": "Demurrage and detention",
     "dndHint": "\"Paid\" = actual demurrage and detention costs. \"Avoided\" = days between the first risk alert and pickup, at the daily rate of your DEMURRAGE rate card. No rate card, no figure.",
-    "dndEmpty": "No container concerned in the period.",
+    "dndEmpty": "No demurrage paid or avoided in the period.",
+    "atRiskTitle": "At risk now (still at terminal)",
+    "skuAverageHint": "Weighted average across containers — unit cost may differ per container.",
     "notEstimable": "not estimable",
     "exports": "CSV exports",
     "exportsHint": "Separator and decimals suited to French Excel (semicolon, comma), UTF-8 with BOM. Dates in ISO.",
@@ -889,5 +1009,137 @@
     },
     "variance": "See the month's estimated → actual variance",
     "since": "History recorded since 9 September 2026, at each recomputation."
+  },
+  "workflow": {
+    "nextStep": "Next step",
+    "container": {
+      "noLoads": "No purchase-order lines are loaded in this container. Without loads, no cost can be allocated.",
+      "loadAction": "Load lines",
+      "viewPos": "View purchase orders",
+      "invoicesWaiting": "{count, plural, one {# invoice needs your review} other {# invoices need your review}}",
+      "reviewInvoices": "Review invoices",
+      "seeUnitCosts": "View unit costs",
+      "noCosts": "No actual costs recorded yet. Upload the forwarder invoice or add a cost manually.",
+      "depositInvoice": "Upload an invoice",
+      "addCostManual": "Add a cost",
+      "unallocated": "Some costs are not yet allocated to purchase-order lines.",
+      "fixAllocation": "View allocation",
+      "dndRisk": "Container {container} is at demurrage risk — check gate-out dates.",
+      "checkTracking": "Check tracking",
+      "viewReports": "View reports",
+      "unitCostsReady": "Costs are allocated. Compare FOB price to landed cost per SKU.",
+      "detailBreakdown": "Allocation breakdown",
+      "default": "Explore allocation and unit costs for container {container}."
+    },
+    "hub": {
+      "invoicesWaiting": "{count, plural, one {# invoice to review before continuing} other {# invoices to review before continuing}}",
+      "reviewInvoices": "Review invoices",
+      "lfd": "Container {container} is approaching its last free day.",
+      "dndRisk": "Container {container} is exposed to demurrage — check gate-out dates.",
+      "checkTracking": "Check tracking · {container}",
+      "todo": "Container {container} needs your attention.",
+      "openContainer": "Open {container}",
+      "depositInvoice": "Upload an invoice",
+      "explore": "Costs are allocated — show the real unit cost to your prospect.",
+      "seeUnitCosts": "Unit costs · {container}"
+    },
+    "invoices": {
+      "reviewWaiting": "{count, plural, one {# invoice to review} other {# invoices to review}}",
+      "openNext": "Open next invoice",
+      "backContainers": "Back to containers",
+      "deposit": "Upload the forwarder invoice: extraction proposes lines, nothing is created without your confirmation.",
+      "depositAction": "Upload an invoice"
+    },
+    "invoiceDetail": {
+      "review": "Review each proposed line, fix if needed, then confirm to create costs.",
+      "reviewAction": "Review lines",
+      "backList": "Back to list",
+      "confirmed": "Invoice confirmed — costs are allocated. Open the container to see unit cost per SKU.",
+      "seeUnitCosts": "Unit costs · {container}",
+      "openContainer": "Container {container}",
+      "extracting": "The invoice is being read. This page refreshes automatically.",
+      "waitLines": "View lines",
+      "failed": "Reading failed. Retry extraction or enter costs manually on the container.",
+      "retryAction": "View options"
+    },
+    "reports": {
+      "explore": "Unit cost for {sku} is computed — open the container to show the detail.",
+      "openContainer": "Unit costs · {container}",
+      "viewVariance": "Estimated → actual variance",
+      "default": "Browse aggregated reports or monthly variance.",
+      "backContainers": "Back to containers"
+    },
+    "variance": {
+      "empty": "No variance this month: normal if you have not replaced estimates with actual invoices yet.",
+      "backContainers": "View unit costs",
+      "depositInvoice": "Upload an invoice",
+      "hasData": "Variance is computed — return to reports for the aggregated view.",
+      "backReports": "Back to reports"
+    },
+    "imports": {
+      "start": "Start by importing purchase orders from CSV or Excel, or load the sample data.",
+      "startAction": "Start an import",
+      "sampleData": "View containers",
+      "resume": "An import is in progress — resume mapping or validation.",
+      "resumeAction": "Resume import",
+      "newImport": "New import",
+      "done": "Purchase orders are imported. Check they are loaded into containers.",
+      "viewPos": "View purchase orders",
+      "goContainers": "Go to containers"
+    },
+    "importNew": {
+      "upload": "Choose a CSV or Excel file — columns will be detected automatically.",
+      "uploadAction": "Choose a file",
+      "resume": "Resume the import in progress: check column mapping.",
+      "continue": "Continue import",
+      "backList": "Back to imports"
+    },
+    "pos": {
+      "empty": "No purchase orders yet. Import a file or load the sample data.",
+      "import": "Import purchase orders",
+      "notLoaded": "Purchase order {po} is not loaded into a container yet.",
+      "openPo": "Open {po}",
+      "goContainers": "Go to containers",
+      "ready": "Purchase orders are ready — upload forwarder invoices to allocate costs."
+    },
+    "poDetail": {
+      "notLoaded": "This order's lines are not loaded into a container yet.",
+      "loadInContainer": "Load into a container",
+      "backList": "Back to purchase orders",
+      "noCosts": "No actual costs on this order. Upload the forwarder invoice.",
+      "openContainer": "Container {container}",
+      "unitCosts": "Costs are allocated — see unit cost per SKU on the container.",
+      "seeUnitCosts": "Unit costs · {container}",
+      "ready": "Allocation is up to date on this order."
+    },
+    "settings": {
+      "noRateCards": "Add rate cards to estimate freight and fees before actual invoices.",
+      "addRateCards": "Configure rate cards",
+      "backContainers": "Back to containers",
+      "ready": "Organization is configured. Connect Odoo if you sync purchase orders.",
+      "connectErp": "Connect ERP"
+    }
+  },
+  "glossary": {
+    "fob": "Merchandise value at shipment, excluding freight and local charges.",
+    "allocated": "Logistics costs spread across purchase-order lines.",
+    "vat": "Import VAT calculated on the customs value.",
+    "landed": "Warehouse landed cost: FOB plus all allocated charges.",
+    "unallocated": "Costs recorded but not yet spread across lines.",
+    "atRisk": "Containers near or past last free day — demurrage risk.",
+    "noCost": "Containers with loads but no invoice or cost recorded yet.",
+    "lastFreeDay": "Last free day to pick up from the terminal before demurrage charges."
+  },
+  "onboarding": {
+    "title": "Getting started",
+    "subtitle": "{done} of {total} steps — follow the path to your first landed cost.",
+    "continue": "Next step",
+    "steps": {
+      "import": "Have purchase orders (import or sample data)",
+      "loads": "Load lines into a container",
+      "costs": "Enter costs (invoice or manual)",
+      "invoice": "Confirm a forwarder invoice",
+      "unitCosts": "View unit cost per SKU"
+    }
   }
 }

@@ -60,6 +60,13 @@ def test_sample_data_seeds_the_reference_case(client: TestClient) -> None:
     integrity = client.get("/api/v1/reports/integrity").json()
     assert integrity["ok"] and integrity["costs_checked"] == 3
 
+    alerts = client.get("/api/v1/alerts").json()
+    mscu_alerts = [a for a in alerts if a.get("container_id") == cnt1["id"] and a.get("kind") == "DND_RISK"]
+    assert len(mscu_alerts) == 1
+    assert mscu_alerts[0]["severity"] == "warning"
+    tghu_alerts = [a for a in alerts if a.get("container_id") == cnt2["id"]]
+    assert tghu_alerts == []
+
 
 def test_sample_data_is_loaded_only_once(client: TestClient, db: Session) -> None:
     assert client.post("/api/v1/organization/sample-data").status_code == 201
