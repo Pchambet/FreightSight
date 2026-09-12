@@ -9,7 +9,7 @@ import { btnPrimary, btnSecondary, Card } from "@/components/layout/AppShell";
 import { Money } from "@/components/shared/Money";
 import { previewErpLandedCost, pushErpLandedCost, type ErpLandedCostPreview } from "@/features/actions";
 
-const KNOWN_BLOCKERS = new Set(["no_erp_connection", "no_actual_costs", "no_receipt", "multiple_receipts", "not_valued", "unmatched_line", "already_pushed"]);
+const KNOWN_BLOCKERS = new Set(["no_erp_connection", "no_actual_costs", "no_receipt", "multiple_receipts", "not_valued", "unmatched_line", "already_pushed", "partially_pushed"]);
 
 /**
  * The landed cost as it would land in the ERP, shown before it exists. The preview is loaded after

@@ -806,7 +806,8 @@
         "not_valued": "Odoo ne peut pas valoriser un coût de réception pour {products} : leur catégorie de produit n'est pas en valorisation automatisée avec une vraie méthode de coût (FIFO ou coût moyen). Odoo le refuserait à la validation, on le refuse donc ici.",
         "unmatched_line": "{po_number} ligne {line_no} ({sku}) ne correspond à aucune ligne de la réception {receipt}. Les coûts sont poussés ligne à ligne : chaque ligne doit correspondre.",
         "already_pushed": "Ces coûts ont déjà été poussés sous le nom {existing}.",
-        "noSku": "sans SKU"
+        "noSku": "sans SKU",
+        "partially_pushed": "{count} de ces coûts ont déjà été poussés sous le nom {existing}. Un coût de réception s'ajoute à la valorisation du stock : repousser l'ensemble compterait deux fois ce qui l'a déjà été. Ajoutez le nouveau coût à la main dans Odoo pour l'instant."
       }
     }
   },
