@@ -46,6 +46,17 @@ MESSAGES: dict[str, dict[str, str]] = {
             "de suivi sont en pause jusqu'à ce qu'il réponde. Les conteneurs eux-mêmes n'ont rien : "
             "rien à faire ici, le prochain passage reprendra où celui-ci s'est arrêté."
         ),
+        "TRACKING_DELIVERY_FAILED.title": "{container} : une mise à jour de suivi n'a pas pu être traitée",
+        "TRACKING_DELIVERY_FAILED.body.one": (
+            "{provider} a envoyé une mise à jour le {received} que nous n'avons pas réussi à traiter "
+            "après {attempts} tentative. Le suivi de ce conteneur peut être en retard. La donnée "
+            "brute est conservée : rien n'est perdu, et elle peut être rejouée."
+        ),
+        "TRACKING_DELIVERY_FAILED.body.other": (
+            "{provider} a envoyé une mise à jour le {received} que nous n'avons pas réussi à traiter "
+            "après {attempts} tentatives. Le suivi de ce conteneur peut être en retard. La donnée "
+            "brute est conservée : rien n'est perdu, et elle peut être rejouée."
+        ),
         "risk.NONE": "Aucun risque",
         "risk.LOW": "Faible",
         "risk.MEDIUM": "Moyen",
@@ -83,6 +94,17 @@ MESSAGES: dict[str, dict[str, str]] = {
             "We could not reach {provider} for several containers in a row, so tracking updates are "
             "paused until it answers again. Nothing is wrong with the containers themselves, and "
             "nothing needs doing here: the next round picks up where this one stopped."
+        ),
+        "TRACKING_DELIVERY_FAILED.title": "{container}: a tracking update could not be processed",
+        "TRACKING_DELIVERY_FAILED.body.one": (
+            "{provider} sent an update on {received} that we could not process after {attempts} "
+            "attempt. This container's tracking may be behind. The raw delivery is kept: nothing is "
+            "lost, and it can be replayed."
+        ),
+        "TRACKING_DELIVERY_FAILED.body.other": (
+            "{provider} sent an update on {received} that we could not process after {attempts} "
+            "attempts. This container's tracking may be behind. The raw delivery is kept: nothing is "
+            "lost, and it can be replayed."
         ),
         "risk.NONE": "No risk",
         "risk.LOW": "Low",
@@ -181,6 +203,24 @@ def alert_text(
         return (
             t(locale, "TRACKING_DATA_MISSING.title", container=container),
             t(locale, "TRACKING_DATA_MISSING.body", provider=provider, hours=round(hours)),
+        )
+
+    if alert.kind is AlertKind.TRACKING_DELIVERY_FAILED:
+        provider = _str(payload, "provider")
+        attempts = _number(payload, "attempts")
+        received = _datetime(_str(payload, "received_at"))
+        if not provider or attempts is None or received is None or not container:
+            return fallback
+        tries = round(attempts)
+        return (
+            t(locale, "TRACKING_DELIVERY_FAILED.title", container=container),
+            t(
+                locale,
+                _plural(locale, "TRACKING_DELIVERY_FAILED.body", tries),
+                provider=provider,
+                received=_format_datetime(received, locale),
+                attempts=tries,
+            ),
         )
 
     if alert.kind is AlertKind.TRACKING_PROVIDER_DOWN:

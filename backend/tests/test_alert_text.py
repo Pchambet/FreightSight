@@ -118,6 +118,31 @@ def test_a_quiet_container_names_its_provider_and_the_hours() -> None:
     )
 
 
+def test_a_delivery_we_gave_up_on_says_when_it_arrived_and_how_often_we_tried() -> None:
+    a = alert(
+        AlertKind.TRACKING_DELIVERY_FAILED,
+        {"provider": "shipsgo", "attempts": 5, "received_at": "2026-09-12T08:05:00+00:00"},
+    )
+    title, body = alert_text(a, "fr", container_number="MSCU4821990", now=NOW)
+    assert title == "MSCU4821990 : une mise à jour de suivi n'a pas pu être traitée"
+    assert body.startswith("shipsgo a envoyé une mise à jour le 12/09/2026 08:05")
+    assert "après 5 tentatives" in body
+    assert "rien n'est perdu" in body
+
+    title, body = alert_text(a, "en", container_number="MSCU4821990", now=NOW)
+    assert title == "MSCU4821990: a tracking update could not be processed"
+    assert "on 12/09/2026, 08:05" in body and "after 5 attempts" in body
+
+
+def test_a_single_attempt_is_not_written_as_a_plural() -> None:
+    a = alert(
+        AlertKind.TRACKING_DELIVERY_FAILED,
+        {"provider": "shipsgo", "attempts": 1, "received_at": "2026-09-12T08:05:00+00:00"},
+    )
+    assert "après 1 tentative." in alert_text(a, "fr", container_number="C", now=NOW)[1]
+    assert "after 1 attempt." in alert_text(a, "en", container_number="C", now=NOW)[1]
+
+
 # ---------------------------------------------------------------------------- when it must not try
 
 
@@ -129,7 +154,7 @@ def test_a_quiet_container_names_its_provider_and_the_hours() -> None:
         (AlertKind.ETA_CHANGED, {"delta_hours": "18", "eta": "not a date"}),
         (AlertKind.TRACKING_DATA_MISSING, {"provider": "shipsgo"}),  # no hours
         (AlertKind.TRACKING_PROVIDER_DOWN, {}),  # no provider
-        (AlertKind.TRACKING_DELIVERY_FAILED, {"provider": "shipsgo"}),  # a kind with no template
+        (AlertKind.TRACKING_DELIVERY_FAILED, {"provider": "shipsgo"}),  # no attempts, no date
     ],
 )
 def test_a_payload_missing_what_the_sentence_needs_falls_back_to_the_stored_words(

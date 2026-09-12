@@ -40,6 +40,11 @@ class Received:
     status: str  # processed | duplicate | failed | unroutable
     events_ingested: int = 0
     detail: str | None = None
+    #: Who the delivery turned out to belong to, when routing got that far. A caller that has to
+    #: say something to the customer about a failure needs it, and re-routing to find out means
+    #: parsing the body a second time.
+    org_id: UUID | None = None
+    container_id: UUID | None = None
 
 
 def _kept_headers(headers: dict[str, str]) -> dict[str, Any]:
@@ -154,6 +159,8 @@ def _run(
 ) -> Received:
     """Route the delivery to a container and apply it. Never raises: a delivery that cannot be
     processed is marked and answered, because the alternative is a provider retrying forever."""
+    org_id: UUID | None = None
+    container_id: UUID | None = None
     try:
         routed = _route(db, provider.name, envelope)
         if routed is None:
@@ -171,7 +178,7 @@ def _run(
         container = db.get(Container, container_id)
         if org is None or container is None:  # pragma: no cover - the resolver just proved they exist
             _finish(db, delivery_id, "failed", "Organization or container vanished", attempt=attempt)
-            return Received(delivery_id, "failed")
+            return Received(delivery_id, "failed", org_id=org_id, container_id=container_id)
         count = ingest(
             db,
             org_id,
@@ -189,9 +196,11 @@ def _run(
         db.rollback()
         logger.exception("tracking delivery %s failed", delivery_id)
         _finish(db, delivery_id, "failed", str(exc)[:500], attempt=attempt)
-        return Received(delivery_id, "failed", detail=str(exc)[:200])
+        return Received(
+            delivery_id, "failed", detail=str(exc)[:200], org_id=org_id, container_id=container_id
+        )
     finally:
         set_current_org(db, None)
 
     _finish(db, delivery_id, "processed", attempt=attempt)
-    return Received(delivery_id, "processed", events_ingested=count)
+    return Received(delivery_id, "processed", events_ingested=count, org_id=org_id, container_id=container_id)

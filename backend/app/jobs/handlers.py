@@ -47,7 +47,7 @@ from app.domain.models import (
     User,
     WebhookDelivery,
 )
-from app.domain.tracking.delivery import process_stored_delivery
+from app.domain.tracking.delivery import Received, process_stored_delivery
 from app.domain.tracking.ports import ProviderNotConfigured, ProviderUnavailable
 from app.domain.tracking.ports import TrackingProvider as _TrackingProvider
 from app.domain.tracking.registry import get_provider
@@ -170,17 +170,59 @@ def retry_failed_deliveries(
         # not thrown. Anything that escapes anyway is a bug, and one bad body is not a reason to
         # abandon the rest of the queue.
         try:
-            process_stored_delivery(db, provider, delivery, attempt=attempts + 1, now=moment)
+            result = process_stored_delivery(db, provider, delivery, attempt=attempts + 1, now=moment)
         except Exception:  # pragma: no cover - the callee is written not to raise
             logger.exception("replaying delivery %s failed", delivery.id)
             db.rollback()
             continue
+        if result.status == "failed" and attempts + 1 >= MAX_DELIVERY_ATTEMPTS:
+            _delivery_gave_up(db, delivery, result)
         retried += 1
     return retried
 
 
 def _backoff(attempts: int) -> timedelta:
     return timedelta(minutes=2**attempts)
+
+
+def _delivery_gave_up(db: Session, delivery: WebhookDelivery, result: Received) -> None:
+    """Say that a tracking update was accepted and never applied, once the retries are spent.
+
+    Until now this ended in silence: the body stayed in the table, the container's history quietly
+    missed an event, and the only trace was a log line nobody was reading. Said once per delivery,
+    and only to the organization it belonged to — a delivery that could not even be routed has no
+    owner to tell, and is not this alert's business.
+    """
+    if result.org_id is None or result.container_id is None:
+        return  # never routed: nobody to tell, and nothing about their freight to say
+    org = db.get(Organization, result.org_id)
+    if org is None:  # pragma: no cover - the resolver just proved it exists
+        return
+    with tenant(db, org):
+        container = db.get(Container, result.container_id)
+        number = container.container_number if container is not None else ""
+        raise_alert(
+            db,
+            org.id,
+            kind=AlertKind.TRACKING_DELIVERY_FAILED,
+            severity=AlertSeverity.WARNING,
+            title=f"{number}: a tracking update could not be processed",
+            body=(
+                f"{delivery.provider} sent an update on {delivery.received_at:%Y-%m-%d %H:%M} UTC "
+                f"that we could not process after {MAX_DELIVERY_ATTEMPTS} attempts. This container's "
+                "tracking may be behind. The raw delivery is kept: nothing is lost, and it can be "
+                "replayed."
+            ),
+            dedup_key=f"delivery-failed:{delivery.id}",
+            container_id=result.container_id,
+            payload={
+                "provider": delivery.provider,
+                "attempts": MAX_DELIVERY_ATTEMPTS,
+                "delivery_id": delivery.delivery_id,
+                "received_at": delivery.received_at.isoformat(),
+            },
+        )
+        db.commit()
 
 
 # ---------------------------------------------------------------------------- silent subscriptions

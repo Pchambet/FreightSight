@@ -33,9 +33,11 @@ Ce qui reste ouvert :
 - **La langue est par organisation, pas par personne.** Une équipe franco-anglaise reçoit un seul
   digest, dans une seule langue. Une préférence par utilisateur demanderait un digest par langue et
   une colonne sur `users` : pas fait tant que personne ne l'a demandé.
-- **`TRACKING_DELIVERY_FAILED` n'a pas de phrase**, ni sur l'écran ni dans l'e-mail : l'alerte part
-  avec son titre anglais stocké. C'est une panne interne (un webhook qu'on n'a pas su traiter), pas
-  une nouvelle sur la marchandise ; à traduire le jour où elle est montrée aux clients.
+- **`TRACKING_DELIVERY_FAILED` est traduit depuis le 12 septembre 2026** et l'alerte est réellement
+  levée : une livraison routée qui a épuisé ses 5 tentatives finissait en silence. Reste muet, et
+  c'est voulu : une livraison **non routable** n'appartient à personne (aucun abonnement ne
+  correspond, donc aucune organisation à prévenir) — elle reste dans `webhook_deliveries` pour
+  qui enquête.
 - **Les dates sont écrites en UTC** dans les e-mails comme sur l'écran (`20/09/2026 06:30`). Une ETA
   lue dans deux fuseaux est deux faits différents ; le fuseau de l'organisation viendra avec le
   réglage correspondant, s'il est demandé.

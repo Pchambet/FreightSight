@@ -253,6 +253,118 @@ def test_retries_stop_after_five_attempts(client: TestClient, db: Session, org: 
     assert handlers.retry_failed_deliveries(db, now=NOW) == 0
 
 
+def subscribed_container(
+    client: TestClient, db: Session, org: Organization, provider_ref: str, number: str = "MSCU4821990"
+) -> str:
+    """A container the fake provider is already subscribed to. The row is written directly: the
+    provider is not in the registry, and this test is about what happens to a delivery afterwards."""
+    container_id = make_container(client, number)
+    db.add(
+        TrackingSubscription(
+            org_id=org.id,
+            container_id=uuid.UUID(container_id),
+            provider="fake",
+            provider_ref=provider_ref,
+            status="active",
+            subscribed_at=NOW - timedelta(days=5),
+        )
+    )
+    db.commit()
+    return container_id
+
+
+def stuck_delivery(db: Session, body: bytes, *, attempts: int, delivery_id: str = "stuck") -> WebhookDelivery:
+    """A delivery that has already failed `attempts` times and is due for another go."""
+    delivery = WebhookDelivery(
+        provider="fake",
+        delivery_id=delivery_id,
+        headers={},
+        body=body,
+        signature_ok=True,
+        status="failed",
+        attempts=attempts,
+        received_at=NOW - timedelta(hours=2),
+        processed_at=NOW - timedelta(days=1),
+    )
+    db.add(delivery)
+    db.commit()
+    return delivery
+
+
+def test_a_tracking_update_we_never_managed_to_apply_is_said_out_loud(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """It used to end in silence: the body stayed in the table, the container's history quietly
+    missed an event, and the only trace was a log line nobody reads."""
+    container_id = subscribed_container(client, db, org, "fake-ref-1")
+    body = fakes.payload(
+        delivery_id="stuck",
+        provider_ref="fake-ref-1",
+        events=[fakes.event(MilestoneCode.DISCHARGED, NOW - timedelta(days=1))],
+    )
+
+    # A bug on our side, which is what these retries exist for: the delivery routes to the right
+    # container and then something in our own processing raises.
+    def boom(*args: object, **kwargs: object) -> int:
+        raise RuntimeError("a bug on our side")
+
+    monkeypatch.setattr("app.domain.tracking.delivery.ingest", boom)
+    provider = fakes.FakeProvider()
+    delivery = stuck_delivery(db, body, attempts=handlers.MAX_DELIVERY_ATTEMPTS - 1)
+
+    assert handlers.retry_failed_deliveries(db, now=NOW, provider_factory=lambda _: provider) == 1
+
+    (alert,) = alerts_of(db, AlertKind.TRACKING_DELIVERY_FAILED)
+    assert alert.org_id == org.id
+    assert alert.container_id == uuid.UUID(container_id)
+    assert alert.payload == {
+        "provider": "fake",
+        "attempts": handlers.MAX_DELIVERY_ATTEMPTS,
+        "delivery_id": "stuck",
+        "received_at": delivery.received_at.isoformat(),
+    }
+    # and the next round does not say it again: the delivery is spent, and the key is its own id
+    assert handlers.retry_failed_deliveries(db, now=NOW, provider_factory=lambda _: provider) == 0
+    assert len(alerts_of(db, AlertKind.TRACKING_DELIVERY_FAILED)) == 1
+
+
+def test_a_delivery_that_still_has_attempts_left_says_nothing_yet(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Four failures are a retry, not a loss. Only the last one is news."""
+    subscribed_container(client, db, org, "fake-ref-2", number="TGHU7654321")
+    body = fakes.payload(
+        delivery_id="early",
+        provider_ref="fake-ref-2",
+        events=[fakes.event(MilestoneCode.DISCHARGED, NOW - timedelta(days=1))],
+    )
+
+    def boom(*args: object, **kwargs: object) -> int:
+        raise RuntimeError("a bug on our side")
+
+    monkeypatch.setattr("app.domain.tracking.delivery.ingest", boom)
+    stuck_delivery(db, body, attempts=1, delivery_id="early")
+
+    assert handlers.retry_failed_deliveries(db, now=NOW, provider_factory=lambda _: fakes.FakeProvider()) == 1
+    assert alerts_of(db, AlertKind.TRACKING_DELIVERY_FAILED) == []
+
+
+def test_a_delivery_nobody_owns_wakes_nobody(client: TestClient, db: Session, org: Organization) -> None:
+    """No subscription matches it, so there is no organization to tell and nothing to say about
+    anyone's freight. The body stays in the table for whoever investigates."""
+    body = fakes.payload(
+        delivery_id="orphan",
+        provider_ref="nobody-has-this-ref",
+        events=[fakes.event(MilestoneCode.DISCHARGED, NOW - timedelta(days=1))],
+    )
+    stuck_delivery(db, body, attempts=handlers.MAX_DELIVERY_ATTEMPTS - 1, delivery_id="orphan")
+
+    handlers.retry_failed_deliveries(db, now=NOW, provider_factory=lambda _: fakes.FakeProvider())
+
+    assert alerts_of(db, AlertKind.TRACKING_DELIVERY_FAILED) == []
+    assert db.scalar(select(WebhookDelivery).where(WebhookDelivery.delivery_id == "orphan")) is not None
+
+
 def test_backoff_grows_exponentially() -> None:
     waits = [handlers._backoff(n).total_seconds() / 60 for n in range(5)]
     assert waits == [1, 2, 4, 8, 16]
