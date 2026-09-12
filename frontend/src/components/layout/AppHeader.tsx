@@ -78,7 +78,7 @@ export default function AppHeader({ unreadAlerts = 0, orgName }: { unreadAlerts?
           <AppNav unreadAlerts={unreadAlerts} />
         </div>
 
-        <div className="ml-auto flex items-center gap-2 sm:gap-3 text-xs text-slate-500 shrink-0">
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-2 text-xs text-slate-500 shrink-0">
           <LocaleSwitcher />
           <Link
             href="/alerts"
