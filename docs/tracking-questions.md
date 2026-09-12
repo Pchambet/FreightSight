@@ -178,10 +178,40 @@ protection, donc une clé retirée de l'environnement ou un nom de fournisseur d
 bloquait la reprise des livraisons **des autres** fournisseurs. Le corps reste en table, on y
 reviendra ; ce qu'il ne doit pas faire, c'est arrêter la file.
 
+## Le disjoncteur persistant : mesuré, puis écarté
+
+Question posée : faut-il garder l'état du disjoncteur d'un balayage à l'autre, puisqu'il est perdu
+au redémarrage du worker et entre deux tours ? Les chiffres, avant de décider.
+
+Ce que coûte une panne totale aujourd'hui, par jour :
+
+| | cadence | appels perdus par tour | par jour |
+|---|---|---|---|
+| `poll_stale_subscriptions` | `0 */4 * * *`, 6 tours | 3 | 18 |
+| `end_delivered_subscriptions` | `30 4 * * *`, 1 tour | 3 | 3 |
+
+Soit **21 appels** dans le pire des cas. Un appel coûte au plus le budget de lecture (30 s Shipsgo,
+20 s Terminal49) s'il reste pendu, et au plus le budget de connexion (5 s) si l'hôte refuse ou a
+disparu — voir `app/core/http.py`. Une journée entière de panne coûte donc entre **~2 et ~10 minutes**
+d'un worker qui, entre deux balayages espacés de quatre heures, ne fait rien d'autre.
+
+Ce qu'un disjoncteur persistant économiserait : pas 21 appels, mais 14. Il faut **de toute façon**
+sonder une fois par tour, sinon on ne découvre pas que le fournisseur est revenu — et ne pas le
+découvrir coûte au client des heures de suivi en retard, ce qui est bien pire que les minutes gagnées.
+Le gain réel est donc de deux appels par tour, contre une table, une migration, un état
+ouvert/demi-ouvert et son backoff à maintenir, plus un risque nouveau : un disjoncteur resté ouvert
+par erreur retarde la reprise de quatre heures.
+
+**Décision : pas de stockage.** Le disjoncteur reste par balayage. À rouvrir si la cadence de
+`poll_stale_subscriptions` descend sous l'heure, ou si un fournisseur facture les appels en échec —
+là, les 21 appels quotidiens deviendraient une ligne sur une facture, et le calcul changerait.
+
+Ce que la mesure a montré d'utile en revanche : **rien ne dit depuis quand un fournisseur est muet.**
+L'alerte est dédoublonnée par jour, donc une panne de trois jours produit trois messages identiques,
+et aucun ne dit « injoignable depuis 6 heures ». Le plus petit stockage qui servirait à quelque chose
+n'est pas le compteur du disjoncteur, c'est la date du premier échec de la panne en cours. À décider
+avec le front, puisque ça change la phrase.
+
 ## Ce qui reste ouvert
 
-- Le disjoncteur est **par balayage**, pas persistant. Une panne de plusieurs jours refait trois
-  appels par tour. C'est peu, et ça garde la reprise automatique ; si ça devient gênant, la forme
-  à copier est celle de l'ERP (`retry_after` en base, `odoo-questions.md` §17).
-- Rien ne mesure la *durée* d'une panne côté fournisseur : l'alerte est quotidienne, pas
-  « injoignable depuis 6 heures ».
+- La durée d'une panne fournisseur n'est ni mesurée ni dite (ci-dessus).
