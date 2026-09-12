@@ -828,6 +828,15 @@ class ErpConnectionCreate(BaseModel):
         value = v.strip().rstrip("/")
         if not value.startswith(("http://", "https://")):
             raise ValueError("url must start with http:// or https://")
+        # `https://admin:secret@erp.example.com` is a URL someone can reasonably paste. This column
+        # is stored in clear and returned by the API, unlike the key, which is sealed — so the
+        # password would end up on a screen. Refused rather than quietly stripped: dropping half of
+        # what they typed would fail to authenticate later, for a reason they could not see.
+        host = value.split("://", 1)[1].split("/", 1)[0]
+        if "@" in host:
+            raise ValueError(
+                "url must not carry a login: put the user in 'login' and the password in 'api_key'"
+            )
         return value
 
 
@@ -842,7 +851,12 @@ class ErpConnectionResponse(BaseModel):
     server_version: str | None
     company: str | None
     last_sync_at: datetime | None
+    #: Why the last read failed, in the ERP's own words. Null once a read works again.
     last_error: str | None
+    #: How many scheduled reads have failed in a row.
+    consecutive_failures: int = 0
+    #: When the schedule will try again. Pressing the button ignores it: a person is waiting.
+    retry_after: datetime | None = None
     created_at: datetime
 
 

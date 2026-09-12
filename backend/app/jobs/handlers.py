@@ -430,16 +430,20 @@ def extract_invoice(db: Session, org_id: UUID, invoice_id: UUID) -> str:
 # ---------------------------------------------------------------------------- ERP
 
 
-def sync_erp(db: Session, org_id: UUID | None = None) -> int:
-    """Read every active ERP connection, or one organization's. Returns how many syncs succeeded.
+def sync_erp(db: Session, org_id: UUID | None = None, *, now: datetime | None = None) -> int:
+    """Read every active ERP connection that is due, or one organization's. Returns syncs that worked.
 
     One failing customer's Odoo must not stop the others: each connection is its own transaction and
-    its own run row, and a failure is recorded rather than raised.
+    its own run row, and a failure is recorded rather than raised. A connection that keeps failing is
+    left alone for a while — see `erp_service.backoff_for` — so a customer whose server has been down
+    for a week is not dialled every morning to write the same row again. Asking for one organization
+    by name (`org_id`) ignores the backoff: that is a person asking, not the schedule.
     """
     from app.core.auth import Principal
     from app.domain.erp import service as erp_service
     from app.domain.models import ErpConnection, MemberRole
 
+    moment = now or datetime.now(UTC)
     succeeded = 0
     for org in organizations(db):
         if org_id is not None and org.id != org_id:
@@ -450,6 +454,16 @@ def sync_erp(db: Session, org_id: UUID | None = None) -> int:
             )
             if connection is None:
                 continue
+            if org_id is None and not erp_service.due_for_sync(connection, moment):
+                logger.info(
+                    "erp sync skipped: still backing off",
+                    extra={
+                        "org_id": str(org.id),
+                        "retry_after": connection.retry_after.isoformat() if connection.retry_after else None,
+                        "consecutive_failures": connection.consecutive_failures,
+                    },
+                )
+                continue
             # The import pipeline works for a person; here the person is the schedule. The principal
             # is synthetic and carries no user, which is exactly what the audit trail should show.
             principal = Principal(org_id=org.id, user_id=None, role=MemberRole.OWNER, via="dev")
@@ -458,26 +472,37 @@ def sync_erp(db: Session, org_id: UUID | None = None) -> int:
                 erp_service.sync(t, connection)
                 db.commit()
                 succeeded += 1
-            except Exception:
+            except Exception as exc:
+                # The reason has to be read off the exception now: the rollback below throws away
+                # the run row and the connection fields the service had already filled in.
+                reason = f"{type(exc).__name__}: {exc}" if not str(exc) else str(exc)
                 db.rollback()
                 logger.exception("ERP sync failed for org %s", org.id)
-                _record_failure(db, org, connection)
+                _record_failure(db, org, connection.id, reason, moment)
     return succeeded
 
 
-def _record_failure(db: Session, org: Organization, connection: object) -> None:
-    """Keep the failure visible after the rollback that discarded the run row."""
-    from app.domain.models import ErpSyncRun
+def _record_failure(db: Session, org: Organization, connection_id: UUID, reason: str, at: datetime) -> None:
+    """Write the failure again after the rollback that discarded it, with what actually went wrong.
+
+    "See the application logs" is not something a customer can act on, and they cannot read our logs
+    anyway. What goes on the screen is the ERP's own words — "Odoo is unreachable at …: timed out".
+    """
+    from app.domain.erp import service as erp_service
+    from app.domain.models import ErpConnection, ErpSyncRun
 
     db.add(
         ErpSyncRun(
             org_id=org.id,
-            connection_id=connection.id,  # type: ignore[attr-defined]
+            connection_id=connection_id,
             status=ErpSyncStatus.FAILED,
-            finished_at=datetime.now(UTC),
-            error="the sync failed; see the application logs for the reason",
+            finished_at=at,
+            error=reason[:1000],
         )
     )
+    fresh = db.get(ErpConnection, connection_id)
+    if fresh is not None:
+        erp_service.note_failure(fresh, reason, at=at)
     db.commit()
 
 

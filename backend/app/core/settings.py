@@ -41,6 +41,10 @@ class Settings(BaseSettings):
 
     # ERP connectors. The key that seals customers' ERP credentials at rest.
     erp_encryption_key: str | None = None
+    #: Ceiling on any single call to a customer's ERP. Without one, an ERP that drops packets holds
+    #: the daily sweep open forever — and the sweep takes a queueing lock, so every other customer
+    #: stops with it.
+    erp_timeout_seconds: float = 60.0
 
     # Observability. Without a DSN the application logs exactly the same and reports nothing.
     sentry_dsn: str | None = None

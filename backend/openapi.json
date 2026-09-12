@@ -7288,6 +7288,23 @@
             ],
             "title": "Last Error"
           },
+          "consecutive_failures": {
+            "type": "integer",
+            "title": "Consecutive Failures",
+            "default": 0
+          },
+          "retry_after": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry After"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",

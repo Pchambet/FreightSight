@@ -73,7 +73,7 @@ class WritableOdoo:
         self._next_cost_line = 2
         self._next_adjustment = 3
 
-    def proxy(self, url: str) -> Any:
+    def proxy(self, url: str, timeout: float = 0) -> Any:
         return _Common() if url.endswith("/common") else _Models(self)
 
     def create_document(self, values: dict[str, Any]) -> int:

@@ -59,7 +59,7 @@ class FakeOdoo:
         self.fail = fail
         self.calls: list[tuple[str, str]] = []
 
-    def proxy(self, url: str) -> Any:
+    def proxy(self, url: str, timeout: float = 0) -> Any:
         return _Common(self) if url.endswith("/common") else _Models(self)
 
 
@@ -396,7 +396,7 @@ class PagedOdoo(FakeOdoo):
         ]
         self.pages: list[tuple[int, int]] = []
 
-    def proxy(self, url: str) -> Any:
+    def proxy(self, url: str, timeout: float = 0) -> Any:
         return _Common(self) if url.endswith("/common") else _PagedModels(self)
 
 
@@ -435,7 +435,7 @@ def test_a_limit_is_respected_across_pages() -> None:
 class CancellingOdoo(FakeOdoo):
     """The same orders, with P00009 cancelled upstream."""
 
-    def proxy(self, url: str) -> Any:
+    def proxy(self, url: str, timeout: float = 0) -> Any:
         return _Common(self) if url.endswith("/common") else _CancellingModels(self)
 
 
@@ -501,7 +501,7 @@ class RecordingOdoo(FakeOdoo):
         super().__init__()
         self.domains: list[list[Any]] = []
 
-    def proxy(self, url: str) -> Any:
+    def proxy(self, url: str, timeout: float = 0) -> Any:
         return _Common(self) if url.endswith("/common") else _RecordingModels(self)
 
 

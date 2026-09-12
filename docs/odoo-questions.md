@@ -303,3 +303,54 @@ de celui dont ce sont les livres, dans son écran à lui.
 id) et le journal aussi (premier journal `general`). Si le client en a plusieurs, on prend le premier,
 ce qui est un choix par défaut discutable. → À rendre configurable sur la connexion ERP le jour où un
 partenaire s'en plaint.
+
+## 17. Durcissement des chemins d'erreur (12 septembre 2026)
+
+### Le vrai danger n'était pas un mauvais chiffre, c'était un worker qui ne revient jamais
+
+**`ServerProxy` n'a pas de délai d'attente**, et son transport par défaut attend indéfiniment.
+Mesuré, pas supposé : un appel vers 198.51.100.7 (TEST-NET-2, qui *jette* les paquets au lieu de les
+refuser — exactement ce que fait le pare-feu d'un client qui change) était toujours bloqué au bout de
+12 secondes, sans rien pour l'arrêter. Le balayage quotidien prend un `queueing_lock`, donc **l'Odoo
+muet d'un seul client aurait arrêté la synchronisation de tous les autres**, pas seulement la sienne.
+
+Corrigé par un transport qui pose un timeout sur la connexion (`_TimeoutTransport` et sa variante
+https, `ERP_TIMEOUT_SECONDS`, 60 s par défaut — généreux, parce qu'un vrai Odoo qui lit deux cents
+commandes n'est pas rapide ; fini, parce que l'autre option est un worker qui ne revient pas).
+Revérifié après coup : `ErpUnavailable` au bout du délai exact, avec un message lisible.
+
+### « Voir les logs applicatifs » n'est pas une information
+
+Le handler du worker faisait `db.rollback()` sur échec, ce qui jetait le run et les champs que le
+service venait de remplir, puis réécrivait une ligne disant *« the sync failed; see the application
+logs for the reason »*. Le client ne lit pas nos logs. La raison est maintenant lue sur l'exception
+**avant** le rollback et réécrite telle quelle : « Odoo is unreachable at … : timed out », ou la
+dernière ligne du traceback Odoo.
+
+### Backoff
+
+`erp_connections.consecutive_failures` + `retry_after` (migration 0016). 15 min, puis 30, puis 1 h…
+plafonné à 24 h. Le plafond compte plus que la courbe — le balayage est déjà quotidien — parce que la
+protection doit survivre au jour où quelqu'un rendra la planification plus fréquente. Une lecture qui
+réussit remet tout à zéro.
+
+**Le bouton n'est jamais retenu.** Le backoff protège la *planification* d'un aller-retour inutile ;
+quelqu'un devant l'écran vient de demander et mérite la réponse, même si c'est le même échec.
+`sync_erp(db, org_id=…)` et `POST /erp/sync` ignorent donc `retry_after`.
+
+`consecutive_failures` et `retry_after` sont dans `ErpConnectionResponse`, pour que l'écran puisse
+dire « injoignable depuis X, prochaine tentative Y ».
+
+### Deux fuites d'identifiant trouvées en chemin
+
+Le test « le message ne doit jamais contenir la clé » a échoué la première fois, et il avait raison :
+le texte d'erreur d'un ERP n'est pas à nous de croire. Un traceback rendu avec les variables locales,
+la page d'erreur d'un proxy, ou une URL contenant les identifiants, et le secret part dans une
+colonne de notre base puis sur un écran. Tous les messages d'erreur du connecteur passent maintenant
+par `_safe()` : la clé devient `***`, et `://user:pass@` devient `://user:***@`.
+
+Deuxième fuite, indépendante : `erp_connections.url` est stocké **en clair** et renvoyé par l'API,
+contrairement à la clé qui est scellée. Coller `https://admin:secret@erp.example.com` dans le
+formulaire suffisait donc à afficher le mot de passe. Refusé à la saisie plutôt que nettoyé en
+silence : retirer la moitié de ce qu'ils ont tapé échouerait à l'authentification plus tard, pour une
+raison qu'ils ne verraient pas.

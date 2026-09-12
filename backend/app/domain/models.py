@@ -831,6 +831,11 @@ class ErpConnection(Timestamped, OrgScoped, Base):
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_error: Mapped[str | None] = mapped_column(String)
+    #: How many scheduled reads have failed in a row, and when the schedule may try again. A
+    #: customer whose ERP has been down for a week should not be dialled every morning to produce
+    #: the same failure row; someone pressing the button is another matter and is never held back.
+    consecutive_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    retry_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     server_version: Mapped[str | None] = mapped_column(String)
     company: Mapped[str | None] = mapped_column(String)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))

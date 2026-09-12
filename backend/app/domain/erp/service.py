@@ -36,6 +36,48 @@ from app.domain.models import (
 
 logger = logging.getLogger(__name__)
 
+#: How long the schedule waits after a failure, doubling each time: 15 minutes, then 30, then an
+#: hour… capped at a day. The cap matters more than the curve — the daily sweep is already slow —
+#: because the protection has to survive somebody making the schedule more frequent.
+FIRST_BACKOFF = timedelta(minutes=15)
+MAX_BACKOFF = timedelta(days=1)
+
+
+def backoff_for(consecutive_failures: int) -> timedelta:
+    """The wait after `consecutive_failures` failures in a row, the first being 1."""
+    if consecutive_failures < 1:
+        return timedelta(0)
+    doubled: timedelta = FIRST_BACKOFF * (2 ** min(consecutive_failures - 1, 20))
+    return doubled if doubled < MAX_BACKOFF else MAX_BACKOFF
+
+
+def note_success(connection: ErpConnection, at: datetime) -> None:
+    """A read that worked clears the slate: the error, the counter and the wait all go."""
+    connection.last_sync_at = at
+    connection.last_error = None
+    connection.consecutive_failures = 0
+    connection.retry_after = None
+
+
+def note_failure(connection: ErpConnection, reason: str, *, at: datetime | None = None) -> None:
+    """Record why the ERP could not be read, and how long to leave it alone.
+
+    The reason is what the screen shows, so it is the ERP's own words rather than ours: "see the
+    logs" is not something a customer can act on.
+    """
+    moment = at or datetime.now(UTC)
+    connection.last_error = reason[:1000]
+    connection.consecutive_failures += 1
+    connection.retry_after = moment + backoff_for(connection.consecutive_failures)
+
+
+def due_for_sync(connection: ErpConnection, now: datetime | None = None) -> bool:
+    """Whether the *schedule* may read this ERP. A person pressing the button is never held back."""
+    if connection.retry_after is None:
+        return True
+    return (now or datetime.now(UTC)) >= connection.retry_after
+
+
 #: How far back before the last successful sync to look again. The ERP's clock is not ours, a write
 #: can land a second before the read that missed it, and re-reading five minutes of orders costs one
 #: request. Missing an order costs a landed cost that is quietly wrong.
@@ -88,6 +130,7 @@ def connector_for(connection: ErpConnection, settings: Settings | None = None) -
             connection.database,
             connection.login,
             open_key(connection.api_key_sealed, settings),
+            timeout=(settings or get_settings()).erp_timeout_seconds,
         )
     raise NotFound(f"ERP connector {connection.kind.value}")  # pragma: no cover - one kind so far
 
@@ -199,8 +242,7 @@ def sync(
                 "cancelled": cancelled,
                 "since": since.isoformat() if since else None,
             }
-            connection.last_sync_at = run.finished_at
-            connection.last_error = None
+            note_success(connection, run.finished_at)
             t.db.flush()
             return SyncResult(run=run, purchase_orders=0, lines=0)
 
@@ -219,8 +261,7 @@ def sync(
             "since": since.isoformat() if since else None,
         }
         run.finished_at = datetime.now(UTC)
-        connection.last_sync_at = run.finished_at
-        connection.last_error = None
+        note_success(connection, run.finished_at)
         t.db.flush()
         return SyncResult(run=run, purchase_orders=len(orders), lines=line_count)
     except Exception as exc:
@@ -229,7 +270,7 @@ def sync(
         run.status = ErpSyncStatus.FAILED
         run.error = str(exc)[:1000]
         run.finished_at = datetime.now(UTC)
-        connection.last_error = run.error
+        note_failure(connection, run.error, at=run.finished_at)
         logger.exception("ERP sync failed for org %s", t.org_id)
         raise
 

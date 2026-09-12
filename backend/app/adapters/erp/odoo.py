@@ -19,6 +19,7 @@ Three things a real Odoo taught me, which the fixtures now encode:
 from __future__ import annotations
 
 import logging
+import re
 import xmlrpc.client
 from collections.abc import Callable
 from datetime import date, datetime
@@ -57,14 +58,51 @@ CANCELLED_STATES = ("cancel",)
 #: about the document — unlike the name, which is the reference the accountant reads.
 MARKER_PREFIX = "FreightSight-ref:"
 
-ProxyFactory = Callable[[str], Any]
+#: How long any single call to a customer's ERP may take. Generous, because a real Odoo reading
+#: two hundred orders is not fast; finite, because the alternative is a worker that never comes back.
+DEFAULT_TIMEOUT_SECONDS = 60.0
+
+ProxyFactory = Callable[[str, float], Any]
 
 #: The precision of `po_lines.unit_price`, so a converted price is stored as it will be read.
 PRICE_PRECISION = Decimal("0.0001")
 
 
-def _default_proxy(url: str) -> Any:
-    return xmlrpc.client.ServerProxy(url, allow_none=True)
+class _TimeoutTransport(xmlrpc.client.Transport):
+    """`ServerProxy` takes no timeout, and its default transport waits forever.
+
+    Measured, not assumed: a call to an address that drops packets was still blocked after 12
+    seconds with no sign of stopping. One customer whose Odoo has gone dark would hold the daily
+    sweep open for as long as the socket stayed up — and the sweep holds a queueing lock, so every
+    *other* customer's sync would stop with it.
+    """
+
+    def __init__(self, timeout: float) -> None:
+        super().__init__()
+        self.timeout = timeout
+
+    def make_connection(self, host: Any) -> Any:
+        connection = super().make_connection(host)
+        connection.timeout = self.timeout
+        return connection
+
+
+class _TimeoutSafeTransport(xmlrpc.client.SafeTransport):
+    """The same, for https — which is what a hosted Odoo actually is."""
+
+    def __init__(self, timeout: float) -> None:
+        super().__init__()
+        self.timeout = timeout
+
+    def make_connection(self, host: Any) -> Any:
+        connection = super().make_connection(host)
+        connection.timeout = self.timeout
+        return connection
+
+
+def _default_proxy(url: str, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> Any:
+    transport = _TimeoutSafeTransport(timeout) if url.startswith("https:") else _TimeoutTransport(timeout)
+    return xmlrpc.client.ServerProxy(url, allow_none=True, transport=transport)
 
 
 def _description(marker: str, reference: str | None) -> str:
@@ -91,6 +129,11 @@ def _decimal(value: Any) -> str | None:
         return None
 
 
+#: `https://user:secret@host` — a URL a customer can perfectly well have typed into the form, and
+#: which then travels inside every connection error the socket layer produces.
+_URL_USERINFO = re.compile(r"(://[^/\s:@]+):[^/\s@]*@")
+
+
 def _fault_reason(exc: xmlrpc.client.Fault) -> str:
     """The last meaningful line of an Odoo traceback, which is the part a person can act on."""
     lines = [line.strip() for line in str(exc.faultString or "").splitlines() if line.strip()]
@@ -108,6 +151,7 @@ class OdooConnector:
         api_key: str,
         *,
         proxy_factory: ProxyFactory | None = None,
+        timeout: float = DEFAULT_TIMEOUT_SECONDS,
     ) -> None:
         self.url = url.rstrip("/")
         self.database = database
@@ -115,16 +159,17 @@ class OdooConnector:
         self.api_key = api_key
         # Resolved here rather than as a default argument, so the module-level factory can be
         # replaced (a test transport, one day a proxy) without rebuilding this class.
+        self._timeout = timeout
         self._proxy_factory = proxy_factory or _default_proxy
         self._uid: int | None = None
 
     # ------------------------------------------------------------------ plumbing
 
     def _common(self) -> Any:
-        return self._proxy_factory(f"{self.url}/xmlrpc/2/common")
+        return self._proxy_factory(f"{self.url}/xmlrpc/2/common", self._timeout)
 
     def _models(self) -> Any:
-        return self._proxy_factory(f"{self.url}/xmlrpc/2/object")
+        return self._proxy_factory(f"{self.url}/xmlrpc/2/object", self._timeout)
 
     def _authenticate(self) -> int:
         if self._uid is not None:
@@ -133,9 +178,9 @@ class OdooConnector:
             uid = self._common().authenticate(self.database, self.login, self.api_key, {})
         except xmlrpc.client.Fault as exc:
             # A database that does not exist comes back as a Fault, not as False.
-            raise ErpAuthError(f"Odoo refused the connection: {_fault_reason(exc)}") from exc
+            raise ErpAuthError(self._safe(f"Odoo refused the connection: {_fault_reason(exc)}")) from exc
         except OSError as exc:
-            raise ErpUnavailable(f"Odoo is unreachable at {self.url}: {exc}") from exc
+            raise ErpUnavailable(self._safe(f"Odoo is unreachable at {self.url}: {exc}")) from exc
         if not uid:
             raise ErpAuthError(
                 f"Odoo refused the credentials for {self.login!r} on database {self.database!r}. "
@@ -144,6 +189,16 @@ class OdooConnector:
         self._uid = int(uid)
         return self._uid
 
+    def _safe(self, text: str) -> str:
+        """Nothing we store or show may contain the key to a customer's accounting.
+
+        Error text from an ERP is not ours to trust: a traceback rendered with locals, a proxy's
+        error page, or a URL with credentials in it all carry the secret out into a database column
+        and onto a screen. Cheap to redact here, impossible to take back afterwards.
+        """
+        cleaned = text.replace(self.api_key, "***") if self.api_key else text
+        return _URL_USERINFO.sub(r"\1:***@", cleaned)
+
     def _kw(self, model: str, method: str, *args: Any, **kwargs: Any) -> Any:
         uid = self._authenticate()
         try:
@@ -151,9 +206,11 @@ class OdooConnector:
                 self.database, uid, self.api_key, model, method, list(args), kwargs
             )
         except xmlrpc.client.Fault as exc:
-            raise ErpProtocolError(f"Odoo could not answer {model}.{method}: {_fault_reason(exc)}") from exc
+            raise ErpProtocolError(
+                self._safe(f"Odoo could not answer {model}.{method}: {_fault_reason(exc)}")
+            ) from exc
         except OSError as exc:
-            raise ErpUnavailable(f"Odoo is unreachable at {self.url}: {exc}") from exc
+            raise ErpUnavailable(self._safe(f"Odoo is unreachable at {self.url}: {exc}")) from exc
 
     # ------------------------------------------------------------------ the port
 
@@ -161,7 +218,7 @@ class OdooConnector:
         try:
             version = self._common().version().get("server_version", "unknown")
         except OSError as exc:
-            raise ErpUnavailable(f"Odoo is unreachable at {self.url}: {exc}") from exc
+            raise ErpUnavailable(self._safe(f"Odoo is unreachable at {self.url}: {exc}")) from exc
         uid = self._authenticate()
         user = self._kw("res.users", "read", [uid], fields=["name", "company_id"])
         company = None
