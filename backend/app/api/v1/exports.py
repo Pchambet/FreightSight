@@ -189,9 +189,7 @@ def costs_csv(
     shipments = {s.id: s.reference for s in t.db.scalars(t.q(Shipment))}
     purchase_orders = {p.id: p.po_number for p in t.db.scalars(t.q(PurchaseOrder))}
     po_lines: dict[UUID, str] = {}
-    for line in t.db.scalars(
-        t.q(PurchaseOrderLine).options(selectinload(PurchaseOrderLine.purchase_order))
-    ):
+    for line in t.db.scalars(t.q(PurchaseOrderLine).options(selectinload(PurchaseOrderLine.purchase_order))):
         po_lines[line.id] = f"{line.purchase_order.po_number}#{line.line_no}"
 
     def target_label(cost: Cost) -> str:
