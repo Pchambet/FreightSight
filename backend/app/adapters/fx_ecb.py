@@ -11,6 +11,8 @@ from decimal import Decimal
 
 import httpx
 
+from app.core.http import timeout as http_timeout
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,7 +22,7 @@ def make_fetcher(api_url: str, timeout: float = 5.0):  # type: ignore[no-untyped
             res = httpx.get(
                 f"{api_url.rstrip('/')}/{on_date.isoformat()}",
                 params={"from": quote, "to": base},
-                timeout=timeout,
+                timeout=http_timeout(timeout),
                 follow_redirects=True,
             )
             res.raise_for_status()

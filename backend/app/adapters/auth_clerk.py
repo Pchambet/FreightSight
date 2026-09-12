@@ -25,9 +25,16 @@ class VerifiedClaims:
     role: str  # OWNER | ADMIN | MEMBER | VIEWER
 
 
+#: How long to wait for Clerk's public keys. PyJWT's own default is 30 seconds, which is a long
+#: time to hold a request that cannot be authenticated without them: this fetch is on the path of
+#: every signed-in call, and a cache miss (a key rotation, a cold worker) puts it in front of a
+#: person waiting. The document is a few kilobytes from a CDN — five seconds or something is wrong.
+JWKS_TIMEOUT_SECONDS = 5.0
+
+
 @lru_cache(maxsize=4)
 def _jwks_client(url: str) -> PyJWKClient:
-    return PyJWKClient(url, cache_keys=True)
+    return PyJWKClient(url, cache_keys=True, timeout=JWKS_TIMEOUT_SECONDS)
 
 
 class ClerkVerifier:

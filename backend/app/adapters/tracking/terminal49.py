@@ -25,6 +25,7 @@ from typing import Any
 
 import httpx
 
+from app.core.http import timeout as http_timeout
 from app.domain.models import MilestoneCode
 from app.domain.tracking.ports import (
     DataSource,
@@ -95,6 +96,10 @@ IDENTIFIER_TYPES = {
 
 def is_estimate(event_name: str) -> bool:
     return ".estimated." in event_name or event_name.endswith(".estimated.arrival")
+
+
+#: Terminal49 answers a subscription or a container read quickly, or not at all.
+TIMEOUT_SECONDS = 20.0
 
 
 class Terminal49Provider:
@@ -237,7 +242,7 @@ class Terminal49Provider:
             )
         return self._client or httpx.Client(
             base_url=self.base_url,
-            timeout=20.0,
+            timeout=http_timeout(TIMEOUT_SECONDS),
             headers={
                 "Authorization": f"Token {self.api_key}",
                 "Content-Type": "application/vnd.api+json",

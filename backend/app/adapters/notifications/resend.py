@@ -10,10 +10,15 @@ import logging
 
 import httpx
 
+from app.core.http import timeout as http_timeout
 from app.domain.alerts.notifier import Notification
 from app.domain.tracking.ports import ProviderUnavailable
 
 logger = logging.getLogger(__name__)
+
+#: One small POST. If it has not answered by now the digest waits for the next round rather than
+#: holding the sender.
+TIMEOUT_SECONDS = 15.0
 
 BASE_URL = "https://api.resend.com"
 
@@ -35,7 +40,7 @@ class ResendNotifier:
         self._client = client
 
     def _http(self) -> httpx.Client:
-        return self._client or httpx.Client(base_url=self.base_url, timeout=15.0)
+        return self._client or httpx.Client(base_url=self.base_url, timeout=http_timeout(TIMEOUT_SECONDS))
 
     def send(self, notification: Notification) -> None:
         if not notification.recipients:

@@ -23,6 +23,7 @@ from typing import Any
 
 import httpx
 
+from app.core.http import timeout as http_timeout
 from app.domain.models import MilestoneCode
 from app.domain.tracking.ports import (
     DataSource,
@@ -36,6 +37,9 @@ from app.domain.tracking.ports import (
 )
 
 logger = logging.getLogger(__name__)
+
+#: A shipment read can walk a whole voyage's movements, so the answer is allowed to be slow.
+TIMEOUT_SECONDS = 30.0
 
 NAME = "shipsgo"
 BASE_URL = "https://api.shipsgo.com/v2"
@@ -93,7 +97,7 @@ class ShipsgoConnector:
                 "SHIPSGO_API_KEY is not set: this deployment can receive Shipsgo webhooks but "
                 "cannot ask Shipsgo for anything"
             )
-        return self._client or httpx.Client(base_url=self.base_url, timeout=30.0)
+        return self._client or httpx.Client(base_url=self.base_url, timeout=http_timeout(TIMEOUT_SECONDS))
 
     def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         client = self._http()

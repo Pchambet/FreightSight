@@ -18,6 +18,7 @@ from typing import Any
 import httpx
 from pydantic import ValidationError
 
+from app.core.http import timeout as http_timeout
 from app.domain.invoices.ports import (
     ExtractionContext,
     ExtractionFailed,
@@ -50,6 +51,11 @@ SCHEMA_HINT = """{
              "confidence": float}],
   "container_numbers": [str], "bl_numbers": [str], "po_numbers": [str], "confidence": float
 }"""
+
+
+#: A model reading an invoice takes its time; reaching the API does not. Before the two were
+#: separated, an endpoint that had gone dark cost two minutes of a worker per invoice.
+TIMEOUT_SECONDS = 120.0
 
 
 class LlmExtractor:
@@ -85,7 +91,7 @@ class LlmExtractor:
             "system": SYSTEM,
             "messages": [{"role": "user", "content": self._prompt(text, context)}],
         }
-        client = self._client or httpx.Client(timeout=120.0)
+        client = self._client or httpx.Client(timeout=http_timeout(TIMEOUT_SECONDS))
         try:
             response = client.post(
                 self.api_url,

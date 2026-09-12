@@ -16,6 +16,8 @@ from urllib.parse import quote
 
 import httpx
 
+from app.core.http import timeout as http_timeout
+
 ALGORITHM = "AWS4-HMAC-SHA256"
 SERVICE = "s3"
 NAMESPACE = "{http://s3.amazonaws.com/doc/2006-03-01/}"
@@ -40,6 +42,11 @@ def _sign(key: bytes, message: str) -> bytes:
     return hmac.new(key, message.encode(), hashlib.sha256).digest()
 
 
+#: Sending a backup is a write as long as the dump is big. Reaching the bucket is not, and no
+#: longer shares the number.
+TIMEOUT_SECONDS = 300.0
+
+
 class S3Client:
     def __init__(
         self,
@@ -50,7 +57,7 @@ class S3Client:
         endpoint: str,
         *,
         client: httpx.Client | None = None,
-        timeout: float = 300.0,
+        timeout: float = TIMEOUT_SECONDS,
     ) -> None:
         self.bucket = bucket
         self.region = region
@@ -61,7 +68,7 @@ class S3Client:
         self._client = client
 
     def _http(self) -> httpx.Client:
-        return self._client or httpx.Client(base_url=self.endpoint, timeout=self.timeout)
+        return self._client or httpx.Client(base_url=self.endpoint, timeout=http_timeout(self.timeout))
 
     def _path(self, key: str) -> str:
         return f"/{self.bucket}/{quote(key, safe='/')}"
