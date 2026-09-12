@@ -27,6 +27,10 @@ lisibles (la colonne `documents.storage` dit où chacun est), mais il faudra un 
 - **Les tableaux en colonnes.** On prend le montant le plus à droite de la ligne, ce qui marche sur
   les factures testées (quantité, PU, montant) mais se trompera sur une facture qui met une remise en
   dernière colonne. → À revoir sur de vraies factures de transitaire.
+  Le libellé proposé, lui, s'arrête où commencent les colonnes de chiffres (`describe()`) : l'écran
+  montre « Fret maritime Shanghai / Le Havre », pas « Fret maritime Shanghai / Le Havre 1 2 450,00
+  2 450,00 ». La coupe se fait au dernier bloc de nombres qui n'est suivi que d'espaces, donc une
+  facture qui écrirait « 2 conteneurs 40HC » au milieu du libellé garde son texte entier.
 - **La devise par ligne.** Une facture multi-devises est lue avec la devise de l'en-tête pour toutes
   les lignes sauf celles qui portent un symbole.
 
@@ -55,10 +59,24 @@ production.**
 
 ## 5. Les contrôles arithmétiques
 
-Σ lignes + TVA doit égaler le total, à 0,02 près. Sinon la confiance est plafonnée à 0,5 et la revue
-dit de combien et dans quel sens ça cloche. Ce que ça **ne** fait **pas** : deviner la ligne
-manquante. → Faut-il refuser la confirmation quand l'écart dépasse un seuil ? Aujourd'hui non : c'est
-un avertissement, l'humain décide.
+Les charges lues doivent tomber juste, à 0,02 près. Sinon la confiance est plafonnée à 0,5 et la revue
+dit de combien et dans quel sens ça cloche.
+
+Contre quoi on compare, dans l'ordre :
+
+1. **Le HT imprimé sur la facture**, quand elle en imprime un (`FreightInvoice.subtotal`, son propre
+   « Total HT » recopié tel quel, jamais total − TVA). Σ lignes doit l'atteindre exactement. C'est le
+   meilleur repère parce qu'il tient **même quand la TVA n'a pas été lue** — et c'est précisément le
+   cas où une ligne oubliée passerait inaperçue : le total est court d'un montant que personne ne
+   regarde.
+2. **Σ lignes + TVA contre le total TTC**, quand la facture n'imprime pas de HT. Même contrôle avec
+   une inconnue de plus : une TVA mal lue et une ligne manquante peuvent se compenser.
+
+L'extracteur LLM est prié de recopier le HT s'il est imprimé et de le laisser vide sinon — s'il le
+calculait, le contrôle se comparerait à lui-même et ne dirait plus rien.
+
+Ce que ça **ne** fait **pas** : deviner la ligne manquante. → Faut-il refuser la confirmation quand
+l'écart dépasse un seuil ? Aujourd'hui non : c'est un avertissement, l'humain décide.
 
 ## 6. Divers
 
