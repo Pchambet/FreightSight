@@ -548,7 +548,8 @@
     "ESTIMATE_CLOSED": "This estimate is closed.",
     "UNKNOWN_PROVIDER": "Unknown tracking provider.",
     "ERP_PUSH_ALREADY_FORGOTTEN": "This push is already forgotten.",
-    "ERP_NO_CONNECTION": "No ERP connected: cannot check what exists over there."
+    "ERP_NO_CONNECTION": "No ERP connected: cannot check what exists over there.",
+    "ERP_URL_HAS_CREDENTIALS": "The address must not carry a login: put the user in “Login” and the password in “API key”."
   },
   "timeline": {
     "title": "Timeline",

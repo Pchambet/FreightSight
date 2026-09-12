@@ -548,7 +548,8 @@
     "ESTIMATE_CLOSED": "Cet estimé est clos.",
     "UNKNOWN_PROVIDER": "Fournisseur de suivi inconnu.",
     "ERP_PUSH_ALREADY_FORGOTTEN": "Ce push est déjà oublié.",
-    "ERP_NO_CONNECTION": "Aucun ERP connecté : impossible de vérifier ce qui existe là-bas."
+    "ERP_NO_CONNECTION": "Aucun ERP connecté : impossible de vérifier ce qui existe là-bas.",
+    "ERP_URL_HAS_CREDENTIALS": "L'adresse ne doit pas contenir d'identifiant : mettez l'utilisateur dans « Identifiant » et le mot de passe dans « Clé API »."
   },
   "timeline": {
     "title": "Chronologie",
