@@ -67,7 +67,7 @@ def test_the_last_free_day_today_is_zero_days_left_not_a_missing_sentence() -> N
 def test_demurrage_already_running_says_so_rather_than_counting_backwards() -> None:
     a = alert(AlertKind.DND_RISK, {"risk": "INCURRING", "last_free_day": "2026-09-01"})
     assert alert_text(a, "fr", container_number="C", now=NOW) == (
-        "C : risque de surestaries Surestaries en cours",
+        "C : surestaries en cours",
         "Le dernier jour franc était le 01/09/2026. Les surestaries courent.",
     )
 

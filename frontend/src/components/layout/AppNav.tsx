@@ -22,7 +22,7 @@ export default function AppNav({
       className={stacked ? "flex flex-col gap-1" : "hidden md:flex items-center gap-1 text-sm"}
       aria-label={t("main")}
     >
-      {APP_NAV.map((n) => {
+      {APP_NAV.filter((n) => stacked || !n.drawerOnly).map((n) => {
         const active = n.match(pathname);
         const badge = n.badge && unreadAlerts > 0 ? (unreadAlerts > 99 ? "99+" : unreadAlerts) : null;
         return (

@@ -655,6 +655,7 @@
     "text": {
       "DND_RISK": {
         "title": "{container} : risque de surestaries {risk}",
+        "titleRunning": "{container} : surestaries en cours",
         "body": "Dernier jour franc le {lfd}.",
         "bodyRunning": "Le dernier jour franc était le {lfd}. Les surestaries courent.",
         "bodyLeft": "Dernier jour franc le {lfd}, {days, plural, one {# jour restant} other {# jours restants}}.",

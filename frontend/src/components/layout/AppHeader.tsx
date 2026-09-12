@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import { Bell, Menu, Ship, X } from "lucide-react";
+import { Bell, Menu, Settings, Ship, X } from "lucide-react";
 import AppNav from "@/components/layout/AppNav";
 import LocaleSwitcher from "@/components/layout/LocaleSwitcher";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -91,6 +91,14 @@ export default function AppHeader({ unreadAlerts = 0, orgName }: { unreadAlerts?
                 {unreadAlerts > 99 ? "99+" : unreadAlerts}
               </span>
             ) : null}
+          </Link>
+          <Link
+            href="/settings"
+            aria-label={t("nav.settings")}
+            aria-current={pathname === "/settings" ? "page" : undefined}
+            className={`hidden md:inline-flex p-1.5 rounded-md hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${pathname === "/settings" ? "bg-slate-100 text-slate-900" : "text-slate-500"}`}
+          >
+            <Settings className="w-4 h-4" />
           </Link>
           <OrganizationSwitcher hidePersonal afterSelectOrganizationUrl="/containers" afterCreateOrganizationUrl="/containers" />
           <UserButton />

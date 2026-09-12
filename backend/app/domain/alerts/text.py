@@ -25,6 +25,7 @@ DEFAULT_LOCALE = "fr"
 MESSAGES: dict[str, dict[str, str]] = {
     "fr": {
         "DND_RISK.title": "{container} : risque de surestaries {risk}",
+        "DND_RISK.titleRunning": "{container} : surestaries en cours",
         "DND_RISK.body": "Dernier jour franc le {lfd}.",
         "DND_RISK.bodyRunning": "Le dernier jour franc était le {lfd}. Les surestaries courent.",
         "DND_RISK.bodyLeft.one": "Dernier jour franc le {lfd}, {days} jour restant.",
@@ -74,6 +75,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     "en": {
         "DND_RISK.title": "{container}: demurrage risk {risk}",
+        "DND_RISK.titleRunning": "{container}: demurrage running",
         "DND_RISK.body": "Last free day {lfd}.",
         "DND_RISK.bodyRunning": "The last free day was {lfd}. Demurrage is running.",
         "DND_RISK.bodyLeft.one": "Last free day {lfd}, {days} day left.",
@@ -159,7 +161,11 @@ def alert_text(
         risk = _str(payload, "risk")
         if not risk or not container:
             return fallback
-        title = t(locale, "DND_RISK.title", container=container, risk=_risk_label(risk, locale))
+        title = (
+            t(locale, "DND_RISK.titleRunning", container=container)
+            if risk == "INCURRING"
+            else t(locale, "DND_RISK.title", container=container, risk=_risk_label(risk, locale))
+        )
         lfd = _date(_str(payload, "last_free_day"))
         if lfd is None:
             return title, t(locale, "DND_RISK.bodyNoLfd")

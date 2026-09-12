@@ -655,6 +655,7 @@
     "text": {
       "DND_RISK": {
         "title": "{container}: demurrage risk {risk}",
+        "titleRunning": "{container}: demurrage running",
         "body": "Last free day {lfd}.",
         "bodyRunning": "The last free day was {lfd}. Demurrage is running.",
         "bodyLeft": "Last free day {lfd}, {days, plural, one {# day left} other {# days left}}.",

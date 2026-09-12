@@ -3,6 +3,8 @@ export type NavItem = {
   key: "containers" | "purchaseOrders" | "imports" | "invoices" | "reports" | "audit" | "alerts" | "settings";
   match: (pathname: string) => boolean;
   badge?: boolean;
+  /** Left out of the horizontal nav (reached from an icon in the header); still in the drawer. */
+  drawerOnly?: boolean;
 };
 
 export const APP_NAV: NavItem[] = [
@@ -13,5 +15,5 @@ export const APP_NAV: NavItem[] = [
   { href: "/reports", key: "reports", match: (p) => p === "/reports" || p.startsWith("/reports/") },
   { href: "/audit", key: "audit", match: (p) => p === "/audit" },
   { href: "/alerts", key: "alerts", match: (p) => p === "/alerts", badge: true },
-  { href: "/settings", key: "settings", match: (p) => p === "/settings" },
+  { href: "/settings", key: "settings", match: (p) => p === "/settings", drawerOnly: true },
 ];

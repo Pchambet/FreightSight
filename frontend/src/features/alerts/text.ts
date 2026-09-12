@@ -20,7 +20,7 @@ export function alertText(a: Alert, t: T, risk: (code: string) => string, locale
         const code = str("risk");
         const lfd = str("last_free_day");
         if (!code || !container) break;
-        const title = t("text.DND_RISK.title", { container, risk: risk(code) });
+        const title = code === "INCURRING" ? t("text.DND_RISK.titleRunning", { container }) : t("text.DND_RISK.title", { container, risk: risk(code) });
         if (!lfd) return { title, body: t("text.DND_RISK.bodyNoLfd") };
         if (code === "INCURRING") return { title, body: t("text.DND_RISK.bodyRunning", { lfd: dateShort(lfd, locale) }) };
         const days = Math.round((new Date(lfd).getTime() - Date.now()) / 86_400_000);
