@@ -51,7 +51,11 @@ def _load_rows(db: Session, org_id: UUID) -> list[ContainerLoad]:
         .where(ContainerLoad.org_id == org_id)
         .options(
             selectinload(ContainerLoad.container),
-            selectinload(ContainerLoad.po_line).selectinload(PurchaseOrderLine.purchase_order),
+            # The supplier comes along because the landed-cost report groups by it, and reaching it
+            # through the order one bucket at a time was a query per supplier.
+            selectinload(ContainerLoad.po_line)
+            .selectinload(PurchaseOrderLine.purchase_order)
+            .selectinload(PurchaseOrder.supplier),
         )
     )
     return list(db.scalars(stmt))

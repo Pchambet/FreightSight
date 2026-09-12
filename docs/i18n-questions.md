@@ -41,6 +41,11 @@ Ce qui reste ouvert :
 - **Les dates sont écrites en UTC** dans les e-mails comme sur l'écran (`20/09/2026 06:30`). Une ETA
   lue dans deux fuseaux est deux faits différents ; le fuseau de l'organisation viendra avec le
   réglage correspondant, s'il est demandé.
+- **« Injoignable depuis 6 heures » n'existe pas.** `TRACKING_PROVIDER_DOWN` est dédoublonnée par
+  jour, donc une panne de trois jours envoie trois messages identiques, aucun ne disant depuis quand.
+  La phrase est écrite, la donnée manque (personne n'enregistre la date du premier échec d'une panne
+  en cours — voir `tracking-questions.md`). Gelé le 12 septembre 2026 : tant qu'aucun client n'a de
+  fournisseur de suivi branché, trois messages identiques sont acceptables.
 
 Deux points hors vocabulaire :
 

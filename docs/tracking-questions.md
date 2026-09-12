@@ -214,4 +214,6 @@ avec le front, puisque ça change la phrase.
 
 ## Ce qui reste ouvert
 
-- La durée d'une panne fournisseur n'est ni mesurée ni dite (ci-dessus).
+- La durée d'une panne fournisseur n'est ni mesurée ni dite (ci-dessus). Décidé le 12 septembre
+  2026 avec la session front : on attend qu'un client ait un fournisseur branché, trois messages
+  identiques sur trois jours étant acceptables d'ici là.
