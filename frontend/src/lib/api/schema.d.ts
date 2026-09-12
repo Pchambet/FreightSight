@@ -1746,6 +1746,13 @@ export interface components {
             /** Last Error */
             last_error: string | null;
             /**
+             * Consecutive Failures
+             * @default 0
+             */
+            consecutive_failures: number;
+            /** Retry After */
+            retry_after?: string | null;
+            /**
              * Created At
              * Format: date-time
              */

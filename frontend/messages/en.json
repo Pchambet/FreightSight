@@ -832,7 +832,10 @@
       "forgotten_ok": "Push forgotten: its costs can be pushed again.",
       "forgetFailed": "Could not forget this push",
       "stillThere": "{name} is still in Odoo ({state}). Delete it there first, or keep it: we do not desynchronise what exists."
-    }
+    },
+    "unreachable": "{count, plural, one {# automatic sync failed in a row} other {# automatic syncs failed in a row}}",
+    "retryAfter": "next automatic attempt on {date}",
+    "retryNowHint": "the “Sync now” button does not wait"
   },
   "reports": {
     "title": "Reports",

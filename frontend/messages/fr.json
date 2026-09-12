@@ -832,7 +832,10 @@
       "forgotten_ok": "Push oublié : ses coûts sont de nouveau poussables.",
       "forgetFailed": "Impossible d'oublier ce push",
       "stillThere": "{name} est encore dans Odoo ({state}). Supprimez-le là-bas d'abord, ou gardez-le : on ne désynchronise pas ce qui existe."
-    }
+    },
+    "unreachable": "{count, plural, one {# synchronisation automatique en échec d'affilée} other {# synchronisations automatiques en échec d'affilée}}",
+    "retryAfter": "prochaine tentative automatique le {date}",
+    "retryNowHint": "le bouton « Synchroniser maintenant » n'attend pas"
   },
   "reports": {
     "title": "Rapports",

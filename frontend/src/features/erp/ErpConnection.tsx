@@ -54,6 +54,13 @@ export default function ErpConnection({ connection, runs }: { connection: Conn |
             <span className="text-xs text-slate-400">· {connection.url} · {connection.database} · {connection.login}</span>
           </div>
           <div className="text-xs text-slate-500">{connection.last_sync_at ? t("lastSync", { date: dateTimeShort(connection.last_sync_at, locale) }) : t("neverSynced")}{connection.last_error ? <span className="text-red-600"> · {t("lastError", { error: connection.last_error })}</span> : null}</div>
+          {connection.consecutive_failures > 0 ? (
+            <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              {t("unreachable", { count: connection.consecutive_failures })}
+              {connection.retry_after ? ` · ${t("retryAfter", { date: dateTimeShort(connection.retry_after, locale) })}` : ""}
+              {` · ${t("retryNowHint")}`}
+            </div>
+          ) : null}
           <div className="flex gap-2">
             <button type="button" onClick={() => sync(false)} disabled={pending} className={btnPrimary}>{pending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}{pending ? t("syncing") : t("sync")}</button>
             <button type="button" onClick={() => sync(true)} disabled={pending} title={t("fullSyncHint")} className={btnSecondary}>{t("fullSync")}</button>
