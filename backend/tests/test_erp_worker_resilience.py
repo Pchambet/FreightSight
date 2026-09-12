@@ -290,3 +290,29 @@ def test_a_url_carrying_a_password_is_refused(client: TestClient, db: Session, o
     assert res.status_code == 422
     assert "must not carry a login" in res.text
     assert list(db.scalars(select(ErpConnection))) == []
+
+
+def test_the_url_refusals_carry_a_code_the_screen_can_translate(
+    client: TestClient, org: Organization
+) -> None:
+    """A bare ValueError reaches the client as 'value_error' and an English sentence. These two are
+    read in a form, by someone who may not be reading English."""
+    for url, code in [
+        ("https://admin:s3cret@erp.example.test", "ERP_URL_HAS_CREDENTIALS"),
+        ("ftp://erp.example.test", "ERP_URL_SCHEME"),
+    ]:
+        res = client.post(
+            "/api/v1/erp/connection",
+            json={
+                "kind": "ODOO",
+                "url": url,
+                "database": "fstest",
+                "login": "admin",
+                "api_key": "the-api-key",
+            },
+        )
+        assert res.status_code == 422, res.text
+        (error,) = res.json()["errors"]
+        assert error["code"] == code
+        assert error["field"] == "url"
+        assert error["message"]  # the English sentence stays, as the fallback

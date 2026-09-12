@@ -8,6 +8,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 
 from app.domain.models import (
     AlertKind,
@@ -825,17 +826,21 @@ class ErpConnectionCreate(BaseModel):
     @field_validator("url")
     @classmethod
     def _url(cls, v: str) -> str:
+        # A plain ValueError reaches the client as code "value_error" and an English sentence
+        # prefixed with "Value error, ". These two are shown in a form, so they carry a code of
+        # their own for the screen to translate — the message stays as the fallback.
         value = v.strip().rstrip("/")
         if not value.startswith(("http://", "https://")):
-            raise ValueError("url must start with http:// or https://")
+            raise PydanticCustomError("ERP_URL_SCHEME", "url must start with http:// or https://")
         # `https://admin:secret@erp.example.com` is a URL someone can reasonably paste. This column
         # is stored in clear and returned by the API, unlike the key, which is sealed — so the
         # password would end up on a screen. Refused rather than quietly stripped: dropping half of
         # what they typed would fail to authenticate later, for a reason they could not see.
         host = value.split("://", 1)[1].split("/", 1)[0]
         if "@" in host:
-            raise ValueError(
-                "url must not carry a login: put the user in 'login' and the password in 'api_key'"
+            raise PydanticCustomError(
+                "ERP_URL_HAS_CREDENTIALS",
+                "url must not carry a login: put the user in 'login' and the password in 'api_key'",
             )
         return value
 

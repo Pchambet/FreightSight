@@ -349,6 +349,11 @@ la page d'erreur d'un proxy, ou une URL contenant les identifiants, et le secret
 colonne de notre base puis sur un écran. Tous les messages d'erreur du connecteur passent maintenant
 par `_safe()` : la clé devient `***`, et `://user:pass@` devient `://user:***@`.
 
+Les deux refus d'URL portent un **code** que l'écran traduit (`ERP_URL_HAS_CREDENTIALS`,
+`ERP_URL_SCHEME`) via `PydanticCustomError`, au lieu du `value_error` générique et de la phrase
+anglaise préfixée « Value error, … » : ces messages-là sont lus dans un formulaire, par quelqu'un
+qui ne lit pas forcément l'anglais. Le message anglais reste, en repli.
+
 Deuxième fuite, indépendante : `erp_connections.url` est stocké **en clair** et renvoyé par l'API,
 contrairement à la clé qui est scellée. Coller `https://admin:secret@erp.example.com` dans le
 formulaire suffisait donc à afficher le mot de passe. Refusé à la saisie plutôt que nettoyé en
