@@ -467,7 +467,8 @@
       "DND_RISK": "Demurrage risk",
       "ETA_CHANGED": "ETA changed",
       "TRACKING_DATA_MISSING": "Tracking data missing",
-      "TRACKING_DELIVERY_FAILED": "Tracking delivery failed"
+      "TRACKING_DELIVERY_FAILED": "Tracking delivery failed",
+      "TRACKING_PROVIDER_DOWN": "Tracking provider unreachable"
     },
     "alertSeverity": {
       "info": "info",

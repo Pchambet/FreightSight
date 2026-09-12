@@ -467,7 +467,8 @@
       "DND_RISK": "Risque de surestaries",
       "ETA_CHANGED": "ETA modifiée",
       "TRACKING_DATA_MISSING": "Donnée de suivi manquante",
-      "TRACKING_DELIVERY_FAILED": "Livraison de suivi en échec"
+      "TRACKING_DELIVERY_FAILED": "Livraison de suivi en échec",
+      "TRACKING_PROVIDER_DOWN": "Fournisseur de suivi injoignable"
     },
     "alertSeverity": {
       "info": "info",

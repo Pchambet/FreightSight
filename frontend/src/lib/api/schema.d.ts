@@ -1265,7 +1265,7 @@ export interface components {
          * AlertKind
          * @enum {string}
          */
-        AlertKind: "DND_RISK" | "ETA_CHANGED" | "TRACKING_DATA_MISSING" | "TRACKING_DELIVERY_FAILED";
+        AlertKind: "DND_RISK" | "ETA_CHANGED" | "TRACKING_DATA_MISSING" | "TRACKING_DELIVERY_FAILED" | "TRACKING_PROVIDER_DOWN";
         /** AlertResponse */
         AlertResponse: {
             /**
