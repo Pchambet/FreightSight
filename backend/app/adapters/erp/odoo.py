@@ -28,6 +28,7 @@ from typing import Any
 from app.domain.erp.ports import (
     ErpAuthError,
     ErpCostLine,
+    ErpDocument,
     ErpIdentity,
     ErpLine,
     ErpProtocolError,
@@ -438,6 +439,24 @@ class OdooConnector:
             amount_total=f"{Decimal(str(record.get('amount_total') or 0)):.2f}",
             adopted=adopted is not None,
             raw=record,
+        )
+
+    def read_landed_cost(self, record_id: int) -> ErpDocument | None:
+        """Look the document up by id. `search_read` rather than `read`, because `read` on an id
+        that no longer exists raises where an empty list is the answer we want."""
+        found = self._kw(
+            "stock.landed.cost",
+            "search_read",
+            [["id", "=", record_id]],
+            fields=["name", "state"],
+            limit=1,
+        )
+        if not found:
+            return None
+        return ErpDocument(
+            record_id=record_id,
+            name=str(found[0].get("name") or ""),
+            state=str(found[0].get("state") or ""),
         )
 
     def _find_draft(self, picking_id: int, marker: str, expected_lines: int) -> int | None:

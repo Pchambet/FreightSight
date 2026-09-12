@@ -126,6 +126,15 @@ class ErpPushResult:
     raw: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class ErpDocument:
+    """A document that is still in the ERP, and what state it is in."""
+
+    record_id: int
+    name: str
+    state: str
+
+
 @runtime_checkable
 class ErpWriter(Protocol):
     """Writing back into the ERP. Separate from reading because the risk is not the same."""
@@ -150,6 +159,14 @@ class ErpWriter(Protocol):
         `marker` identifies this exact set of costs. The implementation writes it into the document
         and looks for it before creating, so a push interrupted between the ERP write and our own
         commit is resumed rather than duplicated in the customer's books.
+        """
+        ...
+
+    def read_landed_cost(self, record_id: int) -> ErpDocument | None:
+        """The document, or None if it is no longer in the ERP.
+
+        Asked before a push is forgotten: a push stops holding its costs only once the document it
+        made is really gone, or forgetting it would let the same charge be written twice.
         """
         ...
 

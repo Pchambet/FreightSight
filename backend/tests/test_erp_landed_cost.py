@@ -29,6 +29,7 @@ PICKING_ID = 22
 MOVE_ID = 40
 PO_NUMBER = "P00012"
 SKU = "TYR-20555R16"
+DOCUMENT = "FreightSight MSCU4821990 — FA-2026-0912"
 
 
 @pytest.fixture(autouse=True)
@@ -420,7 +421,9 @@ def test_pushing_creates_a_draft_carrying_our_own_split(
     (values,) = odoo.created
     assert values["target_model"] == "picking"
     assert values["picking_ids"] == [(6, 0, [PICKING_ID])]
-    assert values["name"] == "FreightSight MSCU4821990"
+    # The invoice is in the name: one container legitimately has several documents now, and
+    # three drafts called the same thing tell an accountant nothing.
+    assert values["name"] == "FreightSight MSCU4821990 — FA-2026-0912"
     (line_command,) = values["cost_lines"]
     assert line_command[2]["price_unit"] == 2766.67
 
@@ -444,8 +447,10 @@ def test_pushing_the_same_costs_twice_returns_the_first_push(
     assert len(list(db.scalars(select(ErpPush)))) == 1
 
     body = preview(client, container_id)
-    assert body["already_pushed_as"] == "FreightSight MSCU4821990"
+    assert body["already_pushed_as"] == DOCUMENT
     assert "already_pushed" in [b["code"] for b in body["blockers"]]
+    assert body["total"] == "0.00"  # nothing left to write
+    assert [c["pushed_as"] for c in body["costs"]] == [DOCUMENT]
 
 
 def test_a_push_interrupted_after_the_erp_write_is_resumed_not_repeated(
@@ -485,15 +490,14 @@ def test_a_push_interrupted_after_the_erp_write_is_resumed_not_repeated(
     assert odoo.written[-1] == (adjustment["id"], {"additional_landed_cost": 2766.67})
 
 
-def test_a_second_invoice_is_refused_rather_than_charged_twice(
+def test_a_second_invoice_becomes_its_own_document_carrying_only_itself(
     client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A landed cost adds to the stock valuation; it does not replace the last one.
 
-    So when a customs invoice lands after the freight has been pushed, the plan — which always
-    recomputes over every actual cost on the container — would carry the freight a second time and
-    charge the goods twice. Refused, and said out loud, until we decide how to push only the
-    difference. See docs/odoo-questions.md section 15.
+    So when a customs invoice lands after the freight has been pushed, the second document carries
+    the customs duty **alone**. Carrying the freight again would charge it to the goods twice, in
+    someone else's books, where we would not be the ones to notice.
     """
     odoo = WritableOdoo()
     connect(client, odoo, monkeypatch)
@@ -515,15 +519,36 @@ def test_a_second_invoice_is_refused_rather_than_charged_twice(
     )
     assert late.status_code == 201, late.text
 
+    # the preview shows both, says where the first one went, and counts only what would go
     body = preview(client, container_id)
-    assert body["pushable"] is False
-    blocker = next(b for b in body["blockers"] if b["code"] == "partially_pushed")
-    assert blocker["params"] == {"existing": "FreightSight MSCU4821990", "count": "1"}
-    assert "charge the goods twice" in blocker["message"]
+    assert body["pushable"] is True
+    assert body["blockers"] == []
+    assert body["total"] == "275.00"
+    by_label = {c["label"]: c for c in body["costs"]}
+    freight = by_label["Ocean Freight — invoice FA-2026-0912 — Transitex"]
+    duty = by_label["Customs Duty — invoice FA-2026-1104"]
+    assert freight["pushed_as"] == DOCUMENT
+    assert freight["pushed_push_id"] == first.json()["id"]
+    assert duty["pushed_as"] is None and duty["pushed_push_id"] is None
 
-    res = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
-    assert res.status_code == 422
-    assert len(odoo.documents) == 1  # their books still hold one document, not two
+    second = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
+    assert second.status_code == 201, second.text
+    assert second.json()["odoo_id"] != first.json()["odoo_id"]
+    assert second.json()["cost_ids"] == duty["cost_ids"]  # the duty alone
+
+    assert len(odoo.documents) == 2
+    (line_command,) = odoo.created[1]["cost_lines"]
+    assert line_command[2]["price_unit"] == 275.0
+    assert odoo.created[1]["name"] == "FreightSight MSCU4821990 — FA-2026-1104"
+
+    # and now there is nothing left to push
+    after = preview(client, container_id)
+    assert after["pushable"] is False
+    blocker = next(b for b in after["blockers"] if b["code"] == "already_pushed")
+    assert blocker["params"]["existing"] == ", ".join(
+        sorted([DOCUMENT, "FreightSight MSCU4821990 — FA-2026-1104"])
+    )
+    assert after["total"] == "0.00"
 
 
 def test_the_marker_is_the_set_of_costs_whatever_order_it_arrives_in() -> None:
@@ -652,6 +677,124 @@ def test_the_push_is_in_the_audit_log(
     assert entry["after"]["odoo_id"] == 2
     assert entry["after"]["status"] == "draft"
     assert entry["entity_type"] == "container"
+
+
+# ---------------------------------------------------------------------------- forgetting a push
+
+
+def test_a_push_is_forgotten_only_once_its_document_is_gone(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """While the document exists it carries those costs. Forgetting the push then would let the
+    same charge be written into the customer's books a second time."""
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    pushed = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+
+    refused = client.delete(f"/api/v1/containers/{container_id}/erp/pushes/{pushed['id']}")
+    assert refused.status_code == 409
+    body = refused.json()
+    assert body["code"] == "ERP_DOCUMENT_STILL_THERE"
+    assert body["document"]["state"] == "draft"
+    assert "Delete it there first" in body["detail"]
+
+    # deleted in Odoo, by hand, by whoever owns those books
+    del odoo.documents[pushed["odoo_id"]]
+
+    forgotten = client.delete(
+        f"/api/v1/containers/{container_id}/erp/pushes/{pushed['id']}",
+        params={"reason": "brouillon supprimé dans Odoo"},
+    )
+    assert forgotten.status_code == 200, forgotten.text
+    assert forgotten.json()["forgotten_at"] is not None
+    assert forgotten.json()["forgotten_reason"] == "brouillon supprimé dans Odoo"
+
+    # the row is still there — it is the record of something that was in someone's books
+    assert len(list(db.scalars(select(ErpPush)))) == 1
+
+    # and the costs it held are pushable again
+    body = preview(client, container_id)
+    assert body["pushable"] is True
+    assert body["total"] == "2766.67"
+    assert [c["pushed_as"] for c in body["costs"]] == [None]
+
+    again = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
+    assert again.status_code == 201, again.text
+    assert again.json()["odoo_id"] != pushed["odoo_id"]
+
+
+def test_forgetting_a_push_is_in_the_audit_log(
+    client: TestClient, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    pushed = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    del odoo.documents[pushed["odoo_id"]]
+    client.delete(
+        f"/api/v1/containers/{container_id}/erp/pushes/{pushed['id']}", params={"reason": "cleaned up"}
+    )
+
+    entry = client.get("/api/v1/audit-log", params={"action": "erp.push_forgotten"}).json()["entries"][0]
+    assert entry["after"]["push_id"] == pushed["id"]
+    assert entry["after"]["odoo_id"] == pushed["odoo_id"]
+    assert entry["after"]["forgotten_reason"] == "cleaned up"
+    assert entry["entity_type"] == "container"
+
+
+def test_a_push_is_not_forgotten_twice(
+    client: TestClient, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    pushed = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    del odoo.documents[pushed["odoo_id"]]
+    assert client.delete(f"/api/v1/containers/{container_id}/erp/pushes/{pushed['id']}").status_code == 200
+
+    again = client.delete(f"/api/v1/containers/{container_id}/erp/pushes/{pushed['id']}")
+    assert again.status_code == 409
+    assert again.json()["code"] == "ERP_PUSH_ALREADY_FORGOTTEN"
+
+
+def test_the_pushes_of_a_container_are_listed_forgotten_ones_included(
+    client: TestClient, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A forgotten push is still the record of a document that existed in someone's accounts."""
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    pushed = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    del odoo.documents[pushed["odoo_id"]]
+    client.delete(f"/api/v1/containers/{container_id}/erp/pushes/{pushed['id']}")
+    client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
+
+    listed = client.get(f"/api/v1/containers/{container_id}/erp/pushes")
+    assert listed.status_code == 200, listed.text
+    rows = listed.json()
+    assert len(rows) == 2
+    assert rows[0]["forgotten_at"] is None  # newest first
+    assert rows[1]["id"] == pushed["id"]
+    assert rows[1]["forgotten_at"] is not None
+
+
+def test_a_push_of_another_organization_cannot_be_forgotten(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    pushed = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    del odoo.documents[pushed["odoo_id"]]
+
+    other = client.get("/api/v1/organization", headers={"X-Org-Id": str(uuid.uuid4())})
+    assert other.status_code == 200
+    refused = client.delete(
+        f"/api/v1/containers/{container_id}/erp/pushes/{pushed['id']}",
+        headers={"X-Org-Id": other.json()["id"]},
+    )
+    assert refused.status_code == 404
 
 
 def test_pushes_are_invisible_to_another_organization(

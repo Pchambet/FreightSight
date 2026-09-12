@@ -16,7 +16,7 @@ from app.api.v1.deps import WriterDep
 from app.core.crypto import CryptoError
 from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.tenancy import TenantDep
-from app.domain.audit.service import ERP_LANDED_COST_PUSHED
+from app.domain.audit.service import ERP_LANDED_COST_PUSHED, ERP_PUSH_FORGOTTEN
 from app.domain.audit.service import record as record_audit
 from app.domain.erp import landed_cost, service
 from app.domain.models import Container, ErpConnection, ErpPush, ErpSyncRun
@@ -135,15 +135,15 @@ def _preview_response(plan: landed_cost.Plan) -> schemas.ErpLandedCostPreview:
                     )
                     for line in cost.lines
                 ],
+                pushed_as=cost.pushed_as,
+                pushed_push_id=cost.pushed_push_id,
             )
             for cost in plan.costs
         ],
         total=plan.total,
         blockers=[schemas.ErpBlocker(code=b.code, message=b.message, params=b.params) for b in plan.blockers],
         pushable=plan.pushable,
-        already_pushed_as=(
-            plan.existing_push.odoo_name or str(plan.existing_push.odoo_id) if plan.existing_push else None
-        ),
+        already_pushed_as=", ".join(sorted({c.pushed_as for c in plan.costs if c.pushed_as})) or None,
     )
 
 
@@ -222,4 +222,66 @@ def _push_response(record: ErpPush) -> schemas.ErpPushResponse:
         status=record.status,
         cost_ids=[UUID(value) for value in record.cost_ids],
         created_at=record.created_at,
+        adopted=bool(record.response.get("freightsight_adopted")),
+        forgotten_at=record.forgotten_at,
+        forgotten_reason=record.forgotten_reason,
     )
+
+
+@containers_router.get("/{container_id}/erp/pushes", response_model=list[schemas.ErpPushResponse])
+def list_pushes(container_id: UUID, t: TenantDep) -> list[schemas.ErpPushResponse]:
+    """Every landed cost we have written for this container, newest first.
+
+    Forgotten ones included, and marked: they are the record of something that was in the customer's
+    books, and hiding them would make the audit trail a shorter story than what happened.
+    """
+    container = _container(t, container_id)
+    records = t.db.scalars(
+        select(ErpPush)
+        .where(ErpPush.org_id == t.org_id, ErpPush.container_id == container.id)
+        .order_by(ErpPush.created_at.desc())
+    )
+    return [_push_response(record) for record in records]
+
+
+@containers_router.delete("/{container_id}/erp/pushes/{push_id}", response_model=schemas.ErpPushResponse)
+def forget_push(
+    container_id: UUID,
+    push_id: UUID,
+    t: TenantDep,
+    p: WriterDep,
+    reason: str | None = None,
+) -> schemas.ErpPushResponse:
+    """Forget a push whose document is gone from the ERP, so its costs can be pushed again.
+
+    Not a deletion: the row stays and says it was forgotten, by whom and why. It is the only record
+    that we once wrote into someone's accounts, and the audit log points at it.
+    """
+    container = _container(t, container_id)
+    record = t.db.scalar(t.q(ErpPush).where(ErpPush.id == push_id, ErpPush.container_id == container.id))
+    if record is None:
+        raise NotFound("ERP push")
+    connection = service.connection_for(t.db, t.org_id)
+    writer = service.writer_for(connection) if connection is not None else None
+    before = {"forgotten_at": None, "cost_ids": record.cost_ids}
+    landed_cost.forget(t.db, t.org, record, writer, actor_user_id=p.user_id, reason=reason)
+    record_audit(
+        t.db,
+        t.org_id,
+        actor_user_id=p.user_id,
+        action=ERP_PUSH_FORGOTTEN,
+        entity_type="container",
+        entity_id=container.id,
+        before=before,
+        after={
+            "push_id": str(record.id),
+            "odoo_id": record.odoo_id,
+            "odoo_name": record.odoo_name,
+            "forgotten_at": record.forgotten_at.isoformat() if record.forgotten_at else None,
+            "forgotten_reason": record.forgotten_reason,
+            "cost_ids": record.cost_ids,
+        },
+    )
+    t.db.commit()
+    t.db.refresh(record)
+    return _push_response(record)

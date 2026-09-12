@@ -862,8 +862,12 @@ class ErpSyncRun(OrgScoped, Base):
 class ErpPush(OrgScoped, Base):
     """One landed cost written into a customer's ERP, and which of our costs it carried.
 
-    Kept so a second push of the same costs returns the first one instead of writing twice into
-    someone's books.
+    Kept so the next push carries only what no document has carried yet: a landed cost adds to the
+    stock valuation rather than replacing it, so a cost pushed twice is charged to the goods twice.
+
+    Never deleted. A push can be *forgotten* — when the draft it made was deleted in the ERP and its
+    costs have to become pushable again — and forgetting is a row that says so, with a reason and an
+    audit entry. Deleting it would erase the only evidence that we once wrote in someone's books.
     """
 
     __tablename__ = "erp_pushes"
@@ -883,6 +887,16 @@ class ErpPush(OrgScoped, Base):
     response: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    #: Set when the document this push made is gone from the ERP and its costs may be pushed again.
+    #: The row stays; what changes is whether it still holds those costs.
+    forgotten_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    forgotten_reason: Mapped[str | None] = mapped_column(String)
+    forgotten_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+
+    @property
+    def live(self) -> bool:
+        """Still holding its costs. A forgotten push holds nothing."""
+        return self.forgotten_at is None
 
 
 class SkuCostHistory(OrgScoped, Base):

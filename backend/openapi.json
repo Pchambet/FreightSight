@@ -2616,6 +2616,158 @@
         }
       }
     },
+    "/api/v1/containers/{container_id}/erp/pushes": {
+      "get": {
+        "tags": [
+          "erp"
+        ],
+        "summary": "List Pushes",
+        "description": "Every landed cost we have written for this container, newest first.\n\nForgotten ones included, and marked: they are the record of something that was in the customer's\nbooks, and hiding them would make the audit trail a shorter story than what happened.",
+        "operationId": "list_pushes_api_v1_containers__container_id__erp_pushes_get",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Container Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ErpPushResponse"
+                  },
+                  "title": "Response List Pushes Api V1 Containers  Container Id  Erp Pushes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/containers/{container_id}/erp/pushes/{push_id}": {
+      "delete": {
+        "tags": [
+          "erp"
+        ],
+        "summary": "Forget Push",
+        "description": "Forget a push whose document is gone from the ERP, so its costs can be pushed again.\n\nNot a deletion: the row stays and says it was forgotten, by whom and why. It is the only record\nthat we once wrote into someone's accounts, and the audit log points at it.",
+        "operationId": "forget_push_api_v1_containers__container_id__erp_pushes__push_id__delete",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Container Id"
+            }
+          },
+          {
+            "name": "push_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Push Id"
+            }
+          },
+          {
+            "name": "reason",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErpPushResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/exports/landed-costs.csv": {
       "get": {
         "tags": [
@@ -7270,6 +7422,29 @@
             },
             "type": "array",
             "title": "Lines"
+          },
+          "pushed_as": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pushed As"
+          },
+          "pushed_push_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pushed Push Id"
           }
         },
         "type": "object",
@@ -7363,6 +7538,34 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "adopted": {
+            "type": "boolean",
+            "title": "Adopted",
+            "default": false
+          },
+          "forgotten_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forgotten At"
+          },
+          "forgotten_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forgotten Reason"
           }
         },
         "type": "object",

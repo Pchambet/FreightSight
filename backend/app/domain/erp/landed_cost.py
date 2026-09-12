@@ -24,6 +24,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.errors import Conflict, Unprocessable
 from app.core.money import q2
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
 from app.domain.costing.service import Computation, compute
@@ -47,7 +48,6 @@ MULTIPLE_RECEIPTS = "multiple_receipts"
 UNMATCHED_LINE = "unmatched_line"
 NOT_VALUED = "not_valued"
 ALREADY_PUSHED = "already_pushed"
-PARTIALLY_PUSHED = "partially_pushed"
 
 
 def marker_for(cost_ids: Iterable[UUID | str]) -> str:
@@ -93,6 +93,19 @@ class PlannedCost:
     cost_ids: list[UUID]
     amount: Decimal
     lines: list[PlannedLine] = field(default_factory=list)
+    #: Carried through so a second document on the same container gets a reference that tells it
+    #: apart from the first. Not in the API response: it is already inside `label`.
+    invoice_number: str | None = None
+    #: The document that already carries this cost, if one does. Shown so the preview is the whole
+    #: picture — what has gone and what has not — rather than only the remainder.
+    pushed_as: str | None = None
+    #: Its push, so a screen offering "forget this push" has something to name. The document's own
+    #: name does not identify it: three drafts on one test instance are called the same thing.
+    pushed_push_id: UUID | None = None
+
+    @property
+    def pending(self) -> bool:
+        return self.pushed_push_id is None
 
 
 @dataclass
@@ -106,8 +119,14 @@ class Plan:
     existing_push: ErpPush | None = None
 
     @property
+    def pending(self) -> list[PlannedCost]:
+        """What this push would carry: a landed cost adds to the stock valuation rather than
+        replacing it, so a cost a document already holds is never sent a second time."""
+        return [cost for cost in self.costs if cost.pending]
+
+    @property
     def pushable(self) -> bool:
-        return not self.blockers and bool(self.costs) and self.receipt is not None
+        return not self.blockers and bool(self.pending) and self.receipt is not None
 
 
 def _allocations(comp: Computation, container_id: UUID) -> dict[UUID, dict[UUID, Decimal]]:
@@ -186,33 +205,8 @@ def plan(
         )
         receipt = None
 
-    existing = _existing_push(db, org, container, by_cost)
-    if existing is not None:
-        blockers.append(
-            Blocker(
-                ALREADY_PUSHED,
-                f"These costs were already pushed as {existing.odoo_name or existing.odoo_id}.",
-                {"existing": existing.odoo_name or str(existing.odoo_id)},
-            )
-        )
-    else:
-        overlapping = _overlapping_push(db, org, container, by_cost)
-        if overlapping is not None:
-            # A landed cost *adds* to the stock valuation. Pushing a set that contains costs an
-            # earlier document already carried would charge them to the goods a second time — in
-            # someone else's books, where we would not be the ones to notice.
-            name = overlapping.odoo_name or str(overlapping.odoo_id)
-            shared = len(set(overlapping.cost_ids) & {str(cost_id) for cost_id in by_cost})
-            blockers.append(
-                Blocker(
-                    PARTIALLY_PUSHED,
-                    f"{shared} of these costs were already pushed as {name}, and a landed cost adds "
-                    "to the stock valuation rather than replacing it, so pushing them again would "
-                    "charge the goods twice. Add the new cost by hand in Odoo for now: splitting a "
-                    "push into what has already gone and what has not is not decided yet.",
-                    {"existing": name, "count": str(shared)},
-                )
-            )
+    carried = _carried_costs(db, org, container)
+    existing = _latest_live_push(db, org, container)
 
     costs: list[PlannedCost] = []
     if receipt is not None:
@@ -231,29 +225,37 @@ def plan(
             )
         for cost_id, allocations in sorted(by_cost.items(), key=lambda item: str(item[0])):
             cost = comp.cost_rows[cost_id]
+            already = carried.get(str(cost_id))
             planned = PlannedCost(
                 label=_label(cost),
                 cost_ids=[cost_id],
                 amount=q2(sum(allocations.values(), Decimal("0.00"))),
+                invoice_number=cost.invoice_number,
+                pushed_as=(already.odoo_name or str(already.odoo_id)) if already else None,
+                pushed_push_id=already.id if already else None,
             )
             for load_id, amount in allocations.items():
                 line = comp.load_rows[load_id].po_line
                 move = moves.get(line.sku or "") or moves.get(str(line.id))
                 if move is None:
-                    blockers.append(
-                        Blocker(
-                            UNMATCHED_LINE,
-                            f"{line.purchase_order.po_number} line {line.line_no} "
-                            f"({line.sku or 'no SKU'}) has no matching line on receipt "
-                            f"{receipt.name}. Costs are pushed per line, so every line has to match.",
-                            {
-                                "po_number": line.purchase_order.po_number,
-                                "line_no": str(line.line_no),
-                                "sku": line.sku or "",
-                                "receipt": receipt.name,
-                            },
+                    if planned.pending:
+                        # Only what this push would carry can block it. A cost that already went
+                        # is history; whether its line still matches today changes nothing.
+                        blockers.append(
+                            Blocker(
+                                UNMATCHED_LINE,
+                                f"{line.purchase_order.po_number} line {line.line_no} "
+                                f"({line.sku or 'no SKU'}) has no matching line on receipt "
+                                f"{receipt.name}. Costs are pushed per line, so every line has "
+                                "to match.",
+                                {
+                                    "po_number": line.purchase_order.po_number,
+                                    "line_no": str(line.line_no),
+                                    "sku": line.sku or "",
+                                    "receipt": receipt.name,
+                                },
+                            )
                         )
-                    )
                     continue
                 planned.lines.append(
                     PlannedLine(
@@ -266,15 +268,88 @@ def plan(
                 )
             costs.append(planned)
 
-    return Plan(
+    prepared = Plan(
         container_id=container.id,
         container_number=container.container_number,
         receipt=receipt,
         costs=costs,
         blockers=blockers,
-        total=q2(sum((cost.amount for cost in costs), Decimal("0.00"))),
+        # Only what would go: a total counting what has already been written would be the amount of
+        # a document nobody is about to create.
+        total=q2(sum((cost.amount for cost in costs if cost.pending), Decimal("0.00"))),
         existing_push=existing,
     )
+    if costs and not prepared.pending:
+        joined = ", ".join(sorted({cost.pushed_as for cost in costs if cost.pushed_as}))
+        blockers.append(
+            Blocker(
+                ALREADY_PUSHED,
+                f"Every invoiced cost on this container has already been pushed, as {joined}. "
+                "There is nothing left to write; a new invoice on this container becomes a new "
+                "document of its own.",
+                {"existing": joined},
+            )
+        )
+    return prepared
+
+
+def _reference(container: Container, costs: list[PlannedCost]) -> str:
+    """The document's name in the ERP.
+
+    The container alone is no longer enough now that one container legitimately has several
+    documents — a later invoice is a document of its own — and three drafts called the same thing
+    tell an accountant nothing and make our own "already pushed as …" ambiguous. The invoices this
+    one carries are what distinguish it.
+    """
+    base = f"FreightSight {container.container_number}"
+    invoices = sorted({cost.invoice_number for cost in costs if cost.invoice_number})
+    if not invoices:
+        return base
+    return f"{base} — {', '.join(invoices)}"[:120]
+
+
+def forget(
+    db: Session,
+    org: Organization,
+    push_row: ErpPush,
+    writer: ErpWriter | None,
+    *,
+    actor_user_id: UUID | None = None,
+    reason: str | None = None,
+) -> ErpPush:
+    """Stop a push from holding its costs, so they can be pushed again. Never deletes the row.
+
+    Only once the document it made is really gone from the ERP: forgetting a push whose draft is
+    still there would let the same charge be written into the customer's books a second time, which
+    is the exact accident this whole mechanism exists to prevent.
+    """
+    if push_row.forgotten_at is not None:
+        raise Conflict("This push has already been forgotten.", code="ERP_PUSH_ALREADY_FORGOTTEN")
+    if writer is None:
+        raise Unprocessable(
+            "The ERP connection is gone, so we cannot check whether the document is still there. "
+            "Reconnect the ERP and try again: forgetting a push whose document still exists would "
+            "let the same costs be charged to the goods twice.",
+            code="ERP_NO_CONNECTION",
+        )
+    document = writer.read_landed_cost(push_row.odoo_id)
+    if document is not None:
+        raise Conflict(
+            f"{document.name or document.record_id} is still in the ERP, in {document.state}. "
+            "Delete it there first: while it exists it carries these costs, and forgetting the "
+            "push would let them be written a second time.",
+            code="ERP_DOCUMENT_STILL_THERE",
+            document={"id": document.record_id, "name": document.name, "state": document.state},
+        )
+    push_row.forgotten_at = datetime.now(UTC)
+    push_row.forgotten_reason = reason
+    push_row.forgotten_by = actor_user_id
+    db.flush()
+    logger.info(
+        "forgot an erp push",
+        extra={"push_id": str(push_row.id), "odoo_id": push_row.odoo_id, "org_id": str(org.id)},
+    )
+    return push_row
 
 
 def _label(cost: Cost) -> str:
@@ -295,38 +370,34 @@ def _moves_by_sku(receipt: ErpReceipt) -> dict[str, ErpReceiptLine]:
     return out
 
 
-def _existing_push(
-    db: Session, org: Organization, container: Container, by_cost: dict[UUID, dict[UUID, Decimal]]
-) -> ErpPush | None:
-    """A push carrying exactly these costs. Anything else is a different push."""
-    wanted = {str(cost_id) for cost_id in by_cost}
-    if not wanted:
-        return None
-    for push in db.scalars(
-        select(ErpPush)
-        .where(ErpPush.org_id == org.id, ErpPush.container_id == container.id)
-        .order_by(ErpPush.created_at.desc())
-    ):
-        if set(push.cost_ids) == wanted:
-            return push
-    return None
+def live_pushes(db: Session, org: Organization, container: Container) -> list[ErpPush]:
+    """The pushes on this container that still hold their costs, newest first."""
+    return list(
+        db.scalars(
+            select(ErpPush)
+            .where(
+                ErpPush.org_id == org.id,
+                ErpPush.container_id == container.id,
+                ErpPush.forgotten_at.is_(None),
+            )
+            .order_by(ErpPush.created_at.desc())
+        )
+    )
 
 
-def _overlapping_push(
-    db: Session, org: Organization, container: Container, by_cost: dict[UUID, dict[UUID, Decimal]]
-) -> ErpPush | None:
-    """A push that carried *some* of these costs. Not the same document, and not a safe second one."""
-    wanted = {str(cost_id) for cost_id in by_cost}
-    if not wanted:
-        return None
-    for push_row in db.scalars(
-        select(ErpPush)
-        .where(ErpPush.org_id == org.id, ErpPush.container_id == container.id)
-        .order_by(ErpPush.created_at.desc())
-    ):
-        if set(push_row.cost_ids) & wanted:
-            return push_row
-    return None
+def _carried_costs(db: Session, org: Organization, container: Container) -> dict[str, ErpPush]:
+    """`cost id -> the document that already carries it`, oldest push winning a tie."""
+    out: dict[str, ErpPush] = {}
+    for push_row in reversed(live_pushes(db, org, container)):
+        for cost_id in push_row.cost_ids:
+            out[cost_id] = push_row
+    return out
+
+
+def _latest_live_push(db: Session, org: Organization, container: Container) -> ErpPush | None:
+    """What a push with nothing new to say returns, so a double click is not an error."""
+    pushes = live_pushes(db, org, container)
+    return pushes[0] if pushes else None
 
 
 def push(
@@ -339,13 +410,17 @@ def push(
     created_by: UUID | None = None,
     on_date: date | None = None,
 ) -> tuple[ErpPush, Plan]:
-    """Write the plan into the ERP as a draft, or return the push that already carried it."""
+    """Write what no document carries yet into the ERP, as a draft.
+
+    Only the costs that are still pending: a landed cost adds to the stock valuation rather than
+    replacing it, so re-sending a cost an earlier document already holds charges the goods twice —
+    in someone else's books, where we would not be the ones to notice. When nothing is pending the
+    most recent push comes back instead of an error, so clicking twice is not a mistake.
+    """
     prepared = plan(db, org, container, writer, connection)
-    if prepared.existing_push is not None:
+    if not prepared.pending and prepared.existing_push is not None:
         return prepared.existing_push, prepared
     if not prepared.pushable:
-        from app.core.errors import Unprocessable
-
         raise Unprocessable(
             "This container cannot be pushed yet: " + "; ".join(b.message for b in prepared.blockers),
             code="ERP_PUSH_BLOCKED",
@@ -353,7 +428,8 @@ def push(
         )
 
     assert prepared.receipt is not None
-    cost_ids = sorted(str(cost_id) for cost in prepared.costs for cost_id in cost.cost_ids)
+    pending = prepared.pending
+    cost_ids = sorted(str(cost_id) for cost in pending for cost_id in cost.cost_ids)
     result = writer.create_landed_cost(
         prepared.receipt.picking_id,
         [
@@ -363,10 +439,10 @@ def push(
                 per_move={line.move_id: f"{line.amount:.2f}" for line in cost.lines},
                 cost_ids=[str(cost_id) for cost_id in cost.cost_ids],
             )
-            for cost in prepared.costs
+            for cost in pending
         ],
         on_date=on_date or datetime.now(UTC).date(),
-        reference=f"FreightSight {container.container_number}",
+        reference=_reference(container, pending),
         marker=marker_for(cost_ids),
     )
     if result.adopted:

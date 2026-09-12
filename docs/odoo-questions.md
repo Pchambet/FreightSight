@@ -180,7 +180,10 @@ propre langue au lieu d'afficher la nôtre en dessous d'un titre traduit.
 | `multiple_receipts` | `count`, `receipts` |
 | `not_valued` | `products` |
 | `unmatched_line` | `po_number`, `line_no`, `sku`, `receipt` |
-| `already_pushed` | `existing` |
+| `already_pushed` | `existing` (liste jointe par « , » depuis le push différentiel) |
+
+`partially_pushed`, introduit le 12 septembre pour refuser le double comptage, **a été retiré** le
+jour même : le push différentiel le rend sans objet. Voir section 15 bis.
 
 Deux conventions : les listes sont **déjà jointes par « , »** (une chaîne, pas un tableau), et un SKU
 absent vaut `""` — c'est à l'écran de décider si ça se dit « sans SKU » ou « SKU manquant », pas à
@@ -230,27 +233,61 @@ n'adopte pas ce brouillon. (`compute_landed_cost` recrée les lignes de ventilat
 ids à chaque appel — c'est pour ça qu'on réapplique notre split après, à l'adoption comme à la
 création.)
 
-## 15 bis. Le double comptage qu'on a trouvé en chemin, et qu'on refuse
+## 15 bis. Le push différentiel (12 septembre 2026)
 
-Trouvé en écrivant le test ci-dessus, et **ce n'est pas une régression, c'était déjà le
-comportement** : `plan()` recalcule sur *tous* les coûts réels du conteneur, et `_existing_push` ne
-bloquait que sur un ensemble **exactement** identique. Donc : fret poussé, puis une facture de
-douane arrive, second push → un deuxième document portant fret **+** douane. Une landed cost
-**s'ajoute** à la valorisation du stock, elle ne la remplace pas : le fret aurait été imputé deux
-fois à la marchandise, dans les livres de quelqu'un d'autre, là où ce n'est pas nous qui le
-verrions.
+**Le problème.** `plan()` recalculait sur *tous* les coûts réels du conteneur, et seul un ensemble
+**exactement** identique était bloqué. Fret poussé, puis facture de douane, second push → un
+deuxième document portant fret **+** douane. Une landed cost **s'ajoute** à la valorisation du
+stock, elle ne la remplace pas : le fret était imputé deux fois à la marchandise, dans les livres de
+quelqu'un d'autre, là où ce n'est pas nous qui l'aurions vu. Bloqué d'abord (`partially_pushed`),
+puis tranché par Pierre : on pousse la différence.
 
-Nouveau bloquant `partially_pushed` (params `existing`, `count`) : on refuse et on le dit, comme
-pour les réceptions multiples. Le message demande d'ajouter le nouveau coût à la main dans Odoo pour
-l'instant.
+**Ce que ça donne.** Chaque push ne porte que les coûts qu'aucun `erp_pushes` vivant ne porte
+encore. L'aperçu montre **tous** les coûts, chacun avec `pushed_as` (le document qui le porte déjà,
+ou `null`) et `pushed_push_id` ; `total` ne compte que ce qui partira ; `pushable` = il reste au
+moins un coût non poussé et rien ne bloque. Plus rien à pousser → `already_pushed`, avec la liste
+des documents jointe par « , », jamais `no_actual_costs` qui serait faux.
 
-→ **Décision ouverte, et c'est la bonne suite à donner à cette brique** : pousser uniquement la
-*différence* (les coûts qu'aucun document n'a encore portés). C'est additif, donc juste par
-construction, et ça supprime le blocage. Ça change ce que porte une ligne `erp_pushes`, ce que montre
-l'aperçu, et le texte de l'écran — donc ça se décide, ça ne se glisse pas dans un correctif.
-Manque aussi, pour ce jour-là, un moyen d'oublier un push dont le brouillon a été supprimé côté Odoo.
+**`pushed_push_id` en plus de `pushed_as`** : le nom ne désigne rien. Trois brouillons de
+l'instance de test s'appellent `FreightSight MSCU4821990`. Conséquence directe : le nom du document
+porte maintenant les **numéros de facture** qu'il transporte (`FreightSight MSCU4821990 —
+FA-2026-1104`), sans quoi le `already_pushed` d'un conteneur à deux documents serait « poussé comme
+X, X ».
 
-## 14. Ce que je n'ai pas vérifié
+**Un bloquant ne regarde que ce qui part.** `unmatched_line` ne se déclenche plus pour un coût déjà
+poussé : c'est de l'histoire, et savoir si sa ligne correspond encore aujourd'hui ne change rien.
+
+**Un double-clic reste sans danger** : quand il ne reste rien à pousser, le POST renvoie le dernier
+push existant (201) au lieu d'une erreur. C'est l'aperçu qui porte le bloquant `already_pushed`.
+
+## 15 ter. Oublier un push, et pourquoi ce n'est pas une suppression
+
+`DELETE /containers/{id}/erp/pushes/{push_id}?reason=…` **marque** la ligne (`forgotten_at`,
+`forgotten_reason`, `forgotten_by`, migration 0015) et écrit une entrée d'audit `erp.push_forgotten`.
+La ligne ne part jamais : c'est la seule trace qu'on a un jour écrit dans la comptabilité de
+quelqu'un, et le journal d'audit est en ajout seul. Ce qui change, c'est qu'elle cesse de **porter**
+ses coûts, qui redeviennent poussables.
+
+**On vérifie d'abord auprès d'Odoo.** Tant que le document existe, il porte ces coûts : oublier le
+push laisserait écrire la même charge une seconde fois, c'est-à-dire exactement l'accident que tout
+ce mécanisme existe pour empêcher. → `409 ERP_DOCUMENT_STILL_THERE`, avec le nom et l'état du
+document dans la réponse. Sans connexion ERP on ne peut pas vérifier, donc on refuse aussi
+(`ERP_NO_CONNECTION`) plutôt que de croire sur parole.
+
+`GET /containers/{id}/erp/pushes` liste les documents d'un conteneur, **oubliés compris et marqués
+comme tels** : les cacher ferait du journal une histoire plus courte que ce qui s'est passé.
+
+**Vérifié sur le vrai Odoo**, et le scénario est rejouable : `tests/test_erp_landed_cost_live.py`
+tourne contre l'instance réelle quand `ODOO_TEST_URL` est défini (ignoré sinon, donc gratuit en CI)
+et refait toute la chaîne — fret poussé, douane ajoutée, second document portant **275,00 et rien
+d'autre** avec sa ligne de ventilation à 275,00, troisième push → `already_pushed`, oubli refusé
+pendant que le brouillon existe, brouillon supprimé en XML-RPC, oubli accepté, douane repoussable.
+Il nettoie les documents qu'il a créés, quoi qu'il arrive.
+
+**Ce qui reste ouvert.** Un conteneur à plusieurs réceptions est toujours refusé (`multiple_receipts`).
+Le produit « landed cost » et le journal sont toujours choisis automatiquement (premier par id).
+
+## 16. Ce que je n'ai pas vérifié
 
 **Je n'ai pas regardé l'écran Odoo.** Me connecter à l'interface demandait de taper un mot de passe
 dans un formulaire, ce que je ne fais pas, même sur un conteneur jetable que je viens de créer. Tout

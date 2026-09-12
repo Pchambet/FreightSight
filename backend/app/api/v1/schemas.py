@@ -955,6 +955,12 @@ class ErpPlannedCost(BaseModel):
     cost_ids: list[UUID]
     amount: Money
     lines: list[ErpPlannedLine]
+    #: The document that already carries this cost, or null when it is still to be pushed. A landed
+    #: cost adds to the stock valuation rather than replacing it, so what has gone never goes again.
+    pushed_as: str | None = None
+    #: Which push that was. The document's name does not identify it — several documents on one
+    #: container can share a name — and this is what "forget this push" needs.
+    pushed_push_id: UUID | None = None
 
 
 class ErpLandedCostPreview(BaseModel):
@@ -967,10 +973,13 @@ class ErpLandedCostPreview(BaseModel):
     container_number: str
     receipt_id: int | None
     receipt_name: str | None
+    #: Every invoiced cost on the container, pushed or not, so the screen shows the whole picture.
     costs: list[ErpPlannedCost]
+    #: Only what this push would carry. The costs already written are not counted twice.
     total: Money
     blockers: list[ErpBlocker]
     pushable: bool
+    #: The documents already holding costs of this container, joined by ", ".
     already_pushed_as: str | None = None
 
 
@@ -981,5 +990,13 @@ class ErpPushResponse(BaseModel):
     odoo_name: str | None
     #: Always `draft`: validating a landed cost posts entries in someone else's books.
     status: str
+    #: The costs this document carries — the subset that was still pending when it was written.
     cost_ids: list[UUID]
     created_at: datetime
+    #: True when a push interrupted before it could be recorded here had already created this
+    #: document, and this call filled it in rather than creating a second one.
+    adopted: bool = False
+    #: Set once the document is gone from the ERP and this push was forgotten, so its costs became
+    #: pushable again. The row is never deleted.
+    forgotten_at: datetime | None = None
+    forgotten_reason: str | None = None

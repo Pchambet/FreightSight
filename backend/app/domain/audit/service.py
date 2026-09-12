@@ -32,6 +32,7 @@ LOADS_REPLACED = "container.loads_replaced"
 ORGANIZATION_UPDATED = "organization.updated"
 TRACKING_EVENT_ADDED = "container.tracking_event_added"
 ERP_LANDED_COST_PUSHED = "erp.landed_cost_pushed"
+ERP_PUSH_FORGOTTEN = "erp.push_forgotten"
 
 
 def jsonable(value: Any) -> Any:
