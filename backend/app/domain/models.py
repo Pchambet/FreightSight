@@ -885,6 +885,10 @@ class ErpPush(OrgScoped, Base):
     container_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("containers.id"), nullable=False)
     #: The costs this push carried, as strings, so the row survives a cost being deleted.
     cost_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    #: What each of them was when it was written — `cost id -> {"amount": "2766.67", "label": …}` —
+    #: so a cost edited or deleted afterwards is noticed and still has a name: the draft in the ERP
+    #: carries the old figure, and nothing over there says so.
+    carried: Mapped[dict[str, dict[str, str]]] = mapped_column(JSONB, nullable=False, default=dict)
     odoo_model: Mapped[str] = mapped_column(String, nullable=False)
     odoo_id: Mapped[int] = mapped_column(Integer, nullable=False)
     odoo_name: Mapped[str | None] = mapped_column(String)

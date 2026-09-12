@@ -287,6 +287,34 @@ Il nettoie les documents qu'il a créés, quoi qu'il arrive.
 **Ce qui reste ouvert.** Un conteneur à plusieurs réceptions est toujours refusé (`multiple_receipts`).
 Le produit « landed cost » et le journal sont toujours choisis automatiquement (premier par id).
 
+## 15 quater. Ce qu'un audit de relecture a trouvé après coup (12 septembre 2026, session 1)
+
+Deux défauts que les tests ne pouvaient pas voir parce que le faux Odoo n'avait qu'une ligne de
+réception et que rien ne modifiait un coût après son push.
+
+**Une ligne de réception à laquelle on n'a rien ventilé gardait la part d'Odoo.** `compute_landed_cost`
+répartit chaque ligne de coût sur *toutes* les lignes de la réception ; on ne réécrivait que celles où
+notre moteur avait un montant. Une réception à deux produits dont le conteneur n'en porte qu'un
+laissait donc à l'autre la part « égale » d'Odoo, et la somme des ventilations dépassait la ligne de
+coût. Odoo refuse alors de valider, avec un message qui ne nomme aucune ligne (« Cost and adjustments
+lines do not match »). Corrigé : toute ventilation d'une de nos lignes de coût qui n'est pas dans notre
+répartition est **écrite à zéro**, pas ignorée. Test avec une réception à deux mouvements.
+
+**Un coût modifié ou supprimé après son push laissait le brouillon faux, en silence.** Le push marquait
+le coût comme « porté » par son id, pour toujours ; si son montant, son taux, sa méthode ou ses
+chargements changeaient ensuite, le brouillon dans Odoo gardait l'ancien chiffre et rien ne le
+disait, ni ici ni là-bas. Corrigé : `erp_pushes.carried` (migration 0017) mémorise par coût le montant
+et le libellé au moment de l'écriture, et l'aperçu compare. Deux bloquants : `pushed_cost_changed`
+(params `existing`, `changes` = « libellé : ancien → nouveau ; … », `count`) et `pushed_cost_gone`
+(params `existing`, `costs`, `count`). Le remède est le même et il est dit dans la phrase : supprimer
+le brouillon dans Odoo, oublier le push ici, pousser à nouveau. Les pushes antérieurs à la migration
+n'ont pas de montants mémorisés : seule leur existence est vérifiée.
+
+Limite laissée telle quelle : `_moves_by_sku` garde le **premier** mouvement par SKU. Une réception qui
+a deux mouvements pour le même produit (deux lignes de commande, ou un reliquat) reçoit toute notre
+ventilation sur le premier. Odoo valorise alors ce mouvement seul. À traiter le jour où un partenaire
+a ce cas ; il se voit dans l'aperçu (les quantités).
+
 ## 16. Ce que je n'ai pas vérifié
 
 **Je n'ai pas regardé l'écran Odoo.** Me connecter à l'interface demandait de taper un mot de passe

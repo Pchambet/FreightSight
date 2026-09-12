@@ -30,6 +30,21 @@ MOVE_ID = 40
 PO_NUMBER = "P00012"
 SKU = "TYR-20555R16"
 DOCUMENT = "FreightSight MSCU4821990 — FA-2026-0912"
+#: A second line on the same receipt, for a product the pushed container does not carry.
+EXTRA_MOVE = {
+    "id": 41,
+    "picking_id": [22, "WH/IN/00007"],
+    "product_id": [38, "[MAT-EVA-6040-GY] FS Mat"],
+    "purchase_line_id": [24, "FS Mat"],
+    "quantity": 50.0,
+}
+EXTRA_PRODUCT = {
+    "id": 38,
+    "default_code": "MAT-EVA-6040-GY",
+    "name": "FS Mat",
+    "valuation": "real_time",
+    "cost_method": "fifo",
+}
 
 
 @pytest.fixture(autouse=True)
@@ -62,10 +77,15 @@ class WritableOdoo:
     still lands on landed cost 2, cost line 2 and adjustment 3.
     """
 
-    def __init__(self, *, valued: bool = True, receipts: int = 1, fail_create: bool = False) -> None:
+    def __init__(
+        self, *, valued: bool = True, receipts: int = 1, fail_create: bool = False, extra_move: bool = False
+    ) -> None:
         self.valued = valued
         self.receipts = receipts
         self.fail_create = fail_create
+        # A second product on the same receipt, which the container being pushed does not carry.
+        # Odoo's own split still gives it a share; ours must take that share back.
+        self.extra_move = extra_move
         self.created: list[dict[str, Any]] = []
         self.written: list[tuple[int, dict[str, Any]]] = []
         self.documents: dict[int, dict[str, Any]] = {}
@@ -99,13 +119,18 @@ class WritableOdoo:
         }
         return document_id
 
+    def moves(self) -> list[dict[str, Any]]:
+        if not self.extra_move:
+            return list(FIXTURE["moves"])
+        return [*FIXTURE["moves"], EXTRA_MOVE]
+
     def compute(self, document_id: int) -> None:
         """What `compute_landed_cost` does: one adjustment line per cost line and per move, with
         Odoo's own split — which our code then overwrites."""
         document = self.documents[document_id]
         document["adjustments"] = []
         for line in document["cost_line_rows"]:
-            for move in FIXTURE["moves"]:
+            for move in self.moves():
                 adjustment_id = self._next_adjustment
                 self._next_adjustment += 1
                 document["adjustments"].append(
@@ -168,11 +193,13 @@ class _Models:
                     return [*pickings, second]
                 return pickings
             case ("stock.move", "search_read"):
-                return FIXTURE["moves"]
+                return self.odoo.moves()
             case ("purchase.order.line", "read"):
                 return FIXTURE["purchase_order_lines"]
             case ("product.product", "read"):
                 if self.odoo.valued:
+                    if self.odoo.extra_move:
+                        return [*FIXTURE["products_valued"], EXTRA_PRODUCT]
                     return FIXTURE["products_valued"]
                 # The same product the receipt actually moves, carrying the valuation the demo
                 # products really have. Returning the captured "Large Desk" instead would answer
@@ -813,3 +840,68 @@ def test_pushes_are_invisible_to_another_organization(
     finally:
         db.execute(text("RESET ROLE"))
         set_current_org(db, org.id)
+
+
+# ---------------------------------------------------------------------------- after the push
+
+
+def test_a_line_we_allocated_nothing_to_is_taken_back_from_odoo_s_split(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Odoo spreads each cost line over every line of the receipt. The receipt line this container
+    does not carry must end at zero, not keep Odoo's share: otherwise the adjustments no longer add
+    up to the cost line and Odoo refuses to validate, naming nothing."""
+    odoo = WritableOdoo(extra_move=True)
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+
+    res = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
+    assert res.status_code == 201, res.text
+
+    written = {adjustment_id: values["additional_landed_cost"] for adjustment_id, values in odoo.written}
+    (document,) = odoo.documents.values()
+    by_move = {a["move_id"][0]: written.get(a["id"]) for a in document["adjustments"]}
+    assert by_move == {MOVE_ID: 2766.67, EXTRA_MOVE["id"]: 0.0}
+
+
+def test_a_cost_edited_after_its_push_blocks_until_the_draft_is_redone(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The draft is a copy of a moment. Once the cost behind it changes here, the copy is wrong in
+    someone else's books and nothing over there says so — so it blocks here, with the two figures."""
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 201
+
+    costs = client.get(f"/api/v1/landed-costs/containers/{container_id}").json()["costs"]
+    (cost,) = costs
+    res = client.patch(f"/api/v1/costs/{cost['id']}", json={"amount": "2900.00"})
+    assert res.status_code == 200, res.text
+
+    body = preview(client, container_id)
+    (blocker,) = [b for b in body["blockers"] if b["code"] == "pushed_cost_changed"]
+    assert blocker["params"]["existing"] == DOCUMENT
+    assert "2766.67 → 2900.00" in blocker["params"]["changes"]
+    assert body["pushable"] is False
+    # and a push does not quietly add a second document with the new figure
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 201
+    assert len(odoo.documents) == 1
+
+
+def test_a_cost_deleted_after_its_push_blocks_too(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 201
+
+    (cost,) = client.get(f"/api/v1/landed-costs/containers/{container_id}").json()["costs"]
+    assert client.delete(f"/api/v1/costs/{cost['id']}").status_code == 204
+
+    body = preview(client, container_id)
+    (blocker,) = [b for b in body["blockers"] if b["code"] == "pushed_cost_gone"]
+    assert blocker["params"]["existing"] == DOCUMENT
+    assert "Ocean Freight" in blocker["params"]["costs"]
+    assert body["pushable"] is False

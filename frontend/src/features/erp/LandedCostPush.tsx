@@ -10,7 +10,7 @@ import { Money } from "@/components/shared/Money";
 import { forgetErpPush, listErpPushes, previewErpLandedCost, pushErpLandedCost, type ErpLandedCostPreview, type ErpPushResponse } from "@/features/actions";
 import { dateTimeShort } from "@/lib/format";
 
-const KNOWN_BLOCKERS = new Set(["no_erp_connection", "no_actual_costs", "no_receipt", "multiple_receipts", "not_valued", "unmatched_line", "already_pushed"]);
+const KNOWN_BLOCKERS = new Set(["no_erp_connection", "no_actual_costs", "no_receipt", "multiple_receipts", "not_valued", "unmatched_line", "already_pushed", "pushed_cost_changed", "pushed_cost_gone"]);
 
 type Loaded = { preview: ErpLandedCostPreview; pushes: ErpPushResponse[] };
 type State = { loading: boolean; data: Loaded | null; error: string | null };

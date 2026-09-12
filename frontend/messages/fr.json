@@ -811,7 +811,9 @@
         "not_valued": "Odoo ne peut pas valoriser un coût de réception pour {products} : leur catégorie de produit n'est pas en valorisation automatisée avec une vraie méthode de coût (FIFO ou coût moyen). Odoo le refuserait à la validation, on le refuse donc ici.",
         "unmatched_line": "{po_number} ligne {line_no} ({sku}) ne correspond à aucune ligne de la réception {receipt}. Les coûts sont poussés ligne à ligne : chaque ligne doit correspondre.",
         "already_pushed": "Ces coûts ont déjà été poussés sous le nom {existing}.",
-        "noSku": "sans SKU"
+        "noSku": "sans SKU",
+        "pushed_cost_changed": "{existing} a été créé avec des montants qui ont changé depuis ({changes}). Le brouillon porte encore les anciens chiffres. Supprimez-le dans Odoo, oubliez le push ici, puis poussez à nouveau.",
+        "pushed_cost_gone": "{existing} porte {costs}, qui ne compte plus sur ce conteneur (supprimé, clôturé ou déplacé). Le brouillon le porte encore. Supprimez-le dans Odoo, oubliez le push ici, puis poussez à nouveau."
       },
       "pushedAs": "déjà dans {name}",
       "willGo": "{count, plural, one {# coût partira} other {# coûts partiront}}",

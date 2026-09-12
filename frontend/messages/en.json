@@ -811,7 +811,9 @@
         "not_valued": "Odoo cannot value a landed cost for {products}: their product category is not in automated valuation with a real cost method (FIFO or average). Odoo would refuse it at validation, so it is refused here.",
         "unmatched_line": "{po_number} line {line_no} ({sku}) matches no line on receipt {receipt}. Costs are pushed per line: every line has to match.",
         "already_pushed": "These costs were already pushed as {existing}.",
-        "noSku": "no SKU"
+        "noSku": "no SKU",
+        "pushed_cost_changed": "{existing} was written with amounts that have changed since ({changes}). The draft still carries the old figures. Delete it in Odoo, forget the push here, then push again.",
+        "pushed_cost_gone": "{existing} carries {costs}, which no longer counts on this container (deleted, closed or moved). The draft still holds it. Delete it in Odoo, forget the push here, then push again."
       },
       "pushedAs": "already in {name}",
       "willGo": "{count, plural, one {# cost will go} other {# costs will go}}",

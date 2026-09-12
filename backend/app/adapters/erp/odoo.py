@@ -576,14 +576,16 @@ class OdooConnector:
         for line, line_id in zip(cost_lines, created_line_ids, strict=False):
             for move_id, amount in line.per_move.items():
                 wanted[(int(line_id), int(move_id))] = Decimal(amount)
+        ours = {int(line_id) for line_id in created_line_ids}
         for adjustment in adjustments:
             move = adjustment.get("move_id")
             cost_line = adjustment.get("cost_line_id")
-            if not move or not cost_line:
+            if not move or not cost_line or int(cost_line[0]) not in ours:
                 continue
-            allocated = wanted.get((int(cost_line[0]), int(move[0])))
-            if allocated is None:
-                continue
+            # A receipt line we allocated nothing to still got a share from Odoo's own split, and
+            # it has to be taken back: Odoo refuses to validate a document whose adjustments do
+            # not add up to its cost lines, with a message that names no line. Zero, not skip.
+            allocated = wanted.get((int(cost_line[0]), int(move[0])), Decimal("0"))
             self._kw(
                 "stock.valuation.adjustment.lines",
                 "write",

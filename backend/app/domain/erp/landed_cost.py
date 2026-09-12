@@ -48,6 +48,8 @@ MULTIPLE_RECEIPTS = "multiple_receipts"
 UNMATCHED_LINE = "unmatched_line"
 NOT_VALUED = "not_valued"
 ALREADY_PUSHED = "already_pushed"
+PUSHED_COST_CHANGED = "pushed_cost_changed"
+PUSHED_COST_GONE = "pushed_cost_gone"
 
 
 def marker_for(cost_ids: Iterable[UUID | str]) -> str:
@@ -207,6 +209,7 @@ def plan(
 
     carried = _carried_costs(db, org, container)
     existing = _latest_live_push(db, org, container)
+    blockers.extend(_drift_blockers(live_pushes(db, org, container), comp, by_cost))
 
     costs: list[PlannedCost] = []
     if receipt is not None:
@@ -352,6 +355,61 @@ def forget(
     return push_row
 
 
+def _drift_blockers(
+    pushes: list[ErpPush], comp: Computation, by_cost: dict[UUID, dict[UUID, Decimal]]
+) -> list[Blocker]:
+    """What has changed on our side since a document was written, and now differs from it.
+
+    A draft in the ERP is a copy of a moment. A cost edited afterwards (amount, rate, method, the
+    loads it spreads over) or deleted leaves that copy carrying a figure nobody can see from here,
+    and the next push would add to it rather than fix it. So it blocks, and says what to do: delete
+    the draft over there, forget the push here, push again — three steps a person can check.
+    """
+    out: list[Blocker] = []
+    for push_row in pushes:
+        name = push_row.odoo_name or str(push_row.odoo_id)
+        gone: list[str] = []
+        changed: list[str] = []
+        for cost_id in push_row.cost_ids:
+            try:
+                key = UUID(cost_id)
+            except ValueError:  # pragma: no cover - our own rows
+                continue
+            snapshot = (push_row.carried or {}).get(cost_id) or {}
+            allocations = by_cost.get(key)
+            if allocations is None:
+                cost = comp.cost_rows.get(key)
+                gone.append(_label(cost) if cost is not None else snapshot.get("label") or cost_id[:8])
+                continue
+            recorded = snapshot.get("amount")
+            if recorded is None:
+                continue  # written before amounts were kept: nothing to compare against
+            current = q2(sum(allocations.values(), Decimal("0.00")))
+            if current != Decimal(recorded):
+                changed.append(f"{_label(comp.cost_rows[key])}: {Decimal(recorded):.2f} → {current:.2f}")
+        if gone:
+            out.append(
+                Blocker(
+                    PUSHED_COST_GONE,
+                    f"{name} carries {', '.join(gone)}, which no longer counts on this container "
+                    "(deleted, closed or moved). The draft still holds it. Delete the draft in the "
+                    "ERP, forget the push here, then push again.",
+                    {"existing": name, "costs": ", ".join(gone), "count": str(len(gone))},
+                )
+            )
+        if changed:
+            out.append(
+                Blocker(
+                    PUSHED_COST_CHANGED,
+                    f"{name} was written with amounts that have changed since ({'; '.join(changed)}). "
+                    "The draft still carries the old figures. Delete the draft in the ERP, forget the "
+                    "push here, then push again.",
+                    {"existing": name, "changes": "; ".join(changed), "count": str(len(changed))},
+                )
+            )
+    return out
+
+
 def _label(cost: Cost) -> str:
     parts = [cost.cost_type.value.replace("_", " ").title()]
     if cost.invoice_number:
@@ -457,6 +515,11 @@ def push(
         connection_id=connection.id,
         container_id=container.id,
         cost_ids=cost_ids,
+        carried={
+            str(cost_id): {"amount": f"{cost.amount:.2f}", "label": cost.label}
+            for cost in pending
+            for cost_id in cost.cost_ids
+        },
         odoo_model=result.model,
         odoo_id=result.record_id,
         odoo_name=result.name,
