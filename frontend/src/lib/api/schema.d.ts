@@ -550,6 +550,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/containers/{container_id}/erp/pushes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Pushes
+         * @description Every landed cost we have written for this container, newest first.
+         *
+         *     Forgotten ones included, and marked: they are the record of something that was in the customer's
+         *     books, and hiding them would make the audit trail a shorter story than what happened.
+         */
+        get: operations["list_pushes_api_v1_containers__container_id__erp_pushes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/containers/{container_id}/erp/pushes/{push_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Forget Push
+         * @description Forget a push whose document is gone from the ERP, so its costs can be pushed again.
+         *
+         *     Not a deletion: the row stays and says it was forgotten, by whom and why. It is the only record
+         *     that we once wrote into someone's accounts, and the audit log points at it.
+         */
+        delete: operations["forget_push_api_v1_containers__container_id__erp_pushes__push_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/exports/landed-costs.csv": {
         parameters: {
             query?: never;
@@ -1749,6 +1795,10 @@ export interface components {
             amount: string;
             /** Lines */
             lines: components["schemas"]["ErpPlannedLine"][];
+            /** Pushed As */
+            pushed_as?: string | null;
+            /** Pushed Push Id */
+            pushed_push_id?: string | null;
         };
         /** ErpPlannedLine */
         ErpPlannedLine: {
@@ -1785,6 +1835,15 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Adopted
+             * @default false
+             */
+            adopted: boolean;
+            /** Forgotten At */
+            forgotten_at?: string | null;
+            /** Forgotten Reason */
+            forgotten_reason?: string | null;
         };
         /** ErpSyncRunResponse */
         ErpSyncRunResponse: {
@@ -4344,6 +4403,75 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpPushResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_pushes_api_v1_containers__container_id__erp_pushes_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                container_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpPushResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forget_push_api_v1_containers__container_id__erp_pushes__push_id__delete: {
+        parameters: {
+            query?: {
+                reason?: string | null;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                container_id: string;
+                push_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

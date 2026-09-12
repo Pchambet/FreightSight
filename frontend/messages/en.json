@@ -497,7 +497,8 @@
       "container_loads_replaced": "Loads changed",
       "organization_updated": "Settings changed",
       "container_tracking_event_added": "Tracking event added",
-      "erp_landed_cost_pushed": "ERP entry created (draft)"
+      "erp_landed_cost_pushed": "ERP entry created (draft)",
+      "erp_push_forgotten": "ERP push forgotten"
     }
   },
   "errors": {
@@ -545,7 +546,9 @@
     "NOT_AN_ESTIMATE": "The targeted cost is not an estimate.",
     "ALREADY_SUPERSEDED": "This estimate is already replaced.",
     "ESTIMATE_CLOSED": "This estimate is closed.",
-    "UNKNOWN_PROVIDER": "Unknown tracking provider."
+    "UNKNOWN_PROVIDER": "Unknown tracking provider.",
+    "ERP_PUSH_ALREADY_FORGOTTEN": "This push is already forgotten.",
+    "ERP_NO_CONNECTION": "No ERP connected: cannot check what exists over there."
   },
   "timeline": {
     "title": "Timeline",
@@ -791,7 +794,7 @@
       "pushed": "Draft {name} created in Odoo. Nothing is validated: that is yours to do in Odoo.",
       "pushFailed": "Could not create in the ERP",
       "previewFailed": "Preview unavailable: the ERP did not answer",
-      "alreadyPushed": "Already pushed to Odoo as {name}.",
+      "alreadyPushed": "Everything is already in Odoo: {name}.",
       "draftReminder": "Created as a draft only: FreightSight never validates an entry in your books.",
       "receipt": "Receipt {name}",
       "noReceipt": "No receipt found",
@@ -806,9 +809,29 @@
         "not_valued": "Odoo cannot value a landed cost for {products}: their product category is not in automated valuation with a real cost method (FIFO or average). Odoo would refuse it at validation, so it is refused here.",
         "unmatched_line": "{po_number} line {line_no} ({sku}) matches no line on receipt {receipt}. Costs are pushed per line: every line has to match.",
         "already_pushed": "These costs were already pushed as {existing}.",
-        "noSku": "no SKU",
-        "partially_pushed": "{count} of these costs were already pushed as {existing}. A landed cost adds to the stock valuation: pushing the whole set again would count the pushed ones twice. Add the new cost by hand in Odoo for now."
-      }
+        "noSku": "no SKU"
+      },
+      "pushedAs": "already in {name}",
+      "willGo": "{count, plural, one {# cost will go} other {# costs will go}}",
+      "nothingNew": "Nothing new to push."
+    },
+    "pushes": {
+      "title": "Documents created in Odoo",
+      "none": "No document created yet.",
+      "created": "created on {date}",
+      "adopted": "resumed",
+      "forgotten": "forgotten on {date}",
+      "forgottenReason": "reason: {reason}",
+      "costCount": "{count, plural, one {# cost} other {# costs}}",
+      "forget": "Forget this push",
+      "forgetHint": "Only if the draft was deleted in Odoo: its costs become pushable again. The document stays in the history.",
+      "reasonLabel": "Reason (shown in the audit trail)",
+      "reasonPlaceholder": "Draft deleted in Odoo on …, because …",
+      "confirm": "Forget",
+      "cancel": "Cancel",
+      "forgotten_ok": "Push forgotten: its costs can be pushed again.",
+      "forgetFailed": "Could not forget this push",
+      "stillThere": "{name} is still in Odoo ({state}). Delete it there first, or keep it: we do not desynchronise what exists."
     }
   },
   "reports": {

@@ -497,7 +497,8 @@
       "container_loads_replaced": "Chargements modifiés",
       "organization_updated": "Réglages modifiés",
       "container_tracking_event_added": "Événement de suivi ajouté",
-      "erp_landed_cost_pushed": "Écriture ERP créée (brouillon)"
+      "erp_landed_cost_pushed": "Écriture ERP créée (brouillon)",
+      "erp_push_forgotten": "Push ERP oublié"
     }
   },
   "errors": {
@@ -545,7 +546,9 @@
     "NOT_AN_ESTIMATE": "Le coût visé n'est pas un estimé.",
     "ALREADY_SUPERSEDED": "Cet estimé est déjà remplacé.",
     "ESTIMATE_CLOSED": "Cet estimé est clos.",
-    "UNKNOWN_PROVIDER": "Fournisseur de suivi inconnu."
+    "UNKNOWN_PROVIDER": "Fournisseur de suivi inconnu.",
+    "ERP_PUSH_ALREADY_FORGOTTEN": "Ce push est déjà oublié.",
+    "ERP_NO_CONNECTION": "Aucun ERP connecté : impossible de vérifier ce qui existe là-bas."
   },
   "timeline": {
     "title": "Chronologie",
@@ -791,7 +794,7 @@
       "pushed": "Brouillon {name} créé dans Odoo. Rien n'est validé : à vous de le faire dans Odoo.",
       "pushFailed": "Création dans l'ERP impossible",
       "previewFailed": "Aperçu impossible : l'ERP n'a pas répondu",
-      "alreadyPushed": "Déjà poussé dans Odoo sous le nom {name}.",
+      "alreadyPushed": "Tout est déjà dans Odoo : {name}.",
       "draftReminder": "Créé en brouillon uniquement : FreightSight ne valide jamais une écriture dans vos comptes.",
       "receipt": "Réception {name}",
       "noReceipt": "Aucune réception trouvée",
@@ -806,9 +809,29 @@
         "not_valued": "Odoo ne peut pas valoriser un coût de réception pour {products} : leur catégorie de produit n'est pas en valorisation automatisée avec une vraie méthode de coût (FIFO ou coût moyen). Odoo le refuserait à la validation, on le refuse donc ici.",
         "unmatched_line": "{po_number} ligne {line_no} ({sku}) ne correspond à aucune ligne de la réception {receipt}. Les coûts sont poussés ligne à ligne : chaque ligne doit correspondre.",
         "already_pushed": "Ces coûts ont déjà été poussés sous le nom {existing}.",
-        "noSku": "sans SKU",
-        "partially_pushed": "{count} de ces coûts ont déjà été poussés sous le nom {existing}. Un coût de réception s'ajoute à la valorisation du stock : repousser l'ensemble compterait deux fois ce qui l'a déjà été. Ajoutez le nouveau coût à la main dans Odoo pour l'instant."
-      }
+        "noSku": "sans SKU"
+      },
+      "pushedAs": "déjà dans {name}",
+      "willGo": "{count, plural, one {# coût partira} other {# coûts partiront}}",
+      "nothingNew": "Rien de nouveau à pousser."
+    },
+    "pushes": {
+      "title": "Documents créés dans Odoo",
+      "none": "Aucun document créé pour l'instant.",
+      "created": "créé le {date}",
+      "adopted": "repris",
+      "forgotten": "oublié le {date}",
+      "forgottenReason": "motif : {reason}",
+      "costCount": "{count, plural, one {# coût} other {# coûts}}",
+      "forget": "Oublier ce push",
+      "forgetHint": "Seulement si le brouillon a été supprimé dans Odoo : ses coûts redeviennent poussables. Le document reste dans l'historique.",
+      "reasonLabel": "Motif (visible dans l'historique)",
+      "reasonPlaceholder": "Brouillon supprimé dans Odoo le …, parce que …",
+      "confirm": "Oublier",
+      "cancel": "Annuler",
+      "forgotten_ok": "Push oublié : ses coûts sont de nouveau poussables.",
+      "forgetFailed": "Impossible d'oublier ce push",
+      "stillThere": "{name} est encore dans Odoo ({state}). Supprimez-le là-bas d'abord, ou gardez-le : on ne désynchronise pas ce qui existe."
     }
   },
   "reports": {

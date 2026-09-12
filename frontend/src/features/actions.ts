@@ -421,3 +421,31 @@ export async function pushErpLandedCost(containerId: string): Promise<ActionResu
   revalidatePath(`/container/${containerId}`);
   return { ok: true, data };
 }
+
+/** Every document ever created in the ERP for this container, newest first, forgotten ones marked. */
+export async function listErpPushes(containerId: string): Promise<ActionResult<ErpPushResponse[]>> {
+  await protectAction();
+  const { data, error } = await api.GET("/api/v1/containers/{container_id}/erp/pushes", { params: { path: { container_id: containerId } } });
+  if (error || !data) return await fail(error, "erp.push.previewFailed");
+  return { ok: true, data };
+}
+
+/**
+ * Forget a push whose draft is gone from the ERP, so its costs can be pushed again. Not a deletion:
+ * the row stays, marked, with the reason, and the audit log gets an entry. Refused while the
+ * document still exists over there, with its name so the person can go and look.
+ */
+export async function forgetErpPush(containerId: string, pushId: string, reason: string): Promise<ActionResult<ErpPushResponse>> {
+  await protectAction();
+  const { data, error } = await api.DELETE("/api/v1/containers/{container_id}/erp/pushes/{push_id}", { params: { path: { container_id: containerId, push_id: pushId }, query: { reason: reason.trim() || undefined } } });
+  if (error || !data) {
+    const p = error as { code?: string; document?: { name?: string; state?: string } } | undefined;
+    if (p?.code === "ERP_DOCUMENT_STILL_THERE") {
+      const t = await getTranslations("erp.pushes");
+      return { ok: false, error: t("stillThere", { name: p.document?.name ?? "?", state: p.document?.state ?? "" }) };
+    }
+    return await fail(error, "erp.pushes.forgetFailed");
+  }
+  revalidatePath(`/container/${containerId}`);
+  return { ok: true, data };
+}
