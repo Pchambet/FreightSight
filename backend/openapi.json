@@ -5603,7 +5603,8 @@
           "DND_RISK",
           "ETA_CHANGED",
           "TRACKING_DATA_MISSING",
-          "TRACKING_DELIVERY_FAILED"
+          "TRACKING_DELIVERY_FAILED",
+          "TRACKING_PROVIDER_DOWN"
         ],
         "title": "AlertKind"
       },

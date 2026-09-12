@@ -170,6 +170,10 @@ class AlertKind(enum.StrEnum):
     ETA_CHANGED = "ETA_CHANGED"
     TRACKING_DATA_MISSING = "TRACKING_DATA_MISSING"  # a subscription has gone quiet
     TRACKING_DELIVERY_FAILED = "TRACKING_DELIVERY_FAILED"  # a webhook we could not process
+    #: The provider itself is not answering. Deliberately not TRACKING_DATA_MISSING: that one says
+    #: "this container has gone quiet, go and look at the carrier's site", which is an accusation
+    #: aimed at the wrong party when the truth is that our supplier is down.
+    TRACKING_PROVIDER_DOWN = "TRACKING_PROVIDER_DOWN"
 
 
 class AlertSeverity(enum.StrEnum):

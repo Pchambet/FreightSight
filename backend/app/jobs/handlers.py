@@ -61,6 +61,9 @@ ProviderFactory = Callable[[str], _TrackingProvider]
 
 #: How long a subscription may stay silent before we say so.
 STALE_AFTER = timedelta(hours=48)
+#: How many containers in a row a provider may fail to answer for before we stop asking it in this
+#: sweep. Three, because one is a bad container and two is a coincidence.
+CIRCUIT_TRIPS_AFTER = 3
 #: How many times a failed delivery is retried before it is left alone.
 MAX_DELIVERY_ATTEMPTS = 5
 #: The hour, in Europe/Paris, at which the demurrage pass runs.
@@ -74,6 +77,40 @@ RISK_SEVERITY = {
     DndRisk.HIGH: AlertSeverity.CRITICAL,
     DndRisk.INCURRING: AlertSeverity.CRITICAL,
 }
+
+
+class ProviderCircuit:
+    """Stops asking a provider that has stopped answering, for the rest of a sweep.
+
+    Without this, an outage at a provider costs one timeout per tracked container: bounded per call
+    since the timeout audit, but multiplied by every container, on a job that holds a queueing lock.
+    A hundred boxes and a silent provider is an hour of a worker spent learning the same thing a
+    hundred times.
+
+    Per sweep rather than persisted: the next run starts by trying again, which is what you want
+    from an outage that is usually minutes long.
+    """
+
+    def __init__(self, trips_after: int = CIRCUIT_TRIPS_AFTER) -> None:
+        self.trips_after = trips_after
+        self.failures: dict[str, int] = {}
+        self.tripped: set[str] = set()
+
+    def is_open(self, provider: str) -> bool:
+        """True when we have stopped asking this provider."""
+        return provider in self.tripped
+
+    def failed(self, provider: str) -> bool:
+        """Record a provider that could not be reached. True when this is the one that trips it."""
+        self.failures[provider] = self.failures.get(provider, 0) + 1
+        if self.failures[provider] >= self.trips_after and provider not in self.tripped:
+            self.tripped.add(provider)
+            return True
+        return False
+
+    def answered(self, provider: str) -> None:
+        """A provider that answers is not down, whatever the answer was."""
+        self.failures.pop(provider, None)
 
 
 @contextmanager
@@ -127,8 +164,23 @@ def retry_failed_deliveries(
             continue
         if delivery.processed_at and moment < delivery.processed_at + _backoff(attempts):
             continue  # exponential backoff: 1, 2, 4, 8, 16 minutes
-        provider = provider_factory(delivery.provider)
-        process_stored_delivery(db, provider, delivery, attempt=attempts + 1, now=moment)
+        try:
+            provider = provider_factory(delivery.provider)
+        except Exception:
+            # A provider whose key has been removed, or a name no longer in the registry. The body
+            # stays in the table and this returns to it; what it must not do is stop the *other*
+            # providers' deliveries being replayed behind it.
+            logger.exception("no provider for stored delivery %s", delivery.id)
+            continue
+        # process_stored_delivery never raises: a delivery that cannot be understood is marked,
+        # not thrown. Anything that escapes anyway is a bug, and one bad body is not a reason to
+        # abandon the rest of the queue.
+        try:
+            process_stored_delivery(db, provider, delivery, attempt=attempts + 1, now=moment)
+        except Exception:  # pragma: no cover - the callee is written not to raise
+            logger.exception("replaying delivery %s failed", delivery.id)
+            db.rollback()
+            continue
         retried += 1
     return retried
 
@@ -147,8 +199,14 @@ def poll_stale_subscriptions(
     provider_factory: ProviderFactory = get_provider,
 ) -> int:
     """Ask the provider directly about containers whose feed has gone quiet, and say so if it stays
-    quiet. Returns the number of subscriptions polled."""
+    quiet. Returns the number of subscriptions polled.
+
+    Two things a provider outage must not be allowed to do, and both used to happen: mark every
+    customer's containers as failed while telling them to go and check the carrier's site, and spend
+    one timeout per container finding that out.
+    """
     moment = now or datetime.now(UTC)
+    circuit = ProviderCircuit()
     polled = 0
     for org in organizations(db):
         with tenant(db, org):
@@ -171,13 +229,48 @@ def poll_stale_subscriptions(
                 since = last or subscription.subscribed_at or subscription.created_at
                 if since is not None and moment - since < STALE_AFTER:
                     continue
-                polled += 1
+                if circuit.is_open(subscription.provider):
+                    continue  # this provider is not answering; asking again costs a timeout
                 container = db.get(Container, subscription.container_id)
                 if container is None:  # pragma: no cover - foreign key says otherwise
                     continue
-                _poll_one(db, org, subscription, container, moment, provider_factory)
+                polled += 1
+                try:
+                    outcome = _poll_one(db, org, subscription, container, moment, provider_factory)
+                except Exception:
+                    # One container's surprise — a payload shape nobody expected, a bug in a parser
+                    # — must not cost every other organization its round.
+                    logger.exception("polling failed for container %s", subscription.container_id)
+                    db.rollback()
+                    continue
+                if outcome != "unreachable":
+                    circuit.answered(subscription.provider)
+                elif circuit.failed(subscription.provider):
+                    _provider_is_down(db, org, subscription.provider, moment)
             db.commit()
     return polled
+
+
+def _provider_is_down(db: Session, org: Organization, provider: str, moment: datetime) -> None:
+    """One alert about the provider, instead of one alert per container about the containers."""
+    logger.warning(
+        "tracking provider not answering: polling stopped for this round",
+        extra={"provider": provider, "org_id": str(org.id)},
+    )
+    raise_alert(
+        db,
+        org.id,
+        kind=AlertKind.TRACKING_PROVIDER_DOWN,
+        severity=AlertSeverity.WARNING,
+        title=f"{provider} is not answering",
+        body=(
+            f"We could not reach {provider} for several containers in a row, so tracking updates "
+            "are paused until it answers again. Nothing is wrong with the containers themselves, "
+            "and nothing needs doing here: the next round picks up where this one stopped."
+        ),
+        dedup_key=f"tracking-provider-down:{provider}:{moment.date().isoformat()}",
+        payload={"provider": provider},
+    )
 
 
 def _poll_one(
@@ -187,7 +280,15 @@ def _poll_one(
     container: Container,
     moment: datetime,
     provider_factory: ProviderFactory,
-) -> None:
+) -> str:
+    """Ask about one container. Returns `ingested`, `quiet`, or `unreachable`.
+
+    The three are not the same and used to be treated as two. "The provider answered and had
+    nothing" is about this container and is worth telling its owner about. "We could not reach the
+    provider" is about us and our supplier: saying "check the container on the carrier's own site"
+    then accuses the customer's carrier of something our own outage caused, and marking the
+    container FAILED makes their screen red for a reason that has nothing to do with their freight.
+    """
     ingested = 0
     reason = ""
     if subscription.provider_ref:
@@ -203,11 +304,13 @@ def _poll_one(
             if ingested:
                 refresh(db, org, container, source=subscription.provider, now=moment)
         except (ProviderNotConfigured, ProviderUnavailable) as exc:
-            reason = exc.message
+            subscription.last_error = exc.message
+            db.flush()
+            return "unreachable"
     else:
         reason = "no provider reference: this container is tracked webhook-only"
     if ingested:
-        return
+        return "ingested"
     days = (moment - (subscription.subscribed_at or subscription.created_at)).days
     raise_alert(
         db,
@@ -229,6 +332,7 @@ def _poll_one(
     if subscription.status == "active" and container.tracking_state is TrackingState.ACTIVE:
         container.tracking_state = TrackingState.FAILED
     db.flush()
+    return "quiet"
 
 
 #: How long a delivered container is still worth paying a provider to watch.
@@ -246,6 +350,7 @@ def end_delivered_subscriptions(
     move again. The week of grace is for the late gate-in that arrives after the delivery event.
     """
     moment = now or datetime.now(UTC)
+    circuit = ProviderCircuit()
     ended = 0
     for org in organizations(db):
         with tenant(db, org):
@@ -266,6 +371,8 @@ def end_delivered_subscriptions(
                 if settled is None or moment - settled < KEEP_TRACKING_AFTER_DELIVERY:
                     continue
                 if subscription.provider_ref:
+                    if circuit.is_open(subscription.provider):
+                        continue  # not answering; the next run will unsubscribe these
                     try:
                         provider_factory(subscription.provider).unsubscribe(subscription.provider_ref)
                     except (ProviderNotConfigured, ProviderUnavailable) as exc:
@@ -275,7 +382,9 @@ def end_delivered_subscriptions(
                             "could not unsubscribe container %s: %s", container.container_number, exc
                         )
                         subscription.last_error = exc.message
+                        circuit.failed(subscription.provider)
                         continue
+                    circuit.answered(subscription.provider)
                 subscription.ended_at = moment
                 subscription.status = "ended"
                 container.tracking_state = TrackingState.ENDED

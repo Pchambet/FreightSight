@@ -127,3 +127,61 @@ Le job `fetch` existant suffit : Shipsgo facture le crédit à la création du s
 donc interroger un abonnement déjà payé ne coûte rien de plus. Leurs données bougent trois fois par
 jour en v1.2 ; la v2 ne le dit pas, mais notre interrogation toutes les 4 heures est du même ordre.
 Le webhook est prêt côté vérification et pourra être branché sans changer le reste.
+
+---
+
+# Durcissement du worker de suivi (12 septembre 2026)
+
+## Une panne de fournisseur n'est pas une panne de conteneur
+
+Le défaut le plus coûteux de cette brique, et il était silencieux. `_poll_one` traitait « le
+fournisseur a répondu, il n'a rien » et « je n'ai pas pu joindre le fournisseur » de la même façon :
+les deux levaient une alerte `TRACKING_DATA_MISSING` disant *« Check the container on the carrier's
+own site »* et passaient le conteneur en `TrackingState.FAILED`.
+
+Conséquence d'une heure de Shipsgo indisponible : **tous** les conteneurs de **tous** les clients
+passent au rouge, et chaque client reçoit une alerte par boîte lui disant d'aller vérifier sur le
+site de son transporteur — une accusation adressée au mauvais acteur, pour une panne qui est la
+nôtre et celle de notre fournisseur.
+
+`_poll_one` renvoie maintenant `ingested` / `quiet` / `unreachable`. Seul `quiet` est une nouvelle
+qui concerne la marchandise du client. `unreachable` enregistre la raison dans
+`subscription.last_error`, ne touche pas à `tracking_state`, et ne lève rien au niveau du conteneur.
+
+Nouveau `AlertKind.TRACKING_PROVIDER_DOWN` (migration 0018), **une** alerte par fournisseur et par
+jour, sans `container_id`, et dont le texte dit explicitement qu'il n'y a rien à faire et rien
+d'anormal du côté des conteneurs. Réutiliser `TRACKING_DATA_MISSING` aurait été plus simple et
+aurait annulé tout l'intérêt du changement.
+
+## Le coût d'insister
+
+Depuis l'audit des délais d'attente, un appel est borné (30 s pour Shipsgo). Mais **borné par appel
+et multiplié par le nombre de conteneurs suivis** : cent boîtes et un fournisseur muet font une
+heure de worker — qui tient un `queueing_lock` — passée à apprendre cent fois la même chose.
+
+`ProviderCircuit` arrête d'interroger un fournisseur après **trois échecs d'affilée** (un est un
+mauvais conteneur, deux est une coïncidence). *D'affilée* : un fournisseur qui répond à propos d'une
+boîte n'est pas en panne, quoi qu'il ait répondu. Le compteur vit le temps d'un balayage et pas
+plus : la plupart des pannes durent quelques minutes, et le tour suivant doit réessayer. Même garde
+sur `end_delivered_subscriptions`, où l'enjeu est différent — un fournisseur qui continue de
+facturer des conteneurs livrés — mais le coût d'insister est le même.
+
+## Un bug sur un conteneur ne coûte plus sa tournée à tous les autres
+
+`_poll_one` n'attrapait que `ProviderNotConfigured` et `ProviderUnavailable`. Un `KeyError` dans un
+parseur devant une charge utile inattendue remontait donc jusqu'en haut : le `db.commit()` de fin
+de boucle n'avait jamais lieu, et **toutes les organisations suivantes n'étaient pas traitées du
+tout**. Chaque conteneur est maintenant dans son propre `try`, avec `rollback` et on continue.
+
+Même chose pour `retry_failed_deliveries` : `provider_factory(...)` était appelé hors de toute
+protection, donc une clé retirée de l'environnement ou un nom de fournisseur disparu du registre
+bloquait la reprise des livraisons **des autres** fournisseurs. Le corps reste en table, on y
+reviendra ; ce qu'il ne doit pas faire, c'est arrêter la file.
+
+## Ce qui reste ouvert
+
+- Le disjoncteur est **par balayage**, pas persistant. Une panne de plusieurs jours refait trois
+  appels par tour. C'est peu, et ça garde la reprise automatique ; si ça devient gênant, la forme
+  à copier est celle de l'ERP (`retry_after` en base, `odoo-questions.md` §17).
+- Rien ne mesure la *durée* d'une panne côté fournisseur : l'alerte est quotidienne, pas
+  « injoignable depuis 6 heures ».
