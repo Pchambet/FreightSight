@@ -203,6 +203,9 @@ def push_landed_cost(container_id: UUID, t: TenantDep, p: WriterDep) -> schemas.
             "odoo_name": record.odoo_name,
             "status": record.status,
             "cost_ids": record.cost_ids,
+            # False on a normal push; True when an interrupted attempt had already created the
+            # draft and this one filled it in rather than making a second.
+            "adopted": bool(record.response.get("freightsight_adopted")),
         },
     )
     t.db.commit()

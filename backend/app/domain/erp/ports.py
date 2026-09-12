@@ -120,6 +120,9 @@ class ErpPushResult:
     name: str
     state: str
     amount_total: str
+    #: True when this is a draft an interrupted push had already created, found again by its marker
+    #: and filled in, rather than a new document.
+    adopted: bool = False
     raw: dict[str, Any] = field(default_factory=dict)
 
 
@@ -140,8 +143,14 @@ class ErpWriter(Protocol):
         journal_id: int | None = None,
         on_date: date | None = None,
         reference: str | None = None,
+        marker: str | None = None,
     ) -> ErpPushResult:
-        """Create a landed cost in draft, carrying our amounts. Never validated by us."""
+        """Create a landed cost in draft, carrying our amounts. Never validated by us.
+
+        `marker` identifies this exact set of costs. The implementation writes it into the document
+        and looks for it before creating, so a push interrupted between the ERP write and our own
+        commit is resumed rather than duplicated in the customer's books.
+        """
         ...
 
 

@@ -13,7 +13,9 @@ told what each line costs rather than asked to guess a split it has no basis for
 
 from __future__ import annotations
 
+import hashlib
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -45,6 +47,19 @@ MULTIPLE_RECEIPTS = "multiple_receipts"
 UNMATCHED_LINE = "unmatched_line"
 NOT_VALUED = "not_valued"
 ALREADY_PUSHED = "already_pushed"
+PARTIALLY_PUSHED = "partially_pushed"
+
+
+def marker_for(cost_ids: Iterable[UUID | str]) -> str:
+    """A stable key for *this set of costs*, to recognise our own draft in the ERP.
+
+    Not the container, and not the document's name: the same container is legitimately pushed again
+    once another invoice lands, and that second push is a different document. What has to match is
+    the set of costs, so the key is their sorted ids, hashed — short enough to sit in a note a human
+    might read, and carrying no identifier out of our database into someone else's.
+    """
+    joined = "|".join(sorted(str(cost_id) for cost_id in cost_ids))
+    return hashlib.sha256(joined.encode()).hexdigest()[:16]
 
 
 @dataclass(frozen=True)
@@ -180,6 +195,24 @@ def plan(
                 {"existing": existing.odoo_name or str(existing.odoo_id)},
             )
         )
+    else:
+        overlapping = _overlapping_push(db, org, container, by_cost)
+        if overlapping is not None:
+            # A landed cost *adds* to the stock valuation. Pushing a set that contains costs an
+            # earlier document already carried would charge them to the goods a second time — in
+            # someone else's books, where we would not be the ones to notice.
+            name = overlapping.odoo_name or str(overlapping.odoo_id)
+            shared = len(set(overlapping.cost_ids) & {str(cost_id) for cost_id in by_cost})
+            blockers.append(
+                Blocker(
+                    PARTIALLY_PUSHED,
+                    f"{shared} of these costs were already pushed as {name}, and a landed cost adds "
+                    "to the stock valuation rather than replacing it, so pushing them again would "
+                    "charge the goods twice. Add the new cost by hand in Odoo for now: splitting a "
+                    "push into what has already gone and what has not is not decided yet.",
+                    {"existing": name, "count": str(shared)},
+                )
+            )
 
     costs: list[PlannedCost] = []
     if receipt is not None:
@@ -279,6 +312,23 @@ def _existing_push(
     return None
 
 
+def _overlapping_push(
+    db: Session, org: Organization, container: Container, by_cost: dict[UUID, dict[UUID, Decimal]]
+) -> ErpPush | None:
+    """A push that carried *some* of these costs. Not the same document, and not a safe second one."""
+    wanted = {str(cost_id) for cost_id in by_cost}
+    if not wanted:
+        return None
+    for push_row in db.scalars(
+        select(ErpPush)
+        .where(ErpPush.org_id == org.id, ErpPush.container_id == container.id)
+        .order_by(ErpPush.created_at.desc())
+    ):
+        if set(push_row.cost_ids) & wanted:
+            return push_row
+    return None
+
+
 def push(
     db: Session,
     org: Organization,
@@ -303,6 +353,7 @@ def push(
         )
 
     assert prepared.receipt is not None
+    cost_ids = sorted(str(cost_id) for cost in prepared.costs for cost_id in cost.cost_ids)
     result = writer.create_landed_cost(
         prepared.receipt.picking_id,
         [
@@ -316,17 +367,26 @@ def push(
         ],
         on_date=on_date or datetime.now(UTC).date(),
         reference=f"FreightSight {container.container_number}",
+        marker=marker_for(cost_ids),
     )
+    if result.adopted:
+        # The ERP write of an earlier attempt survived; ours did not. Worth a line: it is the only
+        # trace that anything went wrong, and the customer's books are unharmed either way.
+        logger.info(
+            "adopted an existing landed cost draft",
+            extra={"odoo_id": result.record_id, "container_id": str(container.id)},
+        )
     record = ErpPush(
         org_id=org.id,
         connection_id=connection.id,
         container_id=container.id,
-        cost_ids=sorted(str(cost_id) for cost in prepared.costs for cost_id in cost.cost_ids),
+        cost_ids=cost_ids,
         odoo_model=result.model,
         odoo_id=result.record_id,
         odoo_name=result.name,
         status=result.state,
-        response=result.raw,
+        # Prefixed, so it cannot be mistaken for a field Odoo sent us.
+        response={**result.raw, "freightsight_adopted": result.adopted},
         created_by=created_by,
     )
     db.add(record)

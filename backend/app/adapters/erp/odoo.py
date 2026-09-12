@@ -51,6 +51,11 @@ PAGE_SIZE = 200
 #: States that mean "this order is no longer a commitment".
 CANCELLED_STATES = ("cancel",)
 
+#: Where the marker is written, and how it reads once it is there. `description` ("Item Description"
+#: in the form) is stored text with no accounting meaning, so a string of ours in it changes nothing
+#: about the document — unlike the name, which is the reference the accountant reads.
+MARKER_PREFIX = "FreightSight-ref:"
+
 ProxyFactory = Callable[[str], Any]
 
 #: The precision of `po_lines.unit_price`, so a converted price is stored as it will be read.
@@ -59,6 +64,20 @@ PRICE_PRECISION = Decimal("0.0001")
 
 def _default_proxy(url: str) -> Any:
     return xmlrpc.client.ServerProxy(url, allow_none=True)
+
+
+def _description(marker: str, reference: str | None) -> str:
+    """What a human reads in the document, with the key we search on at the end of it.
+
+    The sentence is there for whoever opens the draft and wonders what the string is: it is how a
+    retried push finds this document again instead of writing a second one.
+    """
+    head = f"{reference}\n" if reference else ""
+    return (
+        f"{head}Allocated by FreightSight. Please leave the reference below in place: it is how a "
+        f"retried push finds this draft again instead of creating a second one.\n"
+        f"{MARKER_PREFIX} {marker}"
+    )
 
 
 def _decimal(value: Any) -> str | None:
@@ -350,6 +369,7 @@ class OdooConnector:
         journal_id: int | None = None,
         on_date: date | None = None,
         reference: str | None = None,
+        marker: str | None = None,
     ) -> ErpPushResult:
         """Create the landed cost in draft and write our own split into it.
 
@@ -359,6 +379,12 @@ class OdooConnector:
         create, `compute_landed_cost`, then overwrite each line with the amount our engine
         allocated. The record stays in `draft`: validating it posts accounting entries, and that is
         a decision for the person whose books they are.
+
+        With a `marker`, the document is looked for before it is created. Creating in someone's ERP
+        and recording it here are two writes to two systems, and the gap between them can end in a
+        crash; without this, the draft would exist at the customer with no trace here and the next
+        click would make a second one. The marker goes into `description`, which Odoo stores and
+        which carries no accounting meaning, and comes back out through a search.
         """
         product_id = landed_cost_product_id or self._default_landed_cost_product()
         journal = journal_id or self._default_journal()
@@ -385,8 +411,17 @@ class OdooConnector:
         }
         if reference:
             values["name"] = reference
-        created = self._kw("stock.landed.cost", "create", values)
-        record_id = int(created[0] if isinstance(created, list) else created)
+        if marker:
+            values["description"] = _description(marker, reference)
+
+        adopted = self._find_draft(picking_id, marker, len(cost_lines)) if marker else None
+        if adopted is not None:
+            record_id = adopted
+        else:
+            created = self._kw("stock.landed.cost", "create", values)
+            record_id = int(created[0] if isinstance(created, list) else created)
+        # Recomputing an adopted draft is the same call as computing a new one, and it puts the
+        # document in a known state whatever the interrupted attempt managed to write.
         self._kw("stock.landed.cost", "compute_landed_cost", [record_id])
         record = self._kw(
             "stock.landed.cost",
@@ -401,8 +436,51 @@ class OdooConnector:
             name=str(record.get("name") or ""),
             state=str(record.get("state") or ""),
             amount_total=f"{Decimal(str(record.get('amount_total') or 0)):.2f}",
+            adopted=adopted is not None,
             raw=record,
         )
+
+    def _find_draft(self, picking_id: int, marker: str, expected_lines: int) -> int | None:
+        """The draft a previous attempt left behind for exactly these costs, if there is one.
+
+        Scoped to `draft` and to this receipt as well as to the marker: a validated landed cost is
+        posted in the accounts and is not ours to touch again, and a draft hanging off another
+        receipt is not the document we were making.
+        """
+        found = self._kw(
+            "stock.landed.cost",
+            "search_read",
+            [
+                ["state", "=", "draft"],
+                ["picking_ids", "in", [picking_id]],
+                ["description", "like", marker],
+            ],
+            fields=["name", "cost_lines"],
+            order="id",
+            limit=2,
+        )
+        if not found:
+            return None
+        if len(found) > 1:
+            names = ", ".join(str(f.get("name") or f["id"]) for f in found)
+            raise ErpProtocolError(
+                f"Several drafts in this ERP carry the same FreightSight reference ({names}). "
+                "Keep one and delete the others, then push again — picking one for you would "
+                "leave the other behind in your accounts.",
+                code="ERP_DUPLICATE_DRAFT",
+            )
+        draft = found[0]
+        existing_lines = list(draft.get("cost_lines") or [])
+        if len(existing_lines) != expected_lines:
+            # Written over by hand since. Overwriting it back would be us deciding what someone
+            # meant to change in their own books.
+            raise ErpProtocolError(
+                f"The draft {draft.get('name') or draft['id']} carries this FreightSight reference "
+                f"but has {len(existing_lines)} cost line(s) where we expect {expected_lines}. It "
+                "has been edited since; reconcile it in Odoo, or delete it and push again.",
+                code="ERP_DRAFT_EDITED",
+            )
+        return int(draft["id"])
 
     def _apply_our_split(
         self, record_id: int, cost_lines: list[ErpCostLine], created_line_ids: list[int]

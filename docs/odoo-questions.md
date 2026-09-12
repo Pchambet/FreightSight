@@ -191,6 +191,65 @@ trouvée », et aucun écran ne peut écrire deux phrases différentes à partir
 traduction : « aucune réception pour P00012 » et « 2 réceptions correspondent » ne sont pas la même
 information.
 
+## 15. Un push interrompu se reprend, il ne se répète pas (12 septembre 2026)
+
+Créer le brouillon chez le client et l'enregistrer chez nous sont **deux écritures dans deux
+systèmes**. Entre les deux, il y a une fenêtre : `create_landed_cost` part d'abord, l'`ErpPush` est
+ajouté ensuite, et le commit arrive encore après, dans la couche API. Si ce commit échoue — connexion
+perdue, contrainte, redémarrage — le brouillon existe dans les livres du client sans aucune trace
+chez nous, et le geste évident (recliquer) en crée un second.
+
+**La clé n'est pas le conteneur, et ce n'est pas le nom du document.** Sur l'instance de test, trois
+brouillons s'appellent aujourd'hui `FreightSight MSCU4821990` : le même conteneur est légitimement
+repoussé quand une facture arrive plus tard, donc le nom ne distingue rien. Ce qui doit correspondre,
+c'est **l'ensemble des coûts** : `marker_for()` trie les ids de coûts, les hache, et garde 16
+caractères hexadécimaux — assez court pour tenir dans une note qu'un humain peut lire, et ne sortant
+aucun identifiant de notre base vers celle de quelqu'un d'autre.
+
+**Où il est écrit : `description`.** Vérifié par `fields_get` sur l'instance réelle : c'est un champ
+`text`, stocké, modifiable, sans aucun sens comptable (« Item Description » dans le formulaire). Le
+`name`, lui, est `readonly` et c'est la référence que lit le comptable — y coller une empreinte
+serait du bruit dans ses livres. La note écrite dit pourquoi elle est là, pour qui ouvre le
+brouillon.
+
+La recherche est bornée à `state = draft` **et** à la même réception : une landed cost validée est
+passée en comptabilité et n'est plus à nous, et un brouillon accroché à une autre réception n'est pas
+le document qu'on fabriquait.
+
+**Deux refus plutôt que deux devinettes :**
+- Plusieurs brouillons portant la même empreinte → `ERP_DUPLICATE_DRAFT`. En choisir un laisserait
+  l'autre traîner dans les comptes.
+- Un brouillon dont le nombre de lignes de coût ne correspond plus au nôtre → `ERP_DRAFT_EDITED`.
+  Quelqu'un l'a modifié depuis ; réécrire nos montants par-dessus serait décider à sa place ce qu'il
+  voulait changer dans ses propres livres.
+
+**Vérifié en vrai** sur l'Odoo 17 du port 8169, pas seulement sur le fake : premier push → brouillon
+3 041,67 ; second push avec la même empreinte → **même id**, `adopted=True`, un seul document porte
+l'empreinte, et les ventilations valent toujours 2 766,67 et 275,00. Un ensemble de coûts différent
+n'adopte pas ce brouillon. (`compute_landed_cost` recrée les lignes de ventilation avec de nouveaux
+ids à chaque appel — c'est pour ça qu'on réapplique notre split après, à l'adoption comme à la
+création.)
+
+## 15 bis. Le double comptage qu'on a trouvé en chemin, et qu'on refuse
+
+Trouvé en écrivant le test ci-dessus, et **ce n'est pas une régression, c'était déjà le
+comportement** : `plan()` recalcule sur *tous* les coûts réels du conteneur, et `_existing_push` ne
+bloquait que sur un ensemble **exactement** identique. Donc : fret poussé, puis une facture de
+douane arrive, second push → un deuxième document portant fret **+** douane. Une landed cost
+**s'ajoute** à la valorisation du stock, elle ne la remplace pas : le fret aurait été imputé deux
+fois à la marchandise, dans les livres de quelqu'un d'autre, là où ce n'est pas nous qui le
+verrions.
+
+Nouveau bloquant `partially_pushed` (params `existing`, `count`) : on refuse et on le dit, comme
+pour les réceptions multiples. Le message demande d'ajouter le nouveau coût à la main dans Odoo pour
+l'instant.
+
+→ **Décision ouverte, et c'est la bonne suite à donner à cette brique** : pousser uniquement la
+*différence* (les coûts qu'aucun document n'a encore portés). C'est additif, donc juste par
+construction, et ça supprime le blocage. Ça change ce que porte une ligne `erp_pushes`, ce que montre
+l'aperçu, et le texte de l'écran — donc ça se décide, ça ne se glisse pas dans un correctif.
+Manque aussi, pour ce jour-là, un moyen d'oublier un push dont le brouillon a été supprimé côté Odoo.
+
 ## 14. Ce que je n'ai pas vérifié
 
 **Je n'ai pas regardé l'écran Odoo.** Me connecter à l'interface demandait de taper un mot de passe
