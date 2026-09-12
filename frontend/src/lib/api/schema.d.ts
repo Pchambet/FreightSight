@@ -2384,6 +2384,8 @@ export interface components {
             free_days_demurrage: number;
             /** Free Days Detention */
             free_days_detention: number;
+            /** Locale */
+            locale: string;
             /** Settings */
             settings: {
                 [key: string]: unknown;
@@ -2406,6 +2408,8 @@ export interface components {
             free_days_demurrage?: number | null;
             /** Free Days Detention */
             free_days_detention?: number | null;
+            /** Locale */
+            locale?: string | null;
             /** Settings */
             settings?: {
                 [key: string]: unknown;

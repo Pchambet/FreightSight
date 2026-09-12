@@ -397,6 +397,10 @@
     "name": "Name",
     "baseCurrency": "Base currency",
     "baseCurrencyHelp": "Every landed cost is reported in this currency. Changing it does not restate existing rates.",
+    "locale": "E-mail language",
+    "locale_fr": "Français",
+    "locale_en": "English",
+    "localeHelp": "Language of the alert digest sent to the company. The screen follows the language picked in the header.",
     "allocation": "Allocation",
     "defaultMethod": "Default method for new costs",
     "methodHelp": "Freight is usually allocated by volume for FCL and by weight for air or LCL; insurance and duty by value. Customs duty always uses the CIF basis.",
@@ -606,7 +610,8 @@
       "title": "Page not found",
       "body": "This page does not exist or you do not have access to it.",
       "back": "Back to containers"
-    }
+    },
+    "ORG_LOCALE_UNKNOWN": "Unknown language: only French and English are written."
   },
   "timeline": {
     "title": "Timeline",

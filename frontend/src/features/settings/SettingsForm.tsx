@@ -23,6 +23,7 @@ export default function SettingsForm({ org }: { org: OrganizationResponse }) {
       const result = await updateOrganization({
         name: String(f.get("name") ?? org.name),
         base_currency: String(f.get("base_currency") ?? org.base_currency).toUpperCase(),
+        locale: f.get("locale") === "en" ? "en" : "fr",
         default_allocation_method: String(f.get("default_allocation_method") ?? org.default_allocation_method),
         free_days_demurrage: Number(f.get("free_days_demurrage") ?? org.free_days_demurrage),
         free_days_detention: Number(f.get("free_days_detention") ?? org.free_days_detention),
@@ -46,6 +47,14 @@ export default function SettingsForm({ org }: { org: OrganizationResponse }) {
             <label className={label} htmlFor="base_currency">{t("baseCurrency")}</label>
             <input id="base_currency" name="base_currency" defaultValue={org.base_currency} maxLength={3} className={`${input} font-mono uppercase`} />
             <p className="text-xs text-slate-500 mt-1">{t("baseCurrencyHelp")}</p>
+          </div>
+          <div>
+            <label className={label} htmlFor="locale">{t("locale")}</label>
+            <select id="locale" name="locale" defaultValue={org.locale} className={input}>
+              <option value="fr">{t("locale_fr")}</option>
+              <option value="en">{t("locale_en")}</option>
+            </select>
+            <p className="text-xs text-slate-500 mt-1">{t("localeHelp")}</p>
           </div>
         </div>
       </Card>

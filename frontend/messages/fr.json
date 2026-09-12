@@ -397,6 +397,10 @@
     "name": "Nom",
     "baseCurrency": "Devise de référence",
     "baseCurrencyHelp": "Tout coût rendu est présenté dans cette devise. La changer ne recalcule pas les taux déjà enregistrés.",
+    "locale": "Langue des e-mails",
+    "locale_fr": "Français",
+    "locale_en": "English",
+    "localeHelp": "Langue du résumé d'alertes envoyé à la société. L'écran suit la langue choisie dans l'en-tête.",
     "allocation": "Ventilation",
     "defaultMethod": "Méthode par défaut des nouveaux coûts",
     "methodHelp": "Le fret se ventile en général au volume en conteneur complet et au poids en aérien ou en groupage ; l'assurance et les droits à la valeur. Les droits de douane utilisent toujours la base CIF.",
@@ -606,7 +610,8 @@
       "title": "Page introuvable",
       "body": "Cette page n'existe pas ou vous n'y avez pas accès.",
       "back": "Retour aux conteneurs"
-    }
+    },
+    "ORG_LOCALE_UNKNOWN": "Langue inconnue : seuls le français et l'anglais sont écrits."
   },
   "timeline": {
     "title": "Chronologie",

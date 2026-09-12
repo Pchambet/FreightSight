@@ -406,6 +406,7 @@ export async function loadSampleData(): Promise<ActionResult<{ containerIds: str
 export async function updateOrganization(input: {
   name?: string;
   base_currency?: string;
+  locale?: "fr" | "en";
   default_allocation_method?: string;
   free_days_demurrage?: number;
   free_days_detention?: number;
