@@ -117,3 +117,57 @@ def test_over_allocation_in_file_is_a_row_error(client: TestClient) -> None:
     report = res.json()["report"]
     assert report["valid_rows"] == 1
     assert report["errors"][0]["code"] == "OVER_ALLOCATED" and report["errors"][0]["row"] == 3
+
+
+def test_a_reimport_without_a_column_keeps_what_was_typed_by_hand(client: TestClient) -> None:
+    """Weights, volumes, HS codes and duty rates are enrichment: a file (or an ERP) that does not
+    carry them must not blank them, or the freight split by weight silently collapses at the next
+    sync. What the order itself says still follows the source."""
+    first = b"po_number;sku;quantity;unit_price;unit_weight_kg;duty_rate\nPO-W;W;100;10,00;2,5;0,045\n"
+    job = upload(client, first, "PURCHASE_ORDERS", "with_weights.csv")
+    res = client.post(
+        f"/api/v1/imports/{job['id']}/commit", json={"mapping": job["mapping"], "on_error": "abort"}
+    )
+    assert res.status_code == 200, res.text
+
+    second = b"po_number;sku;quantity;unit_price\nPO-W;W;120;11,00\n"
+    job2 = upload(client, second, "PURCHASE_ORDERS", "without_weights.csv")
+    res = client.post(
+        f"/api/v1/imports/{job2['id']}/commit", json={"mapping": job2["mapping"], "on_error": "abort"}
+    )
+    assert res.status_code == 200, res.text
+
+    (po,) = [p for p in client.get("/api/v1/purchase-orders").json() if p["po_number"] == "PO-W"]
+    (line,) = client.get(f"/api/v1/purchase-orders/{po['id']}").json()["lines"]
+    assert line["quantity"].startswith("120") and line["unit_price"].startswith("11")
+    assert line["unit_weight_kg"].startswith("2.5") and line["duty_rate"].startswith("0.045")
+
+    # a value in the file still wins over the old one
+    third = b"po_number;sku;quantity;unit_price;unit_weight_kg\nPO-W;W;120;11,00;3\n"
+    job3 = upload(client, third, "PURCHASE_ORDERS", "new_weight.csv")
+    assert (
+        client.post(
+            f"/api/v1/imports/{job3['id']}/commit", json={"mapping": job3["mapping"], "on_error": "abort"}
+        ).status_code
+        == 200
+    )
+    (line,) = client.get(f"/api/v1/purchase-orders/{po['id']}").json()["lines"]
+    assert line["unit_weight_kg"].startswith("3")
+
+
+def test_a_comma_after_a_lone_zero_is_a_decimal_point() -> None:
+    """French files put three decimals on rates and volumes. "0,045" is four and a half percent,
+    not forty-five; "0,012" is twelve litres, not twelve cubic metres. The genuinely ambiguous
+    "12,500" stays the English twelve thousand five hundred, and two commas are thousands."""
+    from decimal import Decimal
+
+    from app.domain.imports.parsing import parse_decimal
+
+    assert parse_decimal("0,045") == Decimal("0.045")
+    assert parse_decimal("-0,125") == Decimal("-0.125")
+    assert parse_decimal(",5") == Decimal("0.5")
+    assert parse_decimal("12,500") == Decimal("12500")
+    assert parse_decimal("1,234,567") == Decimal("1234567")
+    assert parse_decimal("12 500,50") == Decimal("12500.50")
+    assert parse_decimal("12.500,50") == Decimal("12500.50")
+    assert parse_decimal("4,5 %") == Decimal("4.5")

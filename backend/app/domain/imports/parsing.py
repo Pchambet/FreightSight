@@ -165,7 +165,17 @@ def parse_decimal(raw: str | None) -> Decimal | None:
         s = s.replace(".", "").replace(",", ".") if s.rfind(",") > s.rfind(".") else s.replace(",", "")
     elif "," in s:
         head, _, tail = s.rpartition(",")
-        s = f"{head}.{tail}" if len(tail) in (1, 2) else s.replace(",", "")
+        # A lone comma with three digits after it is the one ambiguous shape: "12,500" is an
+        # English twelve thousand five hundred, "1,250" a French one and a quarter. Two things
+        # settle it: a second comma can only be a thousands separator, and nothing before the
+        # comma but a zero can only be a decimal — "0,045" is a duty rate, "0,012" a volume in
+        # cubic metres, and reading them as 45 and 12 was a silent thousandfold error.
+        if "," in head:
+            s = s.replace(",", "")
+        elif len(tail) in (1, 2) or head.lstrip("-") in ("", "0"):
+            s = f"{head}.{tail}"
+        else:
+            s = s.replace(",", "")
     try:
         return Decimal(s)
     except InvalidOperation as e:

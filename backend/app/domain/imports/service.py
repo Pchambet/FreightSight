@@ -403,23 +403,31 @@ def _apply_purchase_orders(
                 PurchaseOrderLine.po_id == po.id, PurchaseOrderLine.line_no == line_no
             )
         )
-        values = {
+        # What the order says, and what someone may have added by hand. The first follows the
+        # source; the second is only ever overwritten by a value, never by a blank: an ERP that
+        # knows no weights, or a file without the column, must not erase the weights a person
+        # typed here so that freight could be split by weight. That erasure would be silent and
+        # would repeat at every sync.
+        source = {
             "sku": sku,
             "description": r.text("description"),
-            "hs_code": r.text("hs_code"),
             "quantity": quantity,
             "unit_price": unit_price,
+        }
+        enrichment = {
+            "hs_code": r.text("hs_code"),
             "unit_weight_kg": weight,
             "unit_volume_cbm": volume,
             "duty_rate": duty,
         }
         if line is None:
-            line = t.add(PurchaseOrderLine(po_id=po.id, line_no=line_no, **values))
+            line = t.add(PurchaseOrderLine(po_id=po.id, line_no=line_no, **source, **enrichment))
             t.db.flush()
             report.lines_created += 1
         elif not repeated_line:
-            if any(getattr(line, k) != v for k, v in values.items()):
-                for k, v in values.items():
+            updates = {**source, **{k: v for k, v in enrichment.items() if v is not None}}
+            if any(getattr(line, k) != v for k, v in updates.items()):
+                for k, v in updates.items():
                     setattr(line, k, v)
                 report.lines_updated += 1
 
