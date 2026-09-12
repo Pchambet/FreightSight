@@ -678,9 +678,7 @@ def _container_numbers(db: Session, alerts: list[Alert]) -> dict[UUID, str]:
     ids = {alert.container_id for alert in alerts if alert.container_id is not None}
     if not ids:
         return {}
-    rows = db.execute(
-        select(Container.id, Container.container_number).where(Container.id.in_(ids))
-    ).all()
+    rows = db.execute(select(Container.id, Container.container_number).where(Container.id.in_(ids))).all()
     return {row.id: row.container_number for row in rows}
 
 
