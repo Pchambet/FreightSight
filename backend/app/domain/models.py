@@ -742,6 +742,8 @@ class Invoice(Timestamped, OrgScoped, Base):
     invoice_date: Mapped[date | None] = mapped_column(Date)
     currency: Mapped[str | None] = mapped_column(CHAR(3))
     total_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    #: The pre-tax total the invoice prints, as it prints it — never total minus VAT.
+    subtotal_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     vat_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     extractor: Mapped[str | None] = mapped_column(String)  # regex | llm
     confidence: Mapped[Decimal | None] = mapped_column(Numeric(3, 2))

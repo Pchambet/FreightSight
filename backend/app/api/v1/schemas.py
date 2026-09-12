@@ -673,6 +673,9 @@ class InvoiceSummary(BaseModel):
     invoice_date: date | None
     currency: str | None
     total_amount: Money | None
+    #: The invoice's own pre-tax total when it prints one, so the screen can show the three figures
+    #: the document shows. Null is not zero: it means the document did not state it.
+    subtotal_amount: Money | None
     vat_amount: Money | None
     confidence: Decimal | None
     extractor: str | None
@@ -951,7 +954,9 @@ class DndAnalysis(BaseModel):
     estimable: int
     not_estimable: int
     lines: list[DndReportLine]
-    at_risk: list[DndAtRiskLine] = Field(default_factory=list)
+    #: Always sent, empty when nothing is at risk. A default here would make it optional in the
+    #: generated client for a field the API never omits.
+    at_risk: list[DndAtRiskLine]
 
 
 class SkuHistoryPoint(BaseModel):

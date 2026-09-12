@@ -4595,14 +4595,14 @@
         }
       }
     },
-    "/api/v1/invoices/{invoice_id}/reject": {
+    "/api/v1/invoices/{invoice_id}/reopen": {
       "post": {
         "tags": [
           "invoices"
         ],
-        "summary": "Reject",
-        "description": "Not our invoice, a duplicate, an error: it stays on file, it creates nothing.",
-        "operationId": "reject_api_v1_invoices__invoice_id__reject_post",
+        "summary": "Reopen",
+        "description": "Put a rejected invoice back in review without re-uploading the file.",
+        "operationId": "reopen_api_v1_invoices__invoice_id__reopen_post",
         "parameters": [
           {
             "name": "invoice_id",
@@ -4656,14 +4656,14 @@
         }
       }
     },
-    "/api/v1/invoices/{invoice_id}/reopen": {
+    "/api/v1/invoices/{invoice_id}/reject": {
       "post": {
         "tags": [
           "invoices"
         ],
-        "summary": "Reopen",
-        "description": "Put a rejected invoice back in review without re-uploading the file.",
-        "operationId": "reopen_api_v1_invoices__invoice_id__reopen_post",
+        "summary": "Reject",
+        "description": "Not our invoice, a duplicate, an error: it stays on file, it creates nothing.",
+        "operationId": "reject_api_v1_invoices__invoice_id__reject_post",
         "parameters": [
           {
             "name": "invoice_id",
@@ -7106,47 +7106,6 @@
         "type": "object",
         "title": "CostUpdate"
       },
-      "DndAtRiskLine": {
-        "properties": {
-          "container_id": {
-            "format": "uuid",
-            "title": "Container Id",
-            "type": "string"
-          },
-          "container_number": {
-            "title": "Container Number",
-            "type": "string"
-          },
-          "dnd_risk": {
-            "$ref": "#/components/schemas/DndRisk"
-          },
-          "last_free_day": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Free Day"
-          },
-          "rule": {
-            "title": "Rule",
-            "type": "string"
-          }
-        },
-        "required": [
-          "container_id",
-          "container_number",
-          "dnd_risk",
-          "last_free_day",
-          "rule"
-        ],
-        "title": "DndAtRiskLine",
-        "type": "object"
-      },
       "DndAnalysis": {
         "properties": {
           "base_currency": {
@@ -7221,6 +7180,47 @@
           "at_risk"
         ],
         "title": "DndAnalysis"
+      },
+      "DndAtRiskLine": {
+        "properties": {
+          "container_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Container Id"
+          },
+          "container_number": {
+            "type": "string",
+            "title": "Container Number"
+          },
+          "dnd_risk": {
+            "$ref": "#/components/schemas/DndRisk"
+          },
+          "last_free_day": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Free Day"
+          },
+          "rule": {
+            "type": "string",
+            "title": "Rule"
+          }
+        },
+        "type": "object",
+        "required": [
+          "container_id",
+          "container_number",
+          "dnd_risk",
+          "last_free_day",
+          "rule"
+        ],
+        "title": "DndAtRiskLine"
       },
       "DndReportLine": {
         "properties": {
@@ -8491,6 +8491,17 @@
             ],
             "title": "Total Amount"
           },
+          "subtotal_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtotal Amount"
+          },
           "vat_amount": {
             "anyOf": [
               {
@@ -8585,6 +8596,7 @@
           "invoice_date",
           "currency",
           "total_amount",
+          "subtotal_amount",
           "vat_amount",
           "confidence",
           "extractor",
@@ -8674,6 +8686,17 @@
             ],
             "title": "Total Amount"
           },
+          "subtotal_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtotal Amount"
+          },
           "vat_amount": {
             "anyOf": [
               {
@@ -8750,6 +8773,7 @@
           "invoice_date",
           "currency",
           "total_amount",
+          "subtotal_amount",
           "vat_amount",
           "confidence",
           "extractor",

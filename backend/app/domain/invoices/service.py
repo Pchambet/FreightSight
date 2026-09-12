@@ -165,6 +165,7 @@ def extract(
     invoice.invoice_date = reading.invoice_date
     invoice.currency = (reading.currency or org.base_currency)[:3].upper()
     invoice.total_amount = q2(Decimal(reading.total)) if reading.total else None
+    invoice.subtotal_amount = q2(Decimal(reading.subtotal)) if reading.subtotal else None
     invoice.vat_amount = q2(Decimal(reading.vat)) if reading.vat else None
     invoice.confidence = Decimal(str(checked.confidence))
     invoice.raw = {"reading": reading.model_dump(mode="json"), "notes": checked.notes}

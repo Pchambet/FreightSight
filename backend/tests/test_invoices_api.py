@@ -7,7 +7,7 @@ from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
-from invoice_fixtures import FRENCH_ONE_CONTAINER, FRENCH_TWO_CONTAINERS
+from invoice_fixtures import FRENCH_ONE_CONTAINER, FRENCH_TWO_CONTAINERS, USD_INVOICE
 from pdfs import make_pdf, make_pdf_without_text
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
@@ -101,10 +101,28 @@ def test_a_read_invoice_waits_for_a_person(client: TestClient, db: Session, org:
     assert body["vendor"] == "TRANSITEX SAS"
     assert body["invoice_number"] == "FA-2026-0912"
     assert body["total_amount"] == "4596.00"
+    # the three figures the document prints, kept apart: the HT is the one it states, not 4596 - 766
+    assert body["subtotal_amount"] == "3830.00"
+    assert body["vat_amount"] == "766.00"
     assert body["extractor"] == "regex"
     assert len(body["lines"]) == 4
     # nothing is accepted, so nothing can become a cost yet
     assert all(line["accepted"] is False for line in body["lines"])
+
+
+def test_an_invoice_that_states_no_pre_tax_total_says_so(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """Null is not zero. An invoice that prints only a grand total leaves the HT empty rather than
+    inventing one, which is what lets the screen show a figure only when the document stated it."""
+    seed_container(client)
+    invoice_id = upload(client, make_pdf(USD_INVOICE)).json()["id"]
+    assert run_extraction(db, org, invoice_id) == "NEEDS_REVIEW"
+
+    body = client.get(f"/api/v1/invoices/{invoice_id}").json()
+    assert body["total_amount"] == "4510.00"
+    assert body["subtotal_amount"] is None
+    assert body["vat_amount"] is None
 
 
 def test_an_unreadable_scan_fails_with_its_reason(client: TestClient, db: Session, org: Organization) -> None:
