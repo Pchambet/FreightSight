@@ -950,6 +950,9 @@ class SkuSummary(BaseModel):
     #: holds a price in the organization's currency: no conversion is invented.
     margin_unit: Qty | None
     margin_pct: Decimal | None
+    #: The same two against `last_unit_landed`: what the stock about to be sold leaves.
+    last_margin_unit: Qty | None = None
+    last_margin_pct: Decimal | None = None
 
 
 class SkuArrival(BaseModel):

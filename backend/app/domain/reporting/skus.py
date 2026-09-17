@@ -87,6 +87,9 @@ class SkuSummary:
     sale_price: Decimal | None = None
     margin_unit: Decimal | None = None
     margin_pct: Decimal | None = None
+    #: The same two, against the last container that landed: the stock about to be sold.
+    last_margin_unit: Decimal | None = None
+    last_margin_pct: Decimal | None = None
     points: list[SkuArrival] = field(default_factory=list)
     boxes: list[SkuBox] = field(default_factory=list)
 
@@ -236,5 +239,11 @@ def _summarise(summary: SkuSummary, product: Product | None, org: Organization) 
         return
     summary.sale_price = product.sale_price
     summary.margin_unit = q4(product.sale_price - summary.unit_landed)
+    if summary.last_unit_landed is not None:
+        summary.last_margin_unit = q4(product.sale_price - summary.last_unit_landed)
     if product.sale_price:
         summary.margin_pct = (summary.margin_unit / product.sale_price * 100).quantize(Decimal("0.1"))
+        if summary.last_margin_unit is not None:
+            summary.last_margin_pct = (summary.last_margin_unit / product.sale_price * 100).quantize(
+                Decimal("0.1")
+            )

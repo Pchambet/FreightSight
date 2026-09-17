@@ -12870,6 +12870,29 @@
               }
             ],
             "title": "Margin Pct"
+          },
+          "last_margin_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Margin Unit"
+          },
+          "last_margin_pct": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Margin Pct"
           }
         },
         "type": "object",

@@ -80,10 +80,17 @@ def test_a_selling_price_in_the_organizations_currency_gives_a_margin(seeded: Te
     expected = ((Decimal("39.90") - unit) / Decimal("39.90") * 100).quantize(Decimal("0.1"))
     assert Decimal(summary["margin_pct"]) == expected
 
+    last = Decimal(summary["last_unit_landed"])
+    assert Decimal(summary["last_margin_unit"]) == Decimal("39.90") - last
+    assert Decimal(summary["last_margin_pct"]) == (
+        (Decimal("39.90") - last) / Decimal("39.90") * 100
+    ).quantize(Decimal("0.1"))
+
     # a price in dollars is shown, and no margin is made up from it
     seeded.post("/api/v1/products", json={"sku": TYRE, "sale_price": "45.00", "sale_currency": "USD"})
     dollars = detail(seeded, TYRE)["summary"]
     assert dollars["sale_price"] == "45.0000" and dollars["margin_unit"] is None
+    assert dollars["last_margin_unit"] is None
 
 
 def test_the_list_can_be_searched_and_narrowed_to_a_period(seeded: TestClient) -> None:
