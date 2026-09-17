@@ -1518,6 +1518,24 @@
       "title": "Your last action was not saved",
       "body": "You switched company in another tab while this page was open. Nothing was written. Check the company shown at the top right, then try again.",
       "dismiss": "Got it"
+    },
+    "welcome": {
+      "title": "Welcome. Where to start?",
+      "body": "FreightSight computes the landed cost of your imports from your orders and your charge invoices. Three ways in, from the fastest to the most complete.",
+      "sample": {
+        "title": "See the product full, right now",
+        "body": "Six months of a fictional importer: twenty containers, three suppliers, forwarder invoices, demurrage. Everything is computed by the product. Best loaded into a trial company rather than the one holding your real files."
+      },
+      "import": {
+        "title": "Import your orders",
+        "body": "A CSV or Excel export from Sage, EBP, Odoo or your spreadsheet. Columns are recognised, and every row in error is explained before anything is written.",
+        "action": "Import a file"
+      },
+      "erp": {
+        "title": "Connect Odoo",
+        "body": "Your purchase orders are read from Odoo, and the landed cost goes back as a draft. Needs Odoo's API access (Custom plan, Odoo.sh or on-premise).",
+        "action": "Open settings"
+      }
     }
   },
   "palette": {

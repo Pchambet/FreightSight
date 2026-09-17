@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
-import { AlertTriangle, ArrowRight, CheckCircle2, FileText, FileWarning, Hourglass, PackageOpen, Receipt } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, FileSpreadsheet, FileText, FileWarning, Hourglass, PackageOpen, Plug, Receipt, Sparkles } from "lucide-react";
 import { PageHeader, btnPrimary, btnSecondary } from "@/components/layout/AppShell";
 import BreakdownBar from "@/components/charts/BreakdownBar";
 import StackedColumns, { type StackedColumn } from "@/components/charts/StackedColumns";
@@ -206,16 +206,41 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         )}
       </Panel>
 
-      {!hasData ? (
+      {!hasData && !hasContainers ? (
+        // A company's first visit: three ways in, the fastest one first.
+        <section aria-labelledby="welcome-title" className="mb-6">
+          <h2 id="welcome-title" className="text-lg font-semibold text-slate-900">{t("welcome.title")}</h2>
+          <p className="mt-1 text-sm text-slate-600 max-w-2xl">{t("welcome.body")}</p>
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-5 flex flex-col">
+              <Sparkles className="w-5 h-5 text-blue-700" aria-hidden />
+              <h3 className="mt-3 font-semibold text-slate-900">{t("welcome.sample.title")}</h3>
+              <p className="mt-1 text-sm text-slate-600 flex-1">{t("welcome.sample.body")}</p>
+              <div className="mt-4"><LoadSampleDataButton profile="history" primary /></div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card flex flex-col">
+              <FileSpreadsheet className="w-5 h-5 text-slate-700" aria-hidden />
+              <h3 className="mt-3 font-semibold text-slate-900">{t("welcome.import.title")}</h3>
+              <p className="mt-1 text-sm text-slate-600 flex-1">{t("welcome.import.body")}</p>
+              <div className="mt-4"><Link href="/imports/new" className={btnSecondary}>{t("welcome.import.action")}</Link></div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card flex flex-col">
+              <Plug className="w-5 h-5 text-slate-700" aria-hidden />
+              <h3 className="mt-3 font-semibold text-slate-900">{t("welcome.erp.title")}</h3>
+              <p className="mt-1 text-sm text-slate-600 flex-1">{t("welcome.erp.body")}</p>
+              <div className="mt-4"><Link href="/settings#erp" className={btnSecondary}>{t("welcome.erp.action")}</Link></div>
+            </div>
+          </div>
+        </section>
+      ) : !hasData ? (
         <Panel className="mb-6">
           <div className="py-10 text-center max-w-md mx-auto">
             <PackageOpen className="w-8 h-8 mx-auto text-slate-400" aria-hidden />
             <h2 className="mt-3 font-semibold text-slate-900">{t("empty.title")}</h2>
-            <p className="mt-1 text-sm text-slate-600">{!hasContainers ? t("empty.noContainers") : t("empty.noArrivals", { months })}</p>
+            <p className="mt-1 text-sm text-slate-600">{t("empty.noArrivals", { months })}</p>
             <div className="mt-4 flex flex-wrap justify-center gap-2 text-sm">
-              {!hasContainers ? <LoadSampleDataButton profile="history" primary /> : null}
-              <Link href="/containers" className={!hasContainers ? btnSecondary : btnPrimary}>{t("empty.goContainers")}</Link>
-              {months !== 12 && hasContainers ? <Link href="/overview?months=12" className={btnSecondary}>{t("empty.widen")}</Link> : null}
+              <Link href="/containers" className={btnPrimary}>{t("empty.goContainers")}</Link>
+              {months !== 12 ? <Link href="/overview?months=12" className={btnSecondary}>{t("empty.widen")}</Link> : null}
             </div>
           </div>
         </Panel>

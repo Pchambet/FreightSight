@@ -1518,6 +1518,24 @@
       "title": "Votre dernière action n'a pas été enregistrée",
       "body": "Vous avez changé de société dans un autre onglet pendant que cette page était ouverte. Rien n'a été écrit. Vérifiez la société affichée en haut à droite, puis recommencez.",
       "dismiss": "Compris"
+    },
+    "welcome": {
+      "title": "Bienvenue. Par où commencer ?",
+      "body": "FreightSight calcule le coût de revient rendu de vos importations à partir de vos commandes et de vos factures de frais. Trois façons d'y entrer, de la plus rapide à la plus complète.",
+      "sample": {
+        "title": "Voir le produit plein, tout de suite",
+        "body": "Six mois d'un importateur fictif : vingt conteneurs, trois fournisseurs, des factures transitaire, des surestaries. Tout est calculé par le produit. À charger dans une société d'essai plutôt que dans celle de vos vrais dossiers."
+      },
+      "import": {
+        "title": "Importer vos commandes",
+        "body": "Un export CSV ou Excel de Sage, EBP, Odoo ou de votre tableur. Les colonnes sont reconnues, chaque ligne en erreur est expliquée avant d'écrire quoi que ce soit.",
+        "action": "Importer un fichier"
+      },
+      "erp": {
+        "title": "Connecter Odoo",
+        "body": "Vos commandes d'achat sont lues dans Odoo, et le coût de revient y retourne en brouillon. Demande l'accès API d'Odoo (offre Custom, Odoo.sh ou on-premise).",
+        "action": "Ouvrir les réglages"
+      }
     }
   },
   "palette": {
