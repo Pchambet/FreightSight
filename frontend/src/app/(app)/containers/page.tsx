@@ -13,6 +13,7 @@ import OnboardingChecklist from "@/features/onboarding/OnboardingChecklist";
 import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
 import { containersHubStep } from "@/features/workflow/steps";
 import { api, type ContainerSummary } from "@/lib/api/client";
+import { demurrageRelevant } from "@/lib/domain";
 import { dateShort, daysUntil } from "@/lib/format";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -46,11 +47,6 @@ function sumCents(values: string[]): string {
 }
 
 type Todo = { container: ContainerSummary; kind: "lfd" | "lfdOver" | "noLoads" | "noCost"; date?: string | null };
-
-/** Still on the terminal: gate-out and closed milestones are past demurrage urgency. */
-function demurrageRelevant(c: ContainerSummary): boolean {
-  return !CLOSED.includes(c.milestone) && !c.gate_out_at;
-}
 
 function buildTodos(containers: ContainerSummary[]): Todo[] {
   const todos: Todo[] = [];
@@ -119,7 +115,18 @@ export default async function ContainersPage() {
             <Kpi label={t("kpi.allocated")} tooltip={tg("allocated")} hint={t("kpi.ofActive", { count: active.length })}>
               <Money amount={sumCents(active.map((c) => c.allocated_base))} currency={currency} className="text-blue-700" />
             </Kpi>
-            <Kpi label={t("kpi.atRisk")} tooltip={tg("atRisk")} hint={nextLfd ? t("kpi.nextLfd", { date: dateShort(nextLfd, locale) }) : t("kpi.noneAtRisk")} tone={atRisk.length ? "warn" : undefined}>
+            <Kpi
+              label={t("kpi.atRisk")}
+              tooltip={tg("atRisk")}
+              hint={
+                nextLfd
+                  ? (daysUntil(nextLfd) ?? 0) < 0
+                    ? t("kpi.nextLfdOver", { date: dateShort(nextLfd, locale) })
+                    : t("kpi.nextLfd", { date: dateShort(nextLfd, locale) })
+                  : t("kpi.noneAtRisk")
+              }
+              tone={atRisk.length ? "warn" : undefined}
+            >
               {atRisk.length}
             </Kpi>
             <Kpi label={t("kpi.noCost")} tooltip={tg("noCost")} hint={t("kpi.ofActive", { count: active.length })} tone={noCost.length ? "warn" : undefined}>
@@ -202,7 +209,7 @@ export default async function ContainersPage() {
                     <td className={`${td} text-slate-600`}>{c.shipment_reference ?? tc("empty")}</td>
                     <td className={td}><MilestoneBadge milestone={c.milestone} /></td>
                     <td className={`${td} text-slate-600`}>{dateShort(c.last_free_day, locale)}</td>
-                    <td className={td}><RiskBadge risk={c.dnd_risk} days={daysUntil(c.last_free_day)} /></td>
+                    <td className={td}><RiskBadge risk={c.dnd_risk} days={demurrageRelevant(c) ? daysUntil(c.last_free_day) : null} /></td>
                     <td className={`${td} text-slate-600`}>{c.po_numbers?.length ? c.po_numbers.join(", ") : <span className="text-slate-400">{t("none")}</span>}</td>
                     <td className={tdRight}><Money amount={c.fob_base} currency={currency} /></td>
                     <td className={tdRight}><Money amount={c.allocated_base} currency={currency} className="text-blue-700" /></td>

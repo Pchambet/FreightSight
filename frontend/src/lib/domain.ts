@@ -31,6 +31,17 @@ export const MILESTONES: ContainerMilestone[] = [
   "GATE_IN_EMPTY_RETURN",
 ];
 
+const CLOSED_MILESTONES: ContainerMilestone[] = ["DELIVERED", "GATE_IN_EMPTY_RETURN"];
+
+/**
+ * Still on the terminal, so a last-free-day overrun still means running demurrage: once a container
+ * is gated out or closed, the day count next to its risk badge stops meaning anything (audit B2 — a
+ * gated-out "Low risk" container still showed "4 days over", which reads as a contradiction).
+ */
+export function demurrageRelevant(c: { milestone: ContainerMilestone; gate_out_at?: string | null }): boolean {
+  return !CLOSED_MILESTONES.includes(c.milestone) && !c.gate_out_at;
+}
+
 export const COST_TYPES: CostType[] = [
   "OCEAN_FREIGHT",
   "AIR_FREIGHT",

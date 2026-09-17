@@ -19,7 +19,7 @@ export default function Hint({ text }: { text: string }) {
       <span
         id={id}
         role="tooltip"
-        className="pointer-events-none absolute left-1/2 bottom-full z-20 mb-1.5 w-56 -translate-x-1/2 rounded-md bg-slate-900 px-2.5 py-2 text-xs font-normal normal-case tracking-normal text-white opacity-0 shadow-lg transition-opacity group-focus-within/hint:opacity-100 group-hover/hint:opacity-100"
+        className="pointer-events-none absolute left-1/2 bottom-full z-20 mb-1.5 w-[min(14rem,calc(100vw-2rem))] -translate-x-1/2 rounded-md bg-slate-900 px-2.5 py-2 text-xs font-normal normal-case tracking-normal text-white opacity-0 shadow-lg transition-opacity group-focus-within/hint:opacity-100 group-hover/hint:opacity-100"
       >
         {text}
       </span>

@@ -4,10 +4,11 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { Download } from "lucide-react";
 import { Card, PageHeader, btnSecondary, input, label, td, tdRight, th, thRight } from "@/components/layout/AppShell";
 import { Money } from "@/components/shared/Money";
+import { parseDndRule } from "@/features/reports/dndRule";
 import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
 import { reportsHubStep } from "@/features/workflow/steps";
 import { api, type DndAnalysis, type LandedCostAnalysis } from "@/lib/api/client";
-import { qty } from "@/lib/format";
+import { dateShort, daysUntil, money, pct, qty } from "@/lib/format";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("reports");
@@ -18,7 +19,7 @@ const GROUPS = ["supplier", "route", "month", "cost_type"] as const;
 type Group = (typeof GROUPS)[number];
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ group_by?: string; from?: string; to?: string }> }) {
-  const [sp, t, tt, locale] = await Promise.all([searchParams, getTranslations("reports"), getTranslations("domain.costType"), getLocale()]);
+  const [sp, t, tc, tt, trisk, locale] = await Promise.all([searchParams, getTranslations("reports"), getTranslations("common"), getTranslations("domain.costType"), getTranslations("domain.risk"), getLocale()]);
   const groupBy: Group = (GROUPS as readonly string[]).includes(sp.group_by ?? "") ? (sp.group_by as Group) : "supplier";
   const isDate = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
   const period = { period_from: isDate(sp.from), period_to: isDate(sp.to) };
@@ -34,6 +35,45 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const cur = a?.base_currency ?? "EUR";
   const bucketLabel = (b: { key: string; label: string }) => (groupBy === "cost_type" && tt.has(b.key as never) ? tt(b.key as never) : b.label === "unknown route" ? t("unknownRoute") : b.label);
   const csvQuery = new URLSearchParams({ locale, ...(period.period_from ? { period_from: period.period_from } : {}), ...(period.period_to ? { period_to: period.period_to } : {}) }).toString();
+  // `DndLine.rule` (paid/avoided, `dnd.lines`) is still a free-text English sentence from the
+  // backend — parsed by `parseDndRule`'s pattern matching (needs_other_lane, see dndRule.ts).
+  const dndRuleText = (raw: string) => {
+    const rule = parseDndRule(raw);
+    switch (rule.kind) {
+      case "noAlert":
+        return t("dndRule.noAlert");
+      case "noRateCard":
+        return t("dndRule.noRateCard", { demurrage: tt("DEMURRAGE") });
+      case "estimable":
+        return t("dndRule.estimable", { days: rule.days, rate: money(rule.dailyRate, cur, locale) });
+      case "lfdOver":
+        return t("dndRule.lfdOver", { date: dateShort(rule.date, locale) });
+      case "lfdLeft":
+        return t("dndRule.lfdLeft", { date: dateShort(rule.date, locale), days: rule.days });
+      case "riskNoLfd":
+        return t("dndRule.riskNoLfd", { risk: trisk.has(rule.risk.toUpperCase() as never) ? trisk(rule.risk.toUpperCase() as never) : rule.risk });
+      default:
+        return t("dndRule.unknown");
+    }
+  };
+
+  // `DndAtRiskLine.rule`, unlike the line above, is already one of three machine codes (the reporting
+  // lane fixed the English-sentence leak here — audit B30) — the front just formats its own params
+  // (`last_free_day`, `dnd_risk`) into the matching sentence instead of pattern-matching prose.
+  const atRiskRuleText = (row: { rule: string; last_free_day: string | null; dnd_risk: string }) => {
+    switch (row.rule) {
+      case "DND_AT_RISK_OVERDUE":
+        return t("dndRule.lfdOver", { date: dateShort(row.last_free_day, locale) });
+      case "DND_AT_RISK_DAYS_LEFT": {
+        const days = Math.max(daysUntil(row.last_free_day) ?? 0, 0);
+        return t("dndRule.lfdLeft", { date: dateShort(row.last_free_day, locale), days });
+      }
+      case "DND_AT_RISK_NO_LFD":
+        return t("dndRule.riskNoLfd", { risk: trisk.has(row.dnd_risk.toUpperCase() as never) ? trisk(row.dnd_risk.toUpperCase() as never) : row.dnd_risk });
+      default:
+        return t("dndRule.unknown");
+    }
+  };
 
   return (
     <>
@@ -63,13 +103,13 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                       <td className={tdRight}><Money amount={b.fob} currency={cur} /></td>
                       <td className={tdRight}><Money amount={b.allocated} currency={cur} className="text-blue-700" /></td>
                       <td className={`${tdRight} font-medium`}><Money amount={b.landed} currency={cur} /></td>
-                      <td className={tdRight}>{b.freight_share_pct != null ? `${Number(b.freight_share_pct).toFixed(1)} %` : "—"}</td>
+                      <td className={tdRight}>{b.freight_share_pct != null ? pct(b.freight_share_pct, locale) : "—"}</td>
                     </tr>
                   ))}
                   <tr className="bg-slate-50 font-medium">
-                    <td className={td}>Total</td><td className={tdRight}>{a.totals.load_count}</td><td className={tdRight}>{qty(a.totals.quantity, locale)}</td>
+                    <td className={td}>{tc("total")}</td><td className={tdRight}>{a.totals.load_count}</td><td className={tdRight}>{qty(a.totals.quantity, locale)}</td>
                     <td className={tdRight}><Money amount={a.totals.fob} currency={cur} /></td><td className={tdRight}><Money amount={a.totals.allocated} currency={cur} /></td><td className={tdRight}><Money amount={a.totals.landed} currency={cur} /></td>
-                    <td className={tdRight}>{a.totals.freight_share_pct != null ? `${Number(a.totals.freight_share_pct).toFixed(1)} %` : "—"}</td>
+                    <td className={tdRight}>{a.totals.freight_share_pct != null ? pct(a.totals.freight_share_pct, locale) : "—"}</td>
                   </tr>
                 </>
               )}
@@ -92,7 +132,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           </div>
         </Card>
 
-        <Card title={t("dnd")} right={<span className="text-xs text-slate-400 max-w-sm text-right">{t("dndHint")}</span>}>
+        <Card title={t("dnd")} right={<span className="text-xs text-slate-400 max-w-sm text-right">{t("dndHint", { demurrage: tt("DEMURRAGE") })}</span>}>
           <div className="px-5 py-3 flex gap-8 border-b border-slate-200 text-sm">
             <div><div className="text-xs text-slate-500 uppercase tracking-wider">{t("th.paid")}</div><div className="font-semibold tabular-nums text-red-700"><Money amount={d?.paid ?? "0.00"} currency={cur} /></div></div>
             <div><div className="text-xs text-slate-500 uppercase tracking-wider">{t("th.avoided")}</div><div className="font-semibold tabular-nums text-emerald-700"><Money amount={d?.avoided ?? "0.00"} currency={cur} /></div></div>
@@ -104,7 +144,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                 {d!.at_risk!.map((row) => (
                   <li key={row.container_id} className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                     <Link href={`/container/${row.container_id}#suivi`} className="font-mono text-blue-700 hover:underline">{row.container_number}</Link>
-                    <span className="text-xs text-amber-800">{row.rule}</span>
+                    <span className="text-xs text-amber-800">{atRiskRuleText(row)}</span>
                   </li>
                 ))}
               </ul>
@@ -115,7 +155,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <thead className="bg-slate-50"><tr><th className={th}>{t("th.container")}</th><th className={thRight}>{t("th.paid")}</th><th className={thRight}>{t("th.avoided")}</th><th className={th}>{t("th.rule")}</th></tr></thead>
               <tbody className="divide-y divide-slate-200">
                 {!d || d.lines.length === 0 ? <tr><td colSpan={4} className="px-5 py-6 text-center text-sm text-slate-500">{t("dndEmpty")}</td></tr> : d.lines.map((l) => (
-                  <tr key={l.container_id}><td className={td}><Link href={`/container/${l.container_id}`} className="font-mono text-blue-600 hover:underline">{l.container_number}</Link></td><td className={tdRight}><Money amount={l.paid} currency={cur} /></td><td className={tdRight}>{l.avoided != null ? <Money amount={l.avoided} currency={cur} /> : <span className="text-slate-400">{t("notEstimable")}</span>}</td><td className={`${td} text-xs text-slate-500 whitespace-normal max-w-md`}>{l.rule}</td></tr>
+                  <tr key={l.container_id}><td className={td}><Link href={`/container/${l.container_id}`} className="font-mono text-blue-600 hover:underline">{l.container_number}</Link></td><td className={tdRight}><Money amount={l.paid} currency={cur} /></td><td className={tdRight}>{l.avoided != null ? <Money amount={l.avoided} currency={cur} /> : <span className="text-slate-400">{t("notEstimable")}</span>}</td><td className={`${td} text-xs text-slate-500 whitespace-normal max-w-md`}>{dndRuleText(l.rule)}</td></tr>
                 ))}
               </tbody>
             </table>

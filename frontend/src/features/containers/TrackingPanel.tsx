@@ -74,7 +74,9 @@ export default function TrackingPanel({ container, subscription }: { container: 
           <button type="button" onClick={save} disabled={pending} className={btnSecondary}>{t("save")}</button>
           <button type="button" onClick={subscribe} disabled={pending} className="text-sm text-blue-600 hover:underline px-2">{subscription ? t("unsubscribe") : t("subscribe")}</button>
         </div>
-        {subscription?.last_error ? <p className="text-xs text-red-600">{t("subError", { error: subscription.last_error })}</p> : null}
+        {/* subscription.last_error is a raw provider string (Terminal49/Shipsgo failure detail, sometimes with an
+            internal hostname) — never shown verbatim; see needs_other_lane for a coded field to replace it. */}
+        {subscription?.last_error ? <p className="text-xs text-red-600">{t("lastAttemptFailed")}</p> : null}
       </div>
     </Card>
   );

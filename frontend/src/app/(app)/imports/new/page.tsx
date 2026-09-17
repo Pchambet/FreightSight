@@ -3,8 +3,6 @@ import { getTranslations } from "next-intl/server";
 import { PageHeader } from "@/components/layout/AppShell";
 import Breadcrumb from "@/components/shared/Breadcrumb";
 import ImportWizard from "@/features/imports/ImportWizard";
-import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
-import { importNewStep } from "@/features/workflow/steps";
 import { api } from "@/lib/api/client";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -21,9 +19,10 @@ export default async function NewImportPage({ searchParams }: { searchParams: Pr
   }
   return (
     <>
-      <Breadcrumb backHref="/imports" backLabel={ti("title")} current={t("title")} />
+      {/* The title right below already says "Importer des commandes" — the breadcrumb only needs the back link (audit B21). */}
+      <Breadcrumb backHref="/imports" backLabel={ti("title")} />
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
-      <WorkflowNextStep step={importNewStep(!!initial)} />
+      {/* The next-step card lives inside the wizard now: it has to follow the live client step (audit B20), which this server page cannot see. */}
       <div id="wizard" className="scroll-mt-6">
         <ImportWizard initialJob={initial} />
       </div>

@@ -5,10 +5,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import { Bell, Menu, Settings, Ship, X } from "lucide-react";
+import { Bell, LifeBuoy, Menu, Settings, Ship, X } from "lucide-react";
 import AppNav from "@/components/layout/AppNav";
 import LocaleSwitcher from "@/components/layout/LocaleSwitcher";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { site } from "@/lib/site";
+
+/** mailto: for the header's "Aide" entry — organisation and current page prefilled, never guessed (item 9). */
+function helpMailto(subject: string, body: string): string {
+  return `mailto:${site.contactEmail}?${[`subject=${encodeURIComponent(subject)}`, `body=${encodeURIComponent(body)}`].join("&")}`;
+}
 
 export default function AppHeader({ unreadAlerts = 0, orgName }: { unreadAlerts?: number; orgName?: string }) {
   const t = useTranslations();
@@ -17,6 +23,12 @@ export default function AppHeader({ unreadAlerts = 0, orgName }: { unreadAlerts?
   const menuBtnRef = useRef<HTMLButtonElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const org = orgName || "—";
+  // An action (not a static Link href) so the mailto is built at click time, with the real current
+  // URL — reading window.location during render would not match the server-rendered markup.
+  const openHelp = () => {
+    window.location.href = helpMailto(t("help.subject", { org }), t("help.body", { org, url: window.location.href }));
+  };
 
   // A navigation closes the drawer: adjust state during render, not in an effect.
   const [openedOn, setOpenedOn] = useState(pathname);
@@ -78,12 +90,14 @@ export default function AppHeader({ unreadAlerts = 0, orgName }: { unreadAlerts?
           <AppNav unreadAlerts={unreadAlerts} />
         </div>
 
-        <div className="ml-auto flex items-center gap-1.5 sm:gap-2 text-xs text-slate-500 shrink-0">
+        {/* min-w-0 lets this group shrink below its content's natural width instead of forcing the header to
+            scroll sideways at 390 px (audit B43); the org switcher itself is the part that used to overflow. */}
+        <div className="ml-auto flex items-center gap-1 sm:gap-2 text-xs text-slate-500 shrink-0 min-w-0">
           <LocaleSwitcher />
           <Link
             href="/alerts"
             aria-label={t("alerts.bell", { count: unreadAlerts })}
-            className="relative p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            className="relative p-1.5 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 shrink-0"
           >
             <Bell className="w-4 h-4" />
             {unreadAlerts > 0 ? (
@@ -96,12 +110,25 @@ export default function AppHeader({ unreadAlerts = 0, orgName }: { unreadAlerts?
             href="/settings"
             aria-label={t("nav.settings")}
             aria-current={pathname === "/settings" ? "page" : undefined}
-            className={`hidden md:inline-flex p-1.5 rounded-md hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${pathname === "/settings" ? "bg-slate-100 text-slate-900" : "text-slate-500"}`}
+            className={`hidden md:inline-flex p-1.5 rounded-md hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 shrink-0 ${pathname === "/settings" ? "bg-slate-100 text-slate-900" : "text-slate-500"}`}
           >
             <Settings className="w-4 h-4" />
           </Link>
-          <OrganizationSwitcher hidePersonal afterSelectOrganizationUrl="/containers" afterCreateOrganizationUrl="/containers" />
-          <UserButton />
+          <div className="min-w-0 max-w-[84px] sm:max-w-none overflow-hidden shrink">
+            <OrganizationSwitcher
+              hidePersonal
+              afterSelectOrganizationUrl="/containers"
+              afterCreateOrganizationUrl="/containers"
+              appearance={{ elements: { organizationSwitcherTrigger: "max-w-full" } }}
+            />
+          </div>
+          <div className="shrink-0">
+            <UserButton>
+              <UserButton.MenuItems>
+                <UserButton.Action label={t("nav.help")} onClick={openHelp} labelIcon={<LifeBuoy className="w-4 h-4" />} />
+              </UserButton.MenuItems>
+            </UserButton>
+          </div>
           {orgName ? <span className="sr-only">{orgName}</span> : null}
         </div>
       </div>

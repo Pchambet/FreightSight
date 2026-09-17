@@ -4,7 +4,12 @@ import AppHeader from "@/components/layout/AppHeader";
 export async function AppShell({ children, orgName, unreadAlerts = 0 }: { children: React.ReactNode; orgName?: string; unreadAlerts?: number }) {
   const t = await getTranslations();
   return (
-    <div className="min-h-screen">
+    // overflow-x-hidden is the backstop for every page in this shell: several widgets (a header icon
+    // near the viewport edge, a hover tooltip centered under a narrow card — see audit B11/B43) can
+    // lay out wider than the viewport at 390 px without ever being visible; this guarantees the page
+    // itself never scrolls sideways because of them. A table that genuinely needs to scroll still
+    // does, inside its own `overflow-x-auto` container.
+    <div className="min-h-screen overflow-x-hidden">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[60] focus:px-4 focus:py-2 focus:bg-white focus:text-slate-900 focus:rounded-md focus:ring-2 focus:ring-blue-500"

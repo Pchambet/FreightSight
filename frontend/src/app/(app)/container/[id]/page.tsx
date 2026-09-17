@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { AlertTriangle, Box } from "lucide-react";
+import { AlertTriangle, Box, Info } from "lucide-react";
 import { PageHeader } from "@/components/layout/AppShell";
 import Breadcrumb from "@/components/shared/Breadcrumb";
 import MetricLabel from "@/components/shared/MetricLabel";
@@ -21,11 +21,17 @@ import LandedCostPush from "@/features/erp/LandedCostPush";
 import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
 import { containerWorkflowStep } from "@/features/workflow/steps";
 import { api, type ContainerResponse, type EtaHistoryResponse, type LandedCostReport, type LoadResponse, type PurchaseOrderSummary, type Schemas, type TrackingEventResponse } from "@/lib/api/client";
+import { demurrageRelevant } from "@/lib/domain";
 import { dateShort, daysUntil } from "@/lib/format";
 
 type Params = { params: Promise<{ id: string }> };
 
 const API_ERROR = "api_error";
+
+// `LandedCostReport.notes` (a rule applied to a cost that WAS allocated, e.g. duty spread on customs
+// value for lines with no tariff rate — see backend/app/api/v1/schemas.py::ReportNote). Typed here,
+// not in the generated schema, until it is regenerated from the OpenAPI document (needs_other_lane).
+type ReportNote = { cost_id: string; code: string; message: string; load_ids: string[]; load_labels: string[] };
 
 async function load(id: string): Promise<{ container: ContainerResponse; report: LandedCostReport; loads: LoadResponse[]; pos: PurchaseOrderSummary[]; shipmentRef: string | null; events: TrackingEventResponse[]; etaHistory: EtaHistoryResponse[]; subscription: Schemas["TrackingSubscriptionResponse"] | null; erpConnected: boolean; invoicesToReview: number } | null> {
   const c = await api.GET("/api/v1/containers/{container_id}", { params: { path: { container_id: id } } });
@@ -76,14 +82,15 @@ export default async function ContainerPage({ params }: Params) {
 
   return (
     <>
-      <Breadcrumb backHref="/containers" backLabel={t("breadcrumb")} current={container.container_number} />
+      {/* container.container_number is already the h1 right below — no need to repeat it (audit B21). */}
+      <Breadcrumb backHref="/containers" backLabel={t("breadcrumb")} />
 
       <PageHeader
         title={<span className="font-mono flex items-center gap-3"><Box className="w-6 h-6 text-blue-600" />{container.container_number}</span>}
         subtitle={
           <span className="flex items-center gap-3 flex-wrap">
             <MilestoneBadge milestone={container.milestone} />
-            <RiskBadge risk={container.dnd_risk} days={daysUntil(container.last_free_day)} />
+            <RiskBadge risk={container.dnd_risk} days={demurrageRelevant(container) ? daysUntil(container.last_free_day) : null} />
             {container.last_free_day ? <span>{t("lastFreeDay", { date: dateShort(container.last_free_day, locale) })}</span> : null}
             {shipmentRef ? <span>{t("shipment", { reference: shipmentRef })}</span> : null}
           </span>
@@ -101,6 +108,25 @@ export default async function ContainerPage({ params }: Params) {
                 {errorCode.has(w.code) ? errorCode(w.code) : w.message}
                 {w.load_labels?.length ? <span className="text-amber-700/80"> {w.load_labels.join(", ")}</span> : null}
                 {" ("}<Money amount={w.amount_base} currency={cur} /> {t("unallocatedSuffix")}{")"}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {/* `report.notes`: a rule applied to a cost that WAS allocated (e.g. duty spread on customs
+          value for lines with no tariff rate) — kept apart from `warnings` on purpose, since a note
+          carries no amount and is never "non ventilé" (see needs_other_lane on report.notes). Read
+          through a narrow type until the generated client is regenerated to carry the field. */}
+      {(report as { notes?: ReportNote[] }).notes?.length ? (
+        <div className="rounded-md border border-slate-200 bg-slate-50 text-slate-700 text-sm px-4 py-3 space-y-1 mb-6">
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">{t("notesTitle")}</div>
+          {((report as { notes?: ReportNote[] }).notes ?? []).map((n) => (
+            <div key={n.cost_id} className="flex gap-2">
+              <Info className="w-4 h-4 mt-0.5 shrink-0 text-slate-400" />
+              <span>
+                {errorCode.has(n.code) ? errorCode(n.code) : n.message}
+                {n.load_labels?.length ? <span className="text-slate-500"> {n.load_labels.join(", ")}</span> : null}
               </span>
             </div>
           ))}

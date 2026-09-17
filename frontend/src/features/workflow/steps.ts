@@ -294,6 +294,40 @@ export function importNewStep(resuming: boolean): WorkflowStep {
   };
 }
 
+/**
+ * The next-step card for the import wizard itself, computed from the wizard's own client-side step
+ * instead of the server-rendered "resuming or not" snapshot the page loaded with — see audit B20:
+ * the card used to keep telling you to "choose a file" while you were already on the validation
+ * report.
+ */
+export function importWizardStep(step: "upload" | "mapping" | "review" | "done", resuming: boolean, hasErrors: boolean): WorkflowStep {
+  if (step === "mapping") {
+    return {
+      descriptionKey: "importNew.mapping",
+      primary: { href: "#wizard", labelKey: "importNew.mappingAction" },
+      secondary: resuming ? [] : [{ href: "/imports", labelKey: "importNew.backList" }],
+      variant: "default",
+    };
+  }
+  if (step === "review") {
+    return {
+      descriptionKey: hasErrors ? "importNew.reviewErrors" : "importNew.reviewOk",
+      primary: { href: "#wizard", labelKey: "importNew.reviewAction" },
+      secondary: [],
+      variant: hasErrors ? "warning" : "default",
+    };
+  }
+  if (step === "done") {
+    return {
+      descriptionKey: "importNew.done",
+      primary: { href: "/purchase-orders", labelKey: "importNew.doneAction" },
+      secondary: [{ href: "/containers", labelKey: "imports.goContainers" }],
+      variant: "success",
+    };
+  }
+  return importNewStep(resuming);
+}
+
 export function purchaseOrdersHubStep(pos: PurchaseOrderSummary[]): WorkflowStep {
   if (pos.length === 0) {
     return {

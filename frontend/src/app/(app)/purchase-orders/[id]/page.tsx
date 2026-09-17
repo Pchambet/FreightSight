@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Info } from "lucide-react";
 import { PageHeader, td, tdRight, th, thRight } from "@/components/layout/AppShell";
 import Breadcrumb from "@/components/shared/Breadcrumb";
 import MetricLabel from "@/components/shared/MetricLabel";
@@ -19,6 +19,9 @@ import { dateShort, pct, qty } from "@/lib/format";
 type Params = { params: Promise<{ id: string }> };
 
 const API_ERROR = "api_error";
+
+// `LandedCostReport.notes` — see the same type in the container page for why it is typed locally.
+type ReportNote = { cost_id: string; code: string; message: string; load_ids: string[]; load_labels: string[] };
 
 async function load(id: string) {
   const po = await api.GET("/api/v1/purchase-orders/{po_id}", { params: { path: { po_id: id } } });
@@ -65,7 +68,8 @@ export default async function PurchaseOrderPage({ params }: Params) {
 
   return (
     <>
-      <Breadcrumb backHref="/purchase-orders" backLabel={t("breadcrumb")} current={po.po_number} />
+      {/* po.po_number is already the h1 right below — no need to repeat it in the breadcrumb (audit B21). */}
+      <Breadcrumb backHref="/purchase-orders" backLabel={t("breadcrumb")} />
       <PageHeader
         title={po.po_number}
         subtitle={<span>{po.supplier_name ?? t("noSupplier")} · {po.currency}{po.currency !== cur ? ` @ ${po.fx_rate} ${cur}` : ""}{po.order_date ? ` · ${t("ordered", { date: dateShort(po.order_date, locale) })}` : ""}{po.incoterm ? ` · ${po.incoterm}` : ""}</span>}
@@ -81,6 +85,23 @@ export default async function PurchaseOrderPage({ params }: Params) {
               <span>
                 {errorCode.has(w.code) ? errorCode(w.code) : w.message}
                 {w.load_labels?.length ? <span className="text-amber-700/80"> {w.load_labels.join(", ")}</span> : null}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {/* `report.notes`: a rule applied to a cost that WAS allocated — kept apart from `warnings`,
+          never carries an amount. See the container page for the same block. */}
+      {(report as { notes?: ReportNote[] }).notes?.length ? (
+        <div className="rounded-md border border-slate-200 bg-slate-50 text-slate-700 text-sm px-4 py-3 space-y-1 mb-6">
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">{t("notesTitle")}</div>
+          {((report as { notes?: ReportNote[] }).notes ?? []).map((n) => (
+            <div key={n.cost_id} className="flex gap-2">
+              <Info className="w-4 h-4 mt-0.5 shrink-0 text-slate-400" />
+              <span>
+                {errorCode.has(n.code) ? errorCode(n.code) : n.message}
+                {n.load_labels?.length ? <span className="text-slate-500"> {n.load_labels.join(", ")}</span> : null}
               </span>
             </div>
           ))}

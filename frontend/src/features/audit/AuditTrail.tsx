@@ -1,19 +1,38 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Card } from "@/components/layout/AppShell";
-import { auditDiff, auditEntityRef } from "@/features/audit/format";
+import { auditDiff, auditEntityRef, type Formatters } from "@/features/audit/format";
 import { api, type AuditEntry } from "@/lib/api/client";
-import { dateTimeShort, money } from "@/lib/format";
+import { dateTimeShort, money, rate } from "@/lib/format";
 
 type Json = Record<string, unknown> | null | undefined;
 
 export async function AuditEntries({ entries }: { entries: AuditEntry[] }) {
-  const [t, action, locale] = await Promise.all([getTranslations("audit"), getTranslations("domain.auditAction"), getLocale()]);
-  const formatters = {
-    field: (key: string) => (t.has(`fields.${key}`) ? t(`fields.${key}`) : key),
-    invoiceStatus: (code: string) => (t.has(`invoiceStatus.${code}`) ? t(`invoiceStatus.${code}`) : code),
+  const [t, action, costType, method, scope, milestone, erpDocumentState, locale] = await Promise.all([
+    getTranslations("audit"),
+    getTranslations("domain.auditAction"),
+    getTranslations("domain.costType"),
+    getTranslations("domain.method"),
+    getTranslations("domain.costScope"),
+    getTranslations("domain.milestone"),
+    getTranslations("domain.erpDocumentState"),
+    getLocale(),
+  ]);
+  // A generic fallback for a field name or enum value this table has no label for yet: never the
+  // raw key or the raw enum member.
+  const formatters: Formatters = {
+    field: (key: string) => (t.has(`fields.${key}`) ? t(`fields.${key}`) : t("otherField")),
+    invoiceStatus: (code: string) => (t.has(`invoiceStatus.${code}`) ? t(`invoiceStatus.${code}`) : t("unknownValue")),
     costCount: (count: number) => t("costCount", { count }),
     money: (amount: string) => money(amount, "EUR", locale),
+    rate: (amount: string) => rate(amount, locale),
+    costType: (code: string) => (costType.has(code as never) ? costType(code as never) : t("unknownValue")),
+    method: (code: string) => (method.has(code as never) ? method(code as never) : t("unknownValue")),
+    scope: (code: string) => (scope.has(code as never) ? scope(code as never) : t("unknownValue")),
+    milestone: (code: string) => (milestone.has(code as never) ? milestone(code as never) : t("unknownValue")),
+    bool: (value: boolean) => (value ? t("yes") : t("no")),
+    lineRef: (id: string) => t("fields.lineRef", { id }),
+    documentState: (code: string) => (erpDocumentState.has(code as never) ? erpDocumentState(code as never) : t("unknownValue")),
   };
   const entityLabel = (type: string) => (t.has(`entity.${type}`) ? t(`entity.${type}`) : type);
   if (entries.length === 0) return <p className="px-5 py-6 text-sm text-slate-500">{t("empty")}</p>;
@@ -30,7 +49,9 @@ export async function AuditEntries({ entries }: { entries: AuditEntry[] }) {
                 {action.has(key) ? action(key) : e.action}
                 <span className="ml-2 text-xs font-normal text-slate-500">{ref}</span>
               </div>
-              <div className="text-xs text-slate-400 tabular-nums whitespace-nowrap">{dateTimeShort(e.at, locale)} · {e.actor_user_id ? t("actor", { id: e.actor_user_id.slice(0, 8) }) : t("system")}</div>
+              {/* The API has no actor name or e-mail on this record (needs_other_lane) — a raw uuid fragment
+                  would read as a bug to a DAF, so an unresolved actor gets a plain, honest label instead. */}
+              <div className="text-xs text-slate-400 tabular-nums whitespace-nowrap">{dateTimeShort(e.at, locale)} · {e.actor_user_id ? t("actorUnknown") : t("system")}</div>
             </div>
             {changes.length ? (
               <dl className="mt-1.5 grid gap-x-4 gap-y-0.5 text-xs" style={{ gridTemplateColumns: "max-content 1fr" }}>

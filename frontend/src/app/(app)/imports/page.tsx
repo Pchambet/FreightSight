@@ -42,10 +42,14 @@ export default async function ImportsPage() {
               ) : (
                 jobs.map((j) => {
                   const r = j.report as Record<string, number | undefined>;
+                  // `source` (upload | erp_sync) is not in the generated schema yet (needs_other_lane)
+                  // — an ERP-synced job has no uploaded file, and used to show its synthetic filename
+                  // ("odoo-sync.csv") as if someone had dropped it by hand (audit B23).
+                  const source = (j as { source?: "upload" | "erp_sync" }).source;
                   return (
                     <tr key={j.id}>
                       <td className={`${td} text-slate-600`}>{dateShort(j.created_at, locale)}</td>
-                      <td className={td}>{j.original_filename ?? tc("empty")}</td>
+                      <td className={td}>{source === "erp_sync" ? t("source.erp_sync") : (j.original_filename ?? tc("empty"))}</td>
                       <td className={`${td} text-xs text-slate-600`}>{t(`kind.${j.kind}`)}</td>
                       <td className={td}><span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[j.status]}`}>{t(`status.${j.status}`)}</span></td>
                       <td className={tdRight}>{j.row_count}</td>

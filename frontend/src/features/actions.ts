@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
-import { api, problemMessage, type ImportJobResponse, type LandedCostReport, type Schemas } from "@/lib/api/client";
+import { api, problemMessage, type ImportJobResponse, type LandedCostReport, type Problem, type Schemas } from "@/lib/api/client";
 import { protectAction } from "@/lib/auth";
 import type { AllocationMethod, ContainerMilestone, CostScope, CostStatus, CostType, ImportKind, MilestoneCode, RateBasis } from "@/lib/domain";
 
@@ -13,6 +13,18 @@ async function fail<T>(error: unknown, fallbackKey: string): Promise<ActionResul
   const t = await getTranslations();
   return { ok: false, error: await problemMessage(error, t(fallbackKey)) };
 }
+
+/**
+ * A POST call typed loosely enough to reach a route or a request field the generated client does
+ * not carry yet (needs_other_lane: the lead regenerates `schema.d.ts` from the OpenAPI document).
+ * `api.POST` itself stays fully typed for every route that already exists in it; this is only for
+ * the few calls below that a route or field ahead of the regeneration needs, cast once here rather
+ * than scattering `as never` through each call site. The double assertion is deliberate — the real
+ * type and this one do not structurally overlap — and the result is cast back to the known real
+ * response shape right after the call, so callers see ordinary, correct types.
+ */
+type RawPost = (path: string, options: { params: { path: Record<string, string> }; body?: unknown }) => Promise<{ data?: unknown; error?: unknown }>;
+const rawPost = api.POST as unknown as RawPost;
 
 function normalizeAmount(raw: string): string | null {
   const s = raw.trim().replace(/[\s  ]/g, "");
@@ -193,12 +205,32 @@ export async function updateInvoiceLine(
   return { ok: true, data: null };
 }
 
-export async function confirmInvoice(invoiceId: string): Promise<
-  ActionResult<{ costsCreated: number; containers: { id: string; container_number: string }[] }>
-> {
+export type ConfirmInvoiceResult =
+  | { ok: true; data: { costsCreated: number; containers: { id: string; container_number: string }[]; notes: string[] } }
+  | { ok: false; error: string; code?: string };
+
+/**
+ * `force` answers the DUPLICATE_COST refusal, and only that one: the caller has looked at the
+ * duplicate note on the offending line and decided this invoice is a different charge. The action
+ * hands the code back on failure (not just the translated sentence) so the review screen can tell a
+ * duplicate refusal — offer "confirm anyway" — apart from every other reason confirming can fail.
+ */
+export async function confirmInvoice(invoiceId: string, force = false): Promise<ConfirmInvoiceResult> {
   await protectAction();
-  const { data, error } = await api.POST("/api/v1/invoices/{invoice_id}/confirm", { params: { path: { invoice_id: invoiceId } } });
-  if (error || !data) return await fail(error, "invoices.detail.failed");
+  // The route only gained this optional body for the force-confirm case; the generated schema does
+  // not carry it yet (needs_other_lane), hence `rawPost` — the response is the same
+  // `InvoiceConfirmResponse` either way, cast back below.
+  const raw = await rawPost("/api/v1/invoices/{invoice_id}/confirm", {
+    params: { path: { invoice_id: invoiceId } },
+    ...(force ? { body: { force: true } } : {}),
+  });
+  const { data, error } = raw as { data?: Schemas["InvoiceConfirmResponse"]; error?: Problem | null };
+  if (error || !data) {
+    const t = await getTranslations();
+    const message = await problemMessage(error, t("invoices.detail.failed"));
+    const code = error && typeof error === "object" ? (error as { code?: string | null }).code ?? undefined : undefined;
+    return { ok: false, error: message, code: code ?? undefined };
+  }
   revalidatePath(`/invoices/${invoiceId}`);
   revalidatePath("/invoices");
   revalidatePath("/containers");
@@ -208,8 +240,42 @@ export async function confirmInvoice(invoiceId: string): Promise<
     data: {
       costsCreated: data.costs_created,
       containers: (data.containers ?? []).map((c) => ({ id: c.id, container_number: c.container_number })),
+      notes: data.notes ?? [],
     },
   };
+}
+
+/**
+ * `POST /invoices/{id}/lines` — a line the reviewer types in by hand, for a charge the extraction
+ * missed entirely (see the "il manque X €" hint on the review screen). Not yet in the generated
+ * schema (needs_other_lane), so the path and body are passed as the OpenAPI document will type them
+ * once regenerated; `params.path` still drives the real URL at runtime.
+ */
+export async function addInvoiceLine(
+  invoiceId: string,
+  input: { description?: string; amount: string; currency?: string; cost_type?: CostType; scope?: CostScope; target_id?: string },
+): Promise<ActionResult<null>> {
+  await protectAction();
+  const amount = normalizeAmount(input.amount);
+  if (amount === null) {
+    const t = await getTranslations("costs.form");
+    return { ok: false, error: t("amountInvalid") };
+  }
+  const raw = await rawPost("/api/v1/invoices/{invoice_id}/lines", {
+    params: { path: { invoice_id: invoiceId } },
+    body: {
+      description: input.description || null,
+      amount,
+      currency: input.currency || undefined,
+      cost_type: input.cost_type || null,
+      scope: input.scope || null,
+      target_id: input.target_id || null,
+    },
+  });
+  const { error } = raw as { error?: Problem | null };
+  if (error) return await fail(error, "invoices.detail.addLineFailed");
+  revalidatePath(`/invoices/${invoiceId}`);
+  return { ok: true, data: null };
 }
 
 export async function rejectInvoice(invoiceId: string): Promise<ActionResult<null>> {
@@ -463,6 +529,10 @@ export async function forgetErpPush(containerId: string, pushId: string, reason:
     if (p?.code === "ERP_DOCUMENT_STILL_THERE") {
       const t = await getTranslations("erp.pushes");
       return { ok: false, error: t("stillThere", { name: p.document?.name ?? "?", state: p.document?.state ?? "" }) };
+    }
+    if (p?.code === "ERP_FORGET_REASON_REQUIRED") {
+      const t = await getTranslations("erp.pushes");
+      return { ok: false, error: t("reasonRequired", { name: p.document?.name ?? "?", state: p.document?.state ?? "" }) };
     }
     return await fail(error, "erp.pushes.forgetFailed");
   }

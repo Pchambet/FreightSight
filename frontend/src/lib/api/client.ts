@@ -37,6 +37,12 @@ export type Problem = {
   code?: string | null;
   detail?: string | null;
   errors?: { field: string; code: string; message: string }[] | null;
+  //: The moving parts of the top-level `code`'s sentence (a host, a count of seconds, a login) — a
+  //: `DomainError(..., params={...})` on the backend lands here verbatim. Absent on a problem with no
+  //: params, never on the per-field `errors[]` entries, which carry no params of their own yet.
+  params?: Record<string, string> | null;
+  //: Same id as the response's X-Request-ID header and the server log line — see core/observability.py.
+  request_id?: string | null;
 };
 
 /**
@@ -54,33 +60,61 @@ const authHeaders: Middleware = {
   },
 };
 
+/**
+ * A request that never reaches the server (offline, DNS, TLS, or a hang past 30 s) throws instead of
+ * resolving, and openapi-fetch does not catch that — it would surface as an unhandled exception in a
+ * server action instead of a translatable error. Manufacturing a problem+json response here keeps
+ * every caller on the single `{ data, error }` shape and the single `problemMessage` translation path.
+ */
+async function resilientFetch(request: Request): Promise<Response> {
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  request.signal?.addEventListener("abort", onAbort);
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  try {
+    return await fetch(request, { cache: "no-store", signal: controller.signal });
+  } catch (err) {
+    const code = err instanceof Error && err.name === "AbortError" ? "REQUEST_TIMEOUT" : "NETWORK_ERROR";
+    return new Response(JSON.stringify({ title: code, status: 503, code }), {
+      status: 503,
+      headers: { "content-type": "application/json" },
+    });
+  } finally {
+    clearTimeout(timeout);
+    request.signal?.removeEventListener("abort", onAbort);
+  }
+}
+
 export const api = createClient<paths>({
   baseUrl: env.API_URL,
-  fetch: (request) => fetch(request, { cache: "no-store" }),
+  fetch: resilientFetch,
 });
 api.use(authHeaders);
 
 /**
  * Turn a problem+json error body into one readable sentence in the user's language.
  *
- * The backend answers in English with a machine-readable `code`; the front translates the code and
- * only falls back to the server's own sentence when it carries detail we have no key for.
+ * The backend answers in English with a machine-readable `code`; the front translates the code. A
+ * code we have no key for — or no code at all — never falls back to the server's own English
+ * sentence: that sentence is a debugging aid (`detail`) that can legitimately carry internal detail
+ * (a hostname, an errno, a stack fragment), never vetted for a screen a DAF reads. It falls back to a
+ * neutral sentence instead, with the request id when there is one so a support ticket can find the
+ * exact log line.
  */
 export async function problemMessage(error: unknown, fallback?: string): Promise<string> {
   const t = await getTranslations("errors");
   const has = (code: string | null | undefined): code is string => !!code && t.has(code);
   const fallbackMessage = fallback ?? t("fallback");
   if (error && typeof error === "object") {
-    const p = error as Problem & { message?: string };
+    const p = error as Problem;
+    const withRef = (message: string) => (p.request_id ? t("withRequestId", { message, id: p.request_id }) : message);
     if (p.errors?.length) {
       return p.errors
-        .map((e) => t("fieldPrefix", { field: e.field, message: has(e.code) ? t(e.code) : e.message }))
+        .map((e) => t("fieldPrefix", { field: e.field, message: has(e.code) ? t(e.code) : t("unknownField") }))
         .join(", ");
     }
-    if (has(p.code)) return t(p.code);
-    if (typeof p.detail === "string") return p.detail;
-    if (typeof p.message === "string") return p.message;
-    if (typeof p.title === "string") return p.title;
+    if (has(p.code)) return t(p.code, p.params ?? undefined);
+    return withRef(fallbackMessage);
   }
   return fallbackMessage;
 }
