@@ -340,7 +340,7 @@ def _dnd_text(
         title = t(locale, f"DND_RISK.{key}{suffix}", container=container, amount=amount or "")
     else:
         key = "titleDetention" if detention else "title"
-        title = t(locale, f"DND_RISK.{key}", container=container, risk=_risk_label(risk, locale))
+        title = t(locale, f"DND_RISK.{key}", container=container, risk=_risk_label(risk, locale).lower())
     if when is None:
         return title, t(locale, "DND_RISK.bodyNoLfd")
     printed = {date_key: _format_date(when, locale)}

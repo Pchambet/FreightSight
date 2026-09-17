@@ -127,8 +127,8 @@ def test_the_digest_is_written_in_the_language_of_the_organization(
     handlers.dispatch_alerts(db, notifier=notifier)
 
     body = notifier.sent[0].text()
-    assert notifier.sent[0].subject == "FreightSight : MSCU4821990 : risque de surestaries Élevé"
-    assert "[Critique] MSCU4821990 : risque de surestaries Élevé" in body
+    assert notifier.sent[0].subject == "FreightSight : MSCU4821990 : risque de surestaries élevé"
+    assert "[Critique] MSCU4821990 : risque de surestaries élevé" in body
     assert "Dernier jour franc le 20/09/2026" in body
     assert "Ouvrez FreightSight" in body
     assert "demurrage" not in body
@@ -145,7 +145,7 @@ def test_an_english_organization_gets_the_english_sentences(
     handlers.dispatch_alerts(db, notifier=notifier)
 
     body = notifier.sent[0].text()
-    assert notifier.sent[0].subject == "FreightSight: MSCU4821990: demurrage risk High"
+    assert notifier.sent[0].subject == "FreightSight: MSCU4821990: demurrage risk high"
     assert "Last free day 20 Sep 2026" in body
     assert "Open FreightSight to acknowledge these." in body
     assert "surestaries" not in body

@@ -48,11 +48,11 @@ def alert(
 def test_the_demurrage_alert_counts_the_days_left_in_both_languages() -> None:
     a = alert(AlertKind.DND_RISK, {"risk": "HIGH", "last_free_day": "2026-09-13"})
     title, body = alert_text(a, "fr", container_number="MSCU4821990", now=NOW)
-    assert title == "MSCU4821990 : risque de surestaries Élevé"
+    assert title == "MSCU4821990 : risque de surestaries élevé"
     assert body == "Dernier jour franc le 13/09/2026, 1 jour restant."
 
     title, body = alert_text(a, "en", container_number="MSCU4821990", now=NOW)
-    assert title == "MSCU4821990: demurrage risk High"
+    assert title == "MSCU4821990: demurrage risk high"
     assert body == "Last free day 13 Sep 2026, 1 day left."
 
 
