@@ -70,6 +70,34 @@ class Odoo:
         return int(self.kw(model, "create", values))
 
 
+def _books_in_euros(o: Odoo) -> None:
+    """The demo organisation works in EUR, and FreightSight refuses to write into books kept in
+    another currency (`erp_currency_mismatch`). A fresh Odoo database is "My Company", in USD:
+    switch it while it is still empty. Odoo refuses the change once a journal item exists, and the
+    demo data books some on its own — then the seed carries on and says what that means."""
+    # The company this login works in, not the first of the table: a database with demo data has
+    # two, and the other one sorts first.
+    mine = o.kw("res.users", "read", [o.uid], fields=["company_id"])[0]["company_id"][0]
+    company = o.kw("res.company", "read", [mine], fields=["name", "currency_id"])[0]
+    currency = company["currency_id"][1]
+    if currency == "EUR":
+        return
+    if o.kw("account.move.line", "search_count", [["company_id", "=", mine]]):
+        print(
+            f"warning: {company['name']} keeps its books in {currency} and already has journal items, "
+            "so its currency stays. A FreightSight organisation in EUR will refuse to push here; for "
+            "the demo, create the database with --without-demo=all (docs/odoo-questions.md §5).",
+            file=sys.stderr,
+        )
+        return
+    # EUR ships inactive in a database created with a US company.
+    euro = o.kw("res.currency", "search", [["name", "=", "EUR"]], context={"active_test": False})
+    if not euro:
+        raise SystemExit("this Odoo has no EUR currency record")
+    o.kw("res.currency", "write", euro, {"active": True})
+    o.kw("res.company", "write", [mine], {"currency_id": euro[0]})
+
+
 def seed(o: Odoo) -> dict[str, Any]:
     missing = o.kw(
         "ir.module.module",
@@ -80,6 +108,8 @@ def seed(o: Odoo) -> dict[str, Any]:
     if missing:
         names = ", ".join(f"{m['name']} ({m['state']})" for m in missing)
         raise SystemExit(f"install these modules first: {names}")
+
+    _books_in_euros(o)
 
     # 1. The category. `real_time` + `fifo` is the condition Odoo checks when a landed cost is
     #    validated; anything else and the push we are about to test would be refused later, in

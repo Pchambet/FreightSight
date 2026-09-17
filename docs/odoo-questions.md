@@ -88,7 +88,21 @@ docker exec odoo17 odoo -d fstest -i purchase,stock_landed_costs --stop-after-in
   --db_host odoo-db --db_user odoo --db_password odoo
 # puis : http://localhost:8169, base fstest, admin / admin
 python backend/scripts/odoo_seed.py --url http://localhost:8169 --db fstest
+
+# base de démonstration, en euros : sans données de démo, sinon la devise ne peut plus changer
+docker exec odoo17 odoo -d fsdemo -i purchase,stock_landed_costs --without-demo=all \
+  --stop-after-init --db_host odoo-db --db_user odoo --db_password odoo
+python backend/scripts/odoo_seed.py --url http://localhost:8169 --db fsdemo
 ```
+
+Deux bases, deux usages. `fstest` porte les données de démonstration d'Odoo : c'est elle que citent
+les identifiants des fixtures, et sa société tient ses comptes en **USD** — une organisation
+FreightSight en EUR s'y voit refuser l'écriture (`erp_currency_mismatch`), ce qui est le
+comportement voulu. `fsdemo` est vide à la création : le script y passe la société en **EUR** avant
+toute écriture comptable (Odoo interdit le changement dès la première), puis crée la commande
+`P00001` et sa réception `WH/IN/00001`. C'est celle qu'on branche pour la démo commerciale.
+Recréer une base du même nom pendant que le serveur tourne lui laisse un registre périmé
+(`column … does not exist`) : `docker restart odoo17` avant de lancer le script.
 
 `stock_landed_costs` est nécessaire pour l'écriture retour ; `purchase` seul suffit pour la lecture.
 

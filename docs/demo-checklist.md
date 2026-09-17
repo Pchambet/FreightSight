@@ -13,13 +13,15 @@ inutile de le refaire à la main avant chaque démo.
 
 ```bash
 docker compose up -d --build                      # API :8001 + worker (factures, alertes)
-# Odoo jetable : docs/odoo-questions.md §5 (modules purchase,stock_landed_costs), puis
-python3 backend/scripts/odoo_seed.py --url http://localhost:8169 --db fstest
+# Odoo jetable : docs/odoo-questions.md §5 — base `fsdemo`, créée sans données de démo, en euros
+python3 backend/scripts/odoo_seed.py --url http://localhost:8169 --db fsdemo
 cd frontend && npm run dev                        # :3000
 ```
 
 Connexion ERP dans Paramètres : adresse `http://host.docker.internal:8169` (l'API tourne dans Docker),
-base `fstest`, identifiant `admin`, clé API `admin` (défauts de l'instance jetable, jamais ailleurs).
+base `fsdemo`, identifiant `admin`, clé API `admin` (défauts de l'instance jetable, jamais ailleurs).
+La base `fstest` des fixtures tient ses comptes en USD : une organisation en EUR s'y fait refuser
+l'écriture (`erp_currency_mismatch`), ce qui est voulu mais gâche la scène.
 
 **Organisation** : utilisez une organisation Clerk dédiée à cette recette (pas l'org « démo commerciale »
 avec le jeu d'exemple pneus) — `odoo_seed.py` ne contrôle que le produit et le fournisseur qu'il crée
