@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function ChooseOrganizationPage() {
   const [a, t] = await Promise.all([auth(), getTranslations("auth.chooseOrganization")]);
-  if (a.isAuthenticated && a.orgId) redirect("/containers");
+  if (a.isAuthenticated && a.orgId) redirect("/overview");
   if (!a.isAuthenticated && a.sessionStatus !== "pending") redirect("/sign-in");
 
   return (
@@ -26,9 +26,9 @@ export default async function ChooseOrganizationPage() {
           <p className="text-sm text-slate-500">{t("body")}</p>
         </div>
         {a.sessionStatus === "pending" ? (
-          <TaskChooseOrganization redirectUrlComplete="/containers" />
+          <TaskChooseOrganization redirectUrlComplete="/overview" />
         ) : (
-          <OrganizationList hidePersonal afterSelectOrganizationUrl="/containers" afterCreateOrganizationUrl="/containers" />
+          <OrganizationList hidePersonal afterSelectOrganizationUrl="/overview" afterCreateOrganizationUrl="/overview" />
         )}
       </div>
     </div>

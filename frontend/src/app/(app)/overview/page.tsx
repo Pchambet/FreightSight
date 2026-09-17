@@ -1,0 +1,298 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
+import { AlertTriangle, ArrowRight, CheckCircle2, FileText, PackageOpen, Receipt } from "lucide-react";
+import { PageHeader, btnPrimary, btnSecondary } from "@/components/layout/AppShell";
+import BreakdownBar from "@/components/charts/BreakdownBar";
+import StackedColumns, { type StackedColumn } from "@/components/charts/StackedColumns";
+import { COST_FAMILIES, foldFamilies, type CostFamily } from "@/components/charts/families";
+import ApiErrorNotice from "@/components/shared/ApiErrorNotice";
+import Panel from "@/components/ui/Panel";
+import StatTile, { type Delta } from "@/components/ui/StatTile";
+import LoadSampleDataButton from "@/features/containers/LoadSampleDataButton";
+import RankBars, { type RankRow } from "@/features/overview/RankBars";
+import { WINDOWS, monthLabel, monthTitle, windows, type WindowMonths } from "@/features/overview/period";
+import { skuHref } from "@/features/skus/href";
+import { api } from "@/lib/api/client";
+import { demurrageRelevant } from "@/lib/domain";
+import { dateShort, daysUntil, money, pct, qty } from "@/lib/format";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("overview");
+  return { title: t("title") };
+}
+
+const num = (v: string | number | null | undefined) => {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+export default async function OverviewPage({ searchParams }: { searchParams: Promise<{ months?: string }> }) {
+  const [sp, t, tf, locale] = await Promise.all([searchParams, getTranslations("overview"), getTranslations("costFamily"), getLocale()]);
+  const months: WindowMonths = (WINDOWS as readonly number[]).includes(Number(sp.months)) ? (Number(sp.months) as WindowMonths) : 6;
+  const { current, previous } = windows(months);
+  const cur = { period_from: current.from, period_to: current.to };
+  const prev = { period_from: previous.from, period_to: previous.to };
+
+  const [byMonth, bySupplier, before, dnd, dndBefore, board, toReview] = await Promise.all([
+    api.GET("/api/v1/reports/landed-cost", { params: { query: { group_by: "month", ...cur } } }),
+    api.GET("/api/v1/reports/landed-cost", { params: { query: { group_by: "supplier", ...cur } } }),
+    api.GET("/api/v1/reports/landed-cost", { params: { query: { group_by: "month", ...prev } } }),
+    api.GET("/api/v1/reports/dnd", { params: { query: cur } }),
+    api.GET("/api/v1/reports/dnd", { params: { query: prev } }),
+    api.GET("/api/v1/containers"),
+    api.GET("/api/v1/invoices", { params: { query: { invoice_status: "NEEDS_REVIEW" } } }),
+  ]);
+
+  // Any of the three reads the page stands on failing means "no answer", never "no data".
+  const failure = [byMonth, bySupplier, board].find((r) => r.error || !r.data);
+  if (failure) {
+    return (
+      <>
+        <PageHeader title={t("title")} />
+        <ApiErrorNotice error={failure.error} retryHref={`/overview?months=${months}`} />
+      </>
+    );
+  }
+
+  const a = byMonth.data;
+  const currency = a?.base_currency ?? "EUR";
+  const fob = num(a?.totals.fob);
+  const fees = num(a?.totals.allocated);
+  const landed = num(a?.totals.landed);
+  const fobBefore = num(before.data?.totals.fob);
+  const feesBefore = num(before.data?.totals.allocated);
+  const landedBefore = num(before.data?.totals.landed);
+  const coef = fob > 0 ? landed / fob : null;
+  const coefBefore = fobBefore > 0 ? landedBefore / fobBefore : null;
+  const hasData = fob > 0 || fees > 0;
+
+  const familyLabels = Object.fromEntries(COST_FAMILIES.map((f) => [f, tf(f)])) as Record<CostFamily, string>;
+  const ratio = (v: number) => new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+  const signed = (v: number, digits = 1) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-GB", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(Math.abs(v))}`;
+  const versus = t("versus", { months });
+  // A "before" only compares if it was a period of activity too: against a window where goods landed
+  // in fewer than half the months (a company that has just started, the first months of a history),
+  // every figure would read "+2 500 %" — true, and useless.
+  const comparable = (before.data?.buckets ?? []).filter((b) => b.key !== "unknown" && num(b.fob) > 0).length >= Math.ceil(months / 2);
+  /** Relative change, or nothing when there is no "before" to compare with. */
+  const change = (now: number, then: number, upIsGood: boolean | null): Delta | null => {
+    if (!comparable || then <= 0) return null;
+    const p = ((now - then) / then) * 100;
+    const direction = Math.abs(p) < 0.05 ? "flat" : p > 0 ? "up" : "down";
+    return { text: `${signed(p)} %`, direction, good: upIsGood === null ? null : direction === "up" ? upIsGood : !upIsGood, versus };
+  };
+
+  // One column per calendar month of the window, arrivals or not: a month without a container is a
+  // fact of the period, not a hole to close up.
+  const bucket = new Map((a?.buckets ?? []).map((b) => [b.key, b]));
+  const yearTurns = new Set(current.months.map((k) => k.slice(0, 4))).size > 1;
+  const columns: StackedColumn[] = current.months.map((key) => {
+    const b = bucket.get(key);
+    const bFob = num(b?.fob);
+    return {
+      key,
+      label: monthLabel(key, locale, yearTurns),
+      title: monthTitle(key, locale),
+      families: foldFamilies(b?.by_cost_type as Record<string, string> | undefined),
+      note: b ? t("monthNote", { loads: b.load_count, coef: bFob > 0 ? ratio(num(b.landed) / bFob) : "—" }) : t("monthEmpty"),
+      href: `/reports?group_by=cost_type&from=${key}-01&to=${key}-${String(new Date(Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)), 0)).getUTCDate()).padStart(2, "0")}`,
+    };
+  });
+  const coefSpark = current.months.map((k) => bucket.get(k)).filter((b) => b && num(b.fob) > 0).map((b) => num(b!.landed) / num(b!.fob));
+  const undated = bucket.get("unknown");
+
+  const suppliers: RankRow[] = (bySupplier.data?.buckets ?? [])
+    .filter((b) => num(b.fob) > 0)
+    .map((b) => ({
+      key: b.key,
+      label: b.key === "unknown" ? t("unknownSupplier") : b.label,
+      value: (num(b.allocated) / num(b.fob)) * 100,
+      display: ratio(num(b.landed) / num(b.fob)),
+      sub: t("supplierSub", { fees: money(b.allocated, currency, locale), fob: money(b.fob, currency, locale) }),
+      href: `/reports?group_by=supplier&from=${current.from}&to=${current.to}`,
+    }))
+    .sort((x, y) => y.value - x.value)
+    .slice(0, 6);
+
+  const skus = [...(bySupplier.data?.skus ?? [])].sort((x, y) => num(y.landed) - num(x.landed)).slice(0, 6);
+
+  // What needs a human today, most urgent first.
+  const containers = board.data ?? [];
+  const exposed = containers
+    .filter((c) => demurrageRelevant(c) && (c.dnd_risk === "INCURRING" || c.dnd_risk === "HIGH" || c.dnd_risk === "MEDIUM"))
+    .sort((x, y) => (x.last_free_day ?? "9999").localeCompare(y.last_free_day ?? "9999"));
+  const uncosted = containers.filter((c) => (c.load_count ?? 0) > 0 && (c.cost_types_present ?? []).length === 0);
+  const reviewCount = toReview.data?.length ?? 0;
+  const todo = exposed.length + uncosted.length + (reviewCount > 0 ? 1 : 0);
+
+  const paid = num(dnd.data?.paid);
+  const avoided = num(dnd.data?.avoided);
+
+  return (
+    <>
+      <PageHeader
+        title={t("title")}
+        subtitle={t("subtitle", { from: dateShort(current.from, locale), to: dateShort(current.to, locale) })}
+        actions={
+          <nav aria-label={t("window")} className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm shadow-card">
+            {WINDOWS.map((w) => (
+              <Link
+                key={w}
+                href={`/overview?months=${w}`}
+                aria-current={w === months ? "page" : undefined}
+                className={`px-3 py-1.5 rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${w === months ? "bg-slate-900 text-white font-medium" : "text-slate-600 hover:bg-slate-100"}`}
+              >
+                {t("windowMonths", { months: w })}
+              </Link>
+            ))}
+          </nav>
+        }
+      />
+
+      <Panel
+        title={t("todo.title")}
+        right={todo === 0 ? null : <span className="rounded-full bg-amber-100 text-amber-900 px-2 py-0.5 font-medium tabular-nums">{todo}</span>}
+        className="mb-6"
+      >
+        {todo === 0 ? (
+          <p className="flex items-center gap-2 text-sm text-slate-600"><CheckCircle2 className="w-4 h-4 text-emerald-600" aria-hidden />{t("todo.none")}</p>
+        ) : (
+          <ul className="-my-2 divide-y divide-slate-100">
+            {exposed.map((c) => {
+              const days = daysUntil(c.last_free_day);
+              const late = c.dnd_risk === "INCURRING" || (days !== null && days < 0);
+              return (
+                <li key={c.id} className="py-2.5 flex items-center gap-3 text-sm">
+                  <AlertTriangle className={`w-4 h-4 shrink-0 ${late ? "text-red-600" : "text-amber-600"}`} aria-hidden />
+                  <span className="min-w-0 flex-1">
+                    <span className="font-mono font-medium text-slate-900">{c.container_number}</span>{" "}
+                    <span className="text-slate-600">
+                      {c.last_free_day === null || days === null
+                        ? t("todo.exposedNoDate")
+                        : days < 0
+                          ? t("todo.exposedLate", { days: -days, date: dateShort(c.last_free_day, locale) })
+                          : t("todo.exposedLeft", { days, date: dateShort(c.last_free_day, locale) })}
+                    </span>
+                  </span>
+                  <Link href={`/container/${c.id}#suivi`} className="shrink-0 inline-flex items-center gap-1 text-blue-700 hover:underline">{t("todo.open")}<ArrowRight className="w-3.5 h-3.5" aria-hidden /></Link>
+                </li>
+              );
+            })}
+            {reviewCount > 0 ? (
+              <li className="py-2.5 flex items-center gap-3 text-sm">
+                <Receipt className="w-4 h-4 shrink-0 text-blue-600" aria-hidden />
+                <span className="min-w-0 flex-1 text-slate-600">{t("todo.review", { count: reviewCount })}</span>
+                <Link href="/invoices" className="shrink-0 inline-flex items-center gap-1 text-blue-700 hover:underline">{t("todo.reviewAction")}<ArrowRight className="w-3.5 h-3.5" aria-hidden /></Link>
+              </li>
+            ) : null}
+            {uncosted.map((c) => (
+              <li key={c.id} className="py-2.5 flex items-center gap-3 text-sm">
+                <FileText className="w-4 h-4 shrink-0 text-slate-500" aria-hidden />
+                <span className="min-w-0 flex-1">
+                  <span className="font-mono font-medium text-slate-900">{c.container_number}</span> <span className="text-slate-600">{t("todo.uncosted")}</span>
+                </span>
+                <Link href={`/container/${c.id}`} className="shrink-0 inline-flex items-center gap-1 text-blue-700 hover:underline">{t("todo.open")}<ArrowRight className="w-3.5 h-3.5" aria-hidden /></Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      {!hasData ? (
+        <Panel className="mb-6">
+          <div className="py-10 text-center max-w-md mx-auto">
+            <PackageOpen className="w-8 h-8 mx-auto text-slate-400" aria-hidden />
+            <h2 className="mt-3 font-semibold text-slate-900">{t("empty.title")}</h2>
+            <p className="mt-1 text-sm text-slate-600">{containers.length === 0 ? t("empty.noContainers") : t("empty.noArrivals", { months })}</p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2 text-sm">
+              {containers.length === 0 ? <LoadSampleDataButton profile="history" primary /> : null}
+              <Link href="/containers" className={containers.length === 0 ? btnSecondary : btnPrimary}>{t("empty.goContainers")}</Link>
+              {months !== 12 && containers.length > 0 ? <Link href="/overview?months=12" className={btnSecondary}>{t("empty.widen")}</Link> : null}
+            </div>
+          </div>
+        </Panel>
+      ) : (
+        <>
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+            <StatTile
+              label={t("kpi.coef")}
+              hint={t("kpi.coefHint")}
+              value={coef !== null ? ratio(coef) : "—"}
+              sub={coef !== null ? t("kpi.coefSub", { pct: pct((coef - 1) * 100, locale) }) : undefined}
+              delta={comparable && coef !== null && coefBefore !== null ? { text: signed(coef - coefBefore, 2), direction: Math.abs(coef - coefBefore) < 0.005 ? "flat" : coef > coefBefore ? "up" : "down", good: coef <= coefBefore, versus } : null}
+              spark={coefSpark}
+            />
+            <StatTile label={t("kpi.fees")} hint={t("kpi.feesHint")} value={money(fees, currency, locale)} delta={change(fees, feesBefore, null)} href={`/reports?group_by=cost_type&from=${current.from}&to=${current.to}`} />
+            <StatTile label={t("kpi.fob")} hint={t("kpi.fobHint")} value={money(fob, currency, locale)} delta={change(fob, fobBefore, null)} sub={t("kpi.fobSub", { loads: a?.totals.load_count ?? 0 })} />
+            <StatTile
+              label={t("kpi.dnd")}
+              hint={t("kpi.dndHint")}
+              value={money(paid, currency, locale)}
+              tone={paid > 0 ? "danger" : "default"}
+              delta={comparable ? change(paid, num(dndBefore.data?.paid), false) : null}
+              sub={avoided > 0 ? t("kpi.dndAvoided", { amount: money(avoided, currency, locale) }) : undefined}
+              href="/reports#dnd"
+            />
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-3 mb-6 items-start">
+            <Panel
+              title={t("structure.title")}
+              subtitle={t("structure.subtitle")}
+              right={<Link href={`/reports?group_by=month&from=${current.from}&to=${current.to}`} className="text-blue-700 hover:underline">{t("seeTable")}</Link>}
+              className="xl:col-span-2"
+            >
+              <StackedColumns columns={columns} currency={currency} locale={locale} familyLabels={familyLabels} totalLabel={t("structure.total")} />
+              {undated && num(undated.allocated) > 0 ? <p className="mt-3 text-xs text-slate-500">{t("structure.undated", { amount: money(undated.allocated, currency, locale) })}</p> : null}
+            </Panel>
+
+            <Panel title={t("breakdown.title")} subtitle={t("breakdown.subtitle", { landed: money(landed, currency, locale) })}>
+              <BreakdownBar fob={fob} families={foldFamilies(a?.totals.by_cost_type as Record<string, string> | undefined)} currency={currency} locale={locale} fobLabel={t("breakdown.fob")} familyLabels={familyLabels} ofFobLabel={t("breakdown.ofFob")} dense />
+            </Panel>
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-2 items-start">
+            <Panel title={t("suppliers.title")} subtitle={t("suppliers.subtitle")}>
+              <RankBars rows={suppliers} empty={t("suppliers.empty")} />
+            </Panel>
+
+            <Panel title={t("skus.title")} subtitle={t("skus.subtitle")} right={<Link href="/skus" className="text-blue-700 hover:underline">{t("skus.all")}</Link>}>
+              {skus.length === 0 ? (
+                <p className="text-sm text-slate-500">{t("skus.empty")}</p>
+              ) : (
+                <div className="-mx-5 -mb-5 overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-xs text-slate-500 border-b border-slate-200">
+                        <th className="px-5 py-2 text-left font-medium">{t("skus.th.sku")}</th>
+                        <th className="px-3 py-2 text-right font-medium">{t("skus.th.quantity")}</th>
+                        <th className="px-3 py-2 text-right font-medium">{t("skus.th.unitFob")}</th>
+                        <th className="px-3 py-2 text-right font-medium">{t("skus.th.unitLanded")}</th>
+                        <th className="px-5 py-2 text-right font-medium">{t("skus.th.coef")}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {skus.map((s) => {
+                        const q = num(s.quantity);
+                        return (
+                          <tr key={s.sku} className="hover:bg-slate-50">
+                            <td className="px-5 py-2.5"><Link href={skuHref(s.sku)} className="font-mono text-blue-700 hover:underline">{s.sku}</Link></td>
+                            <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">{qty(s.quantity, locale)}</td>
+                            <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">{q > 0 ? money(num(s.fob) / q, currency, locale) : "—"}</td>
+                            <td className="px-3 py-2.5 text-right tabular-nums font-medium text-slate-900">{money(s.unit_landed_cost, currency, locale)}</td>
+                            <td className="px-5 py-2.5 text-right tabular-nums text-slate-600">{num(s.fob) > 0 ? ratio(num(s.landed) / num(s.fob)) : "—"}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Panel>
+          </div>
+        </>
+      )}
+    </>
+  );
+}

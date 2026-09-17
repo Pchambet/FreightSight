@@ -16,7 +16,7 @@ const PUBLIC = [/^\/$/, /^\/robots\.txt$/, /^\/securite$/, /^\/design-partner$/,
 
 // Every top-level segment under src/app/(app): the only URLs where an unauthenticated visitor
 // should be bounced to sign-in before Next.js even attempts a render.
-const PROTECTED = [/^\/(alerts|api|audit|container|containers|imports|invoices|purchase-orders|reports|settings)(\/.*)?$/];
+const PROTECTED = [/^\/(alerts|api|audit|container|containers|imports|invoices|overview|purchase-orders|reports|settings|skus)(\/.*)?$/];
 
 export default clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl;

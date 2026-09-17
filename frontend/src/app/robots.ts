@@ -10,6 +10,8 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: ["/$", "/securite", "/design-partner"],
       disallow: [
+        "/overview",
+        "/skus",
         "/containers",
         "/container/",
         "/purchase-orders",

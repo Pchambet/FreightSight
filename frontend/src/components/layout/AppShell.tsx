@@ -9,7 +9,7 @@ export async function AppShell({ children, orgName, unreadAlerts = 0 }: { childr
     // lay out wider than the viewport at 390 px without ever being visible; this guarantees the page
     // itself never scrolls sideways because of them. A table that genuinely needs to scroll still
     // does, inside its own `overflow-x-auto` container.
-    <div className="min-h-screen overflow-x-hidden">
+    <div className="min-h-screen overflow-x-clip lg:pl-60 print:pl-0">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[60] focus:px-4 focus:py-2 focus:bg-white focus:text-slate-900 focus:rounded-md focus:ring-2 focus:ring-blue-500"

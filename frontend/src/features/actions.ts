@@ -458,13 +458,68 @@ export async function commitImport(importId: string, onError: "skip_rows" | "abo
 
 // ---------------------------------------------------------------------------- demo data
 
-export async function loadSampleData(): Promise<ActionResult<{ containerIds: string[] }>> {
+/** `reference`: one shipment, to learn the screens. `history`: six months of arrivals, to see the trends. */
+export async function loadSampleData(profile: "reference" | "history" = "reference"): Promise<ActionResult<{ containerIds: string[] }>> {
   await protectAction();
-  const { data, error } = await api.POST("/api/v1/organization/sample-data", {});
+  const { data, error } = await api.POST("/api/v1/organization/sample-data", { params: { query: { profile } } });
   if (error || !data) return await fail(error, "containers.sample.failed");
+  revalidatePath("/overview");
   revalidatePath("/containers");
   revalidatePath("/purchase-orders");
   return { ok: true, data: { containerIds: data.container_ids } };
+}
+
+// ---------------------------------------------------------------------------- product catalogue
+
+/** "4,5" (a percentage, as typed) → "0.045" (the fraction the API stores). String arithmetic: no float touches a rate. */
+function percentToFraction(raw: string): string | null {
+  const n = normalizeAmount(raw);
+  if (n === null) return null;
+  const [int, frac = ""] = n.split(".");
+  const digits = int.padStart(3, "0");
+  const out = `${digits.slice(0, -2)}.${digits.slice(-2)}${frac}`.replace(/^0+(?=\d)/, "").replace(/\.?0+$/, "");
+  return out === "" ? "0" : out;
+}
+
+export type ProductInput = { sku: string; description: string; hs_code: string; duty_rate_pct: string; unit_weight_kg: string; unit_volume_cbm: string; sale_price: string };
+
+/**
+ * Create the product sheet of a SKU, or update it (the API upserts on the SKU). A blank field is
+ * sent as null — "not known" — which is not the same as 0: a 0 % duty rate is a rate.
+ */
+export async function saveProduct(input: ProductInput, revalidate: string): Promise<ActionResult<null>> {
+  await protectAction();
+  const t = await getTranslations("skus.product");
+  const amount = (raw: string): string | null | undefined => (raw.trim() === "" ? null : (normalizeAmount(raw) ?? undefined));
+  const duty = input.duty_rate_pct.trim() === "" ? null : (percentToFraction(input.duty_rate_pct) ?? undefined);
+  const weight = amount(input.unit_weight_kg);
+  const volume = amount(input.unit_volume_cbm);
+  const price = amount(input.sale_price);
+  if (duty === undefined || weight === undefined || volume === undefined || price === undefined) return { ok: false, error: t("numberInvalid") };
+  const { error } = await api.POST("/api/v1/products", {
+    body: {
+      sku: input.sku,
+      description: input.description.trim() || null,
+      hs_code: input.hs_code.replace(/[\s.]/g, "") || null,
+      duty_rate: duty,
+      unit_weight_kg: weight,
+      unit_volume_cbm: volume,
+      sale_price: price,
+    },
+  });
+  if (error) return await fail(error, "skus.product.failed");
+  revalidatePath(revalidate);
+  revalidatePath("/skus");
+  return { ok: true, data: null };
+}
+
+/** One sheet per SKU already seen on an order line, filled with what the orders last said about it. */
+export async function createProductsFromOrders(): Promise<ActionResult<{ created: number; skipped: number }>> {
+  await protectAction();
+  const { data, error } = await api.POST("/api/v1/products/from-orders", {});
+  if (error || !data) return await fail(error, "skus.product.failed");
+  revalidatePath("/skus");
+  return { ok: true, data: { created: data.created, skipped: data.skipped } };
 }
 
 // ---------------------------------------------------------------------------- settings

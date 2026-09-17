@@ -194,8 +194,11 @@ export default async function ContainersPage() {
                       </ol>
                       <div className="mt-6 flex flex-col items-center gap-2 text-center">
                         <span className="text-xs uppercase tracking-wider text-slate-400">{t("steps.or")}</span>
-                        <LoadSampleDataButton />
-                        <p className="text-xs text-slate-400">{t("empty.sampleHint")}</p>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          <LoadSampleDataButton />
+                          <LoadSampleDataButton profile="history" />
+                        </div>
+                        <p className="text-xs text-slate-400 max-w-md">{t("empty.sampleHint")}</p>
                       </div>
                     </div>
                   </td>

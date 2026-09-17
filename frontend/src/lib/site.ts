@@ -31,6 +31,6 @@ export const site = {
   // Same address, for the /securite questionnaire link (A4 audit A4-7: it pointed at the booking
   // page, not an inbox a DPO can write to).
   securityQuestionnaireUrl: mailto("Questionnaire sécurité FreightSight"),
-  appHome: "/containers",
+  appHome: "/overview",
   hostingRegion: "Amsterdam (UE)",
 };
