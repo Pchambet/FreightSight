@@ -32,33 +32,26 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const { current } = windows(months);
   const cur = { period_from: current.from, period_to: current.to };
 
-  const [overview, byMonth, bySupplier, dnd] = await Promise.all([
-    api.GET("/api/v1/reports/overview", { params: { query: cur } }),
-    api.GET("/api/v1/reports/landed-cost", { params: { query: { group_by: "month", ...cur } } }),
-    api.GET("/api/v1/reports/landed-cost", { params: { query: { group_by: "supplier", ...cur } } }),
-    api.GET("/api/v1/reports/dnd", { params: { query: cur } }),
-  ]);
-
-  // Any of the reads the page stands on failing means "no answer", never "no data".
-  const failure = [overview, byMonth, bySupplier].find((r) => r.error || !r.data);
-  if (failure) {
+  // One read, one run of the engine: the overview carries the monthly and per-supplier buckets, the
+  // heaviest SKUs and the containers at risk, each tested on the API side against its detailed report.
+  const overview = await api.GET("/api/v1/reports/overview", { params: { query: cur } });
+  if (overview.error || !overview.data) {
     return (
       <>
         <PageHeader title={t("title")} />
-        <ApiErrorNotice error={failure.error} retryHref={`/overview?months=${months}`} />
+        <ApiErrorNotice error={overview.error} retryHref={`/overview?months=${months}`} />
       </>
     );
   }
 
-  const a = byMonth.data;
-  const o = overview.data!;
+  const o = overview.data;
   const currency = o.base_currency;
   // The headline figures come from the API's own overview (same numbers as the detailed reports, by
   // test); only what it does not carry — the charges, per month and per family — is read from the
   // landed-cost report of the same dates.
   const fob = num(o.current.fob);
   const landed = num(o.current.landed);
-  const fees = num(a?.totals.allocated);
+  const fees = Object.entries(o.by_cost_type ?? {}).reduce((sum, [type, amount]) => (type === "IMPORT_VAT" ? sum : sum + num(amount as string)), 0);
   const coef = o.current.coefficient !== null ? num(o.current.coefficient) : null;
   const coefBefore = o.previous.coefficient !== null ? num(o.previous.coefficient) : null;
   const hasData = fob > 0 || fees > 0;
@@ -80,7 +73,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
 
   // One column per calendar month of the window, arrivals or not: a month without a container is a
   // fact of the period, not a hole to close up.
-  const bucket = new Map((a?.buckets ?? []).map((b) => [b.key, b]));
+  const bucket = new Map((o.by_month ?? []).map((b) => [b.key, b]));
   const yearTurns = new Set(current.months.map((k) => k.slice(0, 4))).size > 1;
   const columns: StackedColumn[] = current.months.map((key) => {
     const b = bucket.get(key);
@@ -97,7 +90,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const coefSpark = current.months.map((k) => bucket.get(k)).filter((b) => b && num(b.fob) > 0).map((b) => num(b!.landed) / num(b!.fob));
   const undated = bucket.get("unknown");
 
-  const suppliers: RankRow[] = (bySupplier.data?.buckets ?? [])
+  const suppliers: RankRow[] = (o.by_supplier ?? [])
     .filter((b) => num(b.fob) > 0)
     .map((b) => ({
       key: b.key,
@@ -110,10 +103,10 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
     .sort((x, y) => y.value - x.value)
     .slice(0, 6);
 
-  const skus = [...(bySupplier.data?.skus ?? [])].sort((x, y) => num(y.landed) - num(x.landed)).slice(0, 6);
+  const skus = o.skus ?? [];
 
   // What needs a human today, most urgent first. Independent of the period shown.
-  const atRisk = [...(dnd.data?.at_risk ?? [])].sort((x, y) => (x.last_free_day ?? "9999").localeCompare(y.last_free_day ?? "9999"));
+  const atRisk = [...(o.at_risk ?? [])].sort((x, y) => (x.last_free_day ?? "9999").localeCompare(y.last_free_day ?? "9999"));
   const todoRows: { key: string; icon: "review" | "failed" | "estimates" | "uncosted" | "unloaded"; count: number; href: string }[] = [
     { key: "review", icon: "review" as const, count: o.todo.invoices_to_review, href: "/invoices" },
     { key: "failed", icon: "failed" as const, count: o.todo.invoices_failed, href: "/invoices" },
@@ -287,7 +280,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             </Panel>
 
             <Panel title={t("breakdown.title")} subtitle={t("breakdown.subtitle", { landed: money(landed, currency, locale) })}>
-              <BreakdownBar fob={fob} families={foldFamilies(a?.totals.by_cost_type as Record<string, string> | undefined)} currency={currency} locale={locale} fobLabel={t("breakdown.fob")} familyLabels={familyLabels} ofFobLabel={t("breakdown.ofFob")} dense />
+              <BreakdownBar fob={fob} families={foldFamilies(o.by_cost_type as Record<string, string> | undefined)} currency={currency} locale={locale} fobLabel={t("breakdown.fob")} familyLabels={familyLabels} ofFobLabel={t("breakdown.ofFob")} dense />
             </Panel>
           </div>
 

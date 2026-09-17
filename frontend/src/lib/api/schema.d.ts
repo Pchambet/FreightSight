@@ -3165,6 +3165,18 @@ export interface components {
             current: components["schemas"]["OverviewFigures"];
             previous: components["schemas"]["OverviewFigures"];
             todo: components["schemas"]["OverviewTodo"];
+            /** By Month */
+            by_month?: components["schemas"]["ReportBucket"][];
+            /** By Supplier */
+            by_supplier?: components["schemas"]["ReportBucket"][];
+            /** By Cost Type */
+            by_cost_type?: {
+                [key: string]: string;
+            };
+            /** Skus */
+            skus?: components["schemas"]["ReportSkuLine"][];
+            /** At Risk */
+            at_risk?: components["schemas"]["DndAtRiskLine"][];
         };
         /** OverviewTodo */
         OverviewTodo: {
