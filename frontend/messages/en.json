@@ -707,7 +707,8 @@
     "ORG_LOCALE_UNKNOWN": "Unknown language: only French and English are written.",
     "PRODUCT_DEFAULTS_APPLIED": "{sku}: {fields} taken from the product sheet.",
     "PRODUCT_SKU_TAKEN": "A product sheet already exists for this SKU.",
-    "PRODUCT_SKU_BLANK": "The SKU cannot be blank."
+    "PRODUCT_SKU_BLANK": "The SKU cannot be blank.",
+    "LINE_INCOMPLETE": "A kept line is incomplete: it lacks its cost type, its scope or its target."
   },
   "timeline": {
     "title": "Timeline",
@@ -899,7 +900,8 @@
       "currencyGuess": "The document names several currencies: {chosen} was used (also seen: {others}). Check before confirming.",
       "addedByHuman": "Line added by hand during review.",
       "forcedDuplicate": "Line {line_no} was confirmed despite an existing {type} cost ({amount}, {vendor}, invoice {invoice}).",
-      "pushedCost": "Cost already written into the ERP: document {document} ({state})."
+      "pushedCost": "Cost already written into the ERP: document {document} ({state}).",
+      "unverifiedTotal": "No readable total on this document: check that every line of the invoice is listed below."
     },
     "line": {
       "accepted": "Accept",

@@ -21,11 +21,11 @@ export default function RankBars({ rows, empty }: { rows: RankRow[]; empty: stri
         return (
           <li key={r.key}>
             <div className="flex items-baseline justify-between gap-3 text-sm">
-              {name}
-              <span className="shrink-0 tabular-nums">
-                <span className="font-medium text-slate-900">{r.display}</span>
-                {r.sub ? <span className="ml-2 text-xs text-slate-400">{r.sub}</span> : null}
+              <span className="min-w-0 flex flex-wrap items-baseline gap-x-2">
+                {name}
+                {r.sub ? <span className="text-xs text-slate-400 tabular-nums">{r.sub}</span> : null}
               </span>
+              <span className="shrink-0 font-medium text-slate-900 tabular-nums">{r.display}</span>
             </div>
             <div className="mt-1.5 h-1.5">
               <div className="h-1.5 rounded-r-[4px] bg-viz-freight" style={{ width: `${Math.max((r.value / max) * 100, 1)}%` }} />

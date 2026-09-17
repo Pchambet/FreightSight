@@ -9,7 +9,7 @@ import { btnPrimary, btnSecondary, input } from "@/components/layout/AppShell";
 import ConfidenceBadge from "@/components/shared/ConfidenceBadge";
 import { addInvoiceLine, patchInvoiceLines, confirmInvoice, rejectInvoice, reopenInvoice, retryInvoice, updateInvoiceLine } from "@/features/actions";
 import InvoiceContinueLinks, { type ContainerLink } from "@/features/invoices/InvoiceContinueLinks";
-import { formatInvoiceNote, isDuplicateCostNote, splitInvoiceNotes } from "@/features/invoices/lineNotes";
+import { formatInvoiceNote, isDuplicateCostNote, isInformativeNote, splitInvoiceNotes } from "@/features/invoices/lineNotes";
 import type { InvoiceLineResponse, InvoiceResponse } from "@/lib/api/client";
 import { COST_SCOPES, COST_TYPES, type CostScope, type CostType } from "@/lib/domain";
 import { amountPlaceholder, decimalDisplay, money } from "@/lib/format";
@@ -38,7 +38,7 @@ function LineRow({ invoiceId, line, targets, editable, confirmed }: { invoiceId:
   const dirty = amount !== decimalDisplay(line.amount, locale) || currency !== line.currency || costType !== (line.cost_type ?? "") || scope !== (line.scope ?? "") || target !== (line.target_id ?? "") || accepted !== line.accepted;
   const lineNotes = splitInvoiceNotes(line.notes);
   const hasDuplicate = lineNotes.some(isDuplicateCostNote);
-  const formattedNotes = lineNotes.map((n) => formatInvoiceNote(n, noteT, (k) => typeLabel(k as CostType), locale, line.currency));
+  const formattedNotes = lineNotes.map((n) => ({ text: formatInvoiceNote(n, noteT, (k) => typeLabel(k as CostType), locale, line.currency), info: isInformativeNote(n), duplicate: isDuplicateCostNote(n) }));
 
   const save = (patch?: Partial<Parameters<typeof updateInvoiceLine>[2]>) =>
     start(async () => {
@@ -97,8 +97,9 @@ function LineRow({ invoiceId, line, targets, editable, confirmed }: { invoiceId:
           )}
           {formattedNotes.length ? (
             <div className="mt-1 space-y-0.5">
+              {/* Amber asks for a check, red warns of a double count, grey only records a fact. */}
               {formattedNotes.map((n, i) => (
-                <div key={i} className={`text-xs ${hasDuplicate ? "text-red-800 font-medium" : "text-amber-700"}`}>{n}</div>
+                <div key={i} className={`text-xs ${n.duplicate ? "text-red-800 font-medium" : n.info ? "text-slate-500" : "text-amber-700"}`}>{n.text}</div>
               ))}
             </div>
           ) : null}

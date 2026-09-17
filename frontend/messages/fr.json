@@ -707,7 +707,8 @@
     "ORG_LOCALE_UNKNOWN": "Langue inconnue : seuls le français et l'anglais sont écrits.",
     "PRODUCT_DEFAULTS_APPLIED": "{sku} : {fields} repris de la fiche produit.",
     "PRODUCT_SKU_TAKEN": "Une fiche produit existe déjà pour cette référence.",
-    "PRODUCT_SKU_BLANK": "La référence ne peut pas être vide."
+    "PRODUCT_SKU_BLANK": "La référence ne peut pas être vide.",
+    "LINE_INCOMPLETE": "Une ligne retenue est incomplète : il lui manque son type de coût, son périmètre ou sa cible."
   },
   "timeline": {
     "title": "Chronologie",
@@ -899,7 +900,8 @@
       "currencyGuess": "Plusieurs devises figurent sur le document : {chosen} a été retenue (vu aussi : {others}). Vérifiez avant de confirmer.",
       "addedByHuman": "Ligne ajoutée à la main pendant la revue.",
       "forcedDuplicate": "Ligne {line_no} confirmée malgré un coût {type} déjà enregistré ({amount}, {vendor}, facture {invoice}).",
-      "pushedCost": "Coût déjà écrit dans l'ERP : document {document} ({state})."
+      "pushedCost": "Coût déjà écrit dans l'ERP : document {document} ({state}).",
+      "unverifiedTotal": "Aucun total lisible sur ce document : vérifiez que toutes les lignes de la facture figurent ci-dessous."
     },
     "line": {
       "accepted": "Accepter",

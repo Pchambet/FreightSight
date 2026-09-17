@@ -40,6 +40,8 @@ export function formatInvoiceNote(
       return t("noFxRate", { currency: parts[0] ?? "", date: parts[1] ? dateShort(parts[1], locale) : "—" });
     case "arithmetic_mismatch":
       return t(parts[1] === "more_than" ? "arithmeticMore" : "arithmeticLess", { amount: money(parts[0] ?? "0", invoiceCurrency, locale) });
+    case "unverified_total":
+      return t("unverifiedTotal");
     case "multi_container":
       return t("multiContainer");
     case "credit_note":
@@ -65,6 +67,11 @@ export function formatInvoiceNote(
     default:
       return note;
   }
+}
+
+/** A note that records a fact (where a line was attached, who added it) rather than asking for a check. */
+export function isInformativeNote(note: string): boolean {
+  return /^@(single_container|added_by_human|pushed_cost)(\||$)/.test(note);
 }
 
 export function isDuplicateCostNote(note: string): boolean {
