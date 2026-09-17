@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Card } from "@/components/layout/AppShell";
+import { skuHref } from "@/features/skus/href";
 import type { LandedCostReport } from "@/lib/api/client";
 import { qty, unitCost } from "@/lib/format";
 
@@ -24,7 +26,9 @@ export default async function UnitCostHighlight({ report }: { report: LandedCost
                 <div className="font-medium text-slate-900">
                   {ln.po_number} <span className="text-slate-500 font-normal">#{ln.line_no}</span>
                 </div>
-                <div className="text-sm text-slate-600 truncate">{ln.sku ?? ln.description ?? "—"}</div>
+                <div className="text-sm text-slate-600 truncate">
+                  {ln.sku ? <Link href={skuHref(ln.sku)} className="font-mono text-blue-700 hover:underline" title={t("skuHistory")}>{ln.sku}</Link> : (ln.description ?? "—")}
+                </div>
                 <div className="text-xs text-slate-400 mt-0.5">{t("quantity", { qty: qty(ln.quantity, locale) })}</div>
               </div>
               <div className="flex items-center gap-4 shrink-0">
