@@ -99,9 +99,35 @@ la mise en place. **VRAI AUJOURD'HUI** — `docs/04_ops_railway_vercel.md` §1, 
 formaliser (liste nominative, procédure d'habilitation) avant que l'équipe grandisse].
 
 **17. Existe-t-il un contrôle d'accès par rôle côté client (utilisateur standard vs administrateur) ?**
-Clerk gère des rôles au sein d'une organisation. [À VÉRIFIER : le détail des rôles disponibles et de ce
-que chacun peut faire dans l'application — non détaillé dans les sources lues pour ce document, à
-vérifier dans le code applicatif avant de répondre précisément].
+Oui, quatre rôles vérifiés par l'API à chaque requête : *VIEWER* lit ; *MEMBER* lit et écrit (coûts,
+factures, conteneurs, partages) ; *ADMIN* fait en plus les actes comptables — clôturer un mois, le
+rouvrir, marquer un écart comme comptabilisé ; *OWNER* a les mêmes droits qu'ADMIN. Les rôles viennent
+de l'organisation Clerk (`org:admin` → ADMIN, `org:member` → MEMBER). Un refus répond 403
+`FORBIDDEN_ROLE`. **VRAI AUJOURD'HUI** — `backend/app/core/auth.py`, `backend/app/api/v1/deps.py`,
+`backend/tests/test_periods.py` (test des rôles).
+
+**17 bis. Des données peuvent-elles être consultées sans compte ?**
+Une seule chose, et seulement si un utilisateur le décide : un **rapport de coût de revient partagé par
+lien**. Ce que ce lien est, exactement :
+- un **instantané figé** du rapport d'un conteneur ou d'une commande, pris au moment du partage — il ne
+  permet pas de suivre l'évolution des chiffres d'une société, et n'ouvre aucune autre donnée ;
+- un jeton aléatoire de 256 bits, **dont seule l'empreinte SHA-256 est conservée** : une copie de la
+  base ne permet pas de reconstituer un lien ; le jeton voyage dans le corps de la requête vers l'API,
+  jamais dans une URL d'API, et n'est écrit dans aucun journal applicatif ni rapport d'erreur ;
+- une durée de vie choisie (30 jours par défaut, 365 au plus) et une **révocation immédiate** ; inconnu,
+  expiré ou révoqué reçoivent la même réponse ;
+- en base, l'accès par jeton est un droit de **lecture d'une ligne** (politique RLS dédiée) ; il ne
+  permet ni de modifier, ni de prolonger, ni de supprimer quoi que ce soit ; chaque ouverture est
+  comptée et visible de l'émetteur ;
+- les notes internes ne quittent jamais la société ; l'émetteur peut en plus **exclure de l'instantané**
+  les noms des prestataires et les numéros de facture (ils ne sont alors pas stockés dans le lien) ;
+- la page est servie `noindex`, `no-store`, `Referrer-Policy: no-referrer`, et l'ouverture est limitée
+  en débit.
+Limite connue, commune à tout produit à lien de partage : l'adresse de la page (`/r/<jeton>`) figure
+dans les journaux d'accès de l'hébergeur du site (Vercel) ; la réponse est l'expiration et la
+révocation. **VRAI AUJOURD'HUI** — `backend/migrations/versions/0025_shared_reports.py`,
+`backend/app/domain/shares/service.py`, `backend/tests/test_shares.py` (dont deux tests exécutés sous le
+rôle applicatif restreint), relecture de sécurité indépendante du 18 septembre 2026.
 
 ## Journalisation et supervision
 
