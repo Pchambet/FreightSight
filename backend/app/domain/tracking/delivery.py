@@ -158,12 +158,19 @@ def _run(
     now: datetime | None = None,
 ) -> Received:
     """Route the delivery to a container and apply it. Never raises: a delivery that cannot be
-    processed is marked and answered, because the alternative is a provider retrying forever."""
+    processed is marked and answered, because the alternative is a provider retrying forever.
+
+    One delivery can be about several containers — a bill of lading whose arrival moved carries every
+    box on it. Each part is routed on its own, because two boxes of the same bill can perfectly well
+    belong to two of our customers, and a part we do not track is simply not ours to apply.
+    """
     org_id: UUID | None = None
     container_id: UUID | None = None
+    count = 0
     try:
-        routed = _route(db, provider.name, envelope)
-        if routed is None:
+        parts = [(part, _route(db, provider.name, part)) for part in (envelope, *envelope.others)]
+        applied = [(part, routed) for part, routed in parts if routed is not None]
+        if not applied:
             _finish(
                 db,
                 delivery_id,
@@ -172,26 +179,28 @@ def _run(
                 attempt=attempt,
             )
             return Received(delivery_id, "unroutable", detail="No matching tracking subscription")
-        org_id, container_id = routed
-        set_current_org(db, org_id)
-        org = db.get(Organization, org_id)
-        container = db.get(Container, container_id)
-        if org is None or container is None:  # pragma: no cover - the resolver just proved they exist
-            _finish(db, delivery_id, "failed", "Organization or container vanished", attempt=attempt)
-            return Received(delivery_id, "failed", org_id=org_id, container_id=container_id)
-        count = ingest(
-            db,
-            org_id,
-            container_id,
-            envelope.events,
-            provider=provider.name,
-            delivery_id=delivery_id,
-        )
-        if envelope.destination_unlocode and container.shipment is not None:
-            container.shipment.destination_unlocode = envelope.destination_unlocode
-        container.tracking_state = TrackingState.ACTIVE
-        refresh(db, org, container, source=provider.name, now=now)
-        db.commit()
+        for part, routed in applied:
+            part_org_id, part_container_id = routed
+            org_id, container_id = org_id or part_org_id, container_id or part_container_id
+            set_current_org(db, part_org_id)
+            org = db.get(Organization, part_org_id)
+            container = db.get(Container, part_container_id)
+            if org is None or container is None:  # pragma: no cover - the resolver proved they exist
+                _finish(db, delivery_id, "failed", "Organization or container vanished", attempt=attempt)
+                return Received(delivery_id, "failed", org_id=org_id, container_id=container_id)
+            count += ingest(
+                db,
+                part_org_id,
+                part_container_id,
+                part.events,
+                provider=provider.name,
+                delivery_id=delivery_id,
+            )
+            if part.destination_unlocode and container.shipment is not None:
+                container.shipment.destination_unlocode = part.destination_unlocode
+            container.tracking_state = TrackingState.ACTIVE
+            refresh(db, org, container, source=provider.name, now=now)
+            db.commit()
     except Exception as exc:  # a bad delivery must not turn into a provider retry storm
         db.rollback()
         logger.exception("tracking delivery %s failed", delivery_id)

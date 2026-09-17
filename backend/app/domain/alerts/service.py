@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -17,13 +18,36 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.domain.models import Alert, AlertKind, AlertSeverity, Container, DndRisk, Organization
+from app.domain.models import (
+    Alert,
+    AlertKind,
+    AlertSeverity,
+    Container,
+    CostType,
+    DndRisk,
+    Organization,
+    RateBasis,
+    RateCard,
+)
+from app.domain.tracking.state import ClockKind, DndClock, running_clock
+
+#: A running demurrage or detention clock is said again every day for the first fortnight, then once
+#: a week, then not at all (see `raise_dnd_risk_alert`).
+REMIND_DAILY_FOR_DAYS = 14
+REMIND_UNTIL_DAYS = 60
 
 _DND_SEVERITY = {
     DndRisk.LOW: AlertSeverity.INFO,
     DndRisk.MEDIUM: AlertSeverity.WARNING,
     DndRisk.HIGH: AlertSeverity.CRITICAL,
     DndRisk.INCURRING: AlertSeverity.CRITICAL,
+}
+
+#: The rate card each clock reads as a daily rate. The same cards the demurrage report already uses
+#: for its "avoided" column, so one number cannot say two things in two places.
+_RATE_COST_TYPE: dict[ClockKind, CostType] = {
+    "demurrage": CostType.DEMURRAGE,
+    "detention": CostType.DETENTION,
 }
 
 logger = logging.getLogger(__name__)
@@ -65,32 +89,106 @@ def raise_alert(
     return alert
 
 
+def daily_rate(db: Session, org_id: UUID, clock: ClockKind) -> RateCard | None:
+    """The organization's own daily rate for this clock, or nothing.
+
+    A flat rate card of the matching cost type is read as a price per day — the same reading the
+    demurrage report makes of it. There is no invented default: a made-up figure on an alert that
+    says "this is costing you money" is the fastest way to lose the right to say it.
+    """
+    return db.scalar(
+        select(RateCard).where(
+            RateCard.org_id == org_id,
+            RateCard.cost_type == _RATE_COST_TYPE[clock],
+            RateCard.basis == RateBasis.FLAT,
+        )
+    )
+
+
+def _dnd_payload(
+    clock: DndClock, container: Container, card: RateCard | None, *, confirmed: bool
+) -> dict[str, Any]:
+    """What the sentence needs, in machine form: the front and the digest both write from this."""
+    payload: dict[str, Any] = {
+        "risk": clock.risk.value,
+        "clock": clock.kind,
+        "deadline": clock.deadline.isoformat(),
+        # Kept under its old name as well: clients and the reporting screen read `last_free_day`,
+        # and for the demurrage clock the deadline is exactly that.
+        "last_free_day": container.last_free_day.isoformat() if container.last_free_day else None,
+        "days_left": clock.days_left,
+        "days_elapsed": clock.days_elapsed,
+        "port_of_discharge_confirmed": confirmed,
+    }
+    if card is not None:
+        payload["daily_rate"] = str(card.amount)
+        payload["currency"] = card.currency
+        payload["amount_to_date"] = str((Decimal(clock.days_elapsed) * card.amount).quantize(Decimal("0.01")))
+    return payload
+
+
 def raise_dnd_risk_alert(
     db: Session,
     org: Organization,
     container: Container,
     moment: datetime | None = None,
+    *,
+    discharge_confirmed: bool = True,
 ) -> Alert | None:
-    """State the container's current demurrage risk — idempotent via dedup_key."""
-    if container.gate_out_at is not None or container.dnd_risk in (None, DndRisk.NONE):
-        return None
+    """State the container's current demurrage or detention risk — idempotent via dedup_key.
+
+    Two things this is asked to do that pull in opposite directions. It must be safe to call from
+    anywhere — the daily pass, a webhook, a manual event, the onboarding of a box already past its
+    last free day — which is what the dedup key is for. And it must not fall silent on the one alert
+    that costs money every day: while a clock is *running*, the key carries the date, so the customer
+    is reminded once a day rather than once ever.
+
+    The detention keys are separate from the demurrage ones (`det:`) because they are separate facts
+    about the same box: one is the terminal's clock, the other the carrier's.
+    """
     moment = moment or datetime.now(UTC)
-    lfd = container.last_free_day
-    remaining = (lfd - moment.date()).days if lfd else None
-    if container.dnd_risk is DndRisk.INCURRING:
-        body = f"The last free day was {lfd}. Demurrage is running."
+    clock = running_clock(container, org, moment)
+    if clock is None or clock.risk is DndRisk.NONE:
+        return None
+    card = daily_rate(db, org.id, clock.kind)
+    scope = "" if clock.kind == "demurrage" else "det:"
+    noun = "Demurrage" if clock.kind == "demurrage" else "Detention"
+    if clock.risk is DndRisk.INCURRING:
+        # One reminder per day while it runs. `dnd:{id}:{risk}` alone said it once and never again,
+        # so a box left at the terminal over a holiday cost four figures in silence.
+        # But a clock only stops on the empty return, which in manual tracking is an event somebody
+        # has to type in — and mostly nobody does. Daily for ever would be a critical alert every
+        # morning for every box ever delivered, so the rhythm slows to weekly after a fortnight and
+        # stops after two months: by then it is a data-entry gap, which the manual-tracking note says.
+        if clock.days_elapsed > REMIND_UNTIL_DAYS:
+            return None
+        if clock.days_elapsed <= REMIND_DAILY_FOR_DAYS:
+            period = moment.date().isoformat()
+        else:
+            iso = moment.isocalendar()
+            period = f"{iso.year}-W{iso.week:02d}"
+        key = f"dnd:{container.id}:{scope}INCURRING:{period}"
+        body = f"The deadline was {clock.deadline}. {noun} has been running for {clock.days_elapsed} day(s)."
+        if card is not None:
+            total = (Decimal(clock.days_elapsed) * card.amount).quantize(Decimal("0.01"))
+            body += f" {total} {card.currency} so far, at {card.amount} {card.currency} per day."
+        else:
+            body += " Add a daily rate card to see the amount."
+        title = f"{container.container_number}: {noun.lower()} running"
     else:
-        body = f"Last free day {lfd}" + (f", {remaining} day(s) left." if remaining is not None else ".")
+        key = f"dnd:{container.id}:{scope}{clock.risk.value}"
+        body = f"Deadline {clock.deadline}, {clock.days_left} day(s) left."
+        title = f"{container.container_number}: {noun.lower()} risk {clock.risk.value}"
     return raise_alert(
         db,
         org.id,
         kind=AlertKind.DND_RISK,
-        severity=_DND_SEVERITY.get(container.dnd_risk, AlertSeverity.INFO),
-        title=f"{container.container_number}: demurrage risk {container.dnd_risk.value}",
+        severity=_DND_SEVERITY.get(clock.risk, AlertSeverity.INFO),
+        title=title,
         body=body,
-        dedup_key=f"dnd:{container.id}:{container.dnd_risk.value}",
+        dedup_key=key,
         container_id=container.id,
-        payload={"risk": container.dnd_risk.value, "last_free_day": lfd.isoformat() if lfd else None},
+        payload=_dnd_payload(clock, container, card, confirmed=discharge_confirmed),
     )
 
 

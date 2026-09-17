@@ -184,11 +184,17 @@ def test_every_organization_whose_tracking_stopped_is_told_not_just_one(
     assert provider.asked == handlers.CIRCUIT_TRIPS_AFTER
 
 
-def test_a_provider_that_answers_still_reports_a_quiet_container(
+def test_a_milestone_that_never_came_is_still_reported(
     client: TestClient, db: Session, org: Organization
 ) -> None:
-    """The other half: the change must not have silenced the alert that was the point of the job."""
+    """The other half: the change must not have silenced the alert that was the point of the job.
+
+    Webhook-only, so there is nothing to ask anybody — but the ship was due three days ago and
+    nobody has said it arrived, which is a fact about this box and worth saying."""
     container_id = make_container(client, "MSCU4821990")
+    container = db.get(Container, container_id)
+    assert container is not None
+    container.eta = NOW - timedelta(days=3)
     db.add(
         TrackingSubscription(
             org_id=org.id,
@@ -206,6 +212,35 @@ def test_a_provider_that_answers_still_reports_a_quiet_container(
     (alert,) = alerts_of(db, AlertKind.TRACKING_DATA_MISSING)
     assert "MSCU4821990" in alert.title
     assert alerts_of(db, AlertKind.TRACKING_PROVIDER_DOWN) == []
+
+
+def test_a_provider_that_answers_with_nothing_new_says_nothing_and_clears_the_red(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """ "The provider answered" and "there was nothing new" used to be the same outcome, so a feed
+    that was working perfectly produced a daily alert and a red screen for every box at sea."""
+    container_id = make_container(client, "MSCU4821991")
+    container = db.get(Container, container_id)
+    assert container is not None
+    container.tracking_state = TrackingState.FAILED  # left over from the old behaviour
+    container.milestone = ContainerMilestone.VESSEL_DEPARTED
+    container.eta = NOW + timedelta(days=15)
+    subscribe(db, org, container_id)
+    db.commit()
+
+    class Quiet(DeadProvider):
+        def fetch(self, provider_ref: str) -> WebhookEnvelope:
+            self.asked += 1
+            return WebhookEnvelope(provider="fake", delivery_id=provider_ref, events=[])
+
+    provider = Quiet()
+    handlers.poll_stale_subscriptions(db, now=NOW, provider_factory=lambda _: provider)
+
+    assert provider.asked == 1  # it is still re-read, in case a webhook was lost
+    assert alerts_of(db, AlertKind.TRACKING_DATA_MISSING) == []
+    db.expire_all()
+    healed = db.get(Container, container_id)
+    assert healed is not None and healed.tracking_state is TrackingState.ACTIVE
 
 
 # ---------------------------------------------------------------------------- the cost of asking

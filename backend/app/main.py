@@ -3,16 +3,18 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import Engine, event, text
+from sqlalchemy import Connection, Engine, event, text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1 import schemas
 from app.api.v1.router import router as v1_router
+from app.core.auth import DbDep
 from app.core.db import assert_migrated, get_engine
 from app.core.errors import DomainError
 from app.core.observability import (
@@ -22,10 +24,15 @@ from app.core.observability import (
     init_sentry,
     request_id,
 )
-from app.core.settings import get_settings
+from app.core.settings import Settings, get_settings
 from app.core.tenancy import ORG_GUC
+from app.jobs.handlers import WORKER_HEARTBEAT  # one name for the row both sides read
 
 logger = logging.getLogger("freightsight")
+
+#: Three missed beats. The worker writes one every five minutes, so this does not fire on a slow
+#: deploy or a job that held the loop for a few minutes.
+WORKER_SILENT_AFTER = timedelta(minutes=15)
 
 
 def install_guc_reset(engine: Engine) -> None:
@@ -139,16 +146,89 @@ def create_app() -> FastAPI:
 
     @app.get("/readyz", tags=["system"])
     def readyz() -> JSONResponse:
+        """Is this API able to serve? Railway uses it as the deploy healthcheck.
+
+        Which is why a dead worker must not fail it: the day the worker crashes is the day you most
+        need to be able to deploy a fix. `worker_seen_at` is reported here for whoever is reading,
+        and `GET /healthz/worker` is the probe that actually fails on it.
+        """
+        settings = get_settings()
         try:
             with get_engine().connect() as conn:
                 conn.execute(text("SELECT 1"))
+                role = _role_check(conn, settings)
+                seen = _worker_seen_at(conn)
         except Exception as e:
             logger.error("readiness failed: %s", e)
             return JSONResponse({"status": "unavailable"}, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
-        return JSONResponse({"status": "ready"})
+        if role is not None:
+            logger.error("readiness refused: %s", role)
+            return JSONResponse(
+                {"status": "unavailable", "code": "DB_ROLE_BYPASSES_RLS", "detail": role},
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return JSONResponse({"status": "ready", "worker_seen_at": seen.isoformat() if seen else None})
+
+    @app.get("/healthz/worker", tags=["system"])
+    def healthz_worker(db: DbDep) -> JSONResponse:
+        """The probe an external uptime service points at, separately from the API's own.
+
+        Nobody would otherwise know the worker had died: there is no exception to report, there is
+        no process, and every screen goes on showing the numbers it last computed while the alerts
+        that the product is sold on quietly stop being raised.
+        """
+        try:
+            seen = _worker_seen_at(db.connection())
+        except Exception as e:  # pragma: no cover - the database is the API's own problem
+            logger.error("worker health check could not read the database: %s", e)
+            return JSONResponse({"status": "unknown"}, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+        age = (datetime.now(UTC) - seen).total_seconds() if seen is not None else None
+        alive = age is not None and age < WORKER_SILENT_AFTER.total_seconds()
+        body = {
+            "status": "ok" if alive else "stale",
+            "worker_seen_at": seen.isoformat() if seen else None,
+            "seconds_since": int(age) if age is not None else None,
+        }
+        if alive:
+            return JSONResponse(body)
+        logger.error("the worker has not been seen", extra={"worker_seen_at": body["worker_seen_at"]})
+        return JSONResponse(body, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     app.include_router(v1_router)
     return app
+
+
+def _worker_seen_at(conn: Connection) -> datetime | None:
+    """The worker's last heartbeat, or None when it has never beaten (a fresh database, or a worker
+    that has not started since this table existed)."""
+    try:
+        return conn.execute(
+            text("SELECT last_run_at FROM job_runs WHERE name = :name"), {"name": WORKER_HEARTBEAT}
+        ).scalar()
+    except Exception:  # pragma: no cover - a database that answered SELECT 1 a line ago
+        return None
+
+
+def _role_check(conn: Connection, settings: Settings) -> str | None:
+    """Why this connection must not serve production, or None because it is fine.
+
+    Row Level Security is the whole tenant boundary here, and a superuser or a `BYPASSRLS` role
+    ignores `FORCE ROW LEVEL SECURITY` **silently**: every query keeps working, every screen keeps
+    rendering, and the isolation is simply gone. `DATABASE_URL` and `MIGRATIONS_DATABASE_URL` live
+    side by side on the same Railway service, so one copy-paste is all it takes. Refusing to be
+    ready is much better than serving everyone's data to everyone.
+    """
+    if not settings.is_prod:
+        return None
+    row = conn.execute(
+        text("SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user")
+    ).first()
+    if row is None:  # pragma: no cover - current_user is always in pg_roles
+        return None
+    if row[0] or row[1]:
+        which = "a superuser" if row[0] else "a BYPASSRLS role"
+        return f"the application is connected as {which}, so tenant isolation is not enforced"
+    return None
 
 
 def _title(code: int) -> str:

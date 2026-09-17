@@ -36,6 +36,25 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
   const alerts: Alert[] = res.data ?? [];
   const unread = alerts.filter((a) => !a.read_at).length;
 
+  // The API has no "superseded" flag (needs_other_lane), but every alert about the same container and
+  // kind is a fresh read of the same underlying risk — the older one is grouped here client-side so
+  // it stops reading as a second, unrelated problem (audit B40: two unread DND_RISK alerts for one
+  // container, an "older" one already overtaken by a newer one for the same container and kind).
+  const supersededIds = new Set<string>();
+  const byContainerKind = new Map<string, Alert[]>();
+  for (const a of alerts) {
+    if (!a.container_id) continue;
+    const key = `${a.container_id}:${a.kind}`;
+    const group = byContainerKind.get(key) ?? [];
+    group.push(a);
+    byContainerKind.set(key, group);
+  }
+  for (const group of byContainerKind.values()) {
+    if (group.length < 2) continue;
+    const sorted = [...group].sort((x, y) => y.created_at.localeCompare(x.created_at));
+    for (const a of sorted.slice(1)) supersededIds.add(a.id);
+  }
+
   return (
     <>
       <PageHeader
@@ -56,20 +75,26 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
           </div>
         ) : (
           <ul className="divide-y divide-slate-200">
-            {alerts.map((a) => (
-              <li key={a.id} className={`px-5 py-3.5 flex gap-4 ${a.read_at ? "opacity-60" : ""}`}>
-                <span className={`mt-0.5 shrink-0 inline-flex px-2 py-0.5 rounded text-[11px] font-medium uppercase tracking-wider ${SEVERITY_STYLE[a.severity]}`}>{severity(a.severity)}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-slate-900">{text(a).title}</div>
-                  <div className="text-sm text-slate-600">{text(a).body}</div>
-                  <div className="text-xs text-slate-400 mt-1 tabular-nums">{kind(a.kind)} · {dateTimeShort(a.created_at, locale)}</div>
-                </div>
-                <div className="flex flex-col items-end gap-1.5 shrink-0">
-                  {a.container_id ? <Link href={`/container/${a.container_id}`} className="text-xs text-blue-600 hover:underline whitespace-nowrap">{t("openContainer")}</Link> : null}
-                  {!a.read_at ? <MarkReadButton alertId={a.id} /> : null}
-                </div>
-              </li>
-            ))}
+            {alerts.map((a) => {
+              const superseded = supersededIds.has(a.id);
+              return (
+                <li key={a.id} className={`px-5 py-3.5 flex gap-4 ${a.read_at || superseded ? "opacity-60" : ""}`}>
+                  <span className={`mt-0.5 shrink-0 inline-flex px-2 py-0.5 rounded text-[11px] font-medium uppercase tracking-wider ${SEVERITY_STYLE[a.severity]}`}>{severity(a.severity)}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-slate-900">
+                      {text(a).title}
+                      {superseded ? <span className="ml-2 text-xs font-normal text-slate-400">· {t("superseded")}</span> : null}
+                    </div>
+                    <div className="text-sm text-slate-600">{text(a).body}</div>
+                    <div className="text-xs text-slate-400 mt-1 tabular-nums">{kind(a.kind)} · {dateTimeShort(a.created_at, locale)}</div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    {a.container_id ? <Link href={`/container/${a.container_id}`} className="text-xs text-blue-600 hover:underline whitespace-nowrap">{t("openContainer")}</Link> : null}
+                    {!a.read_at ? <MarkReadButton alertId={a.id} /> : null}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </Card>

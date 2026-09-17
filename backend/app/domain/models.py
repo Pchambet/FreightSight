@@ -480,7 +480,7 @@ class Cost(Timestamped, OrgScoped, Base):
     currency: Mapped[str] = mapped_column(CHAR(3), nullable=False)
     fx_rate: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
     fx_date: Mapped[date] = mapped_column(Date, nullable=False)
-    fx_source: Mapped[str] = mapped_column(String, nullable=False)  # ecb | manual | same
+    fx_source: Mapped[str] = mapped_column(String, nullable=False)  # ecb | ecb_latest | manual | same
     amount_base: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     allocation_method: Mapped[AllocationMethod] = mapped_column(
         Enum(AllocationMethod, name="allocation_method"), nullable=False
@@ -618,6 +618,19 @@ class WebhookDelivery(Base):
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error: Mapped[str | None] = mapped_column(String)
+
+
+class JobRun(Base):
+    """When each background job last got through its work (migration 0021). Like
+    `webhook_deliveries`, nobody's data: no `org_id`, no RLS. The jobs read and write it with raw
+    SQL; it is declared here so that `alembic check` knows the table instead of proposing to drop it."""
+
+    __tablename__ = "job_runs"
+
+    name: Mapped[str] = mapped_column(String, primary_key=True)
+    last_run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    failures: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    detail: Mapped[str | None] = mapped_column(String)
 
 
 class TrackingEvent(OrgScoped, Base):

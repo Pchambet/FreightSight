@@ -15,10 +15,11 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from app.domain.alerts.service import raise_dnd_risk_alert
 from app.domain.models import Container, EtaHistory, Organization
 from app.domain.models import TrackingEvent as TrackingEventRow
 from app.domain.tracking.ports import ProviderEvent
-from app.domain.tracking.state import apply_snapshot, derive, derive_dnd, eta_shift
+from app.domain.tracking.state import apply_snapshot, derive, derive_dnd, eta_shift, risk_rose
 
 logger = logging.getLogger(__name__)
 
@@ -137,12 +138,26 @@ def refresh(
     *,
     source: str = "provider",
     now: datetime | None = None,
+    alert: bool = True,
 ) -> None:
-    """Recompute everything the container derives from its events: milestone, timestamps, ETA, LFD."""
+    """Recompute everything the container derives from its events: milestone, timestamps, ETA, LFD.
+
+    And say so when the risk band goes up. This used to be the daily 06:00 pass's job alone, which
+    meant a band that reached its final value *here* — a webhook delivering a discharge that is
+    already three days old, an importer entering a container that is past its last free day on the
+    day they sign up — was compared with itself the next morning and never spoken of again. The
+    dedup key makes saying it twice free, so the honest thing is to say it as soon as it is true.
+    """
     moment = now or datetime.now(UTC)
     events = as_provider_events(history(db, org.id, container.id))
-    snapshot = derive(events, moment)
+    destination = container.shipment.destination_unlocode if container.shipment is not None else None
+    snapshot = derive(events, moment, destination_unlocode=destination)
     apply_snapshot(container, snapshot)
     record_eta(db, org.id, container, snapshot.eta, source=source)
+    before = container.dnd_risk
     derive_dnd(container, org, moment)
+    if alert and risk_rose(before, container.dnd_risk):
+        raise_dnd_risk_alert(
+            db, org, container, moment, discharge_confirmed=snapshot.discharge_port_confirmed
+        )
     db.flush()

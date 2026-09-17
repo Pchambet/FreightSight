@@ -14,8 +14,10 @@ know, or a payload that lacks what a sentence needs — an alert raised before t
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from app.domain.alerts.codes import EMAIL_CHANNEL, MANUAL_SILENCE
 from app.domain.models import Alert, AlertKind, AlertSeverity
 
 #: French first: the product is sold to French importers. Same list as the front's i18n config.
@@ -26,11 +28,36 @@ MESSAGES: dict[str, dict[str, str]] = {
     "fr": {
         "DND_RISK.title": "{container} : risque de surestaries {risk}",
         "DND_RISK.titleRunning": "{container} : surestaries en cours",
+        "DND_RISK.titleRunningAmount": "{container} : surestaries en cours, {amount}",
+        "DND_RISK.titleDetention": "{container} : risque de détention {risk}",
+        "DND_RISK.titleDetentionRunning": "{container} : détention en cours",
+        "DND_RISK.titleDetentionRunningAmount": "{container} : détention en cours, {amount}",
         "DND_RISK.body": "Dernier jour franc le {lfd}.",
         "DND_RISK.bodyRunning": "Le dernier jour franc était le {lfd}. Les surestaries courent.",
+        "DND_RISK.bodyRunningDays.one": (
+            "Le dernier jour franc était le {lfd}. Les surestaries courent depuis {days} jour."
+        ),
+        "DND_RISK.bodyRunningDays.other": (
+            "Le dernier jour franc était le {lfd}. Les surestaries courent depuis {days} jours."
+        ),
         "DND_RISK.bodyLeft.one": "Dernier jour franc le {lfd}, {days} jour restant.",
         "DND_RISK.bodyLeft.other": "Dernier jour franc le {lfd}, {days} jours restants.",
         "DND_RISK.bodyNoLfd": "Dernier jour franc inconnu.",
+        "DND_RISK.bodyDetention": "Retour du vide attendu le {deadline}.",
+        "DND_RISK.bodyDetentionLeft.one": "Retour du vide attendu le {deadline}, {days} jour restant.",
+        "DND_RISK.bodyDetentionLeft.other": "Retour du vide attendu le {deadline}, {days} jours restants.",
+        "DND_RISK.bodyDetentionRunning": "Le vide devait être rendu le {deadline}. La détention court.",
+        "DND_RISK.bodyDetentionRunningDays.one": (
+            "Le vide devait être rendu le {deadline}. La détention court depuis {days} jour."
+        ),
+        "DND_RISK.bodyDetentionRunningDays.other": (
+            "Le vide devait être rendu le {deadline}. La détention court depuis {days} jours."
+        ),
+        "DND_RISK.amount": "{amount} à ce jour, {rate} par jour.",
+        "DND_RISK.noRate": "Ajoutez un tarif journalier dans vos réglages pour voir le montant.",
+        "DND_RISK.portUnconfirmed": (
+            "Port de déchargement non confirmé : vérifiez qu'il s'agit bien du port final."
+        ),
         "ETA_CHANGED.title": "{container} : arrivée décalée de {hours} h {direction}",
         "ETA_CHANGED.later": "plus tard",
         "ETA_CHANGED.earlier": "plus tôt",
@@ -38,8 +65,18 @@ MESSAGES: dict[str, dict[str, str]] = {
         "ETA_CHANGED.bodyNoPrevious": "Nouvelle ETA {eta}.",
         "TRACKING_DATA_MISSING.title": "Aucune donnée de suivi pour {container}",
         "TRACKING_DATA_MISSING.body": (
-            "{provider} n'a rien envoyé depuis au moins {hours} h. "
-            "Vérifiez le conteneur sur le site du transporteur."
+            "{provider} n'a rien envoyé depuis au moins {hours} h alors qu'un événement était "
+            "attendu. Vérifiez le conteneur sur le site du transporteur."
+        ),
+        "TRACKING_DATA_MISSING.bodyManual": (
+            "{container} devait arriver le {eta} et aucun jalon n'a été saisi depuis. Saisissez le "
+            "déchargement pour que nous puissions compter vos jours francs."
+        ),
+        "NOTIFICATION_FAILED.title": "Vos alertes ne partent plus par e-mail",
+        "NOTIFICATION_FAILED.body": (
+            "Nous n'avons pas réussi à envoyer votre récapitulatif après {attempts} tentatives "
+            "({reason}). Vos alertes restent visibles ici et repartiront dès que l'envoi "
+            "refonctionnera."
         ),
         "TRACKING_PROVIDER_DOWN.title": "{provider} ne répond pas",
         "TRACKING_PROVIDER_DOWN.body": (
@@ -76,11 +113,34 @@ MESSAGES: dict[str, dict[str, str]] = {
     "en": {
         "DND_RISK.title": "{container}: demurrage risk {risk}",
         "DND_RISK.titleRunning": "{container}: demurrage running",
+        "DND_RISK.titleRunningAmount": "{container}: demurrage running, {amount}",
+        "DND_RISK.titleDetention": "{container}: detention risk {risk}",
+        "DND_RISK.titleDetentionRunning": "{container}: detention running",
+        "DND_RISK.titleDetentionRunningAmount": "{container}: detention running, {amount}",
         "DND_RISK.body": "Last free day {lfd}.",
         "DND_RISK.bodyRunning": "The last free day was {lfd}. Demurrage is running.",
+        "DND_RISK.bodyRunningDays.one": (
+            "The last free day was {lfd}. Demurrage has been running for {days} day."
+        ),
+        "DND_RISK.bodyRunningDays.other": (
+            "The last free day was {lfd}. Demurrage has been running for {days} days."
+        ),
         "DND_RISK.bodyLeft.one": "Last free day {lfd}, {days} day left.",
         "DND_RISK.bodyLeft.other": "Last free day {lfd}, {days} days left.",
         "DND_RISK.bodyNoLfd": "Last free day unknown.",
+        "DND_RISK.bodyDetention": "Empty due back {deadline}.",
+        "DND_RISK.bodyDetentionLeft.one": "Empty due back {deadline}, {days} day left.",
+        "DND_RISK.bodyDetentionLeft.other": "Empty due back {deadline}, {days} days left.",
+        "DND_RISK.bodyDetentionRunning": "The empty was due back {deadline}. Detention is running.",
+        "DND_RISK.bodyDetentionRunningDays.one": (
+            "The empty was due back {deadline}. Detention has been running for {days} day."
+        ),
+        "DND_RISK.bodyDetentionRunningDays.other": (
+            "The empty was due back {deadline}. Detention has been running for {days} days."
+        ),
+        "DND_RISK.amount": "{amount} so far, at {rate} per day.",
+        "DND_RISK.noRate": "Add a daily rate in your settings to see the amount.",
+        "DND_RISK.portUnconfirmed": ("Port of discharge not confirmed: check that this is the final port."),
         "ETA_CHANGED.title": "{container}: arrival moved {hours} h {direction}",
         "ETA_CHANGED.later": "later",
         "ETA_CHANGED.earlier": "earlier",
@@ -88,8 +148,17 @@ MESSAGES: dict[str, dict[str, str]] = {
         "ETA_CHANGED.bodyNoPrevious": "New ETA {eta}.",
         "TRACKING_DATA_MISSING.title": "No tracking data for {container}",
         "TRACKING_DATA_MISSING.body": (
-            "{provider} has sent nothing for at least {hours} h. "
+            "{provider} has sent nothing for at least {hours} h, and an event was due. "
             "Check the container on the carrier's own site."
+        ),
+        "TRACKING_DATA_MISSING.bodyManual": (
+            "{container} was due on {eta} and no milestone has been entered since. Enter the "
+            "discharge so we can count your free days."
+        ),
+        "NOTIFICATION_FAILED.title": "Your alerts are no longer being e-mailed",
+        "NOTIFICATION_FAILED.body": (
+            "We could not send your digest after {attempts} attempts ({reason}). Your alerts stay "
+            "visible here and will be sent again as soon as e-mail works."
         ),
         "TRACKING_PROVIDER_DOWN.title": "{provider} is not answering",
         "TRACKING_PROVIDER_DOWN.body": (
@@ -161,22 +230,7 @@ def alert_text(
         risk = _str(payload, "risk")
         if not risk or not container:
             return fallback
-        title = (
-            t(locale, "DND_RISK.titleRunning", container=container)
-            if risk == "INCURRING"
-            else t(locale, "DND_RISK.title", container=container, risk=_risk_label(risk, locale))
-        )
-        lfd = _date(_str(payload, "last_free_day"))
-        if lfd is None:
-            return title, t(locale, "DND_RISK.bodyNoLfd")
-        printed = _format_date(lfd, locale)
-        if risk == "INCURRING":
-            return title, t(locale, "DND_RISK.bodyRunning", lfd=printed)
-        today = (now or datetime.now(UTC)).date()
-        days = (lfd - today).days
-        if days < 0:
-            return title, t(locale, "DND_RISK.body", lfd=printed)
-        return title, t(locale, _plural(locale, "DND_RISK.bodyLeft", days), lfd=printed, days=days)
+        return _dnd_text(payload, locale, container=container, risk=risk, now=now)
 
     if alert.kind is AlertKind.ETA_CHANGED:
         hours = _number(payload, "delta_hours")
@@ -202,16 +256,35 @@ def alert_text(
         )
 
     if alert.kind is AlertKind.TRACKING_DATA_MISSING:
+        if not container:
+            return fallback
+        title = t(locale, "TRACKING_DATA_MISSING.title", container=container)
+        if _str(payload, "reason") == MANUAL_SILENCE:
+            eta = _datetime(_str(payload, "eta"))
+            if eta is None:
+                return fallback
+            return title, t(
+                locale,
+                "TRACKING_DATA_MISSING.bodyManual",
+                container=container,
+                eta=_format_date(eta.astimezone(UTC).date(), locale),
+            )
         provider = _str(payload, "provider")
         hours = _number(payload, "hours")
-        if not provider or hours is None or not container:
+        if not provider or hours is None:
             return fallback
-        return (
-            t(locale, "TRACKING_DATA_MISSING.title", container=container),
-            t(locale, "TRACKING_DATA_MISSING.body", provider=provider, hours=round(hours)),
-        )
+        return title, t(locale, "TRACKING_DATA_MISSING.body", provider=provider, hours=round(hours))
 
     if alert.kind is AlertKind.TRACKING_DELIVERY_FAILED:
+        if _str(payload, "channel") == EMAIL_CHANNEL:
+            attempts = _number(payload, "attempts")
+            reason = _str(payload, "reason")
+            if attempts is None or not reason:
+                return fallback
+            return (
+                t(locale, "NOTIFICATION_FAILED.title"),
+                t(locale, "NOTIFICATION_FAILED.body", attempts=round(attempts), reason=reason),
+            )
         provider = _str(payload, "provider")
         attempts = _number(payload, "attempts")
         received = _datetime(_str(payload, "received_at"))
@@ -239,6 +312,80 @@ def alert_text(
         )
 
     return fallback
+
+
+def _dnd_text(
+    payload: dict[str, Any],
+    locale: str,
+    *,
+    container: str,
+    risk: str,
+    now: datetime | None,
+) -> tuple[str, str]:
+    """The demurrage or detention sentence, with the money in it when the organization has a rate.
+
+    Two clocks share this alert kind because they are the same fact to the reader — "this box is
+    costing you something" — and only one of them ever runs at a time. What changes is the noun and
+    the date it names.
+    """
+    detention = _str(payload, "clock") == "detention"
+    running = risk == "INCURRING"
+    amount, rate = _amounts(payload, locale)
+    date_key = "deadline" if detention else "lfd"
+    when = _date(_str(payload, "deadline")) or _date(_str(payload, "last_free_day"))
+
+    if running:
+        suffix = "Amount" if amount else ""
+        key = "titleDetentionRunning" if detention else "titleRunning"
+        title = t(locale, f"DND_RISK.{key}{suffix}", container=container, amount=amount or "")
+    else:
+        key = "titleDetention" if detention else "title"
+        title = t(locale, f"DND_RISK.{key}", container=container, risk=_risk_label(risk, locale))
+    if when is None:
+        return title, t(locale, "DND_RISK.bodyNoLfd")
+    printed = {date_key: _format_date(when, locale)}
+
+    if running:
+        elapsed = _number(payload, "days_elapsed")
+        if elapsed is None:
+            # Raised before the payload carried the count. Say the plain old sentence rather than a
+            # half-written one; there is nothing to put a price on either.
+            key = "bodyDetentionRunning" if detention else "bodyRunning"
+            return title, _caveat(t(locale, f"DND_RISK.{key}", **printed), payload, locale)
+        days = round(elapsed)
+        stem = "DND_RISK.bodyDetentionRunningDays" if detention else "DND_RISK.bodyRunningDays"
+        body = t(locale, _plural(locale, stem, days), days=days, **printed)
+        money = (
+            t(locale, "DND_RISK.amount", amount=amount, rate=rate)
+            if amount and rate
+            else t(locale, "DND_RISK.noRate")
+        )
+        return title, _caveat(f"{body} {money}", payload, locale)
+
+    left = _number(payload, "days_left")
+    days = round(left) if left is not None else (when - (now or datetime.now(UTC)).date()).days
+    if days < 0:
+        key = "bodyDetention" if detention else "body"
+        return title, _caveat(t(locale, f"DND_RISK.{key}", **printed), payload, locale)
+    stem = "DND_RISK.bodyDetentionLeft" if detention else "DND_RISK.bodyLeft"
+    return title, _caveat(t(locale, _plural(locale, stem, days), days=days, **printed), payload, locale)
+
+
+def _caveat(body: str, payload: dict[str, Any], locale: str) -> str:
+    """Say it out loud when we had to guess which discharge was the real one."""
+    if payload.get("port_of_discharge_confirmed") is False:
+        return f"{body} {t(locale, 'DND_RISK.portUnconfirmed')}"
+    return body
+
+
+def _amounts(payload: dict[str, Any], locale: str) -> tuple[str | None, str | None]:
+    """The running total and the daily rate, written out, or nothing when there is no rate card."""
+    currency = _str(payload, "currency")
+    total = _decimal(payload, "amount_to_date")
+    rate = _decimal(payload, "daily_rate")
+    if currency is None or total is None or rate is None:
+        return None, None
+    return _format_money(total, currency, locale), _format_money(rate, currency, locale)
 
 
 def _risk_label(code: str, locale: str) -> str:
@@ -269,6 +416,42 @@ def _number(payload: dict[str, Any], key: str) -> float | None:
         except ValueError:
             return None
     return None
+
+
+def _decimal(payload: dict[str, Any], key: str) -> Decimal | None:
+    """Money is read as a Decimal or not at all: a rate turned into a float is a wrong invoice."""
+    value = payload.get(key)
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except InvalidOperation:
+        return None
+
+
+#: The three currencies a French importer's forwarder invoices in. Anything else prints its code.
+_SYMBOLS = {"EUR": "€", "USD": "$", "GBP": "£"}
+
+
+def _format_money(amount: Decimal, currency: str, locale: str) -> str:
+    """`1 440,00 €` in French, `€1,440.00` in English. Same convention as the screen."""
+    whole, _, cents = f"{amount.quantize(Decimal('0.01')):f}".partition(".")
+    sign, digits = ("-", whole[1:]) if whole.startswith("-") else ("", whole)
+    symbol = _SYMBOLS.get(currency.upper())
+    if normalise_locale(locale) == "fr":
+        # Non-breaking spaces, as French typography and the screen's own formatter both use: a line
+        # break between "1 440" and "€" in an e-mail reads as two numbers.
+        nbsp = "\N{NO-BREAK SPACE}"
+        return f"{sign}{_grouped(digits, nbsp)},{cents}{nbsp}{symbol or currency.upper()}"
+    grouped = f"{sign}{_grouped(digits, ',')}.{cents}"
+    return f"{symbol}{grouped}" if symbol else f"{currency.upper()} {grouped}"
+
+
+def _grouped(digits: str, separator: str) -> str:
+    return (
+        separator.join([digits[max(i - 3, 0) : i] for i in range(len(digits) % 3 or 3, len(digits) + 1, 3)])
+        or digits
+    )
 
 
 def _date(value: str | None) -> date | None:

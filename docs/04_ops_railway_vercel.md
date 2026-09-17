@@ -93,6 +93,21 @@ Le démarrage échoue volontairement si `APP_ENV=prod` sans `CLERK_ISSUER` et `C
   exécute aussi `alembic upgrade head` par sécurité ; c'est redondant mais idempotent, et à retirer de
   l'image quand tu passes à plusieurs répliques (chaque réplique la relancerait).
 - **Settings → Deploy → Healthcheck path** : `/readyz`. Railway ignore le `HEALTHCHECK` du Dockerfile.
+  `/readyz` ne parle que de l'API : base joignable, et rôle applicatif non-superutilisateur (en prod,
+  une connexion `rolsuper` ou `rolbypassrls` contourne RLS en silence, donc l'API refuse de servir).
+  Il **ne** doit pas échouer quand le worker est mort : c'est précisément le jour où il faut pouvoir
+  déployer un correctif. Il expose `worker_seen_at` à titre indicatif, rien de plus.
+- **Sonde du worker** : `GET /healthz/worker` (200 / 503). Le worker écrit un battement toutes les
+  5 minutes dans `job_runs` ; l'endpoint répond 503 au-delà de 15 minutes de silence. À brancher sur
+  une sonde externe gratuite (UptimeRobot, Better Stack), intervalle 5 min, alerte SMS :
+
+  ```
+  https://freightsight-production.up.railway.app/healthz/worker
+  ```
+
+  C'est le seul maillon qui survit à la mort complète de Railway. Sans lui, un worker tué par l'OOM
+  ne se voit nulle part : plus d'alerte surestaries, plus d'extraction de facture, plus de synchro
+  Odoo — et l'interface continue d'afficher les chiffres du dernier calcul.
 - **Région** : API et Postgres (`PostgresEU`, endpoint privé `postgreseu.railway.internal`) tournent à
   Amsterdam (`europe-west4-drams3a`) depuis le 8 septembre 2026. La configuration est dans
   `.railway/railway.ts` (`npm install railway --no-save` à la racine, puis `railway config plan|apply`).
@@ -113,7 +128,8 @@ Le démarrage échoue volontairement si `APP_ENV=prod` sans `CLERK_ISSUER` et `C
 
 ```bash
 API=https://freightsight-production.up.railway.app
-curl -s $API/readyz                                   # {"status":"ready"}
+curl -s $API/readyz                                   # {"status":"ready","worker_seen_at":"…"}
+curl -s $API/healthz/worker                           # {"status":"ok"} — 503 si le worker est mort
 curl -s -o /dev/null -w "%{http_code}\n" $API/docs    # 404 en prod
 curl -s -H "X-Org-Id: 11111111-1111-4111-8111-111111111111" $API/api/v1/me   # 401
 curl -s -H "Authorization: Bearer x" $API/api/v1/me                          # 401 "Invalid token"

@@ -114,7 +114,8 @@ def test_a_quiet_container_names_its_provider_and_the_hours() -> None:
     a = alert(AlertKind.TRACKING_DATA_MISSING, {"provider": "shipsgo", "hours": 48})
     assert alert_text(a, "fr", container_number="MSCU4821990", now=NOW) == (
         "Aucune donnée de suivi pour MSCU4821990",
-        "shipsgo n'a rien envoyé depuis au moins 48 h. Vérifiez le conteneur sur le site du transporteur.",
+        "shipsgo n'a rien envoyé depuis au moins 48 h alors qu'un événement était attendu. "
+        "Vérifiez le conteneur sur le site du transporteur.",
     )
 
 

@@ -113,6 +113,13 @@ class WebhookEnvelope:
     eta: datetime | None = None
     destination_unlocode: str | None = None
     raw: dict[str, Any] = field(default_factory=dict)
+    #: The other containers this one delivery is about, each already routed to its own box.
+    #:
+    #: A shipment-level notification — "the arrival on this bill of lading moved four days" — carries
+    #: every container on the bill. Reading only the first left the other two boxes of the same
+    #: vessel showing a date the carrier had already changed, on the same screen, side by side.
+    #: Each sibling carries its own events and its own ETA; none of them carries siblings itself.
+    others: list[WebhookEnvelope] = field(default_factory=list)
 
 
 class InvalidSignature(Unauthorized):

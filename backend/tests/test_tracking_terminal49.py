@@ -182,3 +182,55 @@ def test_a_delivery_goes_all_the_way_through_the_api(client: TestClient, monkeyp
     get_settings.cache_clear()
     payload = json.loads(body)
     assert payload["data"]["attributes"]["event"] == "container.transport.vessel_discharged"
+
+
+# ---------------------------------------------------------------------------- one bill, three boxes
+
+
+def test_a_shipment_notification_carries_every_container_on_the_bill() -> None:
+    """`shipment.estimated.arrival` accompanies all the boxes on the bill of lading. Reading only
+    the first left the other two showing a date the carrier had already moved — side by side on the
+    same screen, which a supply-chain manager spots immediately."""
+    envelope = parse("shipment_estimated_arrival.json", "2026-09-08T11:10:00+00:00")
+    assert envelope.container_number == "MSCU1111111"
+    assert [other.container_number for other in envelope.others] == ["MSCU2222222", "MSCU3333333"]
+    for part in (envelope, *envelope.others):
+        assert part.eta == datetime(2026, 9, 22, 6, 0, tzinfo=UTC)
+        assert part.destination_unlocode == "FRLEH"
+        (event,) = part.events
+        assert event.is_estimate is True
+        assert part.delivery_id == envelope.delivery_id  # one delivery, whatever it is about
+
+
+def test_a_container_notification_still_carries_one_container() -> None:
+    envelope = parse("vessel_discharged.json", "2026-09-06T09:20:00+00:00")
+    assert envelope.others == []
+
+
+def test_every_container_of_a_shipment_notification_is_updated(client: TestClient, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """End to end: three boxes tracked, one delivery, three new ETAs."""
+    from app.core.settings import get_settings
+
+    monkeypatch.setenv("TRACKING_WEBHOOK_SECRET_TERMINAL49", SECRET)
+    monkeypatch.setenv("TRACKING_WEBHOOK_MAX_AGE_SECONDS", str(100 * 365 * 24 * 3600))
+    get_settings.cache_clear()
+
+    ids = {}
+    for number in ("MSCU1111111", "MSCU2222222", "MSCU3333333"):
+        created = client.post("/api/v1/containers", json={"container_number": number})
+        assert created.status_code == 201, created.text
+        ids[number] = created.json()["id"]
+        subscribed = client.post(
+            f"/api/v1/containers/{ids[number]}/tracking", json={"provider": "terminal49"}
+        )
+        assert subscribed.status_code == 201, subscribed.text
+
+    body = body_of("shipment_estimated_arrival.json")
+    res = client.post("/api/v1/webhooks/tracking/terminal49", content=body, headers=headers_for(body))
+    assert res.status_code == 200, res.text
+    assert res.json()["events_ingested"] == 3
+
+    for number, container_id in ids.items():
+        shown = client.get(f"/api/v1/containers/{container_id}").json()
+        assert shown["eta"].startswith("2026-09-22"), number
+    get_settings.cache_clear()

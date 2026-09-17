@@ -77,21 +77,51 @@ def test_the_morning_pass_alerts_once_per_threshold(
     assert risks == ["MEDIUM", "HIGH"]
 
 
-def test_a_picked_up_container_is_left_alone(client: TestClient, db: Session, org: Organization) -> None:
+def test_a_picked_up_container_is_watched_for_detention(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """The terminal clock stops at the gate; the carrier's clock starts there. The sweep used to
+    filter on `gate_out_at IS NULL`, so the badge froze at whatever it said the day the box left —
+    green, usually — while detention ran for a fortnight at the carrier's daily rate."""
     container_id = make_container(client, "TGHU7245081")
     container = db.get(Container, uuid.UUID(container_id))
     assert container is not None
     container.discharged_at = NOW - timedelta(days=9)
-    container.gate_out_at = NOW - timedelta(days=1)
+    container.gate_out_at = NOW - timedelta(days=8)  # seven free days: one day over
     db.commit()
+
+    assert handlers.recompute_dnd_risk(db, now=NOW) == 1
+    (alert,) = alerts_of(db, AlertKind.DND_RISK)
+    assert alert.payload["clock"] == "detention"
+    assert alert.payload["risk"] == "INCURRING"
+    assert alert.dedup_key.startswith(f"dnd:{container_id}:det:INCURRING:")
+
+
+def test_a_returned_empty_stops_both_clocks(client: TestClient, db: Session, org: Organization) -> None:
+    container_id = make_container(client, "TGHU7245082")
+    container = db.get(Container, uuid.UUID(container_id))
+    assert container is not None
+    container.discharged_at = NOW - timedelta(days=20)
+    container.gate_out_at = NOW - timedelta(days=15)
+    container.empty_returned_at = NOW - timedelta(days=2)
+    db.commit()
+
     assert handlers.recompute_dnd_risk(db, now=NOW) == 0
     assert alerts_of(db, AlertKind.DND_RISK) == []
 
 
-def test_the_daily_hour_is_read_in_paris() -> None:
-    assert handlers.is_daily_risk_hour(datetime(2026, 9, 9, 4, 0, tzinfo=UTC))  # 06:00 Paris, summer
-    assert not handlers.is_daily_risk_hour(datetime(2026, 9, 9, 6, 0, tzinfo=UTC))
-    assert handlers.is_daily_risk_hour(datetime(2026, 12, 9, 5, 0, tzinfo=UTC))  # 06:00 Paris, winter
+def test_the_daily_pass_catches_up_instead_of_matching_the_hour(db: Session) -> None:
+    """A worker restarted between 06:00 and 07:00 Paris used to skip the whole day — no J-3 warnings
+    that morning, and nothing anywhere to say the day had been missed."""
+    before_six = datetime(2026, 9, 9, 3, 0, tzinfo=UTC)  # 05:00 Paris, summer
+    assert not handlers.daily_risk_due(db, before_six)
+    assert handlers.daily_risk_due(db, datetime(2026, 9, 9, 4, 0, tzinfo=UTC))  # 06:00 Paris
+    assert handlers.daily_risk_due(db, datetime(2026, 9, 9, 6, 0, tzinfo=UTC))  # 08:00: catch up
+    assert handlers.daily_risk_due(db, datetime(2026, 12, 9, 5, 0, tzinfo=UTC))  # 06:00, winter
+
+    handlers.note_job_run(db, handlers.DAILY_RISK_JOB, datetime(2026, 9, 9, 4, 0, tzinfo=UTC))
+    assert not handlers.daily_risk_due(db, datetime(2026, 9, 9, 6, 0, tzinfo=UTC))  # already run
+    assert handlers.daily_risk_due(db, datetime(2026, 9, 10, 4, 0, tzinfo=UTC))  # the next morning
 
 
 # ---------------------------------------------------------------------------- ETA
@@ -126,8 +156,13 @@ def test_eta_history_becomes_one_alert_per_row(client: TestClient, db: Session, 
 # ---------------------------------------------------------------------------- silent feeds
 
 
-def test_a_silent_subscription_is_reported(client: TestClient, db: Session, org: Organization) -> None:
+def test_a_box_whose_arrival_is_overdue_is_reported(
+    client: TestClient, db: Session, org: Organization
+) -> None:
     container_id = make_container(client)
+    container = db.get(Container, uuid.UUID(container_id))
+    assert container is not None
+    container.eta = NOW - timedelta(days=3)  # it should have landed; nobody has said it did
     db.add(
         TrackingSubscription(
             org_id=org.id,
@@ -140,17 +175,75 @@ def test_a_silent_subscription_is_reported(client: TestClient, db: Session, org:
     )
     db.commit()
 
-    assert handlers.poll_stale_subscriptions(db, now=NOW) == 1
+    handlers.poll_stale_subscriptions(db, now=NOW)
     (alert,) = alerts_of(db, AlertKind.TRACKING_DATA_MISSING)
     assert "MSCU4821990" in alert.title
     assert alert.severity.value == "warning"
+    assert alert.payload["reason"] == "ETA_PASSED"
+    # webhook-only is a deployment choice, not a broken feed: the screen does not go red for it
     db.expire_all()
     silent = db.get(Container, uuid.UUID(container_id))
-    assert silent is not None and silent.tracking_state is TrackingState.MANUAL
+    assert silent is not None and silent.tracking_state is not TrackingState.FAILED
 
     # same day, same silence: one alert
     handlers.poll_stale_subscriptions(db, now=NOW)
     assert len(alerts_of(db, AlertKind.TRACKING_DATA_MISSING)) == 1
+
+
+def test_a_container_at_sea_is_not_reported_as_broken(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """The alert this whole sweep nearly died of: Ningbo to Le Havre is silent by construction —
+    `vessel_departed`, then nothing for three weeks. Judging that at 48 h produced one warning per
+    container per day for the whole crossing, every one of them false, and marked the box FAILED."""
+    container_id = make_container(client)
+    container = db.get(Container, uuid.UUID(container_id))
+    assert container is not None
+    container.milestone = ContainerMilestone.VESSEL_DEPARTED
+    container.tracking_state = TrackingState.ACTIVE
+    container.eta = NOW + timedelta(days=18)  # still at sea, and on time
+    db.add(
+        TrackingSubscription(
+            org_id=org.id,
+            container_id=uuid.UUID(container_id),
+            provider="terminal49",
+            provider_ref=None,
+            status="active",
+            subscribed_at=NOW - timedelta(days=12),
+        )
+    )
+    db.commit()
+
+    assert handlers.poll_stale_subscriptions(db, now=NOW) == 0  # nothing to ask, nothing to say
+    assert alerts_of(db, AlertKind.TRACKING_DATA_MISSING) == []
+    db.expire_all()
+    sailing = db.get(Container, uuid.UUID(container_id))
+    assert sailing is not None and sailing.tracking_state is TrackingState.ACTIVE
+
+
+def test_a_box_at_the_terminal_is_reported_after_two_days(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """The other half: once the ship has berthed, the next milestone is hours away, not weeks."""
+    container_id = make_container(client)
+    container = db.get(Container, uuid.UUID(container_id))
+    assert container is not None
+    container.milestone = ContainerMilestone.VESSEL_ARRIVED
+    db.add(
+        TrackingSubscription(
+            org_id=org.id,
+            container_id=uuid.UUID(container_id),
+            provider="terminal49",
+            provider_ref=None,
+            status="active",
+            subscribed_at=NOW - timedelta(days=5),
+        )
+    )
+    db.commit()
+
+    handlers.poll_stale_subscriptions(db, now=NOW)
+    (alert,) = alerts_of(db, AlertKind.TRACKING_DATA_MISSING)
+    assert alert.payload["reason"] == "EVENT_OVERDUE"
 
 
 def test_a_recently_fed_subscription_is_not_reported(

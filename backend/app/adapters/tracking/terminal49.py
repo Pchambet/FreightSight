@@ -20,6 +20,7 @@ import hashlib
 import hmac
 import json
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -167,15 +168,42 @@ class Terminal49Provider:
         for resource in included:
             by_type.setdefault(str(resource.get("type")), []).append(resource)
 
-        container = (by_type.get("container") or [{}])[0]
-        container_attrs = container.get("attributes") or {}
+        containers = by_type.get("container") or [{}]
         vessels: dict[str, str] = {
             str(v.get("id")): str((v.get("attributes") or {}).get("name") or "")
             for v in by_type.get("vessel", [])
         }
 
-        events: list[ProviderEvent] = []
+        # A shipment-level notification — `shipment.estimated.arrival` is the common one — comes with
+        # every container on the bill of lading. Each transport event names the container it belongs
+        # to; one that names none belongs to the notification's subject, which is the first.
+        transports: dict[str, list[dict[str, Any]]] = {}
+        primary_id = str(containers[0].get("id") or "")
         for transport in by_type.get("transport_event", []):
+            owner = _get(transport, "relationships", "container", "data", "id")
+            transports.setdefault(str(owner) if owner else primary_id, []).append(transport)
+
+        delivery_id = str(data.get("id") or "")
+        envelopes = [
+            self._for_container(payload, container, transports, vessels, event_name, delivery_id)
+            for container in containers
+        ]
+        first, others = envelopes[0], envelopes[1:]
+        return replace(first, others=others) if others else first
+
+    def _for_container(
+        self,
+        payload: dict[str, Any],
+        container: dict[str, Any],
+        transports: Mapping[str, list[dict[str, Any]]],
+        vessels: Mapping[str, str],
+        event_name: str,
+        delivery_id: str,
+    ) -> WebhookEnvelope:
+        container_attrs = container.get("attributes") or {}
+        container_id = str(container.get("id") or "")
+        events: list[ProviderEvent] = []
+        for transport in transports.get(container_id, []):
             event = self._event(transport, event_name, vessels)
             if event is not None:
                 events.append(event)
@@ -195,8 +223,8 @@ class Terminal49Provider:
 
         return WebhookEnvelope(
             provider=NAME,
-            delivery_id=str(data.get("id") or ""),
-            provider_ref=str(container.get("id")) if container.get("id") else None,
+            delivery_id=delivery_id,
+            provider_ref=container_id or None,
             container_number=container_attrs.get("number"),
             events=events,
             eta=eta,

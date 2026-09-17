@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.adapters.notifications.log_notifier import LogNotifier
@@ -261,3 +261,74 @@ def test_resend_does_not_call_the_api_without_a_recipient() -> None:
 
     client = httpx.Client(transport=httpx.MockTransport(handler), base_url="https://api.resend.test")
     ResendNotifier("re_key", "alerts@freightsight.test", client=client).send(notification([]))
+
+
+# ---------------------------------------------------------------------------- when nothing leaves
+
+
+def test_an_organization_with_no_e_mail_address_does_not_lose_its_alerts(
+    client: TestClient, db: Session, org: Organization, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A member created through Clerk without an e-mail used to cost the whole organization every
+    demurrage alert it ever had: `send` returned, the alerts were marked notified, and they were
+    gone. Nothing said so anywhere."""
+    db.execute(text("UPDATE users SET email = ''"))
+    make_alerts(db, org, 2)
+
+    with caplog.at_level("ERROR"):
+        assert handlers.dispatch_alerts(db, notifier=RecordingNotifier()) == 0
+    assert "could not send the alert digest" in caplog.text
+    db.expire_all()
+    assert len(list(db.scalars(select(Alert).where(Alert.notified_at.is_(None))))) == 2
+
+
+def test_a_permanent_refusal_stops_being_retried_every_five_minutes(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """Resend answering 403 "domain not verified" left the same batch being retried every five
+    minutes for ever, with no counter, no give-up and nobody told. After five tries the retry slows
+    to hourly and the customer is told inside the product — the one channel that still works."""
+    make_alerts(db, org, 1)
+    broken = BrokenNotifier()
+    moment = datetime(2026, 9, 17, 9, 0, tzinfo=UTC)
+
+    for minute in range(0, 30, 5):
+        handlers.dispatch_alerts(db, notifier=broken, now=moment + timedelta(minutes=minute))
+
+    told = list(db.scalars(select(Alert).where(Alert.kind == AlertKind.TRACKING_DELIVERY_FAILED)))
+    assert len(told) == 1
+    assert told[0].payload["channel"] == "email"
+    assert told[0].payload["attempts"] == handlers.MAX_DIGEST_ATTEMPTS
+    assert told[0].container_id is None
+
+    counted = 0
+
+    class Counting:
+        name = "counting"
+
+        def send(self, notification: Notification) -> None:
+            nonlocal counted
+            counted += 1
+            raise ProviderUnavailable("still down")
+
+    # within the hour, it is not tried again
+    handlers.dispatch_alerts(db, notifier=Counting(), now=moment + timedelta(minutes=35))
+    assert counted == 0
+    handlers.dispatch_alerts(db, notifier=Counting(), now=moment + timedelta(hours=2))
+    assert counted == 1
+
+
+def test_the_channel_coming_back_clears_the_count_and_sends_everything(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """Nothing is thrown away while the channel is down, which is the whole point of not marking
+    unsent alerts as sent."""
+    make_alerts(db, org, 3)
+    moment = datetime(2026, 9, 17, 9, 0, tzinfo=UTC)
+    handlers.dispatch_alerts(db, notifier=BrokenNotifier(), now=moment)
+
+    notifier = RecordingNotifier()
+    assert handlers.dispatch_alerts(db, notifier=notifier, now=moment + timedelta(minutes=5)) == 1
+    assert len(notifier.sent[0].alerts) == 3
+    failures, _ = handlers._digest_failures(db, org)
+    assert failures == 0

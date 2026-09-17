@@ -67,8 +67,34 @@ SHIPMENT_STATUS_MILESTONES: dict[str, MilestoneCode] = {
     "DISCHARGED": MilestoneCode.DISCHARGED,
 }
 
+#: The same movement, when it happens somewhere that is not the port of discharge. Shipsgo publishes
+#: one `DISC` for the transhipment and one for the real thing, with nothing but the port to tell them
+#: apart — and a transhipment discharge that starts the demurrage clock tells a customer their box is
+#: incurring charges at Le Havre while it is still on a ship off Tanger.
+#:
+#: Only the two codes that can be told apart by the port alone: a box is never discharged or arrived
+#: at the port it loaded in, so anywhere that is not the port of discharge is a call on the way.
+#: `LOAD` and `DEPA` happen at the origin *and* at every transhipment and would need the port of
+#: loading as well to be separated — and neither of them starts a clock, so they are left alone.
+TRANSSHIPMENT: dict[str, MilestoneCode] = {
+    "ARRV": MilestoneCode.TRANSSHIPMENT_ARRIVED,
+    "DISC": MilestoneCode.TRANSSHIPMENT_DISCHARGED,
+}
+
 #: Their `status` on a movement: an estimate or something that happened.
 ESTIMATED = "EST"
+
+
+def _code(event: str, at: str | None, pod: str | None) -> MilestoneCode:
+    """Their movement code, read against the port it happened at.
+
+    Only when we know the port of discharge *and* the movement's own port and they differ: an unknown
+    port is not evidence of a transhipment, and downgrading a real discharge would stop the clock
+    that has to run.
+    """
+    if at and pod and at.strip().upper() != pod.strip().upper() and event in TRANSSHIPMENT:
+        return TRANSSHIPMENT[event]
+    return EVENT_MILESTONES.get(event, MilestoneCode.UNKNOWN)
 
 
 class ShipsgoConnector:
@@ -175,9 +201,13 @@ class ShipsgoConnector:
         containers = shipment.get("containers") or []
         container = containers[0] if containers else {}
 
+        route = shipment.get("route") or {}
+        destination = (route.get("port_of_discharge") or {}).get("location") or {}
+        pod = destination.get("code")
+
         events: list[ProviderEvent] = []
         for movement in container.get("movements") or []:
-            event = self._movement(shipment, container, movement)
+            event = self._movement(shipment, container, movement, pod)
             if event is not None:
                 events.append(event)
         if not events:
@@ -185,8 +215,6 @@ class ShipsgoConnector:
             if fallback is not None:
                 events.append(fallback)
 
-        route = shipment.get("route") or {}
-        destination = (route.get("port_of_discharge") or {}).get("location") or {}
         identifier = str(payload.get("id") or shipment.get("id") or container.get("number") or "shipsgo")
         return WebhookEnvelope(
             provider=NAME,
@@ -194,13 +222,17 @@ class ShipsgoConnector:
             provider_ref=str(shipment["id"]) if shipment.get("id") is not None else None,
             container_number=_container_number(container, shipment),
             events=events,
-            eta=_arrival_estimate(container),
+            eta=_arrival_estimate(container, pod),
             destination_unlocode=destination.get("code"),
             raw=payload,
         )
 
     def _movement(
-        self, shipment: dict[str, Any], container: dict[str, Any], movement: dict[str, Any]
+        self,
+        shipment: dict[str, Any],
+        container: dict[str, Any],
+        movement: dict[str, Any],
+        pod: str | None = None,
     ) -> ProviderEvent | None:
         occurred_at = _time(movement.get("timestamp"))
         if occurred_at is None:
@@ -210,7 +242,7 @@ class ShipsgoConnector:
         location = movement.get("location") or {}
         vessel = movement.get("vessel") or {}
         return ProviderEvent(
-            code=EVENT_MILESTONES.get(code_name, MilestoneCode.UNKNOWN),
+            code=_code(code_name, location.get("code"), pod),
             occurred_at=occurred_at,
             is_estimate=estimate,
             provider_event_key=_key(
@@ -253,10 +285,16 @@ def _container_number(container: dict[str, Any], shipment: dict[str, Any]) -> st
     return None if not number or number == "NOT_ASSIGNED" else str(number)
 
 
-def _arrival_estimate(container: dict[str, Any]) -> datetime | None:
+def _arrival_estimate(container: dict[str, Any], pod: str | None = None) -> datetime | None:
+    """The estimated arrival at the port of discharge — never the one at a transhipment call, which
+    would put an ETA three weeks early on the screen and on every alert that reads it."""
     for movement in container.get("movements") or []:
-        if movement.get("event") == "ARRV" and str(movement.get("status")).upper() == ESTIMATED:
-            return _time(movement.get("timestamp"))
+        if movement.get("event") != "ARRV" or str(movement.get("status")).upper() != ESTIMATED:
+            continue
+        at = (movement.get("location") or {}).get("code")
+        if pod and at and at.strip().upper() != pod.strip().upper():
+            continue
+        return _time(movement.get("timestamp"))
     return None
 
 

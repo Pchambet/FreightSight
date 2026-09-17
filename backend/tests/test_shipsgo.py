@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import json
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -19,13 +20,14 @@ from app.adapters.tracking.shipsgo import (
     TOKEN_HEADER,
     ShipsgoConnector,
 )
-from app.domain.models import MilestoneCode, Organization
+from app.domain.models import ContainerMilestone, MilestoneCode, Organization
 from app.domain.tracking.ports import (
     InvalidSignature,
     ProviderNotConfigured,
     ProviderUnavailable,
     SubscribeRequest,
 )
+from app.domain.tracking.state import derive
 
 FIXTURES = Path(__file__).parent / "fixtures" / "shipsgo"
 SECRET = "shipsgo-webhook-secret"
@@ -287,3 +289,40 @@ def test_without_a_default_a_subscription_is_manual(client: TestClient, org: Org
     res = client.post(f"/api/v1/containers/{created.json()['id']}/tracking", json={})
     assert res.status_code == 201, res.text
     assert res.json()["provider"] == "manual"
+
+
+# ---------------------------------------------------------------------------- calls on the way
+
+
+def test_a_discharge_at_the_transhipment_port_is_not_the_discharge() -> None:
+    """Ningbo → Tanger Med → Le Havre. Shipsgo publishes `DISC` at Tanger on the 12th with nothing
+    but the port to distinguish it, and mapping that to DISCHARGED started the demurrage clock on a
+    box still two weeks from land: a CRITICAL "demurrage running" e-mail, and a dashboard showing it
+    discharged at the wrong port."""
+    envelope = parse("transshipment")
+    at_tanger = [e for e in envelope.events if e.location_unlocode == "MAPTM"]
+    assert {e.code for e in at_tanger} == {
+        MilestoneCode.TRANSSHIPMENT_ARRIVED,
+        MilestoneCode.TRANSSHIPMENT_DISCHARGED,
+    }
+    assert not [e for e in envelope.events if e.code is MilestoneCode.DISCHARGED]
+
+    snapshot = derive(envelope.events, datetime(2026, 9, 17, 12, 0, tzinfo=UTC), destination_unlocode="FRLEH")
+    assert snapshot.discharged_at is None  # no clock starts
+    assert snapshot.milestone is ContainerMilestone.VESSEL_DEPARTED
+
+
+def test_the_eta_is_the_one_at_the_port_of_discharge() -> None:
+    """The estimated arrival at Tanger would have put an ETA three weeks early on every screen and
+    in every alert that reads it."""
+    assert parse("transshipment").eta == datetime(2026, 9, 30, 6, 0, tzinfo=UTC)
+
+
+def test_loading_at_the_origin_is_not_a_transhipment() -> None:
+    """`LOAD` and `DEPA` happen at the origin and at every call on the way, so the port alone cannot
+    separate them — and neither of them starts a clock, so they are left as they are."""
+    envelope = parse("transshipment")
+    loaded = next(
+        e for e in envelope.events if e.location_unlocode == "CNNGB" and e.raw_description == "LOAD"
+    )
+    assert loaded.code is MilestoneCode.LOADED
