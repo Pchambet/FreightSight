@@ -1864,7 +1864,7 @@
     },
     "container": {
       "lock": "Clos en {month}",
-      "frozen": "Ce conteneur fait partie de {month}, clos à {frozen}.",
+      "frozen": "Mois clos : {month}. Coût rendu figé à {frozen}.",
       "drift": "{drift} depuis la clôture.",
       "noDrift": "Rien n'a bougé depuis.",
       "see": "Voir la clôture"

@@ -106,7 +106,7 @@ export default async function ContainerPage({ params }: Params) {
         <div className="rounded-xl border border-slate-200 bg-white shadow-card px-5 py-3.5 mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm print:hidden">
           <LockKeyhole className="w-4 h-4 shrink-0 text-slate-500" aria-hidden />
           <span className="text-slate-700">
-            {tp("frozen", { month: periodTitle(container.closed_period, locale), frozen: money(container.frozen_landed ?? "0", cur, locale) })}{" "}
+            {tp("frozen", { month: periodTitle(container.closed_period, locale, true), frozen: money(container.frozen_landed ?? "0", cur, locale) })}{" "}
             {Number(container.drift ?? 0) === 0 ? <span className="text-slate-500">{tp("noDrift")}</span> : <span className="font-medium text-amber-800">{tp("drift", { drift: signedMoney(container.drift ?? "0", (v) => money(v, cur, locale)) })}</span>}
           </span>
           <Link href={`/periods/${container.closed_period}`} className="ml-auto text-blue-700 hover:underline">{tp("see")}</Link>

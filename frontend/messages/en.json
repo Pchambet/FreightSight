@@ -1864,7 +1864,7 @@
     },
     "container": {
       "lock": "Closed in {month}",
-      "frozen": "This container belongs to {month}, closed at {frozen}.",
+      "frozen": "Closed month: {month}. Landed cost frozen at {frozen}.",
       "drift": "{drift} since closing.",
       "noDrift": "Nothing has moved since.",
       "see": "See the close"
