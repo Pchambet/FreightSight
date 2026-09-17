@@ -34,10 +34,12 @@ from app.domain.models import (
     ImportKind,
     ImportMapping,
     ImportStatus,
+    Product,
     PurchaseOrder,
     PurchaseOrderLine,
     Supplier,
 )
+from app.domain.products import service as products
 
 #: Columns whose commas have to be read as a number, and whose convention is therefore inferred
 #: over the whole file before the first row is parsed.
@@ -521,6 +523,7 @@ def _apply_purchase_orders(
     fx: FxService | None = None,
 ) -> None:
     seen_lines: set[tuple[str, int]] = set()
+    catalogue: dict[str, Product | None] = {}
     # (po, sku or description, nth line with that identity) -> line_no, and what that line said.
     # The "nth" is what tells a line repeated for a second container (same quantity and price) from
     # a genuinely second line of the same article, which used to be absorbed into the first one.
@@ -682,6 +685,20 @@ def _apply_purchase_orders(
         }
         if line is None:
             line = t.add(PurchaseOrderLine(po_id=po.id, line_no=line_no, **source, **enrichment))
+            # What the file leaves blank and the catalogue knows is copied onto the new line, once:
+            # a tariff rate typed on the product does not have to be typed again on every order.
+            if sku:
+                if sku not in catalogue:
+                    catalogue[sku] = products.by_sku(t.db, t.org_id, {sku}).get(sku)
+                lent = products.fill_blanks(line, catalogue[sku])
+                if lent:
+                    r.warn(
+                        "sku",
+                        "PRODUCT_DEFAULTS_APPLIED",
+                        f"{sku}: {', '.join(lent)} taken from the product catalogue",
+                        sku=sku,
+                        fields=",".join(lent),
+                    )
             t.db.flush()
             report.lines_created += 1
         elif not repeated_line:

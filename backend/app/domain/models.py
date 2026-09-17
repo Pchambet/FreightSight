@@ -931,6 +931,32 @@ class ErpPush(OrgScoped, Base):
         return self.forgotten_at is None
 
 
+class Product(Timestamped, OrgScoped, Base):
+    """What an organization knows about an article once and for all: what it is, how it is taxed,
+    what it weighs, and what it sells for.
+
+    An order line still carries its own copy of the description, tariff heading, duty rate, weight
+    and volume — those are facts about that purchase, and a landed cost already computed must not
+    move because somebody edited a catalogue. The catalogue fills the blanks of a *new* line, and
+    holds the one thing no order knows: the selling price, which is what turns a landed cost into a
+    margin.
+    """
+
+    __tablename__ = "products"
+    __table_args__ = (UniqueConstraint("org_id", "sku", name="uq_products_org_sku"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    sku: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str | None] = mapped_column(String)
+    hs_code: Mapped[str | None] = mapped_column(String)
+    duty_rate: Mapped[Decimal | None] = mapped_column(Numeric(7, 4))  # 0.0450 = 4.5 %
+    unit_weight_kg: Mapped[Decimal | None] = mapped_column(Numeric(12, 4))
+    unit_volume_cbm: Mapped[Decimal | None] = mapped_column(Numeric(12, 6))
+    #: Excluding VAT, per unit. Null currency means the organization's own.
+    sale_price: Mapped[Decimal | None] = mapped_column(Numeric(14, 4))
+    sale_currency: Mapped[str | None] = mapped_column(CHAR(3))
+
+
 class SkuCostHistory(OrgScoped, Base):
     """The landed unit cost of a SKU, as it stood each day the numbers were recomputed.
 

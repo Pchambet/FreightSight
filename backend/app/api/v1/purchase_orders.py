@@ -14,6 +14,7 @@ from app.core.money import q2
 from app.core.tenancy import TenantDep, TenantSession
 from app.domain.costing.service import recompute_org
 from app.domain.models import Container, ContainerLoad, PurchaseOrder, PurchaseOrderLine, Supplier
+from app.domain.products import service as products
 
 router = APIRouter(prefix="/purchase-orders", tags=["purchase-orders"])
 
@@ -113,8 +114,10 @@ def create_purchase_order(
         )
     )
     _resolve_po_fx(t, fx, po, payload.fx_rate)
+    catalogue = products.by_sku(t.db, t.org_id, {ln.sku for ln in payload.lines if ln.sku})
     for ln in payload.lines:
-        t.add(PurchaseOrderLine(purchase_order=po, **ln.model_dump()))
+        line = t.add(PurchaseOrderLine(purchase_order=po, **ln.model_dump()))
+        products.fill_blanks(line, catalogue.get(ln.sku or ""))
     t.db.flush()
     recompute_org(t.db, t.org)
     t.db.commit()
@@ -161,7 +164,10 @@ def update_purchase_order(
                 for k, v in ln_in.model_dump().items():
                     setattr(line, k, v)
             else:
-                t.add(PurchaseOrderLine(purchase_order=po, **ln_in.model_dump()))
+                added = t.add(PurchaseOrderLine(purchase_order=po, **ln_in.model_dump()))
+                if ln_in.sku:
+                    known = products.by_sku(t.db, t.org_id, {ln_in.sku})
+                    products.fill_blanks(added, known.get(ln_in.sku))
     t.db.flush()
     recompute_org(t.db, t.org)
     t.db.commit()
