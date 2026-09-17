@@ -111,6 +111,18 @@
       "three": "Record a cost and read the landed cost",
       "threeHint": "Ocean freight, THC, duty: one amount, one method, and the unit cost per SKU appears.",
       "or": "or"
+    },
+    "views": {
+      "label": "Filter containers",
+      "active": "In progress",
+      "exposed": "Exposed",
+      "nocost": "No cost",
+      "closed": "Delivered",
+      "all": "All",
+      "search": "Container no., shipment, order…",
+      "noMatch": "No container matches “{q}” in this view.",
+      "emptyView": "No container in this view.",
+      "showAll": "See all containers"
     }
   },
   "container": {

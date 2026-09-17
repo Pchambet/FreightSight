@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
-import { AlertTriangle, ArrowRight } from "lucide-react";
-import { Card, PageHeader, td, tdRight, th, thRight } from "@/components/layout/AppShell";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search } from "lucide-react";
+import { Card, PageHeader, input, td, tdRight, th, thRight } from "@/components/layout/AppShell";
 import { MilestoneBadge, RiskBadge } from "@/components/shared/Badges";
 import { Money } from "@/components/shared/Money";
-import CollapsibleSection from "@/components/shared/CollapsibleSection";
 import MetricLabel from "@/components/shared/MetricLabel";
 import LoadSampleDataButton from "@/features/containers/LoadSampleDataButton";
 import NewContainerForm from "@/features/containers/NewContainerForm";
@@ -69,7 +68,17 @@ function buildTodos(containers: ContainerSummary[]): Todo[] {
   );
 }
 
-export default async function ContainersPage() {
+const VIEWS = ["active", "exposed", "nocost", "closed", "all"] as const;
+type View = (typeof VIEWS)[number];
+const SORTS = ["container", "lfd", "fob", "allocated"] as const;
+type SortKey = (typeof SORTS)[number];
+type Search = { view?: string; q?: string; sort?: string; dir?: string };
+
+/** Same folding as the search API: case, accents, and the spaces and dashes typed inside a number. */
+const fold = (v: string) => v.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[\s-]+/g, "");
+
+export default async function ContainersPage({ searchParams }: { searchParams: Promise<Search> }) {
+  const sp = await searchParams;
   const [{ containers, currency, invoicesToReview, confirmedInvoiceCount, purchaseOrderCount, error }, t, tc, costType, tg, locale] = await Promise.all([
     load(),
     getTranslations("containers"),
@@ -87,6 +96,54 @@ export default async function ContainersPage() {
   const atRiskAtTerminal = active
     .filter((c) => RISKY.includes(c.dnd_risk) && demurrageRelevant(c))
     .sort((a, b) => (a.last_free_day ?? "").localeCompare(b.last_free_day ?? ""));
+  // The board is a work list: what is still moving by default, the rest one click away, and the
+  // whole state in the URL so that a filtered list can be bookmarked, shared and reloaded.
+  const inView: Record<View, ContainerSummary[]> = {
+    active,
+    exposed: atRiskAtTerminal,
+    nocost: noCost,
+    closed: containers.filter((c) => CLOSED.includes(c.milestone)),
+    all: containers,
+  };
+  const view: View = (VIEWS as readonly string[]).includes(sp.view ?? "") ? (sp.view as View) : active.length > 0 ? "active" : "all";
+  const q = (sp.q ?? "").trim().slice(0, 60);
+  const sort: SortKey = (SORTS as readonly string[]).includes(sp.sort ?? "") ? (sp.sort as SortKey) : "lfd";
+  const dir: 1 | -1 = sp.dir === "desc" ? -1 : 1;
+  const needle = fold(q);
+  const compare: Record<SortKey, (a: ContainerSummary, b: ContainerSummary) => number> = {
+    container: (a, b) => dir * a.container_number.localeCompare(b.container_number),
+    // No last free day sorts last in both directions: "unknown" is never the most urgent.
+    lfd: (a, b) => (a.last_free_day ? 0 : 1) - (b.last_free_day ? 0 : 1) || dir * (a.last_free_day ?? "").localeCompare(b.last_free_day ?? ""),
+    fob: (a, b) => dir * (Number(a.fob_base) - Number(b.fob_base)),
+    allocated: (a, b) => dir * (Number(a.allocated_base) - Number(b.allocated_base)),
+  };
+  const rows = inView[view]
+    .filter((c) => needle === "" || [c.container_number, c.shipment_reference ?? "", ...(c.po_numbers ?? [])].some((v) => fold(v).includes(needle)))
+    .sort(compare[sort]);
+  const href = (next: Partial<{ view: View; q: string; sort: SortKey; dir: "asc" | "desc" }>) => {
+    const state = { view, q, sort, dir: dir === 1 ? "asc" : "desc", ...next };
+    const params = new URLSearchParams();
+    if (state.view !== "active") params.set("view", state.view);
+    if (state.q) params.set("q", state.q);
+    if (state.sort !== "lfd") params.set("sort", state.sort);
+    if (state.dir !== "asc") params.set("dir", state.dir);
+    const qs = params.toString();
+    return qs ? `/containers?${qs}` : "/containers";
+  };
+  const sortHeader = (key: SortKey, labelText: string, right = false) => {
+    const on = sort === key;
+    const Arrow = on ? (dir === 1 ? ArrowUp : ArrowDown) : ArrowUpDown;
+    return (
+      <th className={right ? thRight : th} aria-sort={on ? (dir === 1 ? "ascending" : "descending") : undefined}>
+        <Link href={href({ sort: key, dir: on && dir === 1 ? "desc" : "asc" })} className={`inline-flex items-center gap-1 hover:text-slate-900 ${on ? "text-slate-900" : ""}`}>
+          {labelText}
+          <Arrow className={`w-3 h-3 ${on ? "" : "opacity-40"}`} aria-hidden />
+        </Link>
+      </th>
+    );
+  };
+  const onboardingDone = purchaseOrderCount > 0 && confirmedInvoiceCount > 0 && containers.some((c) => c.load_count > 0 && Number(c.allocated_base) > 0);
+
   const hubStep = containersHubStep(
     todos.map((x) => ({ containerId: x.container.id, containerNumber: x.container.container_number, kind: x.kind })),
     invoicesToReview,
@@ -104,7 +161,8 @@ export default async function ContainersPage() {
       {error ? <div className="rounded-md border border-red-200 bg-red-50 text-red-700 text-sm px-4 py-3 mb-6">{error === "api" ? tc("apiError") : tc("apiUnreachable")}</div> : null}
 
       <OnboardingChecklist containers={containers} purchaseOrderCount={purchaseOrderCount} confirmedInvoiceCount={confirmedInvoiceCount} />
-      {hubStep ? <WorkflowNextStep step={hubStep} /> : null}
+      {/* One piece of guidance at a time: the first-steps list while it lasts, the next step after. */}
+      {hubStep && onboardingDone ? <WorkflowNextStep step={hubStep} /> : null}
 
       {containers.length > 0 ? (
         <>
@@ -134,44 +192,46 @@ export default async function ContainersPage() {
             </Kpi>
           </div>
 
-          <div className="mb-6">
-          <CollapsibleSection title={t("todo.title")} defaultOpen={todos.length > 0 && todos.length <= 3}>
-            {todos.length === 0 ? (
-              <p className="px-5 py-4 text-sm text-slate-500">{t("todo.empty")}</p>
-            ) : (
-              <ul className="divide-y divide-slate-200 text-sm">
-                {todos.map((x) => (
-                  <li key={`${x.container.id}-${x.kind}`} className="px-5 py-2.5 flex items-center gap-3">
-                    <AlertTriangle className={`w-4 h-4 shrink-0 ${x.kind === "lfdOver" || x.kind === "lfd" ? "text-amber-600" : "text-slate-400"}`} />
-                    <span className="font-mono font-medium">{x.container.container_number}</span>
-                    <span className="text-slate-600">
-                      {x.kind === "lfd" || x.kind === "lfdOver" ? t(`todo.${x.kind}`, { date: dateShort(x.date, locale) }) : t(`todo.${x.kind}`)}
-                    </span>
-                    <Link href={`/container/${x.container.id}`} className="ml-auto inline-flex items-center gap-1 text-blue-600 hover:underline whitespace-nowrap">
-                      {t("todo.open")} <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CollapsibleSection>
-          </div>
         </>
       ) : null}
 
       <Card>
+        {containers.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-slate-200">
+            <nav aria-label={t("views.label")} className="flex flex-wrap items-center gap-1 text-sm">
+              {VIEWS.map((v) => (
+                <Link
+                  key={v}
+                  href={href({ view: v })}
+                  aria-current={v === view ? "true" : undefined}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${v === view ? "bg-slate-900 text-white font-medium" : "text-slate-600 hover:bg-slate-100"}`}
+                >
+                  {t(`views.${v}`)}
+                  <span className={`tabular-nums text-xs ${v === view ? "text-slate-300" : v === "exposed" && inView[v].length > 0 ? "text-amber-700 font-medium" : "text-slate-400"}`}>{inView[v].length}</span>
+                </Link>
+              ))}
+            </nav>
+            <form method="get" role="search" className="relative ml-auto w-full sm:w-64">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden />
+              <input name="q" defaultValue={q} placeholder={t("views.search")} aria-label={t("views.search")} className={`${input} pl-9`} />
+              {view !== "active" ? <input type="hidden" name="view" value={view} /> : null}
+              {sort !== "lfd" ? <input type="hidden" name="sort" value={sort} /> : null}
+              {dir === -1 ? <input type="hidden" name="dir" value="desc" /> : null}
+            </form>
+          </div>
+        ) : null}
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50">
               <tr>
-                <th className={th}>{t("th.container")}</th>
+                {sortHeader("container", t("th.container"))}
                 <th className={th}>{t("th.shipment")}</th>
                 <th className={th}>{t("th.milestone")}</th>
-                <th className={th}>{t("th.lastFreeDay")}</th>
+                {sortHeader("lfd", t("th.lastFreeDay"))}
                 <th className={th}>{t("th.risk")}</th>
                 <th className={th}>{t("th.purchaseOrders")}</th>
-                <th className={thRight}>{t("th.fob")}</th>
-                <th className={thRight}>{t("th.allocated")}</th>
+                {sortHeader("fob", t("th.fob"), true)}
+                {sortHeader("allocated", t("th.allocated"), true)}
                 <th className={th}>{t("th.costs")}</th>
               </tr>
             </thead>
@@ -203,8 +263,15 @@ export default async function ContainersPage() {
                     </div>
                   </td>
                 </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-5 py-10 text-center text-sm text-slate-500">
+                    {q ? t("views.noMatch", { q }) : t("views.emptyView")}{" "}
+                    <Link href="/containers?view=all" className="text-blue-700 hover:underline">{t("views.showAll")}</Link>
+                  </td>
+                </tr>
               ) : (
-                containers.map((c) => (
+                rows.map((c) => (
                   <tr key={c.id} className="hover:bg-slate-50">
                     <td className={td}>
                       <Link href={`/container/${c.id}`} className="font-mono font-medium text-blue-600 hover:underline">{c.container_number}</Link>

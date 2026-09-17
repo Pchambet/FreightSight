@@ -111,6 +111,18 @@
       "three": "Saisissez un coût et lisez le coût rendu",
       "threeHint": "Fret, THC, droits : un montant, une méthode, et le coût unitaire par référence apparaît.",
       "or": "ou"
+    },
+    "views": {
+      "label": "Filtrer les conteneurs",
+      "active": "En cours",
+      "exposed": "Exposés",
+      "nocost": "Sans coût",
+      "closed": "Livrés",
+      "all": "Tous",
+      "search": "N° de conteneur, expédition, commande…",
+      "noMatch": "Aucun conteneur ne correspond à « {q} » dans cette vue.",
+      "emptyView": "Aucun conteneur dans cette vue.",
+      "showAll": "Voir tous les conteneurs"
     }
   },
   "container": {
