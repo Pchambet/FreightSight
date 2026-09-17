@@ -1,7 +1,9 @@
 import { getTranslations } from "next-intl/server";
 import AppHeader from "@/components/layout/AppHeader";
+import HashOpener from "@/components/layout/HashOpener";
+import SampleDataBanner from "@/components/layout/SampleDataBanner";
 
-export async function AppShell({ children, orgName, unreadAlerts = 0 }: { children: React.ReactNode; orgName?: string; unreadAlerts?: number }) {
+export async function AppShell({ children, orgName, unreadAlerts = 0, hasSampleData = false }: { children: React.ReactNode; orgName?: string; unreadAlerts?: number; hasSampleData?: boolean }) {
   const t = await getTranslations();
   return (
     // overflow-x-hidden is the backstop for every page in this shell: several widgets (a header icon
@@ -17,6 +19,8 @@ export async function AppShell({ children, orgName, unreadAlerts = 0 }: { childr
         {t("common.skipToContent")}
       </a>
       <AppHeader unreadAlerts={unreadAlerts} orgName={orgName} />
+      <HashOpener />
+      {hasSampleData ? <SampleDataBanner /> : null}
       <main id="main-content" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</main>
     </div>
   );

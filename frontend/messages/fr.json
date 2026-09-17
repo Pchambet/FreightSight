@@ -62,7 +62,7 @@
       "title": "Aucun conteneur pour l'instant",
       "hint": "Importez des commandes ou ajoutez un conteneur ci-dessus.",
       "importLink": "Importer des commandes",
-      "sampleHint": "Un dossier : une expédition et deux conteneurs, pour apprendre les écrans. Six mois : vingt conteneurs, trois fournisseurs, des factures et des surestaries, pour voir les tendances. Des données fictives, calculées par le produit."
+      "sampleHint": "Un dossier : une expédition et deux conteneurs, pour apprendre les écrans. Six mois : vingt conteneurs, trois fournisseurs, des factures et des surestaries, pour voir les tendances. Des données fictives, calculées par le produit, que vous effacez en un clic."
     },
     "sample": {
       "load": "Charger un dossier d'exemple",
@@ -647,7 +647,8 @@
       "organization_updated": "Réglages modifiés",
       "container_tracking_event_added": "Événement de suivi ajouté",
       "erp_landed_cost_pushed": "Écriture ERP créée (brouillon)",
-      "erp_push_forgotten": "Push ERP oublié"
+      "erp_push_forgotten": "Push ERP oublié",
+      "organization_sample_data_deleted": "Données d'exemple effacées"
     }
   },
   "errors": {
@@ -749,7 +750,9 @@
     "PRODUCT_DEFAULTS_APPLIED": "{sku} : {fields} repris de la fiche produit.",
     "PRODUCT_SKU_TAKEN": "Une fiche produit existe déjà pour cette référence.",
     "PRODUCT_SKU_BLANK": "La référence ne peut pas être vide.",
-    "LINE_INCOMPLETE": "Une ligne retenue est incomplète : il lui manque son type de coût, son périmètre ou sa cible."
+    "LINE_INCOMPLETE": "Une ligne retenue est incomplète : il lui manque son type de coût, son périmètre ou sa cible.",
+    "SAMPLE_DATA_IN_USE": "Certaines de vos données s'appuient sur le jeu d'exemple : rien n'a été effacé.",
+    "NO_SAMPLE_DATA": "Cette société ne contient pas de données d'exemple."
   },
   "timeline": {
     "title": "Chronologie",
@@ -1565,7 +1568,7 @@
       "body": "FreightSight calcule le coût de revient rendu de vos importations à partir de vos commandes et de vos factures de frais. Trois façons d'y entrer, de la plus rapide à la plus complète.",
       "sample": {
         "title": "Voir le produit plein, tout de suite",
-        "body": "Six mois d'un importateur fictif : vingt conteneurs, trois fournisseurs, des factures transitaire, des surestaries. Tout est calculé par le produit. À charger dans une société d'essai plutôt que dans celle de vos vrais dossiers."
+        "body": "Six mois d'un importateur fictif : vingt conteneurs, trois fournisseurs, des factures transitaire, des surestaries. Tout est calculé par le produit, et vous l'effacez en un clic quand vous voulez repartir de vos vrais dossiers."
       },
       "import": {
         "title": "Importer vos commandes",
@@ -1737,6 +1740,24 @@
       "failed": "Impossible d'enregistrer la fiche produit",
       "numberInvalid": "Un des nombres n'est pas lisible. Utilisez des chiffres, avec une virgule pour les décimales.",
       "scopeHint": "Modifier la fiche ne change aucun coût de revient déjà calculé : les valeurs sont reprises sur les nouvelles lignes de commande uniquement."
+    }
+  },
+  "sample": {
+    "banner": "Cette société contient des données d'exemple : les chiffres que vous voyez peuvent être ceux d'un importateur fictif.",
+    "delete": "Effacer les données d'exemple",
+    "confirmTitle": "Effacer les données d'exemple ?",
+    "confirmBody": "Les conteneurs, commandes, factures, coûts, fournisseurs et barèmes créés par le jeu d'exemple seront supprimés. Vos propres données, vos fiches produit et l'historique restent. L'opération est définitive.",
+    "confirm": "Effacer",
+    "deleting": "Effacement…",
+    "cancel": "Annuler",
+    "deleted": "{count, plural, one {Données d'exemple effacées (# élément).} other {Données d'exemple effacées (# éléments).}}",
+    "deleteFailed": "Impossible d'effacer les données d'exemple",
+    "blockedTitle": "Rien n'a été effacé : certaines de vos données s'appuient sur le jeu d'exemple.",
+    "blocker": {
+      "OWN_LOAD_ON_SAMPLE": "{ref} : une de vos lignes de commande est chargée dans un conteneur d'exemple, ou l'inverse. Retirez ce chargement d'abord.",
+      "OWN_COST_ON_SAMPLE": "{ref} porte un coût issu d'une de vos factures. Rattachez cette facture ailleurs, ou rejetez-la, d'abord.",
+      "ERP_PUSH_ON_SAMPLE": "{ref} : un brouillon a été écrit dans votre ERP depuis ce conteneur d'exemple. Oubliez cet envoi d'abord.",
+      "other": "{ref} est encore lié à vos propres données."
     }
   }
 }

@@ -62,7 +62,7 @@
       "title": "No containers yet",
       "hint": "Import purchase orders or add a container above.",
       "importLink": "Import purchase orders",
-      "sampleHint": "One file: a shipment and two containers, to learn the screens. Six months: twenty containers, three suppliers, invoices and demurrage, to see the trends. Fictional data, computed by the product."
+      "sampleHint": "One file: a shipment and two containers, to learn the screens. Six months: twenty containers, three suppliers, invoices and demurrage, to see the trends. Fictional data, computed by the product, that you delete in one click."
     },
     "sample": {
       "load": "Load one sample file",
@@ -647,7 +647,8 @@
       "organization_updated": "Settings changed",
       "container_tracking_event_added": "Tracking event added",
       "erp_landed_cost_pushed": "ERP entry created (draft)",
-      "erp_push_forgotten": "ERP push forgotten"
+      "erp_push_forgotten": "ERP push forgotten",
+      "organization_sample_data_deleted": "Sample data deleted"
     }
   },
   "errors": {
@@ -749,7 +750,9 @@
     "PRODUCT_DEFAULTS_APPLIED": "{sku}: {fields} taken from the product sheet.",
     "PRODUCT_SKU_TAKEN": "A product sheet already exists for this SKU.",
     "PRODUCT_SKU_BLANK": "The SKU cannot be blank.",
-    "LINE_INCOMPLETE": "A kept line is incomplete: it lacks its cost type, its scope or its target."
+    "LINE_INCOMPLETE": "A kept line is incomplete: it lacks its cost type, its scope or its target.",
+    "SAMPLE_DATA_IN_USE": "Some of your own data leans on the sample set: nothing was deleted.",
+    "NO_SAMPLE_DATA": "This company holds no sample data."
   },
   "timeline": {
     "title": "Timeline",
@@ -1565,7 +1568,7 @@
       "body": "FreightSight computes the landed cost of your imports from your orders and your charge invoices. Three ways in, from the fastest to the most complete.",
       "sample": {
         "title": "See the product full, right now",
-        "body": "Six months of a fictional importer: twenty containers, three suppliers, forwarder invoices, demurrage. Everything is computed by the product. Best loaded into a trial company rather than the one holding your real files."
+        "body": "Six months of a fictional importer: twenty containers, three suppliers, forwarder invoices, demurrage. Everything is computed by the product, and you delete it in one click when you want to start from your real files."
       },
       "import": {
         "title": "Import your orders",
@@ -1737,6 +1740,24 @@
       "failed": "Could not save the product sheet",
       "numberInvalid": "One of the numbers cannot be read. Use digits, with a dot for decimals.",
       "scopeHint": "Editing the sheet changes no landed cost already computed: values are copied onto new order lines only."
+    }
+  },
+  "sample": {
+    "banner": "This company holds sample data: the figures you see may be those of a fictional importer.",
+    "delete": "Delete the sample data",
+    "confirmTitle": "Delete the sample data?",
+    "confirmBody": "The containers, orders, invoices, costs, suppliers and rate cards created by the sample set will be removed. Your own data, your product sheets and the history stay. This cannot be undone.",
+    "confirm": "Delete",
+    "deleting": "Deleting…",
+    "cancel": "Cancel",
+    "deleted": "{count, plural, one {Sample data deleted (# item).} other {Sample data deleted (# items).}}",
+    "deleteFailed": "Could not delete the sample data",
+    "blockedTitle": "Nothing was deleted: some of your own data leans on the sample set.",
+    "blocker": {
+      "OWN_LOAD_ON_SAMPLE": "{ref}: one of your order lines is loaded in a sample container, or the other way round. Remove that load first.",
+      "OWN_COST_ON_SAMPLE": "{ref} carries a cost from one of your invoices. Attach that invoice elsewhere, or reject it, first.",
+      "ERP_PUSH_ON_SAMPLE": "{ref}: a draft was written to your ERP from this sample container. Forget that push first.",
+      "other": "{ref} is still tied to your own data."
     }
   }
 }

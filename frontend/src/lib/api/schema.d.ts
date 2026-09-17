@@ -138,7 +138,14 @@ export interface paths {
          *     twenty containers over the last six months, for the screens that draw a trend.
          */
         post: operations["load_sample_data_api_v1_organization_sample_data_post"];
-        delete?: never;
+        /**
+         * Delete Sample
+         * @description Take the demo dataset away: what it created, and what only existed because of it (a cost typed
+         *     on a demo container goes with the container). Real data tied to it is refused by name, never
+         *     deleted along: a line of the user's own order in a demo container, a cost from an invoice they
+         *     uploaded, a draft pushed to their ERP.
+         */
+        delete: operations["delete_sample_api_v1_organization_sample_data_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2754,6 +2761,11 @@ export interface components {
              * @default 0
              */
             unread_alerts: number;
+            /**
+             * Has Sample Data
+             * @default false
+             */
+            has_sample_data: boolean;
         };
         /** OrganizationUpdate */
         OrganizationUpdate: {
@@ -3257,6 +3269,16 @@ export interface components {
              * @default []
              */
             load_labels: string[];
+        };
+        /**
+         * SampleDataDeleted
+         * @description What DELETE /organization/sample-data took away, by kind.
+         */
+        SampleDataDeleted: {
+            /** Deleted */
+            deleted: {
+                [key: string]: number;
+            };
         };
         /**
          * SampleDataResponse
@@ -3982,6 +4004,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SampleDataResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_sample_api_v1_organization_sample_data_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SampleDataDeleted"];
                 };
             };
             /** @description Validation Error */

@@ -541,6 +541,26 @@ export async function createProductsFromOrders(): Promise<ActionResult<{ created
   return { ok: true, data: { created: data.created, skipped: data.skipped } };
 }
 
+export type SampleBlocker = { field: string; code: string };
+
+/**
+ * Remove what the sample data created, and only that. A refusal (409) deletes nothing and names, one
+ * by one, the records of the user's own that lean on a sample object — the screen needs the codes,
+ * not a single translated sentence, to say which container or order to look at.
+ */
+export async function deleteSampleData(): Promise<{ ok: true; deleted: number } | { ok: false; error: string; blockers: SampleBlocker[] }> {
+  await protectAction();
+  const { data, error } = await api.DELETE("/api/v1/organization/sample-data", {});
+  if (error || !data) {
+    const problem = error as Problem | undefined;
+    const blockers = problem?.code === "SAMPLE_DATA_IN_USE" ? (problem.errors ?? []).map((e) => ({ field: e.field, code: e.code })) : [];
+    const t = await getTranslations();
+    return { ok: false, error: await problemMessage(blockers.length ? { code: problem?.code } : error, t("sample.deleteFailed")), blockers };
+  }
+  for (const path of ["/overview", "/containers", "/purchase-orders", "/invoices", "/reports", "/skus", "/alerts", "/settings"]) revalidatePath(path);
+  return { ok: true, deleted: Object.values(data.deleted ?? {}).reduce((sum: number, n) => sum + (typeof n === "number" ? n : 0), 0) };
+}
+
 // ---------------------------------------------------------------------------- settings
 
 export async function updateOrganization(input: {
