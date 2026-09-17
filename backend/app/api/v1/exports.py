@@ -27,6 +27,7 @@ from app.core.tenancy import TenantDep
 from app.domain.costing import report as rpt
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
 from app.domain.costing.service import compute
+from app.domain.labels import VALUES_FR, header_fr
 from app.domain.models import (
     Container,
     ContainerLoad,
@@ -98,11 +99,18 @@ def stream(rows: Iterator[list[Any]], header: list[str], locale: Locale) -> Iter
         buffer.truncate(0)
         return value
 
+    # In French the file reads like the screens: titled columns, labelled values. In English it
+    # keeps its snake_case names and its codes, which is what a script reading it back wants.
+    vocabulary = [VALUES_FR.get(name) if locale == "fr" else None for name in header]
+
+    def shown(value: Any, labels: dict[str, str] | None) -> Any:
+        return labels.get(value, value) if labels and isinstance(value, str) else value
+
     yield BOM
-    writer.writerow(header)
+    writer.writerow([header_fr(name) for name in header] if locale == "fr" else header)
     yield flush()
     for row in rows:
-        writer.writerow([cell(value) for value in row])
+        writer.writerow([cell(shown(value, labels)) for value, labels in zip(row, vocabulary, strict=False)])
         yield flush()
 
 

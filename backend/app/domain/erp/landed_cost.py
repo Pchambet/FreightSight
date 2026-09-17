@@ -29,6 +29,7 @@ from app.core.money import q2
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
 from app.domain.costing.service import Computation, compute
 from app.domain.erp.ports import ErpCostLine, ErpDocument, ErpReceipt, ErpReceiptLine, ErpWriter
+from app.domain.labels import COST_TYPE_FR
 from app.domain.models import (
     Container,
     Cost,
@@ -225,7 +226,7 @@ def plan(
 
     carried = _carried_costs(db, org, container)
     existing = _latest_live_push(db, org, container)
-    blockers.extend(_drift_blockers(live_pushes(db, org, container), comp, by_cost))
+    blockers.extend(_drift_blockers(live_pushes(db, org, container), comp, by_cost, org.locale))
 
     costs: list[PlannedCost] = []
     if receipt is not None:
@@ -247,7 +248,7 @@ def plan(
             cost = comp.cost_rows[cost_id]
             already = carried.get(str(cost_id))
             planned = PlannedCost(
-                label=_label(cost),
+                label=_label(cost, org.locale),
                 cost_ids=[cost_id],
                 amount=q2(sum(allocations.values(), Decimal("0.00"))),
                 invoice_number=cost.invoice_number,
@@ -392,7 +393,7 @@ def forget(
 
 
 def _drift_blockers(
-    pushes: list[ErpPush], comp: Computation, by_cost: dict[UUID, dict[UUID, Decimal]]
+    pushes: list[ErpPush], comp: Computation, by_cost: dict[UUID, dict[UUID, Decimal]], locale: str = "fr"
 ) -> list[Blocker]:
     """What has changed on our side since a document was written, and now differs from it.
 
@@ -419,14 +420,18 @@ def _drift_blockers(
             allocations = by_cost.get(key)
             if allocations is None:
                 cost = comp.cost_rows.get(key)
-                gone.append(_label(cost) if cost is not None else snapshot.get("label") or cost_id[:8])
+                gone.append(
+                    _label(cost, locale) if cost is not None else snapshot.get("label") or cost_id[:8]
+                )
                 continue
             recorded = snapshot.get("amount")
             if recorded is None:
                 continue  # written before amounts were kept: nothing to compare against
             current = q2(sum(allocations.values(), Decimal("0.00")))
             if current != Decimal(recorded):
-                changed.append(f"{_label(comp.cost_rows[key])}: {Decimal(recorded):.2f} → {current:.2f}")
+                changed.append(
+                    f"{_label(comp.cost_rows[key], locale)}: {Decimal(recorded):.2f} → {current:.2f}"
+                )
         if gone:
             out.append(
                 Blocker(
@@ -452,10 +457,17 @@ def _drift_blockers(
     return out
 
 
-def _label(cost: Cost) -> str:
-    parts = [cost.cost_type.value.replace("_", " ").title()]
-    if cost.invoice_number:
-        parts.append(f"invoice {cost.invoice_number}")
+def _label(cost: Cost, locale: str) -> str:
+    """What the accountant reads on the landed-cost line, in the organisation's language: these
+    words land in the customer's own Odoo, and a French importer's books are in French."""
+    if locale == "fr":
+        parts = [COST_TYPE_FR.get(cost.cost_type.value, cost.cost_type.value)]
+        if cost.invoice_number:
+            parts.append(f"facture {cost.invoice_number}")
+    else:
+        parts = [cost.cost_type.value.replace("_", " ").title()]
+        if cost.invoice_number:
+            parts.append(f"invoice {cost.invoice_number}")
     if cost.vendor:
         parts.append(cost.vendor)
     return " — ".join(parts)

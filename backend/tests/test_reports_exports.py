@@ -16,6 +16,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.tenancy import set_current_org
+from app.domain import labels as export_labels
 from app.domain.models import Organization, SkuCostHistory
 
 
@@ -312,7 +313,27 @@ def parse_csv(content: bytes, locale: str) -> tuple[list[str], list[list[str]]]:
     assert text_content.startswith("﻿"), "Excel needs the byte-order mark to read UTF-8"
     reader = csv.reader(io.StringIO(text_content.lstrip("﻿")), delimiter=";" if locale == "fr" else ",")
     rows = list(reader)
-    return rows[0], rows[1:]
+    if locale != "fr":
+        return rows[0], rows[1:]
+    # The French file is titled and labelled in French (see test_the_french_file_reads_in_french);
+    # the assertions below address columns and values by their code, so both are read back here.
+    titles = {v: k for k, v in {**export_labels.COST_TYPE_FR, **export_labels.HEADERS_FR}.items()}
+    header = [titles.get(title, title) for title in rows[0]]
+    codes = [{v: k for k, v in export_labels.VALUES_FR.get(name, {}).items()} for name in header]
+    return header, [[codes[i].get(value, value) for i, value in enumerate(row)] for row in rows[1:]]
+
+
+def test_the_french_file_reads_in_french(client: TestClient, org: Organization) -> None:
+    """A CSV opened in Excel by a CFO is a screen like any other: no snake_case, no enum code."""
+    reference_case(client)
+    raw = client.get("/api/v1/exports/landed-costs.csv", params={"locale": "fr"}).content.decode("utf-8")
+    header, first = raw.lstrip("\ufeff").split("\r\n")[:2]
+    assert header.startswith("Type de ligne;N° conteneur;Date d'arrivée;")
+    assert "Coût de revient unitaire" in header and "Fret maritime" in header and "_" not in header
+    assert first.startswith("Ligne;")
+
+    english = client.get("/api/v1/exports/landed-costs.csv", params={"locale": "en"}).content.decode("utf-8")
+    assert english.lstrip("\ufeff").startswith("row_type,container_number,arrival_date,")
 
 
 def cells(header: list[str], row: list[str]) -> dict[str, str]:
