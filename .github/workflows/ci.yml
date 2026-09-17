@@ -70,6 +70,8 @@ jobs:
           echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-18
       - run: uv sync --frozen --all-groups
+      # Known vulnerabilities in the locked Python dependencies (npm audit covers the front-end side).
+      - run: uv export --frozen --no-hashes --no-emit-project -o /tmp/requirements.txt && uvx pip-audit -r /tmp/requirements.txt --disable-pip --no-deps
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy .

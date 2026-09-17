@@ -12,7 +12,11 @@ export default defineRailway(() => {
     preDeploy: "alembic upgrade head",
     replicas: { "europe-west4-drams3a": 1 },
     networking: { privateNetworkEndpoint: "freightsight" },
-    env: { APP_DB_PASSWORD: preserve(), APP_ENV: preserve(), BACKUP_ENCRYPTION_KEY: preserve(), NEXT_PUBLIC_SENTRY_DSN: preserve(), SCW_ACCESS_KEY: preserve(), SCW_BUCKET: preserve(), SCW_DEFAULT_ORGANIZATION_ID: preserve(), SCW_DEFAULT_PROJECT_ID: preserve(), SCW_REGION: preserve(), SCW_SECRET_KEY: preserve(), SENTRY_DSN: preserve(), SHIPSGO_API_KEY: preserve(), TERMINAL49_API_KEY: preserve(), TRACKING_WEBHOOK_SECRET_SHIPSGO: preserve(), TRACKING_WEBHOOK_SECRET_TERMINAL49: preserve(), CLERK_AUTHORIZED_PARTIES: preserve(), CLERK_ISSUER: preserve(), CLERK_JWKS_URL: preserve(), CORS_ORIGINS: preserve(), DATABASE_URL: preserve(), DEFAULT_BASE_CURRENCY: preserve(), ERP_ENCRYPTION_KEY: preserve(), FX_API_URL: preserve(), MIGRATIONS_DATABASE_URL: preserve(), PYTHONDONTWRITEBYTECODE: preserve(), PYTHONUNBUFFERED: preserve(), UV_COMPILE_BYTECODE: preserve(), UV_LINK_MODE: preserve(), UV_PROJECT_ENVIRONMENT: preserve() },
+    // APP_ENV is pinned, not preserved: it is the switch that closes the unauthenticated development
+    // principal and turns the production guards on, so it must not live only in the dashboard.
+    // The two ALLOW_* switches are pinned off for the same reason: a second lock only helps if it is versioned.
+    // RESEND_API_KEY and ALERTS_FROM_EMAIL are listed before they exist so that a later apply keeps them.
+    env: { APP_DB_PASSWORD: preserve(), APP_ENV: "prod", ALLOW_DEV_PRINCIPAL: "false", ALLOW_PRIVATE_OUTBOUND: "false", ALERTS_FROM_EMAIL: preserve(), RESEND_API_KEY: preserve(), BACKUP_ENCRYPTION_KEY: preserve(), NEXT_PUBLIC_SENTRY_DSN: preserve(), SCW_ACCESS_KEY: preserve(), SCW_BUCKET: preserve(), SCW_DEFAULT_ORGANIZATION_ID: preserve(), SCW_DEFAULT_PROJECT_ID: preserve(), SCW_REGION: preserve(), SCW_SECRET_KEY: preserve(), SENTRY_DSN: preserve(), SHIPSGO_API_KEY: preserve(), TERMINAL49_API_KEY: preserve(), TRACKING_WEBHOOK_SECRET_SHIPSGO: preserve(), TRACKING_WEBHOOK_SECRET_TERMINAL49: preserve(), CLERK_AUTHORIZED_PARTIES: preserve(), CLERK_ISSUER: preserve(), CLERK_JWKS_URL: preserve(), CORS_ORIGINS: preserve(), DATABASE_URL: preserve(), DEFAULT_BASE_CURRENCY: preserve(), ERP_ENCRYPTION_KEY: preserve(), FX_API_URL: preserve(), MIGRATIONS_DATABASE_URL: preserve(), PYTHONDONTWRITEBYTECODE: preserve(), PYTHONUNBUFFERED: preserve(), UV_COMPILE_BYTECODE: preserve(), UV_LINK_MODE: preserve(), UV_PROJECT_ENVIRONMENT: preserve() },
   });
 
   // Same image as the API, no migrations (the API's pre-deploy runs them), no public port: the
@@ -33,6 +37,9 @@ export default defineRailway(() => {
       SHIPSGO_API_KEY: "${{FreightSight.SHIPSGO_API_KEY}}",
       TRACKING_WEBHOOK_SECRET_SHIPSGO: "${{FreightSight.TRACKING_WEBHOOK_SECRET_SHIPSGO}}",
       TRACKING_WEBHOOK_SECRET_TERMINAL49: "${{FreightSight.TRACKING_WEBHOOK_SECRET_TERMINAL49}}",
+      // The worker is the one that sends the alert digests: without these two it logs them instead.
+      RESEND_API_KEY: "${{FreightSight.RESEND_API_KEY}}",
+      ALERTS_FROM_EMAIL: "${{FreightSight.ALERTS_FROM_EMAIL}}",
       PYTHONDONTWRITEBYTECODE: "1",
       PYTHONUNBUFFERED: "1",
       UV_COMPILE_BYTECODE: "1",
