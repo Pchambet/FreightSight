@@ -9,6 +9,7 @@ import CollapsibleSection from "@/components/shared/CollapsibleSection";
 import { Money } from "@/components/shared/Money";
 import AddCostForm from "@/features/costs/AddCostForm";
 import AllocationPanel from "@/features/costs/AllocationPanel";
+import CostBreakdown from "@/features/costs/CostBreakdown";
 import EstimatePanel from "@/features/estimates/EstimatePanel";
 import CostLedger from "@/features/costs/CostLedger";
 import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
@@ -122,6 +123,7 @@ export default async function PurchaseOrderPage({ params }: Params) {
       </div>
 
       <div className="space-y-6 mb-6">
+        <CostBreakdown report={report} />
         <EstimatePanel report={report} currency={cur} />
         <section id="ventilation" className="scroll-mt-6">
           <AllocationPanel key={report.costs.map((c) => c.id).join(",")} poId={po.id} report={report} />

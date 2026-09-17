@@ -9,6 +9,7 @@ import CollapsibleSection from "@/components/shared/CollapsibleSection";
 import { MilestoneBadge, RiskBadge } from "@/components/shared/Badges";
 import { Money } from "@/components/shared/Money";
 import AllocationPanel from "@/features/costs/AllocationPanel";
+import CostBreakdown from "@/features/costs/CostBreakdown";
 import UnitCostHighlight from "@/features/costs/UnitCostHighlight";
 import CostLedger from "@/features/costs/CostLedger";
 import AddCostForm from "@/features/costs/AddCostForm";
@@ -145,6 +146,7 @@ export default async function ContainerPage({ params }: Params) {
       </div>
 
       <div className="space-y-6 mb-6">
+        <CostBreakdown report={report} />
         <UnitCostHighlight report={report} />
         <EstimatePanel report={report} currency={cur} containerId={container.id} />
         <section id="ventilation" className="scroll-mt-6">
