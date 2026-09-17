@@ -167,6 +167,18 @@ def test_t6_manual_split_cascade_and_150pct_rejected() -> None:
     assert "150.00" in r2.unallocated[0].message
 
 
+def test_a_duty_that_cannot_be_spread_says_it_is_a_duty_rate_that_is_missing() -> None:
+    """The banner used to say "weight, volume or value missing" and send the user to the wrong column."""
+    cnt = uuid4()
+    a = load("CNT1", "PO-A", 1, "10", "1", duty="0.045", container_id=cnt)
+    b = load("CNT1", "PO-B", 1, "10", "1", container_id=cnt)  # no tariff rate
+    c = cost("CONTAINER", cnt, "120.00", ctype="CUSTOMS_DUTY", method="BY_THEORETICAL_DUTY")
+    r = allocate([c], [a, b])
+    assert r.allocations == []
+    assert r.unallocated[0].code == "MISSING_DUTY_RATE"
+    assert r.unallocated[0].load_ids == (b.id,)
+
+
 def test_t7_missing_basis_no_silent_fallback() -> None:
     cnt = uuid4()
     a = load("CNT1", "PO-A", 1, "10", "1", kg="2", container_id=cnt)

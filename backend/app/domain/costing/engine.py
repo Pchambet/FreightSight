@@ -36,6 +36,10 @@ class MissingBasisError(AllocationError):
     def __init__(self, method: str, load_ids: list[UUID]):
         super().__init__(f"{method}: basis missing on {len(load_ids)} load(s)")
         self.load_ids = load_ids
+        # A duty that cannot be spread is missing a duty RATE, not a weight, a volume or a value:
+        # the screen used to tell the user to go and look for the wrong thing.
+        if method == "BY_THEORETICAL_DUTY":
+            self.code = "MISSING_DUTY_RATE"
 
 
 class InvalidManualSplitError(AllocationError):
