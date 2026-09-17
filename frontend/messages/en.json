@@ -301,7 +301,16 @@
     "notLoaded": "not loaded",
     "empty": "No purchase order yet.",
     "emptyLink": "Import a file",
-    "emptySuffix": "to get started."
+    "emptySuffix": "to get started.",
+    "views": {
+      "label": "Filter orders",
+      "all": "All",
+      "unloaded": "Not loaded yet",
+      "search": "Order no., supplier, container…",
+      "noMatch": "No order matches “{q}”.",
+      "emptyView": "No order in this view.",
+      "showAll": "See all orders"
+    }
   },
   "purchaseOrder": {
     "fallbackTitle": "Purchase order",

@@ -301,7 +301,16 @@
     "notLoaded": "non chargée",
     "empty": "Aucune commande pour l'instant.",
     "emptyLink": "Importez un fichier",
-    "emptySuffix": "pour commencer."
+    "emptySuffix": "pour commencer.",
+    "views": {
+      "label": "Filtrer les commandes",
+      "all": "Toutes",
+      "unloaded": "Pas encore chargées",
+      "search": "N° de commande, fournisseur, conteneur…",
+      "noMatch": "Aucune commande ne correspond à « {q} ».",
+      "emptyView": "Aucune commande dans cette vue.",
+      "showAll": "Voir toutes les commandes"
+    }
   },
   "purchaseOrder": {
     "fallbackTitle": "Commande",
