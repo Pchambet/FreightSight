@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,10 +20,10 @@ from app.domain.sample_history import VOYAGES, container_number
 
 
 @pytest.fixture
-def history(client: TestClient) -> dict[str, object]:
+def history(client: TestClient) -> dict[str, Any]:
     res = client.post("/api/v1/organization/sample-data", params={"profile": "history"})
     assert res.status_code == 201, res.text
-    body: dict[str, object] = res.json()
+    body: dict[str, Any] = res.json()
     return body
 
 
@@ -31,7 +32,7 @@ def test_a_container_number_carries_its_real_check_digit() -> None:
 
 
 def test_it_is_twenty_containers_three_suppliers_and_orders_that_span_two_boxes(
-    client: TestClient, history: dict[str, object]
+    client: TestClient, history: dict[str, Any]
 ) -> None:
     assert history["containers"] == len(VOYAGES) == 20
     assert history["suppliers"] == 3
@@ -42,7 +43,7 @@ def test_it_is_twenty_containers_three_suppliers_and_orders_that_span_two_boxes(
 
 
 def test_the_landed_cost_report_has_a_month_by_month_story(
-    client: TestClient, history: dict[str, object]
+    client: TestClient, history: dict[str, Any]
 ) -> None:
     report = client.get("/api/v1/reports/landed-cost", params={"group_by": "month"}).json()
     months = [bucket for bucket in report["buckets"] if Decimal(bucket["landed"]) > 0]
@@ -53,7 +54,7 @@ def test_the_landed_cost_report_has_a_month_by_month_story(
 
 
 def test_most_boxes_were_invoiced_and_the_variance_report_says_by_how_much(
-    client: TestClient, history: dict[str, object]
+    client: TestClient, history: dict[str, Any]
 ) -> None:
     costs = client.get("/api/v1/costs").json()
     freight = [c for c in costs if c["cost_type"] == "OCEAN_FREIGHT"]
@@ -71,7 +72,7 @@ def test_most_boxes_were_invoiced_and_the_variance_report_says_by_how_much(
 
 
 def test_demurrage_was_paid_twice_avoided_once_and_two_boxes_are_at_risk_today(
-    client: TestClient, history: dict[str, object]
+    client: TestClient, history: dict[str, Any]
 ) -> None:
     report = client.get("/api/v1/reports/dnd").json()
     assert Decimal(report["paid"]) == Decimal("425.00")  # 2 days + 3 days at 85 €
@@ -81,17 +82,17 @@ def test_demurrage_was_paid_twice_avoided_once_and_two_boxes_are_at_risk_today(
 
 
 def test_one_line_has_no_tariff_rate_and_the_container_says_so(
-    client: TestClient, history: dict[str, object]
+    client: TestClient, history: dict[str, Any]
 ) -> None:
     at_risk = next(i for i, v in enumerate(VOYAGES) if v.fate == "at_risk")
-    container_id = history["container_ids"][at_risk]  # type: ignore[index]
+    container_id = history["container_ids"][at_risk]
     report = client.get(f"/api/v1/landed-costs/containers/{container_id}").json()
     (note,) = [n for n in report["notes"] if n["code"] == "DUTY_RATE_PARTIAL"]
     assert any("CHAIN-SNOW-9MM" in label for label in note["load_labels"])
 
 
 def test_an_invoice_is_waiting_to_be_reviewed_with_its_lines_read(
-    client: TestClient, history: dict[str, object]
+    client: TestClient, history: dict[str, Any]
 ) -> None:
     invoices = client.get("/api/v1/invoices").json()
     assert [i["status"] for i in invoices] == ["NEEDS_REVIEW"]

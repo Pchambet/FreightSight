@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -16,10 +17,10 @@ def seeded(client: TestClient) -> TestClient:
     return client
 
 
-def hits(client: TestClient, q: str, **params: object) -> list[dict[str, object]]:
+def hits(client: TestClient, q: str, **params: object) -> list[dict[str, Any]]:
     res = client.get("/api/v1/search", params={"q": q, **params})
     assert res.status_code == 200, res.text
-    results: list[dict[str, object]] = res.json()["results"]
+    results: list[dict[str, Any]] = res.json()["results"]
     return results
 
 

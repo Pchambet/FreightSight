@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from decimal import Decimal
+from typing import Any
 
 from fastapi.testclient import TestClient
 
@@ -18,13 +19,13 @@ TYRE = {
 }
 
 
-def order(client: TestClient, number: str, line: dict[str, object]) -> dict[str, object]:
+def order(client: TestClient, number: str, line: dict[str, Any]) -> dict[str, Any]:
     res = client.post(
         "/api/v1/purchase-orders",
         json={"po_number": number, "currency": "EUR", "lines": [{"line_no": 1, **line}]},
     )
     assert res.status_code == 201, res.text
-    body: dict[str, object] = res.json()
+    body: dict[str, Any] = res.json()
     return body
 
 
@@ -42,7 +43,7 @@ def test_posting_the_same_sku_twice_updates_the_entry(client: TestClient) -> Non
 def test_a_new_order_line_borrows_what_it_does_not_say(client: TestClient) -> None:
     client.post("/api/v1/products", json=TYRE)
     po = order(client, "PO-1", {"sku": "TYR-20555R16-91V", "quantity": "100", "unit_price": "14"})
-    (line,) = po["lines"]  # type: ignore[misc]
+    (line,) = po["lines"]
     assert line["hs_code"] == "40111000"
     assert line["duty_rate"] == "0.045"
     assert line["unit_weight_kg"] == "9.0000"
@@ -62,7 +63,7 @@ def test_what_the_line_says_wins_and_zero_is_something_said(client: TestClient) 
             "unit_weight_kg": "8.5",
         },
     )
-    (line,) = po["lines"]  # type: ignore[misc]
+    (line,) = po["lines"]
     assert line["duty_rate"] == "0"  # duty-free on this order: not a blank
     assert line["unit_weight_kg"] == "8.5000"
 

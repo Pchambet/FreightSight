@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -17,10 +18,10 @@ def seeded(client: TestClient) -> TestClient:
     return client
 
 
-def detail(client: TestClient, sku: str, **params: str) -> dict[str, object]:
+def detail(client: TestClient, sku: str, **params: str) -> dict[str, Any]:
     res = client.get("/api/v1/reports/skus/detail", params={"sku": sku, **params})
     assert res.status_code == 200, res.text
-    body: dict[str, object] = res.json()
+    body: dict[str, Any] = res.json()
     return body
 
 
@@ -57,45 +58,42 @@ def test_an_arrival_is_a_container_and_its_cost_types_add_up(seeded: TestClient)
 def test_the_change_compares_the_two_last_boxes_that_landed_not_one_still_at_sea(seeded: TestClient) -> None:
     body = detail(seeded, TYRE)
     summary, arrivals = body["summary"], body["arrivals"]
-    landed = [a for a in arrivals if not a["arrival_is_estimate"]]  # type: ignore[union-attr]
+    landed = [a for a in arrivals if not a["arrival_is_estimate"]]
     last, previous = Decimal(landed[-1]["unit_landed"]), Decimal(landed[-2]["unit_landed"])
-    assert Decimal(summary["last_unit_landed"]) == last  # type: ignore[index]
-    assert Decimal(summary["previous_unit_landed"]) == previous  # type: ignore[index]
+    assert Decimal(summary["last_unit_landed"]) == last
+    assert Decimal(summary["previous_unit_landed"]) == previous
     expected = ((last - previous) / previous * 100).quantize(Decimal("0.1"))
-    assert Decimal(summary["change_pct"]) == expected  # type: ignore[index]
-    assert summary["last_arrival_on"] == landed[-1]["arrived_on"]  # type: ignore[index]
+    assert Decimal(summary["change_pct"]) == expected
+    assert summary["last_arrival_on"] == landed[-1]["arrived_on"]
 
 
 def test_the_freight_of_the_summer_shows_in_the_unit_cost_of_a_tyre(seeded: TestClient) -> None:
-    freight = [
-        Decimal(a["unit_by_cost_type"]["OCEAN_FREIGHT"])
-        for a in detail(seeded, TYRE)["arrivals"]  # type: ignore[union-attr]
-    ]
+    freight = [Decimal(a["unit_by_cost_type"]["OCEAN_FREIGHT"]) for a in detail(seeded, TYRE)["arrivals"]]
     assert max(freight) > min(freight) * Decimal("1.3")
 
 
 def test_a_selling_price_in_the_organizations_currency_gives_a_margin(seeded: TestClient) -> None:
     seeded.post("/api/v1/products", json={"sku": TYRE, "sale_price": "39.90"})
     summary = detail(seeded, TYRE)["summary"]
-    unit = Decimal(summary["unit_landed"])  # type: ignore[index]
-    assert Decimal(summary["margin_unit"]) == Decimal("39.90") - unit  # type: ignore[index]
+    unit = Decimal(summary["unit_landed"])
+    assert Decimal(summary["margin_unit"]) == Decimal("39.90") - unit
     expected = ((Decimal("39.90") - unit) / Decimal("39.90") * 100).quantize(Decimal("0.1"))
-    assert Decimal(summary["margin_pct"]) == expected  # type: ignore[index]
+    assert Decimal(summary["margin_pct"]) == expected
 
     # a price in dollars is shown, and no margin is made up from it
     seeded.post("/api/v1/products", json={"sku": TYRE, "sale_price": "45.00", "sale_currency": "USD"})
     dollars = detail(seeded, TYRE)["summary"]
-    assert dollars["sale_price"] == "45.0000" and dollars["margin_unit"] is None  # type: ignore[index]
+    assert dollars["sale_price"] == "45.0000" and dollars["margin_unit"] is None
 
 
 def test_the_list_can_be_searched_and_narrowed_to_a_period(seeded: TestClient) -> None:
     found = seeded.get("/api/v1/reports/skus", params={"q": "chaines"}).json()["skus"]
     assert [s["sku"] for s in found] == ["CHAIN-SNOW-9MM"]
     everything = detail(seeded, TYRE)["arrivals"]
-    first_landing = everything[0]["arrived_on"]  # type: ignore[index]
+    first_landing = everything[0]["arrived_on"]
     only = detail(seeded, TYRE, period_from=first_landing, period_to=first_landing)
-    assert len(only["arrivals"]) == 1  # type: ignore[arg-type]
-    assert only["summary"]["previous_unit_landed"] is None  # type: ignore[index]
+    assert len(only["arrivals"]) == 1
+    assert only["summary"]["previous_unit_landed"] is None
 
 
 def test_an_unknown_sku_is_not_found_and_a_slash_is_no_trouble(seeded: TestClient) -> None:
@@ -116,7 +114,7 @@ def test_two_order_lines_of_one_article_in_one_box_are_one_arrival(client: TestC
     assert client.put(f"/api/v1/containers/{box['id']}/loads", json=loads).status_code == 200
 
     body = detail(client, "A")
-    assert len(body["arrivals"]) == 2  # type: ignore[arg-type]
-    (only,) = body["containers"]  # type: ignore[misc]
+    assert len(body["arrivals"]) == 2
+    (only,) = body["containers"]
     assert (only["quantity"], only["fob"], only["unit_fob"]) == ("20.0000", "220.00", "11.0000")
-    assert body["summary"]["arrivals"] == 1  # type: ignore[index]
+    assert body["summary"]["arrivals"] == 1
