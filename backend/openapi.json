@@ -260,9 +260,23 @@
           "organization"
         ],
         "summary": "Load Sample Data",
-        "description": "Fill an empty organization with the reference demo dataset. Refuses once it holds any data.",
+        "description": "Fill an empty organization with a demo dataset. Refuses once it holds any data.\n\n`reference` is one shipment, two containers and the invoice of the sales demo; `history` is\ntwenty containers over the last six months, for the screens that draw a trend.",
         "operationId": "load_sample_data_api_v1_organization_sample_data_post",
         "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "reference",
+                "history"
+              ],
+              "type": "string",
+              "default": "reference",
+              "title": "Profile"
+            }
+          },
           {
             "name": "X-Org-Id",
             "in": "header",
