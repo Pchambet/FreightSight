@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/layout/AppShell";
+import OrgGuard from "@/components/layout/OrgGuard";
 import { api } from "@/lib/api/client";
 import { requireAuth } from "@/lib/auth";
 
@@ -12,7 +13,12 @@ async function org(): Promise<{ name?: string; unreadAlerts: number }> {
 }
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  await requireAuth();
+  const { orgId } = await requireAuth();
   const { name, unreadAlerts } = await org();
-  return <AppShell orgName={name} unreadAlerts={unreadAlerts}>{children}</AppShell>;
+  return (
+    <AppShell orgName={name} unreadAlerts={unreadAlerts}>
+      {orgId ? <OrgGuard renderedFor={orgId} /> : null}
+      {children}
+    </AppShell>
+  );
 }
