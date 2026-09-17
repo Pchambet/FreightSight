@@ -319,6 +319,57 @@
         }
       }
     },
+    "/api/v1/service-status": {
+      "get": {
+        "tags": [
+          "organization"
+        ],
+        "summary": "Service Status",
+        "description": "What this deployment has switched on, in terms of what a customer can rely on: are alert\ne-mails really sent, are containers tracked without typing, is the worker alive, were the backups\nchecked. An alert that is logged instead of sent looks, from every other screen, exactly like one\nthat was sent. States and codes only: never a key, never a variable name.",
+        "operationId": "service_status_api_v1_service_status_get",
+        "parameters": [
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/suppliers": {
       "get": {
         "tags": [
@@ -12146,6 +12197,63 @@
           "results"
         ],
         "title": "SearchResponse"
+      },
+      "ServiceCheck": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "off",
+              "degraded"
+            ],
+            "title": "State"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Params"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "state",
+          "code"
+        ],
+        "title": "ServiceCheck"
+      },
+      "ServiceStatus": {
+        "properties": {
+          "checked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Checked At"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceCheck"
+            },
+            "type": "array",
+            "title": "Checks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "checked_at",
+          "checks"
+        ],
+        "title": "ServiceStatus"
       },
       "ShipmentCreate": {
         "properties": {

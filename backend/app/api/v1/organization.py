@@ -9,11 +9,13 @@ from app.api.v1 import schemas
 from app.api.v1.deps import FxDep, WriterDep
 from app.core.auth import PrincipalDep
 from app.core.errors import Conflict, Unprocessable
+from app.core.settings import get_settings
 from app.core.tenancy import TenantDep
 from app.domain.alerts.service import raise_dnd_risk_alert, unread_count
 from app.domain.audit.service import ORGANIZATION_UPDATED, record
 from app.domain.costing.service import recompute_org
 from app.domain.documents.registry import get_store
+from app.domain.readiness import checks, job_runs
 from app.domain.sample_data import has_data, seed_sample_data
 from app.domain.sample_history import seed_history
 from app.domain.tracking.registry import provider_names
@@ -112,4 +114,17 @@ def load_sample_data(
         costs=sample.cost_count,
         shipment_reference=sample.shipment_reference,
         container_ids=[c.id for c in sample.containers],
+    )
+
+
+@router.get("/service-status", response_model=schemas.ServiceStatus)
+def service_status(t: TenantDep) -> schemas.ServiceStatus:
+    """What this deployment has switched on, in terms of what a customer can rely on: are alert
+    e-mails really sent, are containers tracked without typing, is the worker alive, were the backups
+    checked. An alert that is logged instead of sent looks, from every other screen, exactly like one
+    that was sent. States and codes only: never a key, never a variable name."""
+    found = checks(get_settings(), job_runs(t.db.connection()))
+    return schemas.ServiceStatus(
+        checked_at=datetime.now(UTC),
+        checks=[schemas.ServiceCheck.model_validate(c) for c in found if c.audience == "customer"],
     )

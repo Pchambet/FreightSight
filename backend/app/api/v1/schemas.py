@@ -813,6 +813,27 @@ class InvoiceConfirmResponse(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+# ---------------------------------------------------------------------------- service status
+
+
+class ServiceCheck(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    #: alert_emails | automatic_tracking | invoice_reading | background_jobs | backups
+    key: str
+    #: ok: works as described. off: not switched on for this deployment. degraded: on, and failing.
+    state: Literal["ok", "off", "degraded"]
+    #: What the screen translates: ALERT_EMAILS_ON/OFF, TRACKING_ON/POLLING_ONLY/MANUAL_ONLY,
+    #: READING_RULES_ONLY/READING_RULES_AND_MODEL, WORKER_ALIVE/SILENT, BACKUPS_FRESH/UNVERIFIED.
+    code: str
+    #: Raw facts for the sentence: `providers` (comma-separated), `seen_at`, `checked_at` (ISO).
+    params: dict[str, str] = Field(default_factory=dict)
+
+
+class ServiceStatus(BaseModel):
+    checked_at: datetime
+    checks: list[ServiceCheck]
+
+
 # ---------------------------------------------------------------------------- overview
 
 
