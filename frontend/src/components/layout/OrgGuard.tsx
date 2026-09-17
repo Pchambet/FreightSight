@@ -4,6 +4,25 @@ import { useAuth } from "@clerk/nextjs";
 import { useEffect } from "react";
 
 const KEY = "fs.orgGuard";
+/** Sent with every request this tab makes to its own server: the company this tab is looking at. */
+export const TAB_ORG_HEADER = "x-fs-tab-org";
+
+/**
+ * The organisation the session cookie speaks for right now. Clerk's `__session` cookie is written by
+ * its browser script (it is not HttpOnly) and is a JWT: `o.id` in the current claims format,
+ * `org_id` in the previous one. Read only, never trusted: the server verifies the same token itself.
+ */
+function cookieOrg(): string | null {
+  try {
+    const raw = document.cookie.split("; ").find((c) => /^__session(_[A-Za-z0-9]+)?=/.test(c));
+    const payload = raw?.slice(raw.indexOf("=") + 1).split(".")[1];
+    if (!payload) return null;
+    const claims = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as { o?: { id?: string }; org_id?: string };
+    return claims.o?.id ?? claims.org_id ?? null;
+  } catch {
+    return null;
+  }
+}
 /** Long enough for Clerk's own switch (token, cookie, router refresh) to finish by itself. */
 const SETTLE_MS = 2000;
 
@@ -39,6 +58,39 @@ export default function OrgGuard({ renderedFor }: { renderedFor: string }) {
     };
   }, [isLoaded, getToken]);
 
+  // The belt for the moment in between. A click in this tab becomes a request to our server — a
+  // server action, a navigation — that the server reads in the name of whatever company the shared
+  // cookie holds. So before any such request leaves: if the cookie speaks for another company than
+  // this tab's, take the cookie back first. And say which company the tab is on, so that the server
+  // can refuse an action whose cookie and tab still disagree (lib/auth.ts, `protectAction`).
+  // Next's router calls the global `fetch` at request time, which is what makes this reach it.
+  useEffect(() => {
+    if (!isLoaded || !orgId) return;
+    const original = window.fetch;
+    const guarded: typeof window.fetch = async (input, init) => {
+      let next = init;
+      try {
+        const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url, window.location.href);
+        if (url.origin === window.location.origin) {
+          const held = cookieOrg();
+          if (held && held !== orgId) await getToken({ skipCache: true }).catch(() => null);
+          if (!(input instanceof Request)) {
+            const headers = new Headers(init?.headers);
+            headers.set(TAB_ORG_HEADER, orgId);
+            next = { ...init, headers };
+          }
+        }
+      } catch {
+        // a request is never held back by its own safety belt
+      }
+      return original(input, next);
+    };
+    window.fetch = guarded;
+    return () => {
+      if (window.fetch === guarded) window.fetch = original;
+    };
+  }, [isLoaded, orgId, getToken]);
+
   useEffect(() => {
     if (!isLoaded || !orgId) return;
     if (orgId === renderedFor) {
@@ -59,7 +111,7 @@ export default function OrgGuard({ renderedFor }: { renderedFor: string }) {
       }
       // A full load on purpose: the layout and the router cache both belong to the other company.
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.assign("/containers");
+      window.location.assign("/overview");
     }, SETTLE_MS);
     return () => window.clearTimeout(timer);
   }, [isLoaded, orgId, renderedFor]);
