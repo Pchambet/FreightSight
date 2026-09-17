@@ -203,6 +203,8 @@ class PoLineResponse(BaseModel):
 class PurchaseOrderCreate(BaseModel):
     po_number: str = Field(min_length=1, max_length=64)
     supplier_id: UUID | None = None
+    #: Instead of an id: the supplier of that name (case ignored), created if there is none.
+    supplier_name: str | None = Field(default=None, max_length=200)
     currency: str | None = None
     fx_rate: Decimal | None = Field(default=None, gt=0)
     fx_date: date | None = None

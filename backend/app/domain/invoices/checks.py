@@ -172,6 +172,7 @@ def check(
     org_id: UUID,
     base_currency: str,
     invoice_date: date | None,
+    default_container_id: UUID | None = None,
 ) -> CheckedInvoice:
     """Turn a reading into reviewable lines, saying on each one what a person should look at."""
     holds, difference = arithmetic_holds(invoice)
@@ -216,6 +217,9 @@ def check(
     # it is decided here rather than left to whatever read the document.
     known = [n for n in {c.upper() for c in invoice.container_numbers} if n in context.containers]
     single_container = known[0] if len(known) == 1 else None
+    default_number = next(
+        (number for number, id_ in context.containers.items() if id_ == default_container_id), None
+    )
 
     checked: list[CheckedLine] = []
     for line, amount in priced:
@@ -247,6 +251,11 @@ def check(
         elif single_container is not None:
             scope, target_id = CostScope.CONTAINER, context.containers[single_container]
             line_notes.append(f"@single_container|{single_container}")
+        elif default_number is not None and default_container_id is not None:
+            # The document names no container we know, and whoever dropped it said which one it is
+            # about. Said on the line: it is the uploader's word, not something read on the invoice.
+            scope, target_id = CostScope.CONTAINER, default_container_id
+            line_notes.append(f"@default_container|{default_number}")
 
         if not _rate_available(db, fx, base_currency, currency, invoice_date):
             line_notes.append(f"@no_fx_rate|{currency}|{invoice_date.isoformat() if invoice_date else ''}")

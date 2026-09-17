@@ -99,14 +99,29 @@ def list_purchase_orders(
 def create_purchase_order(
     payload: schemas.PurchaseOrderCreate, t: TenantDep, fx: FxDep, _: WriterDep
 ) -> schemas.PurchaseOrderResponse:
-    if t.db.scalar(t.q(PurchaseOrder).where(PurchaseOrder.po_number == payload.po_number)):
-        raise Conflict(f"Purchase order {payload.po_number} already exists")
-    if payload.supplier_id:
-        t.get_or_404(Supplier, payload.supplier_id, "Supplier")
+    existing = t.db.scalar(t.q(PurchaseOrder).where(PurchaseOrder.po_number == payload.po_number))
+    if existing is not None:
+        # Said with its id: a screen can offer to carry on with the order that is already there.
+        raise Conflict(
+            f"Purchase order {payload.po_number} already exists",
+            code="PURCHASE_ORDER_EXISTS",
+            existing_id=str(existing.id),
+        )
+    supplier_id = payload.supplier_id
+    if supplier_id:
+        t.get_or_404(Supplier, supplier_id, "Supplier")
+    elif payload.supplier_name and payload.supplier_name.strip():
+        # By name, as an import does: the supplier of that name, or a new one.
+        name = payload.supplier_name.strip()
+        supplier = t.db.scalar(t.q(Supplier).where(func.lower(Supplier.name) == name.lower()))
+        if supplier is None:
+            supplier = t.add(Supplier(name=name))
+            t.db.flush()
+        supplier_id = supplier.id
     po = t.add(
         PurchaseOrder(
             po_number=payload.po_number,
-            supplier_id=payload.supplier_id,
+            supplier_id=supplier_id,
             currency=payload.currency or t.org.base_currency,
             fx_date=payload.fx_date,
             incoterm=payload.incoterm,

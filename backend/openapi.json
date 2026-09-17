@@ -5580,7 +5580,7 @@
           "invoices"
         ],
         "summary": "Upload Invoice",
-        "description": "Accept a file and open an invoice on it. Reading happens in a job; this answers immediately.\n\nThe extraction job is deferred inside this transaction: if the upload rolls back, the job never\nexisted either.",
+        "description": "Accept a file and open an invoice on it. Reading happens in a job; this answers immediately.\n\n`default_container_id` is for an invoice dropped from a container's page: the lines on which\nthe reading finds no container or order of its own are proposed on that container, and say so.\n\nThe extraction job is deferred inside this transaction: if the upload rolls back, the job never\nexisted either.",
         "operationId": "upload_invoice_api_v1_invoices_post",
         "parameters": [
           {
@@ -7834,6 +7834,18 @@
             "type": "string",
             "contentMediaType": "application/octet-stream",
             "title": "File"
+          },
+          "default_container_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Container Id"
           }
         },
         "type": "object",
@@ -12980,6 +12992,18 @@
               }
             ],
             "title": "Supplier Id"
+          },
+          "supplier_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supplier Name"
           },
           "currency": {
             "anyOf": [

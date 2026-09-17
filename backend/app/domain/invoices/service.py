@@ -72,6 +72,7 @@ def create_invoice(
     *,
     filename: str | None,
     created_by: UUID | None = None,
+    default_container_id: UUID | None = None,
 ) -> Invoice:
     """Store the file and open an invoice on it. Extraction happens later, in a job."""
     document = store_document(db, store, org.id, content, filename=filename, created_by=created_by)
@@ -80,6 +81,7 @@ def create_invoice(
         document_id=document.id,
         status=InvoiceStatus.UPLOADED,
         created_by=created_by,
+        default_container_id=default_container_id,
     )
     db.add(invoice)
     db.flush()
@@ -160,6 +162,7 @@ def extract(
         org_id=org.id,
         base_currency=org.base_currency,
         invoice_date=reading.invoice_date,
+        default_container_id=invoice.default_container_id,
     )
     invoice.vendor = reading.vendor
     invoice.invoice_number = reading.invoice_number

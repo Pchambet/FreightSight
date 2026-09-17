@@ -113,12 +113,17 @@ def list_containers(
 
 @router.post("", response_model=schemas.ContainerResponse, status_code=status.HTTP_201_CREATED)
 def create_container(payload: schemas.ContainerCreate, t: TenantDep, _: WriterDep) -> Container:
-    if t.db.scalar(
+    existing = t.db.scalar(
         t.q(Container).where(
             Container.container_number == payload.container_number, Container.archived_at.is_(None)
         )
-    ):
-        raise Conflict(f"Container {payload.container_number} already exists")
+    )
+    if existing is not None:
+        raise Conflict(
+            f"Container {payload.container_number} already exists",
+            code="CONTAINER_EXISTS",
+            existing_id=str(existing.id),
+        )
     if payload.shipment_id:
         t.get_or_404(Shipment, payload.shipment_id, "Shipment")
     c = t.add(Container(**payload.model_dump()))

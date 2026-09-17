@@ -768,6 +768,11 @@ class Invoice(Timestamped, OrgScoped, Base):
     raw: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    #: The container whoever dropped the document said it is about. Used only for the lines on which
+    #: the reading found no container or order of its own.
+    default_container_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("containers.id", ondelete="SET NULL")
+    )
 
     document: Mapped[Document] = relationship()
     lines: Mapped[list[InvoiceLine]] = relationship(

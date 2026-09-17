@@ -10,7 +10,7 @@ from __future__ import annotations
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, File, Response, UploadFile, status
+from fastapi import APIRouter, File, Form, Response, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -60,12 +60,22 @@ def _response(invoice: Invoice) -> schemas.InvoiceResponse:
 
 
 @router.post("", response_model=schemas.InvoiceResponse, status_code=status.HTTP_201_CREATED)
-async def upload_invoice(t: TenantDep, p: WriterDep, file: UploadFile = File(...)) -> schemas.InvoiceResponse:
+async def upload_invoice(
+    t: TenantDep,
+    p: WriterDep,
+    file: UploadFile = File(...),
+    default_container_id: UUID | None = Form(default=None),
+) -> schemas.InvoiceResponse:
     """Accept a file and open an invoice on it. Reading happens in a job; this answers immediately.
+
+    `default_container_id` is for an invoice dropped from a container's page: the lines on which
+    the reading finds no container or order of its own are proposed on that container, and say so.
 
     The extraction job is deferred inside this transaction: if the upload rolls back, the job never
     existed either.
     """
+    if default_container_id is not None:
+        t.get_or_404(Container, default_container_id, "Container")
     content = await file.read()
     invoice = create_invoice(
         t.db,
@@ -74,6 +84,7 @@ async def upload_invoice(t: TenantDep, p: WriterDep, file: UploadFile = File(...
         content,
         filename=file.filename,
         created_by=p.user_id,
+        default_container_id=default_container_id,
     )
     from app.jobs.tasks import extract_invoice
 
