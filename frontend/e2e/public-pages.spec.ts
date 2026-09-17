@@ -37,6 +37,15 @@ for (const { path, name } of PUBLIC_PAGES) {
     // A booking link is the point of every public page.
     await expect(page.locator('a[href*="cal.com"], a[href*="calendly"], a[href^="mailto:"]').first()).toHaveCount(1);
   });
+
+  test(`${name} has an Open Graph image (A4-3: a shared link used to show nothing)`, async ({ page }) => {
+    await page.goto(path);
+    const ogImage = page.locator('meta[property="og:image"]');
+    await expect(ogImage).toHaveCount(1);
+    expect(await ogImage.getAttribute("content")).toMatch(/^https?:\/\/.+\/(?:[\w-]+\/)*opengraph-image/);
+    // Twitter card inherits the same image from Open Graph (no twitter.images set) — see ogImage.tsx.
+    await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute("content", "summary_large_image");
+  });
 }
 
 test("the demurrage calculator computes and reads its state from the URL", async ({ page }) => {
@@ -71,4 +80,20 @@ test("robots.txt keeps the application out of search engines", async ({ request 
   const body = await res.text();
   expect(body).toContain("Disallow: /containers");
   expect(body).toContain("Allow: /securite");
+});
+
+test("sitemap.xml lists the public pages (A4-4: it used to 307 to /sign-in)", async ({ request }) => {
+  const res = await request.get("/sitemap.xml");
+  expect(res.status()).toBe(200);
+  const body = await res.text();
+  expect(body).toContain("<loc>");
+  expect(body).toContain("/securite</loc>");
+  expect(body).toContain("/design-partner</loc>");
+});
+
+test("an unknown URL renders a real 404, not a sign-in redirect (A4-4)", async ({ page }) => {
+  const response = await page.goto("/this-does-not-exist");
+  expect(response?.status()).toBe(404);
+  await expect(page).toHaveURL(/\/this-does-not-exist$/);
+  await expect(page.locator("h1").first()).toHaveText(/introuvable/i);
 });

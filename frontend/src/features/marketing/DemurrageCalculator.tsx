@@ -5,9 +5,11 @@ import { useSearchParams } from "next/navigation";
 import { Check, Link2 } from "lucide-react";
 
 /**
- * Order-of-magnitude demurrage for a 40' dry container, calendar days after free time,
- * from the 2026 public tariffs of the main carriers for BE / FR / NL. Detention (the
- * container not returned to the depot) and terminal storage come on top.
+ * Order-of-magnitude demurrage for a 40' dry container, calendar days after free time, from the
+ * 2026 public import tariffs of the main carriers calling at these ports (CMA CGM, MSC, Maersk).
+ * Detention (the container not returned to the depot) and terminal storage come on top. This is
+ * the single source of truth for the demurrage figure quoted anywhere on the site — see A5-1:
+ * the landing banner and this calculator used to disagree by up to 15€ on the same claim.
  */
 const PORTS = {
   ANR: { label: "Anvers", tiers: [60, 95, 145] },
@@ -66,13 +68,14 @@ export default function DemurrageCalculator() {
             <input id="dd-c" type="number" min={1} max={200} inputMode="numeric" className={field} value={containers} onChange={(e) => setContainers(Math.max(1, Math.min(200, Number(e.target.value) || 1)))} />
           </div>
           <div>
-            <label className={label} htmlFor="dd-d">Jours au-delà du free time</label>
+            <label className={label} htmlFor="dd-d">Jours au-delà de la franchise</label>
             <input id="dd-d" type="number" min={1} max={60} inputMode="numeric" className={field} value={days} onChange={(e) => setDays(Math.max(1, Math.min(60, Number(e.target.value) || 1)))} />
           </div>
         </div>
         <p className="text-xs text-slate-400 leading-relaxed">
-          Ordre de grandeur pour un 40&apos; dry, jours calendaires après le free time (souvent 7 jours), barèmes publics 2026 des compagnies :
+          Ordre de grandeur pour un 40&apos; dry, jours calendaires après la franchise (le « free time », souvent 7 jours) —
           {" "}{tiers[0]} € les 5 premiers jours, {tiers[1]} € du 6<sup>e</sup> au 10<sup>e</sup>, {tiers[2]} € au-delà. Hors détention et stockage terminal, qui s&apos;ajoutent.
+          {" "}Barèmes publics import des compagnies, 2026 (CMA CGM, MSC, Maersk) : ordre de grandeur indicatif, votre transitaire peut appliquer un barème différent.
         </p>
       </div>
       <div className="md:col-span-3 bg-slate-800/60 border border-slate-700 rounded-lg p-6">

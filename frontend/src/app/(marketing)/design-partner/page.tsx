@@ -2,14 +2,33 @@ import type { Metadata } from "next";
 import { Ship } from "lucide-react";
 import { site } from "@/lib/site";
 
-export const metadata: Metadata = { title: "Programme design partner", description: "Cinq PME importatrices, huit semaines, leurs vrais dossiers." };
+const description = "Cinq PME importatrices, huit semaines, leurs vrais dossiers.";
 
-/** Printable one-pager (A4). The marketing header and footer hide on print. */
+export const metadata: Metadata = {
+  title: "Programme design partner",
+  description,
+  alternates: { canonical: `${site.url}/design-partner` },
+  openGraph: {
+    title: "Programme design partner · FreightSight",
+    description,
+    url: `${site.url}/design-partner`,
+    siteName: site.name,
+    locale: "fr_FR",
+    type: "website",
+  },
+  twitter: { card: "summary_large_image" },
+};
+
+/**
+ * Printable one-pager (A4). The marketing header and footer hide on print, so the logo below is
+ * screen-hidden and print-only: on screen the persistent header above already shows it, and
+ * showing it twice on the same page read badly (A4 audit, row A8).
+ */
 export default function DesignPartnerPage() {
   return (
     <main className="max-w-3xl mx-auto px-5 py-12 print:py-0 print:max-w-none print:text-[11px] print:leading-snug">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex justify-end print:justify-between items-center">
+        <div className="hidden print:flex items-center gap-2">
           <div className="bg-blue-600 p-1.5 rounded-md"><Ship className="w-4 h-4 text-white" /></div>
           <span className="text-lg font-semibold tracking-tight">Freight<span className="text-blue-600">Sight</span></span>
         </div>
@@ -42,7 +61,7 @@ export default function DesignPartnerPage() {
             <li>Votre coût rendu par SKU sur vos dossiers, réconcilié avec votre Excel au centime</li>
             <li>Huit semaines gratuites, puis −50 % sur le plan Growth pendant douze mois</li>
             <li>Un accès direct au fondateur et votre mot sur la feuille de route</li>
-            <li>Les briques suivantes en avant-première : suivi automatique des conteneurs, lecture des factures PDF, connecteur Odoo</li>
+            <li>La lecture de vos factures transitaire PDF et le connecteur Odoo, utilisables dès le départ ; le suivi automatique des conteneurs et les alertes par e-mail, activés à l&apos;ouverture de votre pilote</li>
           </ul>
         </section>
       </div>
@@ -72,9 +91,12 @@ export default function DesignPartnerPage() {
         </div>
       </section>
 
-      <div className="mt-10 print:mt-5 border-t border-slate-200 pt-5 print:pt-3 flex items-center justify-between text-sm">
+      <div className="mt-10 print:mt-5 border-t border-slate-200 pt-5 print:pt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
         <div className="text-slate-700">Pierre Chambet, fondateur · <span className="text-slate-500">ancien intégrateur Odoo côté client</span></div>
-        <a href={site.bookingUrl} className="inline-flex items-center bg-slate-900 text-white font-medium py-2 px-4 rounded-md print:bg-white print:text-slate-900 print:border print:border-slate-300">Réserver 20 minutes</a>
+        <div className="flex flex-col items-end gap-1.5">
+          <a href={site.bookingUrl} className="inline-flex items-center bg-slate-900 text-white font-medium py-2 px-4 rounded-md print:bg-white print:text-slate-900 print:border print:border-slate-300">Réserver 20 minutes</a>
+          <a href={site.quickCheckUrl} className="print:hidden text-slate-500 hover:underline text-xs">Ou envoyez une facture transitaire : coût rendu sous 24&nbsp;h.</a>
+        </div>
       </div>
     </main>
   );

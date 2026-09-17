@@ -8,10 +8,22 @@ import { ArrowRight, Check, FileSpreadsheet, Receipt, Sigma } from "lucide-react
 import DemurrageCalculator from "@/features/marketing/DemurrageCalculator";
 import { site } from "@/lib/site";
 
+const description =
+  "FreightSight ventile le fret, la douane et les frais de terminal sur chaque ligne de commande, conteneur par conteneur, à partir de vos factures. Estimé à l'embarquement, exact à la facture.";
+
 export const metadata: Metadata = {
   title: { absolute: "FreightSight · Coût de revient rendu pour les PME importatrices" },
-  description:
-    "FreightSight ventile le fret, la douane et les frais de terminal sur chaque ligne de commande, conteneur par conteneur, à partir de vos factures. Estimé à l'embarquement, exact à la facture.",
+  description,
+  alternates: { canonical: site.url },
+  openGraph: {
+    title: "FreightSight · Coût de revient rendu pour les PME importatrices",
+    description,
+    url: site.url,
+    siteName: site.name,
+    locale: "fr_FR",
+    type: "website",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 const btnPrimary = "inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium py-2.5 px-5 rounded-md";
@@ -37,6 +49,9 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
             <a href={site.bookingUrl} className={btnPrimary}>Réserver 20 minutes <ArrowRight className="w-4 h-4" /></a>
             <Link href="#produit" className={btnGhost}>Voir comment ça marche</Link>
           </div>
+          <p className="mt-4 text-sm text-slate-500">
+            <a href={site.quickCheckUrl} className="text-blue-700 hover:underline font-medium">Envoyez une facture transitaire et le bon de commande</a> : vous recevez le coût rendu par référence sous 24&nbsp;h.
+          </p>
           <ul className="mt-7 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-500">
             {["Hébergé en Europe", "Données isolées par société", "Aucun modèle entraîné sur vos données"].map((t) => (
               <li key={t} className="inline-flex items-center gap-1.5"><Check className="w-4 h-4 text-emerald-600" />{t}</li>
@@ -56,7 +71,7 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
         <div className="max-w-6xl mx-auto px-5 py-12 grid gap-8 md:grid-cols-3">
           {[
             ["J+30 à J+60", "C'est quand arrivent les factures du transitaire et les surestaries. Le prix de vente, lui, a été fixé sur le FOB."],
-            ["70 à 150 € par jour", "Surestaries par conteneur après le free time à Anvers ou au Havre. Trois conteneurs oubliés une semaine coûtent le prix d'une palette."],
+            ["55 à 150 € par jour", "Surestaries par conteneur une fois la franchise écoulée, selon le port et le palier (voir le calculateur ci-dessous). Trois conteneurs oubliés une semaine coûtent le prix d'une palette."],
             ["2 à 3 jours par mois", "Passés à recoller factures transitaire, DAU et bons de commande dans Excel, avec un prorata à la valeur qui est faux pour tout ce qui est lourd ou volumineux."],
           ].map(([n, t]) => (
             <div key={n}>
@@ -90,7 +105,7 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
         <div className="mt-16 grid gap-6 md:grid-cols-3">
           {[
             [FileSpreadsheet, "1 · Importez vos commandes", "CSV ou Excel, export Sage, EBP ou Odoo. Les accents, les points-virgules et les « 12 500,50 » passent. Le mapping des colonnes est mémorisé, chaque ligne en erreur est expliquée avant d'écrire quoi que ce soit."],
-            [Receipt, "2 · Enregistrez les coûts", "Fret, THC, droits, drayage, surestaries, en euros ou en dollars au taux BCE du jour de facture. Un coût, un périmètre, une méthode. Bientôt : la facture PDF lue pour vous, avec validation avant écriture."],
+            [Receipt, "2 · Enregistrez les coûts", "Fret, THC, droits, camionnage, surestaries, en euros ou en dollars au taux BCE du jour de facture. Déposez aussi la facture PDF du transitaire : elle est lue ligne par ligne, les doublons sont signalés, et rien n'entre dans les coûts sans votre validation."],
             [Sigma, "3 · Lisez le coût rendu", "Par conteneur, par commande, par ligne, avec le coût unitaire et la part de chaque type de frais. La TVA import est suivie pour la trésorerie et exclue du coût de revient."],
           ].map(([Icon, h, t]) => {
             const I = Icon as typeof FileSpreadsheet;
@@ -127,21 +142,36 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
                 "Multi-devises au taux BCE figé à la date de facture",
                 "Coût rendu et coût unitaire par ligne, par conteneur, par commande",
                 "Suivi manuel des conteneurs avec dernier jour franc et niveau de risque",
-                "Comptes par société, isolation des données garantie en base",
+                "Lecture des factures transitaire PDF par des règles, sans IA : ligne par ligne, doublons signalés, et rien n'entre dans les coûts sans votre validation",
+                "Estimé à l'embarquement, recalé à la facture, écart affiché par commande",
+                "Barèmes de coûts et rapports pour le DAF, exportables en CSV",
+                "Connecteur Odoo : lit vos commandes, écrit un brouillon de coût de revient",
+                "Interface en français et en anglais, historique d'audit complet",
+                "Comptes par société, isolation des données garantie en base, sauvegardes chiffrées chaque nuit, hébergement en Europe",
               ].map((t) => <li key={t} className="flex gap-2.5"><Check className="w-4 h-4 mt-0.5 text-emerald-600 shrink-0" />{t}</li>)}
             </ul>
+            <p className="mt-5 text-xs text-slate-500">Connecteur Odoo : nécessite l&apos;accès API de votre Odoo (offre Custom, Odoo.sh ou on-premise). L&apos;offre Standard n&apos;expose pas cet accès ; l&apos;import CSV reste la voie d&apos;entrée dans ce cas.</p>
           </div>
           <div>
-            <h2 className="text-2xl font-semibold tracking-tight">Ce qui se construit avec les design partners</h2>
+            <h2 className="text-2xl font-semibold tracking-tight">Activé avec les premiers pilotes</h2>
             <ul className="mt-5 space-y-2.5 text-sm text-slate-700">
               {[
-                "Suivi automatique des conteneurs (événements, ETA, dernier jour franc) et alertes par e-mail",
-                "Lecture des factures transitaire PDF, chaque ligne validée par vous avant d'entrer dans les coûts",
-                "Estimé à l'embarquement, recalé à la facture, écart par commande",
-                "Connecteur Odoo, export Pennylane, interface en français",
+                "Suivi automatique des conteneurs (événements, ETA, dernier jour franc), sans saisie manuelle",
+                "Alertes par e-mail au dernier jour franc, avec le montant en jeu",
               ].map((t) => <li key={t} className="flex gap-2.5"><span className="w-4 h-4 mt-0.5 rounded-full border border-slate-300 shrink-0" />{t}</li>)}
             </ul>
-            <p className="mt-5 text-sm text-slate-500">Pas de « temps réel » : les factures arrivent à J+30, les surestaries à J+60. Le produit vend un chiffre estimé tout de suite, exact à la facture, et l&apos;écart entre les deux.</p>
+            <p className="mt-5 text-sm text-slate-500">Ces deux briques sont construites et activées à l&apos;ouverture de votre pilote, pas dans plusieurs mois. Pas de « temps réel » par ailleurs : les factures arrivent à J+30, les surestaries à J+60. Le produit vend un chiffre estimé tout de suite, exact à la facture, et l&apos;écart entre les deux.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Founder */}
+      <section className="max-w-6xl mx-auto px-5 pb-20">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 sm:p-8 flex flex-col sm:flex-row gap-6 items-start">
+          <div className="w-14 h-14 rounded-full bg-slate-900 text-white flex items-center justify-center text-lg font-semibold shrink-0">PC</div>
+          <div>
+            <div className="font-semibold text-slate-900">Pierre Chambet, fondateur <span className="font-normal text-slate-500">· ancien intégrateur Odoo côté client</span></div>
+            <p className="mt-2 text-sm text-slate-700 leading-relaxed max-w-2xl">Une PME qui importe fixe ses prix sur le FOB et découvre son coût réel par commande 30 à 60 jours plus tard, quand arrivent les factures du transitaire, de la douane et les surestaries. C&apos;est le problème que j&apos;ai vu de l&apos;intérieur, chez des clients Odoo, avant de le corriger avec FreightSight.</p>
           </div>
         </div>
       </section>
@@ -174,6 +204,9 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
           <div className="lg:col-span-5 flex flex-col gap-3">
             <a href={site.bookingUrl} className={btnPrimary + " justify-center"}>Réserver 20 minutes <ArrowRight className="w-4 h-4" /></a>
             <Link href="/design-partner" className={btnGhost + " justify-center"}>Lire le one-pager</Link>
+            <p className="text-center text-sm text-slate-500">
+              Ou <a href={site.quickCheckUrl} className="text-blue-700 hover:underline font-medium">envoyez une facture transitaire et le bon de commande</a> : vous recevez le coût rendu par référence sous 24&nbsp;h.
+            </p>
           </div>
         </div>
       </section>
@@ -184,9 +217,9 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
         <p className="mt-3 text-slate-600 max-w-2xl">Par conteneur suivi et par mois. La lecture de factures est dans tous les plans. Tarifs indicatifs, figés avec les premiers clients.</p>
         <div className="mt-8 grid gap-5 md:grid-cols-3">
           {[
-            ["Starter", "299 €", "10 conteneurs par mois", ["Import CSV / XLSX", "Ventilation et coût par SKU", "Lecture de factures", "Alertes dernier jour franc"]],
-            ["Growth", "499 €", "40 conteneurs par mois", ["Tout Starter", "Connecteur Odoo", "5 utilisateurs", "Estimé → réel par commande"]],
-            ["Scale", "999 €", "150 conteneurs par mois", ["Tout Growth", "Multi-entité", "API et webhooks", "Pennylane / Cegid"]],
+            ["Starter", "299 €", "10 conteneurs par mois", ["Import CSV / XLSX", "Ventilation et coût par SKU", "Lecture de factures transitaire", "Alertes dernier jour franc"]],
+            ["Growth", "499 €", "40 conteneurs par mois", ["Tout Starter", "Connecteur Odoo", "Estimé → réel par commande"]],
+            ["Scale", "999 €", "150 conteneurs par mois", ["Tout Growth", "Support prioritaire", "Accompagnement dédié à la mise en route"]],
           ].map(([name, price, vol, feats]) => (
             <div key={name as string} className={`rounded-lg border p-6 ${name === "Growth" ? "border-slate-900" : "border-slate-200"}`}>
               <div className="font-semibold">{name as string}</div>
