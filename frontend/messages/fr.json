@@ -881,7 +881,9 @@
       "progressReady": "{count, plural, one {La ligne retenue est prête à devenir un coût} other {Les # lignes retenues sont prêtes à devenir des coûts}}",
       "nextIncomplete": "Aller à la prochaine ligne à compléter",
       "progressNone": "{count, plural, one {# ligne lue, à retenir ou non} other {# lignes lues, aucune retenue pour l'instant}}",
-      "acceptAll": "{count, plural, one {Retenir la ligne} other {Retenir les # lignes}}"
+      "acceptAll": "{count, plural, one {Retenir la ligne} other {Retenir les # lignes}}",
+      "sumMatches": "Lignes retenues : {amount} = total HT de la facture",
+      "sumGap": "Lignes retenues : {kept} · HT de la facture : {subtotal} · écart {gap}"
     },
     "lineNotes": {
       "singleContainer": "Facturé sur {container}, seul conteneur mentionné sur la facture.",

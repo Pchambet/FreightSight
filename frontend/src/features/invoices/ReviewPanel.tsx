@@ -240,6 +240,14 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
   // A line flagged as a duplicate of an existing cost is never swept up by "accept all".
   const notAccepted = lines.filter((l) => !l.accepted && !splitInvoiceNotes(l.notes).some(isDuplicateCostNote)).map((l) => l.id);
   const listRef = useRef<HTMLUListElement>(null);
+  // The one check a reviewer does by hand: do the lines I keep add up to the invoice's own total
+  // before tax? Summed in cents, and only when every kept line is in the invoice's currency —
+  // otherwise there is no honest sum to show.
+  const kept = lines.filter((l) => l.accepted);
+  const sameCurrency = !!invoice.currency && kept.every((l) => l.currency === invoice.currency);
+  const keptCents = kept.reduce((acc, l) => acc + Math.round(Number(l.amount) * 100), 0);
+  const subtotalCents = invoice.subtotal_amount ? Math.round(Number(invoice.subtotal_amount) * 100) : null;
+  const gapCents = subtotalCents !== null ? keptCents - subtotalCents : null;
 
   const run = (fn: () => Promise<{ ok: boolean; error?: string; data?: unknown }>, okMsg: (d: unknown) => string) =>
     start(async () => {
@@ -288,6 +296,13 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
             >
               {t("acceptAll", { count: notAccepted.length })}
             </button>
+          ) : null}
+          {kept.length > 0 && sameCurrency && gapCents !== null ? (
+            <span className={`ml-auto tabular-nums ${gapCents === 0 ? "text-emerald-800" : "text-amber-800"}`}>
+              {gapCents === 0
+                ? t("sumMatches", { amount: money(keptCents / 100, invoice.currency!, locale) })
+                : t("sumGap", { kept: money(keptCents / 100, invoice.currency!, locale), subtotal: money(subtotalCents! / 100, invoice.currency!, locale), gap: `${gapCents > 0 ? "+" : "−"}${money(Math.abs(gapCents) / 100, invoice.currency!, locale)}` })}
+            </span>
           ) : null}
           {incomplete > 0 ? (
             <button

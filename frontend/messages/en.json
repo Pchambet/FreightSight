@@ -881,7 +881,9 @@
       "progressReady": "{count, plural, one {The kept line is ready to become a cost} other {The # kept lines are ready to become costs}}",
       "nextIncomplete": "Go to the next line to complete",
       "progressNone": "{count, plural, one {# line read, to keep or not} other {# lines read, none kept yet}}",
-      "acceptAll": "{count, plural, one {Keep the line} other {Keep all # lines}}"
+      "acceptAll": "{count, plural, one {Keep the line} other {Keep all # lines}}",
+      "sumMatches": "Kept lines: {amount} = the invoice's total before tax",
+      "sumGap": "Kept lines: {kept} · invoice before tax: {subtotal} · gap {gap}"
     },
     "lineNotes": {
       "singleContainer": "Charged to {container}, the only container named on the invoice.",
