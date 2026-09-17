@@ -2,17 +2,19 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { btnPrimary, input, label } from "@/components/layout/AppShell";
 import { addCost } from "@/features/actions";
 import { COST_TYPES, USER_METHODS, type CostScope } from "@/lib/domain";
+import { amountPlaceholder } from "@/lib/format";
 
 export default function AddCostForm({ scope, targetId, shipmentId, currency, revalidate }: { scope: CostScope; targetId: string; shipmentId?: string | null; currency: string; revalidate: string }) {
   const t = useTranslations("costs.form");
   const costTypeLabel = useTranslations("domain.costType");
   const methodLabel = useTranslations("domain.method");
+  const locale = useLocale();
   const [pending, startTransition] = useTransition();
   const [cur, setCur] = useState(currency);
   const [costType, setCostType] = useState("OCEAN_FREIGHT");
@@ -67,7 +69,7 @@ export default function AddCostForm({ scope, targetId, shipmentId, currency, rev
       <div className="grid grid-cols-3 gap-2">
         <div className="col-span-2">
           <label className={label} htmlFor="amount">{t("amount")}</label>
-          <input id="amount" name="amount" inputMode="decimal" required placeholder="0.00" className={`${input} tabular-nums`} />
+          <input id="amount" name="amount" inputMode="decimal" required placeholder={amountPlaceholder(locale)} className={`${input} tabular-nums`} />
         </div>
         <div>
           <label className={label} htmlFor="currency">{t("currency")}</label>

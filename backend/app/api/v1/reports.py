@@ -13,6 +13,7 @@ from fastapi import APIRouter, Query
 from app.api.v1 import schemas
 from app.core.money import q2
 from app.core.tenancy import TenantDep
+from app.domain.costing.engine import EXCLUDED_FROM_LANDED
 from app.domain.costing.report import estimate_allocations
 from app.domain.costing.service import compute
 from app.domain.models import CostType, RateBasis, RateCard
@@ -54,6 +55,11 @@ def variance(
 
     for actual, estimate in comp.superseded:
         if not (start <= actual.cost_date < end):
+            continue
+        if actual.cost_type.value in EXCLUDED_FROM_LANDED:
+            # Import VAT is recoverable and is not part of any landed cost we report; a variance on
+            # it would be the one line of this page that the container reports do not carry, which is
+            # exactly how two screens end up telling a different story about the same month.
             continue
         pairs += 1
         by_type[actual.cost_type.value][1] += actual.amount_base

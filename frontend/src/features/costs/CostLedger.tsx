@@ -1,15 +1,18 @@
 "use client";
 
-import { useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, td, tdRight, th, thRight } from "@/components/layout/AppShell";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { Money } from "@/components/shared/Money";
-import { deleteCost } from "@/features/actions";
+import { addCost, deleteCost } from "@/features/actions";
 import type { LandedCostReport } from "@/lib/api/client";
-import { dateShort } from "@/lib/format";
+import { dateShort, money, rate } from "@/lib/format";
+
+type Cost = LandedCostReport["costs"][number];
 
 export default function CostLedger({ report, currency, revalidate }: { report: LandedCostReport; currency: string; revalidate: string }) {
   const t = useTranslations("costs.ledger");
@@ -17,20 +20,56 @@ export default function CostLedger({ report, currency, revalidate }: { report: L
   const costTypeLabel = useTranslations("domain.costType");
   const methodLabel = useTranslations("domain.method");
   const scopeLabel = useTranslations("domain.scope");
+  const fxSourceLabel = useTranslations("domain.fxSource");
   const te = useTranslations("estimates");
   const locale = useLocale();
   const [pending, startTransition] = useTransition();
+  const [toDelete, setToDelete] = useState<Cost | null>(null);
+  const lastTriggerRef = useRef<HTMLButtonElement | null>(null);
   const router = useRouter();
 
-  const remove = (id: string) =>
+  // A manual allocation's percentages are not part of what addCost accepts, so that one case cannot
+  // be recreated from the client — the undo toast is offered only when it would actually work.
+  const canRecreate = (c: Cost) => c.allocation_method !== "MANUAL";
+
+  const remove = (c: Cost) =>
     startTransition(async () => {
-      const result = await deleteCost(id, revalidate);
+      const result = await deleteCost(c.id, revalidate);
+      setToDelete(null);
       if (!result.ok) return void toast.error(result.error);
-      toast.success(t("deleted"));
+      if (canRecreate(c)) {
+        toast.success(t("deleted"), { action: { label: t("undo"), onClick: () => undo(c) } });
+      } else {
+        toast.success(t("deleted"));
+      }
+      router.refresh();
+    });
+
+  const undo = (c: Cost) =>
+    startTransition(async () => {
+      const targetId = c.container_id ?? c.shipment_id ?? c.po_id ?? c.po_line_id;
+      if (!targetId) return void toast.error(t("deleteFailed"));
+      const result = await addCost({
+        scope: c.scope,
+        target_id: targetId,
+        cost_type: c.cost_type,
+        amount: c.amount,
+        currency: c.currency,
+        cost_date: c.cost_date,
+        allocation_method: c.allocation_method,
+        fx_rate: c.fx_rate,
+        vendor: c.vendor ?? undefined,
+        invoice_number: c.invoice_number ?? undefined,
+        status: c.status,
+        revalidate,
+      });
+      if (!result.ok) return void toast.error(result.error);
+      toast.success(t("restored"));
       router.refresh();
     });
 
   return (
+    <>
     <Card title={t("title")} right={<span className="text-xs text-slate-500">{t("recorded", { count: report.costs.length })}</span>}>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -62,12 +101,20 @@ export default function CostLedger({ report, currency, revalidate }: { report: L
                   <td className={tdRight}><Money amount={c.amount} currency={c.currency} /></td>
                   <td className={tdRight}>
                     <Money amount={c.amount_base} currency={currency} className="font-medium" />
-                    {c.currency !== currency ? <div className="text-xs text-slate-400">@ {c.fx_rate} ({c.fx_source})</div> : null}
+                    {c.currency !== currency ? <div className="text-xs text-slate-400">@ {rate(c.fx_rate, locale)} ({fxSourceLabel(c.fx_source as never)})</div> : null}
                   </td>
                   <td className={`${td} text-slate-600`}>{methodLabel(c.allocation_method)}</td>
                   <td className={`${td} text-slate-600 text-xs`}>{[c.vendor, c.invoice_number].filter(Boolean).join(" · ") || tc("empty")}</td>
                   <td className={td}>
-                    <button type="button" disabled={pending} onClick={() => remove(c.id)} className="text-slate-400 hover:text-red-600" aria-label={t("delete")}><Trash2 className="w-4 h-4" /></button>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={(e) => { lastTriggerRef.current = e.currentTarget; setToDelete(c); }}
+                      className="text-slate-400 hover:text-red-600"
+                      aria-label={t("delete")}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
               ))
@@ -76,5 +123,17 @@ export default function CostLedger({ report, currency, revalidate }: { report: L
         </table>
       </div>
     </Card>
+    <ConfirmDialog
+      open={toDelete !== null}
+      title={t("deleteConfirmTitle")}
+      body={toDelete ? t("deleteConfirmBody", { type: costTypeLabel(toDelete.cost_type), amount: money(toDelete.amount, toDelete.currency, locale), date: dateShort(toDelete.cost_date, locale) }) : ""}
+      confirmLabel={t("deleteConfirmConfirm")}
+      cancelLabel={t("deleteConfirmCancel")}
+      pending={pending}
+      onConfirm={() => toDelete && remove(toDelete)}
+      onCancel={() => setToDelete(null)}
+      returnFocusRef={lastTriggerRef}
+    />
+    </>
   );
 }

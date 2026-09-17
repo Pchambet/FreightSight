@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import random
 from collections.abc import Sequence
 from decimal import Decimal
@@ -203,3 +204,137 @@ def test_split_rejects_bad_input() -> None:
         split_largest_remainder(D("1.005"), {"a": D(1)}, ["a"])
     with pytest.raises(AllocationError):
         split_largest_remainder(D("1.00"), {"a": D(0)}, ["a"])
+
+
+def test_a_credit_note_splits_like_the_invoice_it_corrects() -> None:
+    """A negative amount used to hand a cent to almost everybody and then die on a bare assert."""
+    order = ["a", "b", "c"]
+    weights = {"a": D(1), "b": D(1), "c": D(1)}
+    credit = split_largest_remainder(D("-10.00"), weights, order)
+    assert sum(credit.values()) == D("-10.00")
+    assert credit == {k: -v for k, v in split_largest_remainder(D("10.00"), weights, order).items()}
+
+    # the cent that cannot be divided lands on the same line, with the sign of the piece
+    assert split_largest_remainder(D("-0.01"), weights, order) == {"a": D("-0.01"), "b": D(0), "c": D(0)}
+
+
+def test_the_split_invariant_is_an_allocation_error_not_an_assert() -> None:
+    """`python -O` strips asserts; the invariant that guards every euro must survive that flag."""
+    import app.domain.costing.engine as engine_module
+
+    source = inspect.getsource(engine_module.split_largest_remainder)
+    assert "assert " not in source
+
+
+def test_a_manual_split_naming_the_same_target_twice_allocates_it_once() -> None:
+    """Two lines on the same container is one container: the cost used to be allocated at 200 %."""
+    cnt, c1 = uuid4(), uuid4()
+    a = load("CNT1", "PO-A", 1, "1", "600", container_id=c1, shipment_id=cnt)
+    b = load("CNT1", "PO-B", 1, "1", "400", container_id=c1, shipment_id=cnt)
+    duplicated = cost(
+        "SHIPMENT",
+        cnt,
+        "1000.00",
+        method="MANUAL",
+        splits=[ManualSplit("container", c1, D("60")), ManualSplit("container", c1, D("40"))],
+    )
+    r = allocate([duplicated], [a, b])
+    assert sum(parts(r, duplicated.id)) == D("1000.00")
+    assert r.unallocated == []
+
+
+def test_a_zero_value_line_is_named_rather_than_left_silent() -> None:
+    """A free sample weighs nothing in BY_VALUE and gets nothing; saying so is the whole product."""
+    cnt = uuid4()
+    paid = load("CNT1", "PO-A", 1, "1", "1000.00", container_id=cnt)
+    sample = load("CNT1", "PO-A", 2, "1", "0.00", container_id=cnt)
+    c = cost("CONTAINER", cnt, "1000.00")
+    r = allocate([c], [paid, sample])
+    assert parts(r, c.id) == [D("1000.00")]
+    assert [n.code for n in r.notes] == ["ZERO_BASIS_LINES"]
+    assert r.notes[0].load_ids == (sample.id,)
+    assert r.notes[0].cost_id == c.id
+
+
+def test_a_zero_duty_rate_is_a_tariff_fact_not_a_missing_basis() -> None:
+    cnt, po = uuid4(), uuid4()
+    l1 = load("CNT1", "PO-1", 1, "1000", "10.00", duty="0.045", container_id=cnt, po_id=po)
+    l2 = load("CNT1", "PO-1", 2, "100", "50.00", duty="0", container_id=cnt, po_id=po)
+    duty = cost("PO", po, "450.00", ctype="CUSTOMS_DUTY", method="BY_THEORETICAL_DUTY")
+    assert allocate([duty], [l1, l2]).notes == []
+
+
+def test_duty_on_a_cif_basis_names_the_lines_that_have_no_tariff_rate() -> None:
+    """The fallback to CIF is a decision about someone's landed cost: it has to be said out loud."""
+    cnt, po = uuid4(), uuid4()
+    rated = load("CNT1", "PO-1", 1, "1000", "10.00", duty="0.12", container_id=cnt, po_id=po)
+    unrated = load("CNT1", "PO-1", 2, "100", "50.00", container_id=cnt, po_id=po)
+    duty = cost("PO", po, "1000.00", ctype="CUSTOMS_DUTY", method="BY_CIF_VALUE")
+    r = allocate([duty], [rated, unrated])
+    assert sum(parts(r, duty.id)) == D("1000.00")
+    assert [n.code for n in r.notes] == ["DUTY_RATE_PARTIAL"]
+    assert r.notes[0].load_ids == (unrated.id,)
+
+    # every line without a rate is the ordinary case, and CIF is then the only basis there is
+    plain = allocate([duty], [unrated])
+    assert plain.notes == []
+
+
+def test_every_allocated_cost_sums_back_to_its_own_amount() -> None:
+    """The global invariant, over a deliberately awkward mixture: manual, duty, zero lines, credits."""
+    ship, cnt1, cnt2, po_a, po_b = uuid4(), uuid4(), uuid4(), uuid4(), uuid4()
+    loads = [
+        load(
+            "CNT1",
+            "PO-A",
+            1,
+            "600",
+            "10.00",
+            kg="2",
+            duty="0.12",
+            container_id=cnt1,
+            shipment_id=ship,
+            po_id=po_a,
+        ),
+        load(
+            "CNT1",
+            "PO-B",
+            1,
+            "500",
+            "20.00",
+            kg="5",
+            duty="0",
+            container_id=cnt1,
+            shipment_id=ship,
+            po_id=po_b,
+        ),
+        load(
+            "CNT2",
+            "PO-A",
+            2,
+            "400",
+            "12.50",
+            kg="1",
+            duty="0.12",
+            container_id=cnt2,
+            shipment_id=ship,
+            po_id=po_a,
+        ),
+        load("CNT1", "PO-A", 3, "10", "0.00", kg="0", container_id=cnt1, shipment_id=ship, po_id=po_a),
+    ]
+    costs = [
+        cost("SHIPMENT", ship, "3000.00", ctype="OCEAN_FREIGHT", method="BY_WEIGHT"),
+        cost("CONTAINER", cnt1, "275.00", ctype="THC"),
+        cost("PO", po_a, "1234.57", ctype="CUSTOMS_DUTY", method="BY_CIF_VALUE"),
+        cost(
+            "SHIPMENT",
+            ship,
+            "900.00",
+            method="MANUAL",
+            splits=[ManualSplit("container", cnt1, D("55")), ManualSplit("container", cnt2, D("45"))],
+        ),
+    ]
+    r = allocate(costs, loads)
+    assert r.unallocated == []
+    for c in costs:
+        assert sum(parts(r, c.id)) == c.amount_base

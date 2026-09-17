@@ -20,6 +20,10 @@ HUNDRED = Decimal("100.00")
 DUTIABLE = {"OCEAN_FREIGHT", "AIR_FREIGHT", "INSURANCE", "ORIGIN_CHARGES"}  # enter the customs value
 EXCLUDED_FROM_LANDED = {"IMPORT_VAT"}  # recoverable: allocated for cash view, excluded from landed cost
 DUTY_LIKE_METHODS = {"BY_CIF_VALUE", "BY_THEORETICAL_DUTY"}
+#: Methods whose basis is a physical fact about the goods. A zero there is a line that pays nothing
+#: for freight it did travel with — worth naming. A zero duty rate is not: it is a tariff heading at
+#: 0 %, which is a fact about the goods and not an omission.
+PHYSICAL_METHODS = {"BY_VALUE", "BY_QUANTITY", "BY_WEIGHT", "BY_VOLUME"}
 
 
 class AllocationError(ValueError):
@@ -58,6 +62,12 @@ def split_largest_remainder[K: Hashable](
         raise AllocationError(f"amount must have at most 2 decimals, got {amount}")
     if any(w < 0 for w in weights.values()):
         raise AllocationError("weights must be >= 0")
+    if amount < 0:
+        # A credit note is the invoice it corrects, with a minus. Splitting the negative directly
+        # would give a negative remainder, and `ranked[:-1]` is "all but the last" — a cent added to
+        # almost every line. Splitting the absolute value and re-signing keeps the parts identical to
+        # the ones the original piece received, which is what makes the two documents reconcile.
+        return {k: -v for k, v in split_largest_remainder(-amount, weights, order).items()}
     total_weight = sum(weights.values(), Decimal(0))
     if total_weight <= 0:
         raise AllWeightsZeroError("sum of weights must be > 0")
@@ -69,7 +79,12 @@ def split_largest_remainder[K: Hashable](
     ranked = sorted(order, key=lambda k: (-(raw[k] - floored[k]), position[k]))
     for k in ranked[:n_cents]:
         floored[k] += CENT
-    assert sum(floored.values(), Decimal(0)) == amount
+    total = sum(floored.values(), Decimal(0))
+    if total != amount:
+        # The one invariant the whole product rests on. An `assert` disappears under `python -O` and
+        # an AssertionError would fly straight through `allocate()`'s handlers into a 500 that blanks
+        # every landed-cost screen; an AllocationError lands in `unallocated`, next to its cost.
+        raise AllocationError(f"split of {amount} summed to {total}")
     return floored
 
 
@@ -127,10 +142,27 @@ class Unallocated:
     load_ids: tuple[UUID, ...] = ()
 
 
+@dataclass(frozen=True)
+class Note:
+    """A cost that *was* allocated, in a way somebody should be told about.
+
+    Distinct from `Unallocated` on purpose: the money is placed and the totals are right, so a note
+    must never be read as an amount missing from the landed cost. What it carries is a rule that was
+    applied silently until now — a line that received nothing, a duty spread on CIF because a tariff
+    rate is missing. "What cannot be allocated is flagged, never guessed" has to cover these too.
+    """
+
+    cost_id: UUID
+    code: str
+    message: str
+    load_ids: tuple[UUID, ...] = ()
+
+
 @dataclass
 class AllocationResult:
     allocations: list[Allocation] = field(default_factory=list)
     unallocated: list[Unallocated] = field(default_factory=list)
+    notes: list[Note] = field(default_factory=list)
     cif: dict[UUID, Decimal] = field(default_factory=dict)  # load_id -> CIF value after pass 1
 
 
@@ -161,13 +193,20 @@ def _weight(load: Load, method: str, cif: dict[UUID, Decimal]) -> Decimal | None
 
 
 def _allocate_proportional(
-    cost_id: UUID, amount: Decimal, targets: list[Load], method: str, cif: dict[UUID, Decimal]
+    cost_id: UUID,
+    amount: Decimal,
+    targets: list[Load],
+    method: str,
+    cif: dict[UUID, Decimal],
+    zero_basis: list[UUID] | None = None,
 ) -> list[Allocation]:
     targets = sorted(targets, key=lambda ld: ld.sort_key)
     weights = {ld.id: _weight(ld, method, cif) for ld in targets}
     missing = [k for k, w in weights.items() if w is None]
     if missing:
         raise MissingBasisError(method, missing)
+    if zero_basis is not None and method in PHYSICAL_METHODS:
+        zero_basis += [k for k, w in weights.items() if w == 0]
     parts = split_largest_remainder(
         amount, {k: w for k, w in weights.items() if w is not None}, [ld.id for ld in targets]
     )
@@ -175,29 +214,33 @@ def _allocate_proportional(
 
 
 def _allocate_manual(
-    cost: Cost, targets: list[Load], fallback: str, cif: dict[UUID, Decimal]
+    cost: Cost, targets: list[Load], fallback: str, cif: dict[UUID, Decimal], zero_basis: list[UUID]
 ) -> list[Allocation]:
     total_pct = sum((s.pct for s in cost.manual_splits), Decimal(0))
     if total_pct != HUNDRED:
         raise InvalidManualSplitError(f"manual splits sum to {total_pct:.2f}, expected 100.00")
-    groups: dict[UUID, list[Load]] = {}
+    # Two lines naming the same target are one target. They used to be kept apart: the percentages
+    # went into a dict where the second overwrote the first, while the order list still held both
+    # entries, so the loop below allocated the whole cost twice. The API refuses the duplicate now;
+    # adding the percentages up here keeps the engine's own invariant true whatever reaches it,
+    # including rows written before that check existed. 60 % then 40 % on one container is 100 %.
+    merged: dict[tuple[str, UUID], Decimal] = {}
     for s in cost.manual_splits:
-        key = _CHILD_KEY.get(s.target_type)
-        if key is None:
+        if s.target_type not in _CHILD_KEY:
             raise InvalidManualSplitError(f"unknown split target type {s.target_type!r}")
-        groups[s.target_id] = [ld for ld in targets if getattr(ld, key) == s.target_id]
-    empty = [str(tid) for tid, lds in groups.items() if not lds]
+        key = (s.target_type, s.target_id)
+        merged[key] = merged.get(key, Decimal(0)) + s.pct
+    groups = {key: [ld for ld in targets if getattr(ld, _CHILD_KEY[key[0]]) == key[1]] for key in merged}
+    empty = [str(target_id) for (_, target_id), lds in groups.items() if not lds]
     if empty:
         raise InvalidManualSplitError(
             f"manual split targets have no loads under this scope: {', '.join(empty)}"
         )
-    order = [s.target_id for s in cost.manual_splits]
-    slices = split_largest_remainder(
-        cost.amount_base, {s.target_id: s.pct for s in cost.manual_splits}, order
-    )
+    order = list(merged)
+    slices = split_largest_remainder(cost.amount_base, merged, order)
     out: list[Allocation] = []
-    for tid in order:
-        out += _allocate_proportional(cost.id, slices[tid], groups[tid], fallback, cif)
+    for key in order:
+        out += _allocate_proportional(cost.id, slices[key], groups[key], fallback, cif, zero_basis)
     return out
 
 
@@ -213,13 +256,16 @@ def allocate(
 
     def run(cost: Cost) -> None:
         targets = _targets(cost, sorted_loads)
+        zero_basis: list[UUID] = []
         try:
             if not targets:
                 raise NoTargetError(f"no container loads under {cost.scope} {cost.target_id}")
             if cost.method == "MANUAL":
-                allocs = _allocate_manual(cost, targets, fallback_method, cif)
+                allocs = _allocate_manual(cost, targets, fallback_method, cif, zero_basis)
             else:
-                allocs = _allocate_proportional(cost.id, cost.amount_base, targets, cost.method, cif)
+                allocs = _allocate_proportional(
+                    cost.id, cost.amount_base, targets, cost.method, cif, zero_basis
+                )
         except MissingBasisError as e:
             result.unallocated.append(Unallocated(cost.id, e.code, str(e), tuple(e.load_ids)))
             return
@@ -227,6 +273,30 @@ def allocate(
             result.unallocated.append(Unallocated(cost.id, e.code, str(e)))
             return
         result.allocations += allocs
+        if zero_basis:
+            result.notes.append(
+                Note(
+                    cost.id,
+                    "ZERO_BASIS_LINES",
+                    f"{len(zero_basis)} line(s) received nothing: their allocation basis is zero",
+                    tuple(zero_basis),
+                )
+            )
+        # A duty spread on the customs value when only some lines carry a tariff rate is a decision
+        # about somebody's unit cost — the 0 % line pays duty it does not owe and the 12 % line is
+        # under-charged. It is the right fallback (the alternative allocates nothing at all), but it
+        # has to be said, with the lines that caused it.
+        if cost.cost_type == "CUSTOMS_DUTY" and cost.method == "BY_CIF_VALUE":
+            unrated = [ld.id for ld in targets if ld.duty_rate is None]
+            if unrated and len(unrated) != len(targets):
+                result.notes.append(
+                    Note(
+                        cost.id,
+                        "DUTY_RATE_PARTIAL",
+                        f"duty spread on the customs value: {len(unrated)} line(s) have no tariff rate",
+                        tuple(unrated),
+                    )
+                )
         if cost.cost_type in DUTIABLE:
             for a in allocs:
                 cif[a.load_id] += a.amount_base

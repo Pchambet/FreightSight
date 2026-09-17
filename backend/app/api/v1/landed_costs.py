@@ -27,7 +27,11 @@ def _serialize(r: rpt.Report) -> schemas.LandedCostReport:
             "estimated": r.estimated,
             "actual": r.actual,
             "variance": r.variance,
+            "matched_estimated": r.matched_estimated,
+            "matched_actual": r.matched_actual,
+            "unforecast_actual": r.unforecast_actual,
         },
+        matched_pairs=r.matched_pairs,
         completeness=r.completeness,
         by_cost_type=r.by_cost_type,
         by_cost_type_detail={
@@ -37,6 +41,7 @@ def _serialize(r: rpt.Report) -> schemas.LandedCostReport:
         lines=[schemas.ReportLine(**ln.__dict__) for ln in r.lines],
         costs=[schemas.CostResponse.model_validate(c) for c in r.costs],
         warnings=[schemas.ReportWarning(**w.__dict__) for w in r.warnings],
+        notes=[schemas.ReportNote(**n.__dict__) for n in r.notes],
     )
 
 

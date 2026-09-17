@@ -130,11 +130,15 @@ def test_t5_through_the_api(client: TestClient) -> None:
 
     cnt1 = client.get(f"/api/v1/landed-costs/containers/{s['cnt1']['id']}").json()
     assert cnt1["warnings"] == []
-    # every cost here is an invoice, so the whole allocation is "actual" and there is no variance
+    # every cost here is an invoice, so the whole allocation is "actual", none of it was forecast,
+    # and there is no pair to take a variance on
     assert cnt1["totals"] == {
         "estimated": "0.00",
         "actual": "2766.67",
         "variance": "0.00",
+        "matched_estimated": "0.00",
+        "matched_actual": "0.00",
+        "unforecast_actual": "2766.67",
         "fob": "16000.00",
         "allocated": "2766.67",
         "vat": "0.00",

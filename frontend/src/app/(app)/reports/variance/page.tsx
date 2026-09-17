@@ -79,7 +79,10 @@ export default async function VariancePage({ searchParams }: { searchParams: Pro
           </div>
         ))}
       </div>
-      <p className="text-sm text-slate-500 mb-4">{t("pairs", { count: r?.pairs ?? 0 })}</p>
+      {/* The population the three tiles above rest on, said in words: they used to be read against a
+          container's own "estimated / actual / variance", which counted something else entirely. */}
+      <p className="text-sm text-slate-500 mb-1">{t("pairs", { count: r?.pairs ?? 0 })}</p>
+      <p className="text-xs text-slate-500 mb-4 max-w-3xl">{t("basis")}</p>
       {(r?.pairs ?? 0) === 0 ? (
         <Card>
           <div className="px-5 py-8 text-center space-y-3">

@@ -200,7 +200,9 @@ def _by_cost_type(totals: Bucket) -> dict[str, Bucket]:
         bucket = Bucket(key=cost_type, label=cost_type, fob=totals.fob, load_count=totals.load_count)
         bucket.allocated = amount if cost_type not in EXCLUDED_FROM_LANDED else ZERO
         bucket.vat = amount if cost_type in EXCLUDED_FROM_LANDED else ZERO
-        bucket.landed = amount
+        # The import-VAT row used to carry its amount as a landed cost of its own, in the one table
+        # whose whole point is which charge weighs what. A recoverable tax weighs nothing there.
+        bucket.landed = bucket.allocated
         bucket.by_cost_type[cost_type] = amount
         out[cost_type] = bucket
     return out
@@ -411,14 +413,15 @@ def dnd_report(
         if not _in_period(container, period_from, period_to):
             continue
         lfd = container.last_free_day
-        if lfd is not None:
-            days_left = (lfd - today).days
-            if days_left < 0:
-                rule = f"last free day was {lfd.isoformat()}; demurrage may be running"
-            else:
-                rule = f"last free day {lfd.isoformat()}, {days_left} day(s) left"
+        # A code, not a sentence. This one reached the report a CFO reads, in English and with an
+        # ISO date, because it was written here as prose. The screen has `last_free_day` and today's
+        # date already, so it can say it in the reader's language and their date format.
+        if lfd is None:
+            rule = "DND_AT_RISK_NO_LFD"
+        elif (lfd - today).days < 0:
+            rule = "DND_AT_RISK_OVERDUE"
         else:
-            rule = f"risk {container.dnd_risk.value}; no last free day recorded"
+            rule = "DND_AT_RISK_DAYS_LEFT"
         at_risk.append(
             DndAtRiskLine(
                 container_id=container.id,

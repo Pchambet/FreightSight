@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, status
@@ -93,6 +94,21 @@ def _check_method(method: AllocationMethod, cost_type: CostType) -> None:
         raise Unprocessable("A dutiable cost cannot be allocated on a CIF basis", code="METHOD_NOT_ALLOWED")
 
 
+def _check_splits(splits: list[dict[str, Any]]) -> None:
+    """Refuse a manual split that names one target twice.
+
+    Two lines on the same container is the ordinary slip — you meant to split between two orders and
+    picked the wrong target type — and it used to allocate the cost once per line, so a 1 000 € freight
+    invoice landed as 2 000 € of stock value in the customer's own books, silently.
+    """
+    seen = {(s["target_type"], str(s["target_id"])) for s in splits}
+    if len(seen) != len(splits):
+        raise Unprocessable(
+            "A manual split names the same target twice; give it one line and one percentage",
+            code="DUPLICATE_MANUAL_SPLIT",
+        )
+
+
 _UNSET = object()
 
 
@@ -165,6 +181,9 @@ def create_cost(payload: schemas.CostCreate, t: TenantDep, fx: FxDep, p: WriterD
         t, payload.scope, payload.target_id, payload.cost_type
     )
     _check_method(method, payload.cost_type)
+    splits = [s.model_dump(mode="json") for s in payload.manual_splits] if payload.manual_splits else None
+    if splits is not None:
+        _check_splits(splits)
     cost = Cost(
         scope=payload.scope,
         status=payload.status,
@@ -173,9 +192,7 @@ def create_cost(payload: schemas.CostCreate, t: TenantDep, fx: FxDep, p: WriterD
         currency=payload.currency,
         cost_date=payload.cost_date,
         allocation_method=method,
-        manual_splits=[s.model_dump(mode="json") for s in payload.manual_splits]
-        if payload.manual_splits
-        else None,
+        manual_splits=splits,
         vendor=payload.vendor,
         invoice_number=payload.invoice_number,
         notes=payload.notes,
@@ -226,6 +243,7 @@ def update_cost(cost_id: UUID, payload: schemas.CostUpdate, t: TenantDep, fx: Fx
             if splits is not None:
                 if sum(Decimal(str(s["pct"])) for s in splits) != Decimal("100.00"):
                     raise Unprocessable("manual_splits must sum to 100.00", code="INVALID_MANUAL_SPLIT")
+                _check_splits(splits)
                 cost.manual_splits = [
                     {"target_type": s["target_type"], "target_id": str(s["target_id"]), "pct": str(s["pct"])}
                     for s in splits

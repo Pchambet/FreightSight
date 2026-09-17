@@ -184,6 +184,20 @@ def test_by_cost_type_shows_each_charge_against_the_goods(client: TestClient, or
     assert bucket["freight_share_pct"] == "15.00"
 
 
+def test_recoverable_vat_weighs_nothing_in_the_table_of_charges(
+    client: TestClient, org: Organization
+) -> None:
+    """One table, one question: which charge weighs what in the landed cost. A recoverable tax does
+    not weigh in it, and the row used to claim it did."""
+    case = reference_case(client)
+    add_import_vat(client, case["container_id"])
+    buckets = {b["key"]: b for b in report(client, group_by="cost_type")["buckets"]}
+    assert buckets["IMPORT_VAT"]["vat"] == "4600.00"
+    assert buckets["IMPORT_VAT"]["landed"] == "0.00"
+    assert buckets["OCEAN_FREIGHT"]["landed"] == "3000.00"
+    assert report(client)["totals"]["landed"] == "23000.00"  # the total never counted it either
+
+
 def test_the_unit_cost_per_sku_is_weighted_by_quantity(client: TestClient, org: Organization) -> None:
     reference_case(client)
     skus = {line["sku"]: line for line in report(client)["skus"]}
@@ -301,6 +315,17 @@ def parse_csv(content: bytes, locale: str) -> tuple[list[str], list[list[str]]]:
     return rows[0], rows[1:]
 
 
+def cells(header: list[str], row: list[str]) -> dict[str, str]:
+    return dict(zip(header, row, strict=True))
+
+
+def landed_cost_rows(client: TestClient, locale: str = "fr", **params: Any) -> list[dict[str, str]]:
+    res = client.get("/api/v1/exports/landed-costs.csv", params={"locale": locale, **params})
+    assert res.status_code == 200, res.text
+    header, rows = parse_csv(res.content, locale)
+    return [cells(header, row) for row in rows]
+
+
 def test_the_french_export_is_what_french_excel_expects(client: TestClient, org: Organization) -> None:
     """Semicolons and commas: get this wrong and every amount arrives as text."""
     reference_case(client)
@@ -310,7 +335,8 @@ def test_the_french_export_is_what_french_excel_expects(client: TestClient, org:
     assert "landed-costs.csv" in res.headers["content-disposition"]
 
     header, rows = parse_csv(res.content, "fr")
-    assert header[:6] == [
+    assert header[:7] == [
+        "row_type",
         "container_number",
         "arrival_date",
         "shipment_reference",
@@ -319,20 +345,138 @@ def test_the_french_export_is_what_french_excel_expects(client: TestClient, org:
         "line_no",
     ]
     assert len(rows) == 2
-    by_po = {row[4]: row for row in rows}
-    assert by_po["PO-A"][9] == "10000,00"  # fob, with a comma
-    assert by_po["PO-A"][10] == "1333,33"  # allocated
-    assert by_po["PO-A"][12] == "11,3333"  # unit landed cost
-    assert by_po["PO-A"][1] == "2026-02-20"  # dates stay ISO, which every locale reads
+    by_po = {cells(header, row)["po_number"]: cells(header, row) for row in rows}
+    assert by_po["PO-A"]["fob"] == "10000,00"  # with a comma
+    assert by_po["PO-A"]["allocated"] == "1333,33"
+    assert by_po["PO-A"]["unit_landed_cost"] == "11,3333"
+    assert by_po["PO-A"]["arrival_date"] == "2026-02-20"  # dates stay ISO, which every locale reads
+    assert by_po["PO-A"]["period_basis"] == "arrival_date"  # which of the three dates this file uses
 
 
 def test_the_english_export_uses_commas_and_dots(client: TestClient, org: Organization) -> None:
     reference_case(client)
-    res = client.get("/api/v1/exports/landed-costs.csv", params={"locale": "en"})
-    _, rows = parse_csv(res.content, "en")
-    by_po = {row[4]: row for row in rows}
-    assert by_po["PO-A"][9] == "10000.00"
-    assert by_po["PO-B"][10] == "1666.67"
+    by_po = {row["po_number"]: row for row in landed_cost_rows(client, "en")}
+    assert by_po["PO-A"]["fob"] == "10000.00"
+    assert by_po["PO-B"]["allocated"] == "1666.67"
+
+
+def add_import_vat(client: TestClient, container_id: str) -> None:
+    res = client.post(
+        "/api/v1/costs",
+        json={
+            "scope": "CONTAINER",
+            "target_id": container_id,
+            "cost_type": "IMPORT_VAT",
+            "amount": "4600.00",
+            "currency": "EUR",
+            "cost_date": "2026-02-21",
+        },
+    )
+    assert res.status_code == 201, res.text
+
+
+def test_the_export_and_the_container_report_agree_line_by_line(
+    client: TestClient, org: Organization
+) -> None:
+    """The file the finance director reconciles against his balance, against the screen he saw.
+
+    Import VAT is the reason this test exists: it is recoverable, so it is not a landed cost, and the
+    export used to add it in anyway — a file inflated by exactly the VAT he claims back.
+    """
+    case = reference_case(client)
+    add_import_vat(client, case["container_id"])
+
+    report = client.get(f"/api/v1/landed-costs/containers/{case['container_id']}").json()
+    exported = {row["po_number"]: row for row in landed_cost_rows(client, "en")}
+    assert len(exported) == len(report["lines"])
+    for line in report["lines"]:
+        row = exported[line["po_number"]]
+        assert row["fob"] == line["fob"]
+        assert row["allocated"] == line["allocated"]
+        assert row["import_vat"] == line["vat"]
+        assert row["landed"] == line["landed"]
+        assert row["unit_landed_cost"] == line["unit_landed_cost"]
+        assert row["OCEAN_FREIGHT"] == line["by_cost_type"]["OCEAN_FREIGHT"]
+
+    # the VAT is beside the landed cost, never inside it, and never in the charge columns either
+    assert "IMPORT_VAT" not in exported["PO-A"]
+    assert sum(Decimal(row["import_vat"]) for row in exported.values()) == Decimal("4600.00")
+    for row in exported.values():
+        assert Decimal(row["landed"]) == Decimal(row["fob"]) + Decimal(row["allocated"])
+
+
+def test_the_export_says_what_it_could_not_allocate(client: TestClient, org: Organization) -> None:
+    """An export whose total is quietly short of the invoices is an export nobody can reconcile."""
+    reference_case(client)
+    orphan = client.post("/api/v1/containers", json={"container_number": "TGHU7245081"})
+    assert orphan.status_code == 201
+    stray = client.post(
+        "/api/v1/costs",
+        json={
+            "scope": "CONTAINER",
+            "target_id": orphan.json()["id"],
+            "cost_type": "DRAYAGE",
+            "amount": "480.00",
+            "currency": "EUR",
+            "cost_date": "2026-02-18",
+            "vendor": "Transports Bernard",
+        },
+    )
+    assert stray.status_code == 201, stray.text
+
+    rows = landed_cost_rows(client)
+    (unallocated,) = [row for row in rows if row["row_type"] == "UNALLOCATED"]
+    assert unallocated["unallocated"] == "480,00"
+    assert unallocated["unallocated_reason"].startswith("no container loads under")
+    assert unallocated["supplier"] == "Transports Bernard"
+    assert unallocated["period_basis"] == "cost_date"  # it never landed anywhere, so it has no arrival
+    assert unallocated["allocated"] == ""  # and it is not counted as if it had been spread
+
+    # the cost list carries the same reason on the piece itself
+    header, cost_rows = parse_csv(client.get("/api/v1/exports/costs.csv").content, "fr")
+    reasons = {cells(header, row)["amount"]: cells(header, row)["unallocated_reason"] for row in cost_rows}
+    assert reasons["480,00"].startswith("no container loads under")
+    assert reasons["3000,00"] == ""
+    assert cells(header, cost_rows[0])["period_basis"] == "cost_date"
+
+
+def test_a_supplier_name_cannot_carry_a_formula_into_excel(client: TestClient, org: Organization) -> None:
+    """A forwarder chooses the text of his own invoice lines; he must not choose what Excel runs."""
+    supplier = client.post("/api/v1/suppliers", json={"name": '=HYPERLINK("https://x.tld";"Voir")'})
+    assert supplier.status_code == 201, supplier.text
+    order = client.post(
+        "/api/v1/purchase-orders",
+        json={
+            "po_number": "PO-C",
+            "supplier_id": supplier.json()["id"],
+            "currency": "EUR",
+            "order_date": "2026-01-20",
+            "lines": [{"line_no": 1, "sku": "-1+2", "quantity": "1", "unit_price": "10.00"}],
+        },
+    )
+    assert order.status_code == 201, order.text
+    container = client.post("/api/v1/containers", json={"container_number": "TGHU7245081"})
+    client.put(
+        f"/api/v1/containers/{container.json()['id']}/loads",
+        json=[{"po_line_id": order.json()["lines"][0]["id"], "quantity": "1"}],
+    )
+
+    header, rows = parse_csv(client.get("/api/v1/exports/purchase-orders.csv").content, "fr")
+    (row,) = [cells(header, r) for r in rows]
+    assert row["supplier"] == '\'=HYPERLINK("https://x.tld";"Voir")'
+    assert row["sku"] == "'-1+2"
+    # and a negative amount is still a number, not a quoted string Excel reads as text
+    assert row["unit_price"] == "10,0000"
+
+
+def test_a_negative_amount_stays_a_number(client: TestClient, org: Organization) -> None:
+    from app.api.v1.exports import cell, number
+
+    assert cell(number(Decimal("-1333.33"), ",")) == "-1333,33"
+    assert cell("-1333,33") == "'-1333,33"
+    assert cell("=1+1") == "'=1+1"
+    assert cell("\tSKU") == "'\tSKU"
+    assert cell(42) == 42
 
 
 def test_the_export_is_streamed_row_by_row() -> None:

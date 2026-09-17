@@ -5,9 +5,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import Unprocessable
@@ -24,9 +26,18 @@ class ResolvedRate:
     source: str
 
 
+#: The ECB publishes its euro reference rates around 16:00 CET; the provider follows within minutes.
+ECB_ZONE = ZoneInfo("Europe/Brussels")
+PUBLISHED_BY = time(17, 0)
+#: With the provider down, how old a published rate may be and still stand in for a date the ECB has
+#: not reached yet.
+STAND_IN_MAX_AGE = timedelta(days=7)
+
+
 class FxService:
-    def __init__(self, fetcher: Fetcher):
+    def __init__(self, fetcher: Fetcher, now: Callable[[], datetime] | None = None):
         self._fetch = fetcher
+        self._now = now or (lambda: datetime.now(UTC))
 
     def resolve(
         self,
@@ -45,8 +56,22 @@ class FxService:
         row = db.get(FxRate, (base, quote, on_date))
         if row is not None:
             return ResolvedRate(row.rate, row.rate_date, row.source)
+        # No quote for that very day. Before asking the provider, see whether the answer can only be
+        # a rate we already hold: a Saturday can only get Friday's, an ETA five weeks out can only
+        # get the last one published. Without this, every weekend-dated cost and every estimate
+        # (dated at the ETA) is an HTTP call, and a provider outage turns them all into 422s.
+        latest = self._latest_published(db, base, quote, on_date)
+        anchor = min(on_date, last_publication_day(self._now()))
+        if latest is not None and not _weekday_between(latest.rate_date, anchor):
+            return ResolvedRate(latest.rate, latest.rate_date, "ecb_latest")
         fetched = self._fetch(base, quote, on_date)
         if fetched is None:
+            # The provider is down. A date the ECB has not reached yet gets a stand-in whatever
+            # happens, so a recent one we hold is as good as what we would have been told; a past
+            # working day has a real quote somewhere, and guessing it would be written on the cost
+            # for good — that one asks for a manual rate.
+            if latest is not None and on_date > anchor and (anchor - latest.rate_date) <= STAND_IN_MAX_AGE:
+                return ResolvedRate(latest.rate, latest.rate_date, "ecb_latest")
             raise Unprocessable(
                 f"No {quote}→{base} rate available for {on_date.isoformat()}. Provide fx_rate manually.",
                 code="FX_RATE_UNAVAILABLE",
@@ -55,6 +80,49 @@ class FxService:
                 date=on_date.isoformat(),
             )
         rate, actual_date = fetched
-        db.merge(FxRate(base=base, quote=quote, rate_date=on_date, rate=rate, source="ecb"))
+        # Cached under the day the ECB actually published, never under the day we asked for. Asked
+        # about a Saturday, or about an ETA five weeks out, the provider answers with the last
+        # published rate and says so in its own `date`. Filing that answer under the requested day
+        # would freeze it there for ever: every invoice really dated that day would then convert at a
+        # five-week-old rate, labelled "ecb", indistinguishable from a real quote. On EUR/USD five
+        # weeks is routinely 1 to 3 %, which is 300 to 900 € on a 30 000 $ container.
+        db.merge(FxRate(base=base, quote=quote, rate_date=actual_date, rate=rate, source="ecb"))
         db.flush()
-        return ResolvedRate(rate, actual_date, "ecb")
+        # A cost dated in the future is legitimate — an estimate is dated at the ETA — so it gets the
+        # latest published rate rather than a refusal, flagged as such on the row that used it.
+        return ResolvedRate(rate, actual_date, "ecb" if actual_date == on_date else "ecb_latest")
+
+    @staticmethod
+    def _latest_published(db: Session, base: str, quote: str, on_date: date) -> FxRate | None:
+        return db.scalars(
+            select(FxRate)
+            .where(
+                FxRate.base == base,
+                FxRate.quote == quote,
+                FxRate.source == "ecb",
+                FxRate.rate_date <= on_date,
+            )
+            .order_by(FxRate.rate_date.desc())
+            .limit(1)
+        ).first()
+
+
+def last_publication_day(now: datetime) -> date:
+    """The most recent day the ECB can have published a reference rate by `now`: working days only,
+    and today only once the afternoon fixing is out. TARGET holidays are not modelled — on those few
+    days the provider is simply asked, and answers with the previous day's rate."""
+    local = now.astimezone(ECB_ZONE)
+    day = local.date() if local.time() >= PUBLISHED_BY else local.date() - timedelta(days=1)
+    while day.weekday() >= 5:
+        day -= timedelta(days=1)
+    return day
+
+
+def _weekday_between(after: date, until: date) -> bool:
+    """Is there a working day in (after, until] — a day the ECB may have published on since `after`?"""
+    day = after + timedelta(days=1)
+    while day <= until:
+        if day.weekday() < 5:
+            return True
+        day += timedelta(days=1)
+    return False

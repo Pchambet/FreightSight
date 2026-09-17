@@ -50,6 +50,11 @@ export default function AllocationPanel({ containerId, poId, report }: { contain
 
   const shown = preview ?? report;
   const isPreview = preview !== null;
+  // Import VAT is recoverable and excluded from the landed cost the report totals (see
+  // `reporting/service._by_cost_type`), so it does not belong among the charge columns that sum
+  // into "Landed" — see audit A1 §9. It gets its own visually distinct column instead.
+  const chargeCostTypes = Object.keys(shown.by_cost_type).filter((ct) => ct !== "IMPORT_VAT");
+  const hasVat = Object.prototype.hasOwnProperty.call(shown.by_cost_type, "IMPORT_VAT");
 
   return (
     <Card
@@ -86,7 +91,9 @@ export default function AllocationPanel({ containerId, poId, report }: { contain
               <th className={thRight}>{tr("th.fob")}</th>
               <th className={thRight}>{tr("th.landed")}</th>
               <th className={thRight}>{tr("th.unitCost")}</th>
-              {Object.keys(shown.by_cost_type).map((ct) => <th key={ct} className={`${thRight} text-blue-700/80`}>{costTypeLabel(ct as CostType)}</th>)}
+              {chargeCostTypes.map((ct) => <th key={ct} className={`${thRight} text-blue-700/80`}>{costTypeLabel(ct as CostType)}</th>)}
+              {/* Import VAT is recoverable, outside the landed cost the columns above sum into — its own column, set apart. */}
+              {hasVat ? <th className={`${thRight} text-slate-500`} title={tr("vatHint")}>{costTypeLabel("IMPORT_VAT")}</th> : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
@@ -104,9 +111,10 @@ export default function AllocationPanel({ containerId, poId, report }: { contain
                   <td className={`${tdRight} text-slate-600`}><Money amount={ln.fob} currency={cur} /></td>
                   <td className={`${tdRight} font-semibold`}><Money amount={ln.landed} currency={cur} /></td>
                   <td className={`${tdRight} font-semibold text-emerald-700`}>{unitCost(ln.unit_landed_cost, cur, locale)}</td>
-                  {Object.keys(shown.by_cost_type).map((ct) => (
+                  {chargeCostTypes.map((ct) => (
                     <td key={ct} className={`${tdRight} text-blue-700`}>{ln.by_cost_type[ct] ? <Money amount={ln.by_cost_type[ct]} currency={cur} /> : <span className="text-slate-300">—</span>}</td>
                   ))}
+                  {hasVat ? <td className={`${tdRight} text-slate-500`}>{ln.by_cost_type.IMPORT_VAT ? <Money amount={ln.by_cost_type.IMPORT_VAT} currency={cur} /> : <span className="text-slate-300">—</span>}</td> : null}
                 </tr>
               ))
             )}
@@ -118,7 +126,8 @@ export default function AllocationPanel({ containerId, poId, report }: { contain
                 <td className={tdRight}><Money amount={shown.totals.fob} currency={cur} /></td>
                 <td className={tdRight}><Money amount={shown.totals.landed} currency={cur} /></td>
                 <td className={tdRight}></td>
-                {Object.keys(shown.by_cost_type).map((ct) => <td key={ct} className={tdRight}><Money amount={shown.by_cost_type[ct]} currency={cur} /></td>)}
+                {chargeCostTypes.map((ct) => <td key={ct} className={tdRight}><Money amount={shown.by_cost_type[ct]} currency={cur} /></td>)}
+                {hasVat ? <td className={`${tdRight} text-slate-500`}><Money amount={shown.by_cost_type.IMPORT_VAT} currency={cur} /></td> : null}
               </tr>
             </tfoot>
           ) : null}

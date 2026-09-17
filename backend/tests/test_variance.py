@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -123,6 +124,102 @@ def test_the_variance_is_exact_to_the_cent_on_every_line(client: TestClient, org
     variances = sorted(line["variance"] for line in report["lines"])
     assert variances == ["48.20", "72.30"]
     assert sum(map(float, variances)) == 120.50
+
+
+def test_the_three_figures_of_the_strip_add_up(client: TestClient, org: Organization) -> None:
+    """The screen used to read "estimated 180 · invoiced 6 171,67 · variance 0,00" and be right about
+    all three: they were three different populations. Now they are one story a CFO can add up."""
+    container_id, _, _ = seed(client)
+    add_cost(client, container_id, amount="180.00", status="ESTIMATE", cost_type="INSURANCE")
+    freight_estimate = add_cost(client, container_id, amount="3000.00", status="ESTIMATE")
+    freight = add_cost(client, container_id, amount="3120.50")
+    client.patch(f"/api/v1/costs/{freight['id']}", json={"supersedes_cost_id": freight_estimate["id"]})
+    add_cost(client, container_id, amount="275.00", cost_type="THC")
+
+    totals = landed(client, container_id)["totals"]
+    assert totals["estimated"] == "180.00"  # still only expected: the insurance nobody has billed
+    assert totals["actual"] == "3395.50"  # invoiced: the freight and the THC
+    assert Decimal(totals["allocated"]) == Decimal(totals["estimated"]) + Decimal(totals["actual"])
+
+    # and the variance rests on the one pair that exists, which is now said in figures
+    assert totals["matched_estimated"] == "3000.00"
+    assert totals["matched_actual"] == "3120.50"
+    assert totals["variance"] == "120.50"
+    assert Decimal(totals["variance"]) == Decimal(totals["matched_actual"]) - Decimal(
+        totals["matched_estimated"]
+    )
+    assert totals["unforecast_actual"] == "275.00"  # the THC nobody forecast
+    assert Decimal(totals["actual"]) == Decimal(totals["matched_actual"]) + Decimal(
+        totals["unforecast_actual"]
+    )
+    assert landed(client, container_id)["matched_pairs"] == 1
+
+
+def test_recoverable_vat_is_in_neither_column(client: TestClient, org: Organization) -> None:
+    """It is not a landed cost, so it is not in the landed cost, nor in what makes it up."""
+    container_id, _, _ = seed(client)
+    add_cost(client, container_id, amount="1000.00")
+    add_cost(client, container_id, amount="2000.00", cost_type="IMPORT_VAT")
+
+    totals = landed(client, container_id)["totals"]
+    assert (totals["actual"], totals["estimated"], totals["vat"]) == ("1000.00", "0.00", "2000.00")
+    assert Decimal(totals["allocated"]) == Decimal(totals["estimated"]) + Decimal(totals["actual"])
+
+
+def test_the_estimate_column_of_a_charge_is_this_containers_share(
+    client: TestClient, org: Organization
+) -> None:
+    """A 1 000 € forecast on a three-container shipment is not 1 000 € of expected cost on one of them."""
+    shipment = client.post("/api/v1/shipments", json={"reference": "MEDUSH2604417"})
+    shipment_id = str(shipment.json()["id"])
+    po = client.post(
+        "/api/v1/purchase-orders",
+        json={
+            "po_number": "PO-A",
+            "currency": "EUR",
+            "lines": [
+                {"line_no": 1, "quantity": "600", "unit_price": "10.00"},
+                {"line_no": 2, "quantity": "400", "unit_price": "10.00"},
+            ],
+        },
+    ).json()
+    ids = []
+    for number, line in (("MSCU4821990", 0), ("TGHU7245081", 1)):
+        created = client.post(
+            "/api/v1/containers", json={"container_number": number, "shipment_id": shipment_id}
+        )
+        ids.append(str(created.json()["id"]))
+        quantity = "600" if line == 0 else "400"
+        loaded = client.put(
+            f"/api/v1/containers/{ids[-1]}/loads",
+            json=[{"po_line_id": po["lines"][line]["id"], "quantity": quantity}],
+        )
+        assert loaded.status_code == 200, loaded.text
+
+    def shipment_cost(amount: str, status: str) -> dict[str, Any]:
+        res = client.post(
+            "/api/v1/costs",
+            json={
+                "scope": "SHIPMENT",
+                "target_id": shipment_id,
+                "cost_type": "OCEAN_FREIGHT",
+                "amount": amount,
+                "currency": "EUR",
+                "cost_date": "2026-03-12",
+                "status": status,
+            },
+        )
+        assert res.status_code == 201, res.text
+        body: dict[str, Any] = res.json()
+        return body
+
+    estimate = shipment_cost("1000.00", "ESTIMATE")
+    actual = shipment_cost("1100.00", "ACTUAL")
+    client.patch(f"/api/v1/costs/{actual['id']}", json={"supersedes_cost_id": estimate["id"]})
+
+    detail = landed(client, ids[0])["by_cost_type_detail"]["OCEAN_FREIGHT"]
+    assert detail == {"estimated": "600.00", "actual": "660.00"}  # this container's share of both
+    assert landed(client, ids[0])["totals"]["variance"] == "60.00"  # and the line above agrees
 
 
 def test_a_cheaper_invoice_is_a_negative_variance(client: TestClient, org: Organization) -> None:
