@@ -1,5 +1,5 @@
 /** A "nice" ceiling and tick list for a zero-based axis: 0 / 2 000 / 4 000, never 0 / 1 873 / 3 746. */
-export function niceScale(max: number, target = 4): { max: number; ticks: number[] } {
+export function niceScale(max: number, target = 5): { max: number; ticks: number[] } {
   if (!Number.isFinite(max) || max <= 0) return { max: 1, ticks: [0, 1] };
   const rough = max / target;
   const pow = 10 ** Math.floor(Math.log10(rough));

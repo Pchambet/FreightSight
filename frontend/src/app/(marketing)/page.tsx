@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ArrowRight, Check, FileSpreadsheet, Receipt, Sigma } from "lucide-react";
 import DemurrageCalculator from "@/features/marketing/DemurrageCalculator";
+import { BreakdownShowcase, MarginShowcase, OverviewShowcase, ReviewShowcase, TrendShowcase } from "@/features/marketing/ProductShowcase";
 import { site } from "@/lib/site";
 
 const description =
@@ -59,10 +60,8 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
           </ul>
         </div>
         <div className="lg:col-span-6">
-          <figure className="rounded-xl border border-slate-200 shadow-[0_20px_60px_-20px_rgba(15,23,42,.25)] overflow-hidden bg-white">
-            <Image src="/landing/ventilation.jpg" alt="Tableau FreightSight : coût rendu par ligne de commande pour un conteneur, avec le coût unitaire et la part de fret maritime" width={800} height={380} priority />
-            <figcaption className="px-4 py-2.5 text-xs text-slate-500 border-t border-slate-100">Un conteneur, trois commandes, 3 000 € de fret ventilés au poids. Capture de l&apos;application, données d&apos;exemple.</figcaption>
-          </figure>
+          <OverviewShowcase />
+          <p className="mt-3 text-xs text-slate-500">L&apos;écran d&apos;accueil de l&apos;application, en vrai : survolez un mois. Données d&apos;exemple.</p>
         </div>
       </section>
 
@@ -84,29 +83,64 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
 
       {/* Product */}
       <section id="produit" className="max-w-6xl mx-auto px-5 py-20 scroll-mt-20">
-        <h2 className="text-3xl font-semibold tracking-tight text-balance max-w-2xl">Une facture, trois conteneurs, cinq commandes : ventilée au centime, et auditable.</h2>
+        <h2 className="text-3xl font-semibold tracking-tight text-balance max-w-2xl">Le coefficient d&apos;approche que vous citez de tête, calculé sur vos vraies factures.</h2>
         <p className="mt-4 text-slate-600 max-w-2xl leading-relaxed">Chaque coût est rattaché à un seul périmètre, expédition, conteneur, commande ou ligne, et redescend jusqu&apos;aux lignes chargées selon la méthode que vous choisissez. Les droits sont calculés en seconde passe sur la valeur CIF, comme en douane. Ce qui ne peut pas être ventilé est signalé, jamais deviné.</p>
 
-        <div className="mt-12 grid gap-10 lg:grid-cols-2 items-start">
-          <figure>
-            <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
-              <Image src="/landing/signale.jpg" alt="Avertissement : base manquante sur une ligne, 1 200 € non ventilés, avec les totaux FOB, alloué, TVA import, rendu et non alloué" width={900} height={113} />
+        <div className="mt-14 space-y-20">
+          <div className="grid gap-10 lg:grid-cols-2 items-center">
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wider text-blue-700">Par conteneur, par commande</div>
+              <h3 className="mt-3 text-2xl font-semibold tracking-tight text-balance">Du prix d&apos;achat au coût rendu, en une barre.</h3>
+              <p className="mt-3 text-slate-600 leading-relaxed">Le fret, les frais portuaires, la douane, la livraison, les surestaries : ce que chaque famille de frais ajoute au prix payé au fournisseur, en euros et en pourcentage du FOB. Une facture pour trois conteneurs et cinq commandes est ventilée au centime, à la valeur, au poids, au volume ou à la quantité.</p>
+              <ul className="mt-5 space-y-2 text-sm text-slate-700">
+                {["Cinq méthodes de ventilation, et un « et si » pour voir ce que chacune change avant de choisir", "Multi-devises au taux BCE du jour de facture, figé", "La TVA import est suivie pour la trésorerie et exclue du coût de revient"].map((t) => (
+                  <li key={t} className="flex gap-2.5"><Check className="w-4 h-4 mt-0.5 text-emerald-600 shrink-0" />{t}</li>
+                ))}
+              </ul>
             </div>
-            <figcaption className="mt-3 text-sm text-slate-600"><span className="font-medium text-slate-900">Ce qui ne peut pas être ventilé est signalé, jamais deviné.</span> Ici une ligne sans taux de droits : les 1 200 € de douane restent visibles en « non alloué » au lieu d&apos;être répartis au hasard.</figcaption>
-          </figure>
-          <figure>
-            <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
-              <Image src="/landing/cout-unitaire.jpg" alt="Coût unitaire par ligne de commande, la commande étant répartie sur deux conteneurs" width={800} height={318} />
+            <BreakdownShowcase />
+          </div>
+
+          <div className="grid gap-10 lg:grid-cols-2 items-center">
+            <div className="lg:order-2">
+              <div className="text-xs font-medium uppercase tracking-wider text-blue-700">Par référence</div>
+              <h3 className="mt-3 text-2xl font-semibold tracking-tight text-balance">Le prix d&apos;achat ne bouge presque pas. Le coût rendu, si.</h3>
+              <p className="mt-3 text-slate-600 leading-relaxed">Une page par référence, un point par conteneur qui l&apos;a portée. Quand le dernier arrivage coûte 1,75 € de plus par unité, la page dit d&apos;où vient l&apos;écart : le fret, la douane, ou le fournisseur. Même quand la commande est répartie sur deux conteneurs.</p>
             </div>
-            <figcaption className="mt-3 text-sm text-slate-600"><span className="font-medium text-slate-900">Le coût unitaire par SKU, même quand la commande est répartie sur deux conteneurs.</span> Prêt pour l&apos;écriture landed cost de l&apos;ERP et pour la marge par référence.</figcaption>
-          </figure>
+            <div className="lg:order-1"><TrendShowcase /></div>
+          </div>
+
+          <div className="grid gap-10 lg:grid-cols-2 items-center">
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wider text-blue-700">La marge</div>
+              <h3 className="mt-3 text-2xl font-semibold tracking-tight text-balance">Votre tarif est fixé sur le FOB. Votre marge, elle, se joue au coût rendu.</h3>
+              <p className="mt-3 text-slate-600 leading-relaxed">Renseignez le prix de vente d&apos;une référence : FreightSight met côte à côte la marge lue sur le prix d&apos;achat et la marge réelle, et calcule le prix à tenir pour la marge que vous visez. Essayez : le curseur est vivant.</p>
+            </div>
+            <MarginShowcase />
+          </div>
+
+          <div className="grid gap-10 lg:grid-cols-2 items-center">
+            <div className="lg:order-2">
+              <div className="text-xs font-medium uppercase tracking-wider text-blue-700">Les factures transitaire</div>
+              <h3 className="mt-3 text-2xl font-semibold tracking-tight text-balance">Déposez le PDF. Relisez en deux clics.</h3>
+              <p className="mt-3 text-slate-600 leading-relaxed">La facture est lue ligne par ligne par des règles, sans IA : type de frais, montant, conteneur concerné. Les doublons sont signalés, la somme des lignes est comparée au total HT, et rien n&apos;entre dans vos coûts sans votre validation.</p>
+            </div>
+            <div className="lg:order-1"><ReviewShowcase /></div>
+          </div>
         </div>
+
+        <figure className="mt-20 max-w-3xl">
+          <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+            <Image src="/landing/signale.jpg" alt="Avertissement : base manquante sur une ligne, 1 200 € non ventilés, avec les totaux FOB, alloué, TVA import, rendu et non alloué" width={900} height={113} />
+          </div>
+          <figcaption className="mt-3 text-sm text-slate-600"><span className="font-medium text-slate-900">Ce qui ne peut pas être ventilé est signalé, jamais deviné.</span> Ici une ligne sans taux de droits : les 1 200 € de douane restent visibles en « non alloué » au lieu d&apos;être répartis au hasard.</figcaption>
+        </figure>
 
         <div className="mt-16 grid gap-6 md:grid-cols-3">
           {[
             [FileSpreadsheet, "1 · Importez vos commandes", "CSV ou Excel, export Sage, EBP ou Odoo. Les accents, les points-virgules et les « 12 500,50 » passent. Le mapping des colonnes est mémorisé, chaque ligne en erreur est expliquée avant d'écrire quoi que ce soit."],
-            [Receipt, "2 · Enregistrez les coûts", "Fret, THC, droits, camionnage, surestaries, en euros ou en dollars au taux BCE du jour de facture. Déposez aussi la facture PDF du transitaire : elle est lue ligne par ligne, les doublons sont signalés, et rien n'entre dans les coûts sans votre validation."],
-            [Sigma, "3 · Lisez le coût rendu", "Par conteneur, par commande, par ligne, avec le coût unitaire et la part de chaque type de frais. La TVA import est suivie pour la trésorerie et exclue du coût de revient."],
+            [Receipt, "2 · Enregistrez les coûts", "Fret, THC, droits, camionnage, surestaries, en euros ou en dollars au taux BCE du jour de facture. Ou déposez la facture PDF du transitaire : elle est lue ligne par ligne, et rien n'entre dans les coûts sans votre validation."],
+            [Sigma, "3 · Lisez le coût rendu", "Par conteneur, par commande, par référence, avec le coefficient d'approche, la part de chaque famille de frais et la marge au vrai coût."],
           ].map(([Icon, h, t]) => {
             const I = Icon as typeof FileSpreadsheet;
             return (
@@ -144,6 +178,8 @@ export default async function LandingPage({ searchParams }: { searchParams: Prom
                 "Suivi manuel des conteneurs avec dernier jour franc et niveau de risque",
                 "Lecture des factures transitaire PDF par des règles, sans IA : ligne par ligne, doublons signalés, et rien n'entre dans les coûts sans votre validation",
                 "Estimé à l'embarquement, recalé à la facture, écart affiché par commande",
+                "Vue d'ensemble : coefficient d'approche, frais par mois et par famille, ce qui demande une décision aujourd'hui",
+                "Une page par référence : coût unitaire par arrivage, explication de l'écart, marge au coût rendu et prix à tenir",
                 "Barèmes de coûts et rapports pour le DAF, exportables en CSV",
                 "Connecteur Odoo : lit vos commandes, écrit un brouillon de coût de revient",
                 "Interface en français et en anglais, historique d'audit complet",
