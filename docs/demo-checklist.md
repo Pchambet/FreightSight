@@ -21,6 +21,21 @@ cd frontend && npm run dev                        # :3000
 Connexion ERP dans Paramètres : adresse `http://host.docker.internal:8169` (l'API tourne dans Docker),
 base `fstest`, identifiant `admin`, clé API `admin` (défauts de l'instance jetable, jamais ailleurs).
 
+**Organisation** : utilisez une organisation Clerk dédiée à cette recette (pas l'org « démo commerciale »
+avec le jeu d'exemple pneus) — `odoo_seed.py` ne contrôle que le produit et le fournisseur qu'il crée
+lui-même ; si votre instance Odoo jetable a aussi la démo mobilier standard d'Odoo (vendeurs « Wood
+Corner », « Gemini Furniture »…), synchroniser dessus mélangerait deux histoires dans les Commandes.
+Réinstaller Odoo sans les données de démo (`--without-demo=all` à la création de la base) l'évite.
+
+**Avant de rejoindre l'appel**, vérifiez que tout tourne (c'est ici, pas en scène 4 en direct, qu'on
+découvre un service arrêté) :
+
+```bash
+docker compose ps                 # api, db, worker: Up
+curl -sf http://localhost:8001/healthz && echo OK
+curl -sf http://localhost:8169/web/login > /dev/null && echo "Odoo OK"
+```
+
 ## A · Parcours de démo, à connaître par cœur (≈ 15 min)
 
 
@@ -28,10 +43,10 @@ base `fstest`, identifiant `admin`, clé API `admin` (défauts de l'instance jet
 | --- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | A1  | Paramètres → Connexion ERP → « Tester et connecter »              | Version Odoo et société affichées                                                                   |
 | A2  | « Synchroniser maintenant »                                       | Commandes importées, dont P00012                                                                    |
-| A3  | Nouveau conteneur, charger P00012 / TYR-20555R16 × 100            | FOB > 0                                                                                             |
-| A4  | Ajouter un coût **réel** Fret maritime 2 766,67 €                 | Ventilé > 0, entrée « Coût créé » dans l'historique                                                 |
-| A5  | Carte « Écriture dans l'ERP », sans cliquer                       | Réception WH/IN/00007, total 2 766,67 €, bouton actif                                               |
-| A6  | Ajouter un second coût réel (ex. camionnage 275 €)                | La carte se met à jour seule : 2 coûts, 3 041,67 €                                                  |
+| A3  | Nouveau conteneur, charger P00012 / TYR-20555R16-91V × 100        | FOB 1 400,00 €                                                                                       |
+| A4  | Ajouter un coût **réel** Fret maritime 180,00 €                   | Ventilé > 0, entrée « Coût créé » dans l'historique                                                 |
+| A5  | Carte « Écriture dans l'ERP », sans cliquer                       | Réception WH/IN/00007, total 180,00 €, bouton actif                                                 |
+| A6  | Ajouter un second coût réel (camionnage 130,00 €)                 | La carte se met à jour seule : 2 coûts, 310,00 € (coût rendu 17,10 €/pneu, soit +22 % du FOB)       |
 | A7  | « Créer le brouillon dans Odoo »                                  | Toast avec le nom du brouillon, bannière « Déjà poussé », entrée « Écriture ERP créée (brouillon) » |
 | A8  | Odoo → Inventaire → Opérations → Ajustements → Coûts de réception | Brouillon « FreightSight MSCU… », deux lignes, **non validé**                                       |
 | A9  | Recliquer le bouton                                               | Grisé ; un second push par l'API renverrait le même document                                        |

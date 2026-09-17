@@ -5,7 +5,8 @@ Usage:
   python scripts/e2e_live_demo.py
   API_URL=http://localhost:8001 python scripts/e2e_live_demo.py
 
-Requires: API + Postgres + worker (APP_ENV=dev, X-Org-Id auth).
+Requires: API + Postgres + worker (APP_ENV=dev and ALLOW_DEV_PRINCIPAL=true, for X-Org-Id auth —
+docker-compose.yml sets both; the header alone is no longer enough).
 """
 
 from __future__ import annotations

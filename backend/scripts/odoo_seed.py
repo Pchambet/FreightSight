@@ -24,15 +24,18 @@ import xmlrpc.client
 from typing import Any
 
 # The SKU is the only identifier Odoo and FreightSight share, so it is what the container's cost
-# lines must carry on our side. Keep these three in step with whatever you create in FreightSight.
-SKU = "TYR-20555R16"
-PRODUCT_NAME = "FS Tyre 205/55R16"
+# lines must carry on our side. Keep these three in step with whatever you create in FreightSight —
+# same SKU and unit price as the tyre PO line in `app.domain.sample_data` (docs/demo-checklist.md's
+# Odoo scene reuses that story rather than inventing a second one; a design partner not running the
+# tyre demo data should seed this into its own, separate organization — see that checklist).
+SKU = "TYR-20555R16-91V"
+PRODUCT_NAME = "Pneu tourisme 205/55 R16 91V"
 QUANTITY = 100.0
-UNIT_PRICE = 42.0
+UNIT_PRICE = 14.0
 
 CATEGORY_NAME = "FreightSight FIFO"
 FREIGHT_SKU = "FS-FREIGHT"
-VENDOR_NAME = "FreightSight Test Vendor"
+VENDOR_NAME = "Zhejiang Kaiyuan Tyre Co."
 
 
 class Odoo:

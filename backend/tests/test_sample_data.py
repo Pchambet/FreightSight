@@ -18,7 +18,10 @@ def test_sample_data_seeds_the_reference_case(client: TestClient) -> None:
     assert res.status_code == 201, res.text
     body = res.json()
     assert body["suppliers"] == 2 and body["purchase_orders"] == 2
-    assert body["containers"] == 2 and body["costs"] == 3
+    # 5 ESTIMATE costs per container (freight, THC, customs brokerage, haulage, customs duty) — no
+    # ACTUAL cost is seeded, so confirming the demo invoice always replaces an estimate, never adds
+    # a duplicate. See sample_data.py's docstring.
+    assert body["containers"] == 2 and body["costs"] == 10
     assert len(body["container_ids"]) == 2
 
     containers = {c["container_number"]: c for c in client.get("/api/v1/containers").json()}
@@ -31,41 +34,55 @@ def test_sample_data_seeds_the_reference_case(client: TestClient) -> None:
     assert cnt2["detention_deadline"] is not None
     assert cnt2["dnd_risk"] == "LOW"
 
-    assert cnt1["allocated_base"] == "2766.67"
+    # Everything here is an ESTIMATE (rate cards), not yet an invoice — see sample_data.py.
+    assert cnt1["allocated_base"] == "5642.50"
     assert cnt1["po_numbers"] == ["PO-2026-014", "PO-2026-015"]
-    assert cnt1["cost_types_present"] == ["DRAYAGE", "OCEAN_FREIGHT"]
+    assert cnt1["cost_types_present"] == [
+        "CUSTOMS_BROKERAGE",
+        "CUSTOMS_DUTY",
+        "DRAYAGE",
+        "OCEAN_FREIGHT",
+        "THC",
+    ]
 
     report = client.get(f"/api/v1/landed-costs/containers/{cnt1['id']}").json()
     assert report["warnings"] == []
-    assert report["totals"] == {
-        "fob": "16000.00",
-        "allocated": "2766.67",
-        "vat": "0.00",
-        "landed": "18766.67",
-        "unallocated": "0.00",
-        # the sample data is a set of invoices, so it is fully actual and has nothing to compare
-        "estimated": "0.00",
-        "actual": "2766.67",
-        "variance": "0.00",
-    }
-    assert report["completeness"] == "1.00"
-    by_po = {ln["po_number"]: ln for ln in report["lines"]}
-    assert by_po["PO-2026-014"]["unit_landed_cost"] == "11.5208"
-    assert by_po["PO-2026-015"]["unit_landed_cost"] == "23.7083"
+    assert report["totals"]["fob"] == "20500.00"
+    assert report["totals"]["allocated"] == "5642.50"
+    assert report["totals"]["landed"] == "26142.50"
+    assert report["totals"]["vat"] == "0.00"
+    # Nothing has been invoiced yet: every euro on this container is still an estimate, so the
+    # completeness gauge the front shows the presenter as "postes facturés" reads 0, honestly.
+    assert report["totals"]["estimated"] == "5642.50"
+    assert report["totals"]["actual"] == "0.00"
+    assert report["totals"]["variance"] == "0.00"
+    assert report["completeness"] == "0.00"
+    by_sku = {ln["sku"]: ln for ln in report["lines"]}
+    assert by_sku["TYR-20555R16-91V"]["unit_landed_cost"] == "17.8534"
+    assert by_sku["MAT-EVA-6040-GY"]["unit_landed_cost"] == "25.5049"
+
+    report2 = client.get(f"/api/v1/landed-costs/containers/{cnt2['id']}").json()
+    assert report2["totals"]["fob"] == "16800.00"
+    assert report2["totals"]["allocated"] == "5276.00"
+    assert report2["lines"][0]["unit_landed_cost"] == "18.3967"
 
     po_id = client.get("/api/v1/purchase-orders").json()[0]["id"]
     po = client.get(f"/api/v1/landed-costs/purchase-orders/{po_id}").json()
-    assert po["totals"]["allocated"] == "1645.83" and po["totals"]["landed"] == "11645.83"
+    assert po["totals"]["allocated"] == "8166.06" and po["totals"]["landed"] == "35466.06"
 
     integrity = client.get("/api/v1/reports/integrity").json()
-    assert integrity["ok"] and integrity["costs_checked"] == 3
+    assert integrity["ok"] and integrity["costs_checked"] == 10
 
     alerts = client.get("/api/v1/alerts").json()
     mscu_alerts = [a for a in alerts if a.get("container_id") == cnt1["id"] and a.get("kind") == "DND_RISK"]
     assert len(mscu_alerts) == 1
     assert mscu_alerts[0]["severity"] == "warning"
-    tghu_alerts = [a for a in alerts if a.get("container_id") == cnt2["id"]]
-    assert tghu_alerts == []
+    # TGHU already left the terminal, but it is still inside its detention window (LOW risk, not
+    # NONE): raise_dnd_risk_alert fires for any risk short of NONE, so it gets its own low-severity
+    # alert rather than none at all.
+    tghu_alerts = [a for a in alerts if a.get("container_id") == cnt2["id"] and a.get("kind") == "DND_RISK"]
+    assert len(tghu_alerts) == 1
+    assert tghu_alerts[0]["severity"] == "info"
 
 
 def test_sample_data_is_loaded_only_once(client: TestClient, db: Session) -> None:
@@ -74,7 +91,7 @@ def test_sample_data_is_loaded_only_once(client: TestClient, db: Session) -> Non
     assert again.status_code == 409 and again.json()["code"] == "CONFLICT"
     assert len(client.get("/api/v1/containers").json()) == 2
     assert len(client.get("/api/v1/purchase-orders").json()) == 2
-    assert len(client.get("/api/v1/costs").json()) == 3
+    assert len(client.get("/api/v1/costs").json()) == 10
 
 
 def test_sample_data_refused_when_the_organization_already_has_data(client: TestClient) -> None:
