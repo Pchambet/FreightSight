@@ -813,6 +813,153 @@ class InvoiceConfirmResponse(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+# ---------------------------------------------------------------------------- products
+
+
+class ProductIn(BaseModel):
+    sku: str = Field(min_length=1, max_length=120)
+    description: str | None = None
+    hs_code: str | None = None
+    duty_rate: Decimal | None = Field(default=None, ge=0, le=5, max_digits=7, decimal_places=4)
+    unit_weight_kg: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=4)
+    unit_volume_cbm: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=6)
+    #: Excluding VAT, per unit.
+    sale_price: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=4)
+    #: Null means the organization's own currency, the only case a margin is derived in.
+    sale_currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
+
+    @field_validator("sku")
+    @classmethod
+    def _trim(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("sku must not be blank")
+        return value
+
+
+class ProductUpdate(BaseModel):
+    sku: str | None = Field(default=None, min_length=1, max_length=120)
+    description: str | None = None
+    hs_code: str | None = None
+    duty_rate: Decimal | None = Field(default=None, ge=0, le=5, max_digits=7, decimal_places=4)
+    unit_weight_kg: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=4)
+    unit_volume_cbm: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=6)
+    sale_price: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=4)
+    sale_currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
+
+
+class ProductResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    sku: str
+    description: str | None
+    hs_code: str | None
+    duty_rate: Rate | None
+    unit_weight_kg: Qty | None
+    unit_volume_cbm: Qty | None
+    sale_price: Qty | None
+    sale_currency: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProductPage(BaseModel):
+    products: list[ProductResponse]
+    next_cursor: str | None = None
+
+
+class ProductsFromOrders(BaseModel):
+    created: int
+    #: Articles that already had a catalogue entry: left exactly as they were.
+    skipped: int
+
+
+# ---------------------------------------------------------------------------- articles (SKU reports)
+
+
+class SkuSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    sku: str
+    description: str | None
+    quantity: Qty
+    fob: Money
+    landed: Money
+    unit_fob: Qty
+    #: Weighted by quantity over every arrival of the period.
+    unit_landed: Qty
+    #: The two most recent containers that have actually landed. A box still at sea is not compared.
+    last_unit_landed: Qty | None
+    previous_unit_landed: Qty | None
+    #: last against previous, in per cent, one decimal, signed: "8.6", "-2.1".
+    change_pct: Decimal | None
+    #: How many containers carried it.
+    arrivals: int
+    last_arrival_on: date | None
+    #: Part of the landed cost still rests on estimates.
+    has_estimates: bool
+    product_id: UUID | None
+    sale_price: Qty | None
+    #: sale_price - unit_landed, and that as a share of the sale price. Null unless the catalogue
+    #: holds a price in the organization's currency: no conversion is invented.
+    margin_unit: Qty | None
+    margin_pct: Decimal | None
+
+
+class SkuArrival(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    load_id: UUID
+    container_id: UUID
+    container_number: str
+    po_id: UUID
+    po_number: str
+    supplier_name: str | None
+    arrived_on: date | None
+    #: The date is the shipment's ETA, not an arrival on record.
+    arrival_is_estimate: bool
+    quantity: Qty
+    fob: Money
+    landed: Money
+    unit_fob: Qty
+    unit_landed: Qty
+    #: Import VAT excluded, as everywhere.
+    by_cost_type: dict[str, Money]
+    unit_by_cost_type: dict[str, Qty]
+    estimated: Money
+
+
+class SkuListResponse(BaseModel):
+    base_currency: str
+    skus: list[SkuSummary]
+
+
+class SkuDetailResponse(BaseModel):
+    base_currency: str
+    summary: SkuSummary
+    #: Oldest first, undated ones last.
+    arrivals: list[SkuArrival]
+
+
+# ---------------------------------------------------------------------------- search
+
+
+class SearchHit(BaseModel):
+    kind: Literal["container", "purchase_order", "sku", "invoice", "supplier", "shipment"]
+    #: Null for an article only: a SKU is not a row, its key is `sku`.
+    id: UUID | None
+    #: The number or the name itself.
+    label: str
+    #: A raw fact that helps tell two results apart, never a sentence: the shipment of a container,
+    #: the supplier of an order, the description of an article, the vendor of an invoice, the country
+    #: of a supplier, the carrier of a shipment.
+    sublabel: str | None = None
+    sku: str | None = None
+
+
+class SearchResponse(BaseModel):
+    query: str
+    results: list[SearchHit]
+
+
 # ---------------------------------------------------------------------------- audit log
 
 
