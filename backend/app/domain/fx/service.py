@@ -17,6 +17,8 @@ from app.domain.models import FxRate
 
 # 1 unit of `quote` = `rate` units of `base`. Injectable so tests never touch the network.
 Fetcher = Callable[[str, str, date], tuple[Decimal, date] | None]
+#: Every rate published between two dates, in one call: `{published_on: rate}`, or None when down.
+RangeFetcher = Callable[[str, str, date, date], dict[date, Decimal] | None]
 
 
 @dataclass(frozen=True)
@@ -35,9 +37,31 @@ STAND_IN_MAX_AGE = timedelta(days=7)
 
 
 class FxService:
-    def __init__(self, fetcher: Fetcher, now: Callable[[], datetime] | None = None):
+    def __init__(
+        self,
+        fetcher: Fetcher,
+        now: Callable[[], datetime] | None = None,
+        range_fetcher: RangeFetcher | None = None,
+    ):
         self._fetch = fetcher
         self._now = now or (lambda: datetime.now(UTC))
+        self._fetch_range = range_fetcher
+
+    def preload(self, db: Session, base: str, quote: str, start: date, end: date) -> int:
+        """Hold every rate published between two dates, asked for in one call instead of one per
+        day. Returns how many were stored. It is a courtesy to whoever is about to resolve many
+        dates — a file of orders, six months of sample data — and never a condition: without a range
+        fetcher, or with the provider down, it stores nothing and `resolve` does what it always did.
+        """
+        if base == quote or self._fetch_range is None or start > end:
+            return 0
+        published = self._fetch_range(base, quote, start, end)
+        if not published:
+            return 0
+        for published_on, rate in published.items():
+            db.merge(FxRate(base=base, quote=quote, rate_date=published_on, rate=rate, source="ecb"))
+        db.flush()
+        return len(published)
 
     def resolve(
         self,

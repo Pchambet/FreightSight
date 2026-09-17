@@ -112,3 +112,32 @@ def test_a_provider_outage_does_not_block_an_estimate_dated_at_the_eta(db: Sessi
     # ...but a past working day has a real quote somewhere: that one is never guessed
     with pytest.raises(Unprocessable):
         down.resolve(db, "EUR", "USD", date(2026, 9, 16))
+
+
+def test_a_preloaded_period_is_answered_without_asking_again(db: Session) -> None:
+    """Six months of sample data, or a file of two hundred orders: one call, then the cache."""
+    asked: list[date] = []
+
+    def fetch(base: str, quote: str, on_date: date) -> tuple[Decimal, date] | None:
+        asked.append(on_date)
+        return None
+
+    def fetch_range(base: str, quote: str, start: date, end: date) -> dict[date, Decimal] | None:
+        return {date(2026, 9, 10): Decimal("0.9100"), FRIDAY: Decimal("0.9187")}
+
+    fx = FxService(fetch, now=lambda: NOW, range_fetcher=fetch_range)
+    assert fx.preload(db, "EUR", "USD", date(2026, 9, 1), FRIDAY) == 2
+
+    thursday = fx.resolve(db, "EUR", "USD", date(2026, 9, 10))
+    weekend = fx.resolve(db, "EUR", "USD", SATURDAY)
+    assert (thursday.rate, thursday.source) == (Decimal("0.9100"), "ecb")
+    assert (weekend.rate, weekend.rate_date, weekend.source) == (Decimal("0.9187"), FRIDAY, "ecb_latest")
+    assert asked == []
+
+
+def test_preloading_is_a_courtesy_never_a_condition(db: Session) -> None:
+    _, plain = fixed("0.9187", FRIDAY)
+    assert plain.preload(db, "EUR", "USD", date(2026, 9, 1), FRIDAY) == 0  # no range fetcher at all
+    down = FxService(lambda b, q, d: None, range_fetcher=lambda b, q, s, e: None)
+    assert down.preload(db, "EUR", "USD", date(2026, 9, 1), FRIDAY) == 0  # provider unreachable
+    assert down.preload(db, "EUR", "EUR", date(2026, 9, 1), FRIDAY) == 0  # nothing to convert
