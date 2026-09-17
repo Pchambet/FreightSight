@@ -79,6 +79,12 @@ def test_the_whole_differential_flow_against_a_real_odoo(
     client: TestClient, db: Session, org: Organization, odoo: Any
 ) -> None:
     _connect(client)
+    # The whole scenario is written in euros, and a landed cost is read in the ERP company's own
+    # currency — which the push now refuses to guess at. An instance whose company is in USD (the
+    # generic Odoo demo) would be blocked, correctly, by a check this test is not about.
+    company_currency = odoo.company_currency()
+    if company_currency not in (None, "EUR"):
+        pytest.skip(f"this instance's company keeps its books in {company_currency}, not EUR")
     container_id = seed_container(client)  # freight FA-2026-0912, 2766.67
 
     first = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")

@@ -3,14 +3,20 @@
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { AlertTriangle, CheckCircle2, ExternalLink, History, Loader2, RefreshCw, Send, Undo2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, History, Info, Loader2, RefreshCw, Send, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { btnPrimary, btnSecondary, Card } from "@/components/layout/AppShell";
 import { Money } from "@/components/shared/Money";
 import { forgetErpPush, listErpPushes, previewErpLandedCost, pushErpLandedCost, type ErpLandedCostPreview, type ErpPushResponse } from "@/features/actions";
 import { dateTimeShort } from "@/lib/format";
 
-const KNOWN_BLOCKERS = new Set(["no_erp_connection", "no_actual_costs", "no_receipt", "multiple_receipts", "not_valued", "unmatched_line", "already_pushed", "pushed_cost_changed", "pushed_cost_gone"]);
+const KNOWN_BLOCKERS = new Set(["no_erp_connection", "no_actual_costs", "no_receipt", "multiple_receipts", "not_valued", "unmatched_line", "already_pushed", "pushed_cost_changed", "pushed_cost_gone", "ambiguous_line", "erp_currency_mismatch"]);
+
+// `pushed_cost_changed`/`pushed_cost_gone` are advisory since the ERP lane's change: `pushable` can
+// be true while they are still listed (a stale draft to clean up in Odoo, not something blocking
+// this push). The schema has no `blocking` flag to read yet (needs_other_lane), so these two known
+// codes are told apart from an actual refusal by their code rather than by a field.
+const ADVISORY_BLOCKERS = new Set(["pushed_cost_changed", "pushed_cost_gone"]);
 
 type Loaded = { preview: ErpLandedCostPreview; pushes: ErpPushResponse[] };
 type State = { loading: boolean; data: Loaded | null; error: string | null };
@@ -93,9 +99,9 @@ export default function LandedCostPush({ containerId, currency, embedded = false
   const preview = data?.preview ?? null;
   const pushes = data?.pushes ?? [];
   const blockers = preview?.blockers ?? [];
-  /** The blocker in the reader's language, from its code and moving parts; the API's own sentence only for a code this screen does not know. */
+  /** The blocker in the reader's language, from its code and moving parts; a code this screen does not know yet gets a neutral sentence, never the API's English one. */
   const blockerText = (b: { code: string; message: string; params?: Record<string, string> }) => {
-    if (!KNOWN_BLOCKERS.has(b.code)) return b.message;
+    if (!KNOWN_BLOCKERS.has(b.code)) return t("blocker.unknown");
     const params = { ...(b.params ?? {}) };
     if (b.code === "unmatched_line" && !params.sku) params.sku = t("blocker.noSku");
     return t(`blocker.${b.code}` as never, params as never);
@@ -133,12 +139,19 @@ export default function LandedCostPush({ containerId, currency, embedded = false
             </div>
           ) : null}
 
-          {blockers.filter((b) => b.code !== "already_pushed").map((b, i) => (
-            <div key={`${b.code}-${i}`} className="flex items-start text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-              <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 shrink-0 text-amber-600" />
-              <span>{blockerText(b)}</span>
-            </div>
-          ))}
+          {blockers.filter((b) => b.code !== "already_pushed").map((b, i) =>
+            ADVISORY_BLOCKERS.has(b.code) ? (
+              <div key={`${b.code}-${i}`} className="flex items-start text-sm text-blue-900 bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
+                <Info className="w-4 h-4 mr-2 mt-0.5 shrink-0 text-blue-600" />
+                <span>{blockerText(b)}</span>
+              </div>
+            ) : (
+              <div key={`${b.code}-${i}`} className="flex items-start text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 shrink-0 text-amber-600" />
+                <span>{blockerText(b)}</span>
+              </div>
+            ),
+          )}
 
           {preview.costs.length > 0 ? (
             <div className="border border-slate-200 rounded-md overflow-hidden">

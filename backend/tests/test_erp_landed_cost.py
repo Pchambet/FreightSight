@@ -45,6 +45,15 @@ EXTRA_PRODUCT = {
     "valuation": "real_time",
     "cost_method": "fifo",
 }
+#: The same product, received a second time on the same receipt — a second lot, its own move and its
+#: own purchase order line. One SKU, two moves.
+SPLIT_MOVE = {
+    "id": 42,
+    "picking_id": [22, "WH/IN/00007"],
+    "product_id": [37, "[TYR-20555R16] FS Tyre 205/55R16"],
+    "purchase_line_id": [25, "FS Tyre"],
+    "quantity": 200.0,
+}
 
 
 @pytest.fixture(autouse=True)
@@ -78,7 +87,15 @@ class WritableOdoo:
     """
 
     def __init__(
-        self, *, valued: bool = True, receipts: int = 1, fail_create: bool = False, extra_move: bool = False
+        self,
+        *,
+        valued: bool = True,
+        receipts: int = 1,
+        fail_create: bool = False,
+        extra_move: bool = False,
+        split_move: bool = False,
+        currency: str = "EUR",
+        cost_lines_reversed: bool = False,
     ) -> None:
         self.valued = valued
         self.receipts = receipts
@@ -86,6 +103,15 @@ class WritableOdoo:
         # A second product on the same receipt, which the container being pushed does not carry.
         # Odoo's own split still gives it a share; ours must take that share back.
         self.extra_move = extra_move
+        # The same product received in two lots: two moves, one SKU. The ordinary case as soon as
+        # there are two delivery dates, and the one that used to lose half of the split.
+        self.split_move = split_move
+        # What the ERP company keeps its books in. Ours pushes a bare number.
+        self.currency = currency
+        # Odoo returns an x2many in no contractual order; on a draft adopted from an interrupted
+        # attempt it is whatever that attempt left. Reversing it is how the order is proved not to
+        # be what pairs our charges with their lines.
+        self.cost_lines_reversed = cost_lines_reversed
         self.created: list[dict[str, Any]] = []
         self.written: list[tuple[int, dict[str, Any]]] = []
         self.documents: dict[int, dict[str, Any]] = {}
@@ -120,9 +146,17 @@ class WritableOdoo:
         return document_id
 
     def moves(self) -> list[dict[str, Any]]:
-        if not self.extra_move:
-            return list(FIXTURE["moves"])
-        return [*FIXTURE["moves"], EXTRA_MOVE]
+        moves = list(FIXTURE["moves"])
+        if self.extra_move:
+            moves.append(EXTRA_MOVE)
+        if self.split_move:
+            moves.append(SPLIT_MOVE)
+        return moves
+
+    def cost_line_rows(self) -> dict[int, dict[str, Any]]:
+        return {
+            line["id"]: line for document in self.documents.values() for line in document["cost_line_rows"]
+        }
 
     def compute(self, document_id: int) -> None:
         """What `compute_landed_cost` does: one adjustment line per cost line and per move, with
@@ -194,8 +228,14 @@ class _Models:
                 return pickings
             case ("stock.move", "search_read"):
                 return self.odoo.moves()
+            case ("res.company", "read"):
+                return [{"id": 1, "currency_id": [1, self.odoo.currency]}]
             case ("purchase.order.line", "read"):
-                return FIXTURE["purchase_order_lines"]
+                lines = list(FIXTURE["purchase_order_lines"])
+                if self.odoo.split_move:
+                    # The second lot is a second order line of the same order.
+                    lines.append({"id": 25, "order_id": [12, PO_NUMBER]})
+                return lines
             case ("product.product", "read"):
                 if self.odoo.valued:
                     if self.odoo.extra_move:
@@ -233,7 +273,14 @@ class _Models:
                 return True
             case ("stock.landed.cost", "read"):
                 document = self.odoo.documents[args[0][0]]
-                return [{f: document.get(f) for f in ["id", *(kwargs.get("fields") or [])]}]
+                row = {f: document.get(f) for f in ["id", *(kwargs.get("fields") or [])]}
+                if self.odoo.cost_lines_reversed:
+                    row["cost_lines"] = list(reversed(row.get("cost_lines") or []))
+                return [row]
+            case ("stock.landed.cost.lines", "read"):
+                rows = self.odoo.cost_line_rows()
+                fields = kwargs.get("fields") or []
+                return [{"id": i, **{f: rows[i].get(f) for f in fields}} for i in args[0] if i in rows]
             case ("stock.valuation.adjustment.lines", "search_read"):
                 document_id = args[0][0][2]
                 return list(self.odoo.documents[document_id]["adjustments"])
@@ -292,6 +339,51 @@ def seed_container(client: TestClient, *, invoiced: bool = True, sku: str | None
             },
         )
         assert cost.status_code == 201, cost.text
+    return container_id
+
+
+def seed_two_lines(client: TestClient, *, amount: str = "1000.00") -> str:
+    """One order with two lines of the same SKU, both in the container.
+
+    Two delivery dates or two lots, and Odoo has two receipt lines for one product: the ordinary
+    case the audit found, where half of our split used to be overwritten on the way out.
+    """
+    po = client.post(
+        "/api/v1/purchase-orders",
+        json={
+            "po_number": PO_NUMBER,
+            "currency": "EUR",
+            "lines": [
+                {"line_no": 1, "sku": SKU, "quantity": "100", "unit_price": "10.00"},
+                {"line_no": 2, "sku": SKU, "quantity": "200", "unit_price": "10.00"},
+            ],
+        },
+    )
+    assert po.status_code == 201, po.text
+    container = client.post("/api/v1/containers", json={"container_number": "MSCU4821990"})
+    container_id = str(container.json()["id"])
+    loads = client.put(
+        f"/api/v1/containers/{container_id}/loads",
+        json=[
+            {"po_line_id": po.json()["lines"][0]["id"], "quantity": "100"},
+            {"po_line_id": po.json()["lines"][1]["id"], "quantity": "200"},
+        ],
+    )
+    assert loads.status_code == 200, loads.text
+    cost = client.post(
+        "/api/v1/costs",
+        json={
+            "scope": "CONTAINER",
+            "target_id": container_id,
+            "cost_type": "OCEAN_FREIGHT",
+            "amount": amount,
+            "currency": "EUR",
+            "cost_date": "2026-03-12",
+            "invoice_number": "FA-2026-0912",
+            "vendor": "Transitex",
+        },
+    )
+    assert cost.status_code == 201, cost.text
     return container_id
 
 
@@ -655,6 +747,113 @@ def test_a_line_the_receipt_does_not_have_stops_the_push(
     assert list(db.scalars(select(ErpPush))) == []
 
 
+def test_two_order_lines_on_one_receipt_line_are_summed_not_overwritten(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same SKU ordered twice and received once is one move carrying both shares.
+
+    Odoo takes one amount per move. Sending the second share alone — which is what a dict keyed by
+    move id does when nothing sums — leaves the adjustments short of the charge, and Odoo refuses to
+    validate the document at the accountant's screen, naming no line.
+    """
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_two_lines(client)
+
+    body = preview(client, container_id)
+    assert body["pushable"] is True
+    (cost,) = body["costs"]
+    (line,) = cost["lines"]  # one receipt line, one amount
+    assert line["move_id"] == MOVE_ID
+    assert line["amount"] == "1000.00"  # 333.33 + 666.67, not one of them
+
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 201
+    assert odoo.written == [(3, {"additional_landed_cost": 1000.0})]
+
+
+def test_one_sku_on_two_receipt_lines_is_refused_rather_than_guessed(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two lots of one product are two moves, and nothing tells us which of our lines is which.
+
+    Our order lines arrive through the CSV import, which carries no Odoo line id; putting the whole
+    charge on the first move — or splitting it by rank — charges the cost to the wrong goods, and
+    the document validates all the same. Refused, with both moves named.
+    """
+    odoo = WritableOdoo(split_move=True)
+    connect(client, odoo, monkeypatch)
+    container_id = seed_two_lines(client)
+
+    body = preview(client, container_id)
+    assert body["pushable"] is False
+    blocker = next(b for b in body["blockers"] if b["code"] == "ambiguous_line")
+    assert blocker["params"]["count"] == "2"
+    assert blocker["params"]["moves"] == f"{MOVE_ID}, {SPLIT_MOVE['id']}"
+    assert blocker["params"]["sku"] == SKU
+
+    res = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
+    assert res.status_code == 422
+    assert res.json()["code"] == "ERP_PUSH_BLOCKED"
+    assert odoo.created == []
+    assert list(db.scalars(select(ErpPush))) == []
+
+
+def test_our_charges_are_paired_with_their_lines_by_identity_not_by_rank(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Odoo returns an x2many in no contractual order, and an adopted draft returns the order the
+    interrupted attempt left. Pairing by rank swaps the charges between products: the totals stay
+    right, the document validates, and the cost per SKU is wrong where nobody will ever look."""
+    odoo = WritableOdoo(cost_lines_reversed=True)
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    duty = client.post(
+        "/api/v1/costs",
+        json={
+            "scope": "CONTAINER",
+            "target_id": container_id,
+            "cost_type": "CUSTOMS_DUTY",
+            "amount": "275.00",
+            "currency": "EUR",
+            "cost_date": "2026-03-20",
+            "invoice_number": "FA-2026-1104",
+        },
+    )
+    assert duty.status_code == 201, duty.text
+
+    res = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
+    assert res.status_code == 201, res.text
+
+    written = {adjustment_id: values["additional_landed_cost"] for adjustment_id, values in odoo.written}
+    (document,) = odoo.documents.values()
+    by_charge = {a["cost_line_id"][1]: written.get(a["id"]) for a in document["adjustments"]}
+    assert by_charge == {
+        "Ocean Freight — invoice FA-2026-0912 — Transitex": 2766.67,
+        "Customs Duty — invoice FA-2026-1104": 275.0,
+    }
+
+
+def test_a_company_in_another_currency_stops_the_push(
+    client: TestClient, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """We push a bare number and Odoo reads it in its company's currency. Nothing in the document
+    records ours, so a mismatch is not an error anywhere — only a stock valuation wrong by the
+    exchange rate, for good."""
+    odoo = WritableOdoo(currency="CHF")
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+
+    body = preview(client, container_id)
+    assert body["pushable"] is False
+    blocker = next(b for b in body["blockers"] if b["code"] == "erp_currency_mismatch")
+    assert blocker["params"] == {"erp_currency": "CHF", "base_currency": "EUR"}
+
+    res = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
+    assert res.status_code == 422
+    assert res.json()["code"] == "ERP_PUSH_BLOCKED"
+    assert odoo.created == []
+
+
 def test_a_line_with_no_sku_at_all_says_so_without_inventing_one(
     client: TestClient, org: Organization, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -750,6 +949,60 @@ def test_a_push_is_forgotten_only_once_its_document_is_gone(
     again = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
     assert again.status_code == 201, again.text
     assert again.json()["odoo_id"] != pushed["odoo_id"]
+
+
+def test_a_validated_document_is_forgotten_against_a_reason(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The accountant validates the draft the same evening — which is what we ask them to do.
+
+    From then on the document cannot be deleted: it has posted entries. "Delete it there, forget it
+    here, push again" was an instruction nobody could follow, and the container was finished: the
+    demurrage invoice of the following week could never leave. So it is let go of, against a written
+    reason, and the correction goes through a new adjustment document in their books.
+    """
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    pushed = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    odoo.documents[pushed["odoo_id"]]["state"] = "done"
+
+    without_reason = client.delete(f"/api/v1/containers/{container_id}/erp/pushes/{pushed['id']}")
+    assert without_reason.status_code == 422
+    assert without_reason.json()["code"] == "ERP_FORGET_REASON_REQUIRED"
+    assert without_reason.json()["document"]["state"] == "done"
+
+    forgotten = client.delete(
+        f"/api/v1/containers/{container_id}/erp/pushes/{pushed['id']}",
+        params={"reason": "validé chez le client, corrigé par un document d'ajustement"},
+    )
+    assert forgotten.status_code == 200, forgotten.text
+    assert forgotten.json()["forgotten_at"] is not None
+
+    # the state it was in when we let go of it is in the trail, because that is the whole story
+    entry = client.get("/api/v1/audit-log", params={"action": "erp.push_forgotten"}).json()["entries"][0]
+    assert entry["after"]["document_state"] == "done"
+
+    # and the container lives again: what the document carries can be pushed once more
+    assert preview(client, container_id)["pushable"] is True
+
+
+def test_a_draft_still_in_the_erp_is_never_forgotten_even_with_a_reason(
+    client: TestClient, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A draft can be deleted over there, so there is no dead end to get out of — and forgetting it
+    while it stands would let the same charge be written into their books twice."""
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    pushed = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+
+    refused = client.delete(
+        f"/api/v1/containers/{container_id}/erp/pushes/{pushed['id']}",
+        params={"reason": "je préfère repartir de zéro"},
+    )
+    assert refused.status_code == 409
+    assert refused.json()["code"] == "ERP_DOCUMENT_STILL_THERE"
 
 
 def test_forgetting_a_push_is_in_the_audit_log(
@@ -865,11 +1118,12 @@ def test_a_line_we_allocated_nothing_to_is_taken_back_from_odoo_s_split(
     assert by_move == {MOVE_ID: 2766.67, EXTRA_MOVE["id"]: 0.0}
 
 
-def test_a_cost_edited_after_its_push_blocks_until_the_draft_is_redone(
+def test_a_cost_edited_after_its_push_is_said_on_the_cost_it_concerns(
     client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The draft is a copy of a moment. Once the cost behind it changes here, the copy is wrong in
-    someone else's books and nothing over there says so — so it blocks here, with the two figures."""
+    someone else's books and nothing over there says so — so the preview says it, with both
+    figures. It does not push it again: a carried cost is never sent twice."""
     odoo = WritableOdoo()
     connect(client, odoo, monkeypatch)
     container_id = seed_container(client)
@@ -884,10 +1138,48 @@ def test_a_cost_edited_after_its_push_blocks_until_the_draft_is_redone(
     (blocker,) = [b for b in body["blockers"] if b["code"] == "pushed_cost_changed"]
     assert blocker["params"]["existing"] == DOCUMENT
     assert "2766.67 → 2900.00" in blocker["params"]["changes"]
-    assert body["pushable"] is False
     # and a push does not quietly add a second document with the new figure
     assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 201
     assert len(odoo.documents) == 1
+
+
+def test_a_drifted_cost_does_not_hold_back_the_next_invoice(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The demurrage invoice that lands a week later has nothing to do with the freight whose
+    amount was corrected. Blocking the whole container on that correction left it unable to push
+    anything, ever again — and the remedy printed on the screen could not be carried out."""
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 201
+
+    (freight,) = client.get(f"/api/v1/landed-costs/containers/{container_id}").json()["costs"]
+    assert client.patch(f"/api/v1/costs/{freight['id']}", json={"amount": "2900.00"}).status_code == 200
+    later = client.post(
+        "/api/v1/costs",
+        json={
+            "scope": "CONTAINER",
+            "target_id": container_id,
+            "cost_type": "DEMURRAGE",
+            "amount": "480.00",
+            "currency": "EUR",
+            "cost_date": "2026-03-25",
+            "invoice_number": "FA-2026-1210",
+        },
+    )
+    assert later.status_code == 201, later.text
+
+    body = preview(client, container_id)
+    assert [b["code"] for b in body["blockers"]] == ["pushed_cost_changed"]
+    assert body["pushable"] is True
+    assert body["total"] == "480.00"  # the demurrage alone
+
+    pushed = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
+    assert pushed.status_code == 201, pushed.text
+    assert len(odoo.documents) == 2
+    (line_command,) = odoo.created[1]["cost_lines"]
+    assert line_command[2]["price_unit"] == 480.0  # and it carries the demurrage, not the drift
 
 
 def test_a_cost_deleted_after_its_push_blocks_too(

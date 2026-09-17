@@ -25,9 +25,13 @@ from collections.abc import Callable
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
+from urllib.parse import urlsplit
+from xml.parsers.expat import ExpatError
 
+from app.core.net import assert_public_host
 from app.domain.erp.ports import (
     ErpAuthError,
+    ErpBadResponse,
     ErpCostLine,
     ErpDocument,
     ErpIdentity,
@@ -37,6 +41,7 @@ from app.domain.erp.ports import (
     ErpPushResult,
     ErpReceipt,
     ErpReceiptLine,
+    ErpTimeout,
     ErpUnavailable,
 )
 
@@ -140,6 +145,12 @@ def _fault_reason(exc: xmlrpc.client.Fault) -> str:
     return lines[-1] if lines else "Odoo returned an error"
 
 
+#: Everything that can come back from the wire instead of an answer. `ProtocolError` is what
+#: `xmlrpc` raises on any non-200 — a proxy's error page, a login wall, **and a redirect**, which is
+#: why a 302 to somewhere else is never followed. `ExpatError` is an answer that is not XML at all.
+TRANSPORT_ERRORS = (OSError, xmlrpc.client.ProtocolError, xmlrpc.client.ResponseError, ExpatError)
+
+
 class OdooConnector:
     name = NAME
 
@@ -165,11 +176,50 @@ class OdooConnector:
 
     # ------------------------------------------------------------------ plumbing
 
+    def _proxy(self, path: str) -> Any:
+        """A proxy on one of Odoo's two endpoints, for a host we are allowed to reach.
+
+        Vetted here rather than once when the connection was saved: the name a customer stored last
+        week can resolve to 127.0.0.1 today, and this is the last of our code that runs before a
+        socket opens. Outside production the check stands down (`core.net`), so the demo against
+        `host.docker.internal` is untouched.
+        """
+        assert_public_host(self.url)
+        return self._proxy_factory(f"{self.url}{path}", self._timeout)
+
     def _common(self) -> Any:
-        return self._proxy_factory(f"{self.url}/xmlrpc/2/common", self._timeout)
+        return self._proxy("/xmlrpc/2/common")
 
     def _models(self) -> Any:
-        return self._proxy_factory(f"{self.url}/xmlrpc/2/object", self._timeout)
+        return self._proxy("/xmlrpc/2/object")
+
+    def _host(self) -> str:
+        """The address as the customer knows it: no credentials, no path, no scheme."""
+        return urlsplit(self.url).netloc.rsplit("@", 1)[-1] or self.url
+
+    def _down(self, exc: Exception, *, during: str) -> ErpUnavailable:
+        """One coded error for anything the wire raises, with the technical detail left in the logs.
+
+        What the socket says — an errno, our own container's hostname, a proxy's HTML — belongs to
+        whoever operates this service, not to the customer looking at their ERP card. They get the
+        host, the code, and a sentence their screen can translate.
+        """
+        host = self._host()
+        logger.warning(
+            "odoo call failed",
+            extra={"host": host, "during": during, "detail": self._safe(f"{type(exc).__name__}: {exc}")},
+        )
+        params = {"host": host}
+        if isinstance(exc, TimeoutError):
+            return ErpTimeout(
+                f"Odoo at {host} did not answer within {self._timeout:.0f} seconds.",
+                params={**params, "seconds": f"{self._timeout:.0f}"},
+            )
+        if isinstance(exc, OSError):
+            return ErpUnavailable(f"Odoo is unreachable at {host}.", params=params)
+        return ErpBadResponse(
+            f"{host} answered something that is not an Odoo XML-RPC endpoint.", params=params
+        )
 
     def _authenticate(self) -> int:
         if self._uid is not None:
@@ -178,13 +228,17 @@ class OdooConnector:
             uid = self._common().authenticate(self.database, self.login, self.api_key, {})
         except xmlrpc.client.Fault as exc:
             # A database that does not exist comes back as a Fault, not as False.
-            raise ErpAuthError(self._safe(f"Odoo refused the connection: {_fault_reason(exc)}")) from exc
-        except OSError as exc:
-            raise ErpUnavailable(self._safe(f"Odoo is unreachable at {self.url}: {exc}")) from exc
+            raise ErpAuthError(
+                self._safe(f"Odoo refused the connection: {_fault_reason(exc)}"),
+                params={"host": self._host(), "database": self.database, "login": self.login},
+            ) from exc
+        except TRANSPORT_ERRORS as exc:
+            raise self._down(exc, during="authenticate") from exc
         if not uid:
             raise ErpAuthError(
                 f"Odoo refused the credentials for {self.login!r} on database {self.database!r}. "
-                "Check the login and the API key (Preferences → Account Security → API keys)."
+                "Check the login and the API key (Preferences → Account Security → API keys).",
+                params={"host": self._host(), "database": self.database, "login": self.login},
             )
         self._uid = int(uid)
         return self._uid
@@ -207,18 +261,19 @@ class OdooConnector:
             )
         except xmlrpc.client.Fault as exc:
             raise ErpProtocolError(
-                self._safe(f"Odoo could not answer {model}.{method}: {_fault_reason(exc)}")
+                self._safe(f"Odoo could not answer {model}.{method}: {_fault_reason(exc)}"),
+                params={"host": self._host(), "model": model, "method": method},
             ) from exc
-        except OSError as exc:
-            raise ErpUnavailable(self._safe(f"Odoo is unreachable at {self.url}: {exc}")) from exc
+        except TRANSPORT_ERRORS as exc:
+            raise self._down(exc, during=f"{model}.{method}") from exc
 
     # ------------------------------------------------------------------ the port
 
     def test_connection(self) -> ErpIdentity:
         try:
             version = self._common().version().get("server_version", "unknown")
-        except OSError as exc:
-            raise ErpUnavailable(self._safe(f"Odoo is unreachable at {self.url}: {exc}")) from exc
+        except TRANSPORT_ERRORS as exc:
+            raise self._down(exc, during="version") from exc
         uid = self._authenticate()
         user = self._kw("res.users", "read", [uid], fields=["name", "company_id"])
         company = None
@@ -334,6 +389,22 @@ class OdooConnector:
         return collected
 
     # ------------------------------------------------------------------ writing back
+
+    def company_currency(self) -> str | None:
+        """The currency the company behind this login keeps its books in, as its ISO code.
+
+        Two reads rather than one: `res.users` gives the company, `res.company` its currency, and
+        `res.currency.name` *is* the ISO code in Odoo. A connector that cannot see either answers
+        None, and the caller then says "we could not check" instead of inventing a match.
+        """
+        uid = self._authenticate()
+        user = self._kw("res.users", "read", [uid], fields=["company_id"])
+        company = user[0].get("company_id") if user else None
+        if not company:
+            return None
+        rows = self._kw("res.company", "read", [int(company[0])], fields=["currency_id"])
+        currency = rows[0].get("currency_id") if rows else None
+        return str(currency[1]) if currency else None
 
     def find_receipts(self, po_numbers: list[str]) -> list[ErpReceipt]:
         """The done receipts of these orders, with enough about each line to know if Odoo can value it."""
@@ -558,14 +629,52 @@ class OdooConnector:
             )
         return int(draft["id"])
 
+    def _our_line_ids(self, cost_lines: list[ErpCostLine], created_line_ids: list[int]) -> list[int]:
+        """Which id in the document belongs to which of our charges, by identity and not by rank.
+
+        Zipping our list with the ids Odoo returned assumed the x2many comes back in creation order.
+        On a draft *adopted* from an interrupted attempt the order is whatever that attempt left, and
+        a mismatch swaps the charges between products: the document still validates, the totals are
+        still right, and the cost per SKU is quietly wrong — the one error nobody ever notices.
+
+        So the lines are read back and matched on what we wrote into them, the label and the amount.
+        Two charges that carry the same label *and* the same amount are indistinguishable in Odoo
+        and interchangeable here; they are taken in id order, which is the old behaviour for the only
+        case where it cannot do harm.
+        """
+        if not created_line_ids:
+            return []
+        rows = self._kw(
+            "stock.landed.cost.lines", "read", sorted(created_line_ids), fields=["name", "price_unit"]
+        )
+        available: dict[tuple[str, str], list[int]] = {}
+        for row in sorted(rows, key=lambda r: int(r["id"])):
+            key = (str(row.get("name") or ""), f"{Decimal(str(row.get('price_unit') or 0)):.2f}")
+            available.setdefault(key, []).append(int(row["id"]))
+        matched: list[int] = []
+        for line in cost_lines:
+            key = (line.label[:200], f"{Decimal(line.amount):.2f}")
+            candidates = available.get(key) or []
+            if not candidates:
+                raise ErpProtocolError(
+                    f"The document does not carry the charge {line.label!r} we just wrote into it, "
+                    "so we cannot tell which line our split belongs to. Delete this draft in Odoo "
+                    "and push again.",
+                    code="ERP_SPLIT_UNMATCHED",
+                    params={"label": line.label},
+                )
+            matched.append(candidates.pop(0))
+        return matched
+
     def _apply_our_split(
         self, record_id: int, cost_lines: list[ErpCostLine], created_line_ids: list[int]
     ) -> None:
         """Replace Odoo's split with ours, line by line.
 
-        Matched on the created cost line's *id* rather than its label: Odoo truncates the name it
-        stores, and a user can rename it, so matching on text would silently write nothing.
+        Matched on the adjustment's `cost_line_id` rather than on its label: Odoo truncates the name
+        it stores, and a user can rename it, so matching on text would silently write nothing.
         """
+        line_ids = self._our_line_ids(cost_lines, [int(line_id) for line_id in created_line_ids])
         adjustments = self._kw(
             "stock.valuation.adjustment.lines",
             "search_read",
@@ -573,10 +682,10 @@ class OdooConnector:
             fields=["move_id", "cost_line_id", "additional_landed_cost"],
         )
         wanted: dict[tuple[int, int], Decimal] = {}
-        for line, line_id in zip(cost_lines, created_line_ids, strict=False):
+        for line, line_id in zip(cost_lines, line_ids, strict=True):
             for move_id, amount in line.per_move.items():
                 wanted[(int(line_id), int(move_id))] = Decimal(amount)
-        ours = {int(line_id) for line_id in created_line_ids}
+        ours = set(line_ids)
         for adjustment in adjustments:
             move = adjustment.get("move_id")
             cost_line = adjustment.get("cost_line_id")

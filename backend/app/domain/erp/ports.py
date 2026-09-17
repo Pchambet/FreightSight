@@ -24,8 +24,28 @@ class ErpAuthError(DomainError):
 
 
 class ErpUnavailable(DomainError):
+    """Nothing answered at that address.
+
+    Every one of these carries `params` with the host, and nothing else: the screen that shows it is
+    the customer's, and `[Errno 111] Connection refused at http://host.docker.internal:8169` told a
+    prospect our container's hostname and an errno instead of "their Odoo is down". The socket's own
+    words stay in the logs, where the person who can act on them is.
+    """
+
     status = 502
-    code = "ERP_UNAVAILABLE"
+    code = "ERP_UNREACHABLE"
+
+
+class ErpTimeout(ErpUnavailable):
+    """The ERP took longer than we give it. Its own state, not a network that is down."""
+
+    code = "ERP_TIMEOUT"
+
+
+class ErpBadResponse(ErpUnavailable):
+    """Something answered, and it was not an ERP: a proxy error page, a redirect, broken XML."""
+
+    code = "ERP_BAD_RESPONSE"
 
 
 class ErpProtocolError(DomainError):
@@ -141,6 +161,15 @@ class ErpWriter(Protocol):
 
     def find_receipts(self, po_numbers: list[str]) -> list[ErpReceipt]:
         """The done receipts of these purchase orders, with what Odoo knows about each line."""
+        ...
+
+    def company_currency(self) -> str | None:
+        """The currency the ERP's company keeps its books in, or None if it will not say.
+
+        We push a bare number into `price_unit`, and the ERP reads it in its company's currency. A
+        group whose Odoo is in CHF would get our euros valued as francs, silently and in their
+        stock valuation — so the two currencies are compared before anything is written.
+        """
         ...
 
     def create_landed_cost(

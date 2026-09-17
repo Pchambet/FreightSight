@@ -32,7 +32,7 @@ export default function ErpConnection({ connection, runs }: { connection: Conn |
     start(async () => {
       const r = await syncErp(full);
       if (!r.ok) return void toast.error(r.error);
-      if (r.data.status === "FAILED") toast.error(`${t("syncFailed")}${r.data.error ? ` · ${r.data.error}` : ""}`);
+      if (r.data.status === "FAILED") toast.error(r.data.error ? `${t("syncFailed")} · ${t("lastErrorGeneric")}` : t("syncFailed"));
       else toast.success(t("synced", { orders: r.data.orders, lines: r.data.lines }));
       router.refresh();
     });
@@ -53,7 +53,9 @@ export default function ErpConnection({ connection, runs }: { connection: Conn |
             <span className="text-sm text-slate-600">{t("connectedDetail", { kind: connection.kind === "ODOO" ? "Odoo" : connection.kind, version: connection.server_version ?? "", company: connection.company ?? "" })}</span>
             <span className="text-xs text-slate-400">· {connection.url} · {connection.database} · {connection.login}</span>
           </div>
-          <div className="text-xs text-slate-500">{connection.last_sync_at ? t("lastSync", { date: dateTimeShort(connection.last_sync_at, locale) }) : t("neverSynced")}{connection.last_error ? <span className="text-red-600"> · {t("lastError", { error: connection.last_error })}</span> : null}</div>
+          {/* connection.last_error is a raw, uncoded backend string (now readable prose, but still
+              English on record) — shown as a generic sentence rather than verbatim; see needs_other_lane. */}
+          <div className="text-xs text-slate-500">{connection.last_sync_at ? t("lastSync", { date: dateTimeShort(connection.last_sync_at, locale) }) : t("neverSynced")}{connection.last_error ? <span className="text-red-600"> · {t("lastErrorGeneric")}</span> : null}</div>
           {connection.consecutive_failures > 0 ? (
             <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
               {t("unreachable", { count: connection.consecutive_failures })}
@@ -73,7 +75,7 @@ export default function ErpConnection({ connection, runs }: { connection: Conn |
                 <thead><tr><th className={th}>{t("run.started")}</th><th className={th}>{t("run.status")}</th><th className={th}>{t("run.orders")}</th><th className={th}>{t("run.lines")}</th><th className={th}>{t("run.error")}</th></tr></thead>
                 <tbody className="divide-y divide-slate-200">
                   {runs.map((r) => (
-                    <tr key={r.id}><td className={`${td} tabular-nums`}>{dateTimeShort(r.started_at, locale)}</td><td className={td}><span className={r.status === "FAILED" ? "text-red-700" : r.status === "SUCCEEDED" ? "text-emerald-700" : ""}>{t(`status.${r.status}`)}</span></td><td className={`${td} tabular-nums`}>{r.purchase_orders}</td><td className={`${td} tabular-nums`}>{r.lines}</td><td className={`${td} text-xs text-slate-500`}>{r.error ?? ""}</td></tr>
+                    <tr key={r.id}><td className={`${td} tabular-nums`}>{dateTimeShort(r.started_at, locale)}</td><td className={td}><span className={r.status === "FAILED" ? "text-red-700" : r.status === "SUCCEEDED" ? "text-emerald-700" : ""}>{t(`status.${r.status}`)}</span></td><td className={`${td} tabular-nums`}>{r.purchase_orders}</td><td className={`${td} tabular-nums`}>{r.lines}</td><td className={`${td} text-xs text-slate-500`}>{r.error ? t("lastErrorGeneric") : ""}</td></tr>
                   ))}
                 </tbody>
               </table>

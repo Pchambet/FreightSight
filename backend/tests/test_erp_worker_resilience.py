@@ -53,9 +53,12 @@ def test_an_erp_that_never_answers_does_not_hold_the_worker() -> None:
 
     assert not thread.is_alive(), "the call was still blocked: ServerProxy has no timeout of its own"
     assert time.monotonic() - started < 20
-    assert outcome and "ErpUnavailable" in outcome[0]
+    # A server that drops packets is its own answer — "it did not reply in time", not "nothing is
+    # listening" — and it carries its own code, so the screen can say which of the two happened.
+    assert outcome and "ErpTimeout" in outcome[0]
     # and the message is one a person can act on, naming the host and what happened
     assert "198.51.100.7" in outcome[0]
+    assert "did not answer within" in outcome[0]
 
 
 def test_the_timeout_comes_from_the_settings(monkeypatch: pytest.MonkeyPatch) -> None:

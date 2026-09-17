@@ -315,6 +315,40 @@ a deux mouvements pour le même produit (deux lignes de commande, ou un reliquat
 ventilation sur le premier. Odoo valorise alors ce mouvement seul. À traiter le jour où un partenaire
 a ce cas ; il se voit dans l'aperçu (les quantités).
 
+## 15 quinquies. Ce que l'audit du 17 septembre 2026 a changé
+
+Quatre règles ont bougé, toutes pour la même raison : le connecteur se grippait sur des cas banals.
+
+- **Même SKU deux fois dans une réception.** L'appariement se fait d'abord par l'identifiant de la
+  ligne de commande, que la ligne de réception porte déjà ; le SKU ne sert plus qu'à défaut, et
+  seulement s'il ne désigne qu'un mouvement. Les montants qui tombent légitimement sur le même
+  mouvement sont additionnés (ils étaient écrasés : Odoo recevait 333 € sur 1 000 € et refusait la
+  validation sans nommer de ligne). Un SKU qui désigne plusieurs mouvements sans identifiant pour
+  trancher donne le bloquant `ambiguous_line`. La somme des parts est vérifiée avant tout appel.
+- **Oublier un push dont le document est validé ou annulé.** §15 ter exigeait que le document ait
+  disparu d'Odoo. Or un coût de réception validé ne se supprime pas : il a passé des écritures. Un
+  coût corrigé le lendemain de la validation verrouillait donc le conteneur pour toujours. On peut
+  désormais oublier un push dont le document est `done` ou `cancel`, contre un motif écrit, avec
+  l'entrée d'historique ; tant qu'il est en brouillon, le refus reste (on le supprime dans Odoo
+  d'abord). La correction comptable passe par un nouveau document d'ajustement.
+- **La dérive se dit, elle ne bloque plus le reste.** `pushed_cost_changed` et `pushed_cost_gone`
+  restent affichés sur la fiche, avec l'ancien et le nouveau montant et la marche à suivre, mais ils
+  n'empêchent plus de pousser un coût sans rapport (la facture de surestaries de la semaine
+  suivante). Contrepartie assumée, relevée en relecture : tant que la personne ne refait pas le
+  document, Odoo porte l'ancien chiffre et FreightSight le nouveau. La remarque reste à l'écran
+  jusqu'à ce que ce soit fait. Si un partenaire s'y perd, la suite logique est une case
+  « j'ai compris » exigée avant le push.
+- **Devise de la société Odoo.** Si elle diffère de la devise de base de l'organisation, le push est
+  refusé (`erp_currency_mismatch`) au lieu d'écrire des euros dans une comptabilité en dollars.
+
+Les erreurs du connecteur arrivent maintenant à l'écran par code (`ERP_UNREACHABLE`,
+`ERP_AUTH_FAILED`, `ERP_TIMEOUT`, `ERP_BAD_RESPONSE`), l'hôte affiché sans identifiants ni errno ;
+le détail technique reste dans les logs. Et l'URL saisie par le client est contrôlée
+(`app/core/net.py`) : pas d'adresse privée, de boucle locale, de lien local ni de nom en `.internal`
+en production, ports 80, 443, 8069 et 8071 seulement. Limite connue : le nom est résolu une seconde
+fois par `xmlrpc` au moment de l'appel ; un DNS qui change de réponse entre le contrôle et l'appel
+passerait. Le transport n'offre pas de prise pour épingler l'adresse.
+
 ## 16. Ce que je n'ai pas vérifié
 
 **Je n'ai pas regardé l'écran Odoo.** Me connecter à l'interface demandait de taper un mot de passe

@@ -3,7 +3,8 @@
 Order of resolution:
 1. `Authorization: Bearer <Clerk JWT>` when Clerk is configured: verified via JWKS, user/org/membership
    mirrored locally (the local membership is what authorises).
-2. Outside prod, `X-Org-Id` (+ optional `X-User-Email`) as a development principal with role OWNER.
+2. `X-Org-Id` (+ optional `X-User-Email`) as a development principal with role OWNER — only where
+   `ALLOW_DEV_PRINCIPAL` is on *and* the environment is not prod.
 3. Otherwise 401.
 """
 
@@ -118,7 +119,12 @@ def get_principal(
     auth = request.headers.get("authorization", "")
     if auth.lower().startswith("bearer ") and settings.clerk_enabled:
         return _principal_from_jwt(db, settings, auth[7:].strip())
-    if x_org_id is not None and not settings.is_prod:
+    # Two switches, and the header needs both. `APP_ENV` on its own was the whole barrier between
+    # production and a mode where an organisation id — which is not a secret; it is in /me, in
+    # tickets, in logs — reads and writes everything a tenant has. It lives in a dashboard, where a
+    # clone, a restore or a typo ("production", "Prod") silently demotes it to its "dev" default.
+    # `allow_dev_principal` is off by default, so losing `APP_ENV` now costs nothing.
+    if x_org_id is not None and settings.allow_dev_principal and not settings.is_prod:
         return _principal_from_dev_header(db, settings, x_org_id)
     if auth.lower().startswith("bearer "):
         raise Unauthorized("Authentication is not configured on this server")

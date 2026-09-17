@@ -35,6 +35,11 @@ services:
       APP_ENV: dev
       DATABASE_URL: postgresql+psycopg://fs:fs@db/fs
       CORS_ORIGINS: '["http://localhost:3000"]'
+      # The X-Org-Id header stands in for a login locally. It needs this on top of a non-prod
+      # APP_ENV, so that losing APP_ENV in production does not open the door on its own.
+      ALLOW_DEV_PRINCIPAL: "true"
+      # The demo Odoo lives on host.docker.internal: a private address, refused unless said so.
+      ALLOW_PRIVATE_OUTBOUND: "true"
       # Optional Clerk verification for local dev; values come from the repo-root .env (gitignored).
       CLERK_ISSUER: ${CLERK_ISSUER:-}
       CLERK_JWKS_URL: ${CLERK_JWKS_URL:-}
@@ -58,6 +63,9 @@ services:
     environment:
       APP_ENV: dev
       DATABASE_URL: postgresql+psycopg://fs:fs@db/fs
+      ALLOW_DEV_PRINCIPAL: "true"
+      # The demo Odoo lives on host.docker.internal: a private address, refused unless said so.
+      ALLOW_PRIVATE_OUTBOUND: "true"
       WORKER_CONCURRENCY: "2"
     volumes:
       - ./backend:/app

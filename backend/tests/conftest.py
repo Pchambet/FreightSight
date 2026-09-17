@@ -18,6 +18,12 @@ from sqlalchemy.orm import Session, sessionmaker
 
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("CORS_ORIGINS", '["http://localhost:3000"]')
+# The suite authenticates with the `X-Org-Id` dev header, which is now an explicit opt-in rather
+# than something a non-prod `APP_ENV` grants on its own. Set here, so a test that wants to prove the
+# header is refused only has to turn it off.
+os.environ.setdefault("ALLOW_DEV_PRINCIPAL", "true")
+# Same rule for outbound calls: the tests use made-up ERP hosts that must not be resolved.
+os.environ.setdefault("ALLOW_PRIVATE_OUTBOUND", "true")
 
 FAKE_RATES: dict[tuple[str, str], Decimal] = {
     ("EUR", "USD"): Decimal("0.92"),  # 1 USD = 0.92 EUR

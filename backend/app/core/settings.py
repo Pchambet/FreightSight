@@ -14,6 +14,18 @@ class Settings(BaseSettings):
     database_url: str = Field(description="postgresql+psycopg://user:pass@host:5432/db")
     cors_origins: list[str] = ["http://localhost:3000"]
     default_base_currency: str = "EUR"
+    #: Accept the unauthenticated `X-Org-Id` header as a full OWNER principal. Off unless someone
+    #: turns it on, and never in prod: `APP_ENV` alone guarded this, and `APP_ENV` lives in a
+    #: dashboard where it can be lost in a clone or a restore. Two switches, one of them versioned.
+    allow_dev_principal: bool = False
+    #: Ports an outbound connection may use on top of `core.net.ALLOWED_PORTS` — an escape hatch for
+    #: the customer whose Odoo sits behind a reverse proxy on an unusual port, set per deployment.
+    outbound_extra_ports: list[int] = []
+    #: Let a customer-supplied URL point at a private address (the throw-away Odoo on
+    #: host.docker.internal). Same two-switch rule as the development principal, for the same
+    #: reason: with `APP_ENV` alone, a lost variable would quietly turn the ERP form back into a
+    #: scanner of the private network.
+    allow_private_outbound: bool = False
 
     # Clerk (Phase 1 auth). When unset outside prod, the X-Org-Id dev header is accepted instead.
     clerk_jwks_url: str | None = None

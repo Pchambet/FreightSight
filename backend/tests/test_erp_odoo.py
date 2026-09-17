@@ -62,19 +62,30 @@ class FakeOdoo:
     def proxy(self, url: str, timeout: float = 0) -> Any:
         return _Common(self) if url.endswith("/common") else _Models(self)
 
+    def maybe_fail(self) -> None:
+        """The three ways the wire itself answers instead of Odoo, as the transport raises them."""
+        if self.fail == "unreachable":
+            raise OSError(111, "Connection refused")
+        if self.fail == "timeout":
+            raise TimeoutError("timed out")
+        if self.fail == "redirected":
+            # `xmlrpc` raises this on any non-200 — a proxy's error page, a login wall, and a
+            # redirect, which is how a 302 to somewhere else never becomes a second request.
+            raise xmlrpc.client.ProtocolError(
+                "erp.example.test/xmlrpc/2/common", 302, "Found", {"Location": "http://169.254.169.254/"}
+            )
+
 
 class _Common:
     def __init__(self, odoo: FakeOdoo) -> None:
         self.odoo = odoo
 
     def version(self) -> dict[str, str]:
-        if self.odoo.fail == "unreachable":
-            raise OSError("connection refused")
+        self.odoo.maybe_fail()
         return {"server_version": FIXTURE["version"]}
 
     def authenticate(self, db: str, login: str, password: str, _context: dict[str, Any]) -> Any:
-        if self.odoo.fail == "unreachable":
-            raise OSError("connection refused")
+        self.odoo.maybe_fail()
         if self.odoo.fail == "no-database":
             raise xmlrpc.client.Fault(3, "Traceback...\npsycopg2.OperationalError: database does not exist")
         return 2 if password == self.odoo.password else False
@@ -139,6 +150,89 @@ def test_a_missing_database_says_what_odoo_said() -> None:
 def test_an_unreachable_server_is_not_an_authentication_problem() -> None:
     with pytest.raises(ErpUnavailable):
         connector(FakeOdoo(fail="unreachable")).test_connection()
+
+
+def test_an_unreachable_server_reaches_the_screen_as_a_code_and_a_host() -> None:
+    """What the socket says is ours to read, not theirs.
+
+    `Odoo is unreachable at http://host.docker.internal:8169: [Errno 111] Connection refused` is
+    what a prospect saw during a demo: our container's hostname, an errno, and English. The screen
+    gets a code, the host, and a sentence it can say in its own language.
+    """
+    with pytest.raises(ErpUnavailable) as raised:
+        connector(FakeOdoo(fail="unreachable")).test_connection()
+    assert raised.value.code == "ERP_UNREACHABLE"
+    assert raised.value.extra["params"] == {"host": "erp.example.test"}
+    assert raised.value.message == "Odoo is unreachable at erp.example.test."
+    assert "Errno" not in raised.value.message
+    assert "https://" not in raised.value.message
+
+
+def test_a_server_that_is_too_slow_says_so_rather_than_unreachable() -> None:
+    """Not answering in time and nothing listening are two different days for a customer."""
+    with pytest.raises(ErpUnavailable) as raised:
+        connector(FakeOdoo(fail="timeout")).test_connection()
+    assert raised.value.code == "ERP_TIMEOUT"
+    assert raised.value.extra["params"] == {"host": "erp.example.test", "seconds": "60"}
+
+
+def test_an_answer_that_is_not_odoo_is_its_own_code_and_carries_nothing_back() -> None:
+    """A proxy's error page, a login wall or a redirect. The body — and where it pointed — stays
+    out of the response: that is what turns an ERP form into a scanner with an oracle."""
+    with pytest.raises(ErpUnavailable) as raised:
+        connector(FakeOdoo(fail="redirected")).test_connection()
+    assert raised.value.code == "ERP_BAD_RESPONSE"
+    assert raised.value.extra["params"] == {"host": "erp.example.test"}
+    assert "169.254" not in raised.value.message
+
+
+def test_in_production_a_private_erp_url_never_reaches_a_socket(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The URL is the customer's, and the network behind this process is not theirs to explore.
+
+    Refused where the connection is opened rather than only where it is saved: a name saved last
+    week can point at 127.0.0.1 today, and nothing between the two would have noticed.
+    """
+    from app.core.net import BlockedHost
+    from app.core.settings import get_settings
+
+    monkeypatch.setenv("APP_ENV", "prod")
+    get_settings.cache_clear()
+    odoo = FakeOdoo()
+    probe = OdooConnector(
+        "http://postgreseu.railway.internal:5432", "fstest", "admin", "k", proxy_factory=odoo.proxy
+    )
+    with pytest.raises(BlockedHost) as raised:
+        probe.test_connection()
+    assert raised.value.code == "URL_NOT_PUBLIC"
+    assert odoo.calls == []  # nothing was dialled
+
+
+def test_every_call_vets_the_address_again_not_only_the_first(monkeypatch: pytest.MonkeyPatch) -> None:
+    """DNS rebinding is the whole reason: `xmlrpc` resolves on its own and hands us no address to
+    pin, so the only defence is asking again each time a proxy is built."""
+    from app.adapters.erp import odoo as odoo_module
+
+    seen: list[str] = []
+
+    def record(url: str) -> list[str]:
+        seen.append(url)
+        return []
+
+    monkeypatch.setattr(odoo_module, "assert_public_host", record)
+    connector(FakeOdoo()).test_connection()
+    assert len(seen) >= 3  # version, authenticate, and the user read
+    assert set(seen) == {"https://erp.example.test"}
+
+
+def test_the_host_in_an_error_never_carries_the_credentials_typed_into_the_url() -> None:
+    url = "https://admin:secret@erp.example.test"
+    odoo = FakeOdoo(fail="unreachable")
+    with pytest.raises(ErpUnavailable) as raised:
+        OdooConnector(url, "fstest", "admin", "k", proxy_factory=odoo.proxy).test_connection()
+    assert "secret" not in raised.value.message
+    assert raised.value.extra["params"] == {"host": "erp.example.test"}
 
 
 def test_a_renamed_field_surfaces_as_a_protocol_error() -> None:
@@ -263,6 +357,36 @@ def test_connecting_tests_the_credentials_first(
     stored = db.scalar(select(ErpConnection))
     assert stored is not None
     assert b"the-api-key" not in bytes(stored.api_key_sealed)
+
+
+def test_the_address_is_vetted_before_the_form_dials_anything(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`POST /erp/connection` connects before it stores, on demand, as often as anyone asks — so
+    the address is checked first, in the route, where the refusal names the field being filled in."""
+    from app.api.v1 import erp as erp_router
+    from app.core.net import BlockedHost
+
+    def refuse(url: str) -> list[str]:
+        raise BlockedHost("nope", params={"host": url, "reason": "private"})
+
+    monkeypatch.setattr(erp_router, "assert_public_host", refuse)
+    odoo = FakeOdoo()
+    monkeypatch.setattr("app.adapters.erp.odoo._default_proxy", odoo.proxy)
+    res = client.post(
+        "/api/v1/erp/connection",
+        json={
+            "kind": "ODOO",
+            "url": "http://10.0.0.5:8069",
+            "database": "fstest",
+            "login": "admin",
+            "api_key": "the-api-key",
+        },
+    )
+    assert res.status_code == 422
+    assert res.json()["code"] == "URL_NOT_PUBLIC"
+    assert odoo.calls == []
+    assert list(db.scalars(select(ErpConnection))) == []
 
 
 def test_bad_credentials_are_refused_before_anything_is_stored(

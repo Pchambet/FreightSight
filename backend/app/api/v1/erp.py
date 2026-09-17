@@ -15,6 +15,7 @@ from app.api.v1 import schemas
 from app.api.v1.deps import WriterDep
 from app.core.crypto import CryptoError
 from app.core.errors import Conflict, NotFound, Unprocessable
+from app.core.net import assert_public_host
 from app.core.tenancy import TenantDep
 from app.domain.audit.service import ERP_LANDED_COST_PUSHED, ERP_PUSH_FORGOTTEN
 from app.domain.audit.service import record as record_audit
@@ -43,6 +44,11 @@ def create_connection(payload: schemas.ErpConnectionCreate, t: TenantDep, p: Wri
     """
     if service.connection_for(t.db, t.org_id) is not None:
         raise Conflict("This organization already has an ERP connection", code="ERP_ALREADY_CONNECTED")
+    # Before the very first connection, because `test_connection()` below runs on demand, as often
+    # as someone asks, and an unvetted address makes this form a probe of our own private network.
+    # The adapter checks again before each call: this one is here so the refusal names the field
+    # the person is looking at.
+    assert_public_host(payload.url)
     try:
         sealed = service.seal_key(payload.api_key)
     except CryptoError as exc:
@@ -272,7 +278,7 @@ def forget_push(
     connection = service.connection_for(t.db, t.org_id)
     writer = service.writer_for(connection) if connection is not None else None
     before = {"forgotten_at": None, "cost_ids": record.cost_ids}
-    landed_cost.forget(t.db, t.org, record, writer, actor_user_id=p.user_id, reason=reason)
+    _, document = landed_cost.forget(t.db, t.org, record, writer, actor_user_id=p.user_id, reason=reason)
     record_audit(
         t.db,
         t.org_id,
@@ -287,6 +293,9 @@ def forget_push(
             "odoo_name": record.odoo_name,
             "forgotten_at": record.forgotten_at.isoformat() if record.forgotten_at else None,
             "forgotten_reason": record.forgotten_reason,
+            # Null when the document was already gone; "done" or "cancel" when it is still in their
+            # books and we let go of it anyway. That is the line this trail exists for.
+            "document_state": document.state if document is not None else None,
             "cost_ids": record.cost_ids,
         },
     )
