@@ -62,7 +62,28 @@
           "system"
         ],
         "summary": "Readyz",
+        "description": "Is this API able to serve? Railway uses it as the deploy healthcheck.\n\nWhich is why a dead worker must not fail it: the day the worker crashes is the day you most\nneed to be able to deploy a fix. `worker_seen_at` is reported here for whoever is reading,\nand `GET /healthz/worker` is the probe that actually fails on it.",
         "operationId": "readyz_readyz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/healthz/worker": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Healthz Worker",
+        "description": "The probe an external uptime service points at, separately from the API's own.\n\nNobody would otherwise know the worker had died: there is no exception to report, there is\nno process, and every screen goes on showing the numbers it last computed while the alerts\nthat the product is sold on quietly stop being raised.",
+        "operationId": "healthz_worker_healthz_worker_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2774,7 +2795,7 @@
           "exports"
         ],
         "summary": "Landed Costs Csv",
-        "description": "One row per load: the whole landed cost, at the level it is computed.",
+        "description": "One row per load, and the same numbers as the on-screen report \u2014 because they are its numbers.\n\nThe export used to add the allocations up a second way and forgot what every other surface of the\nproduct applies: import VAT is recoverable and does not belong in a landed cost. The file the\nfinance director reconciles against his trial balance was inflated by exactly the VAT he claims\nback. It now reads `organization_report`, so the CSV and the container report cannot diverge\nagain, and the VAT stands in a column of its own.\n\nThe period is read against the arrival date, like the landed-cost report on screen; a cost that\nnever reached a container has no arrival date, so the trailing `UNALLOCATED` rows are filed under\ntheir own date and say so in `period_basis`. Their amounts are what the sum of `allocated` is\nmissing: an export whose total is quietly short of the invoices is an export nobody can use.",
         "operationId": "landed_costs_csv_api_v1_exports_landed_costs_csv_get",
         "parameters": [
           {
@@ -2871,6 +2892,7 @@
           "exports"
         ],
         "summary": "Costs Csv",
+        "description": "One row per cost piece, over the period the pieces are *dated* in.\n\nWhich is not the period `landed-costs.csv` answers to \u2014 that one files a cost under the month its\ngoods landed. A freight invoice dated 28 August on a container arrived 4 September belongs to\nAugust here and to September there, and the totals of the two files cannot match. That is a fact\nabout invoicing, not an error, so every row names the date its period was read against.",
         "operationId": "costs_csv_api_v1_exports_costs_csv_get",
         "parameters": [
           {
@@ -2967,7 +2989,7 @@
           "exports"
         ],
         "summary": "Purchase Orders Csv",
-        "description": "One row per purchase-order line, which is the level anything is decided at.",
+        "description": "One row per purchase-order line, which is the level anything is decided at.\n\nThe period is read against the order date, like the orders list on screen \u2014 a third date again,\nand again named on every row.",
         "operationId": "purchase_orders_csv_api_v1_exports_purchase_orders_csv_get",
         "parameters": [
           {
@@ -4534,6 +4556,77 @@
         }
       }
     },
+    "/api/v1/invoices/{invoice_id}/lines": {
+      "post": {
+        "tags": [
+          "invoices"
+        ],
+        "summary": "Add Line",
+        "description": "Add the charge the reading missed \u2014 the other half of \u00ab it does not add up \u00bb.\n\nThe arithmetic check is only worth printing if the screen it prints on can answer it: a line the\npatterns dropped because its wording carried \u00ab TVA 20 % \u00bb, or a charge on a second page nobody\nread, otherwise sends the reviewer off to key a cost somewhere else, unlinked to the invoice it\ncame from and flagged as a duplicate on the next one.",
+        "operationId": "add_line_api_v1_invoices__invoice_id__lines_post",
+        "parameters": [
+          {
+            "name": "invoice_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Invoice Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceLineCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/invoices/{invoice_id}/confirm": {
       "post": {
         "tags": [
@@ -4571,6 +4664,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/InvoiceConfirmRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -4601,7 +4711,7 @@
           "invoices"
         ],
         "summary": "Reopen",
-        "description": "Put a rejected invoice back in review without re-uploading the file.",
+        "description": "Put an invoice back in review without re-uploading the file.\n\nA rejected one only changes status. A confirmed one gives back what it wrote: the costs it\ncreated are deleted in this same transaction and the audit entry names them, so the correction\nthe forwarder sent the next morning is made on the invoice it belongs to. Once those costs have\nreached the customer's ERP the confirmation stops being ours to undo, and the service refuses.",
         "operationId": "reopen_api_v1_invoices__invoice_id__reopen_post",
         "parameters": [
           {
@@ -5927,6 +6037,16 @@
           "file"
         ],
         "title": "Body_upload_invoice_api_v1_invoices_post"
+      },
+      "ConfidenceBand": {
+        "type": "string",
+        "enum": [
+          "HIGH",
+          "MEDIUM",
+          "LOW"
+        ],
+        "title": "ConfidenceBand",
+        "description": "How much of a second look a reading needs. `confidence` keeps the number as it is."
       },
       "ContainerCreate": {
         "properties": {
@@ -7904,6 +8024,16 @@
         ],
         "title": "EtaHistoryResponse"
       },
+      "ExtractorKind": {
+        "type": "string",
+        "enum": [
+          "RULES",
+          "MODEL",
+          "UNKNOWN"
+        ],
+        "title": "ExtractorKind",
+        "description": "Who read the document, in words a finance director can be shown.\n\nThe extractor's own name \u2014 \u00ab regex \u00bb, \u00ab llm \u00bb \u2014 is our plumbing and reaches a CFO's screen\nthrough the API. The name stays, because that is what a support ticket needs; this is what the\nfront translates."
+      },
       "FxRateResponse": {
         "properties": {
           "base": {
@@ -8069,6 +8199,15 @@
               }
             ],
             "title": "Committed At"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "upload",
+              "erp_sync"
+            ],
+            "title": "Source",
+            "default": "upload"
           }
         },
         "type": "object",
@@ -8165,6 +8304,18 @@
         ],
         "title": "IntegrityReport"
       },
+      "InvoiceConfirmRequest": {
+        "properties": {
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "InvoiceConfirmRequest",
+        "description": "Confirm again after looking at what the duplicate check found."
+      },
       "InvoiceConfirmResponse": {
         "properties": {
           "invoice": {
@@ -8232,6 +8383,78 @@
         ],
         "title": "InvoiceContainerLink"
       },
+      "InvoiceLineCreate": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Description",
+            "default": ""
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "cost_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CostType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CostScope"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount"
+        ],
+        "title": "InvoiceLineCreate",
+        "description": "The charge the arithmetic says is missing, added by the person who is looking at the PDF.\n\nIt arrives like every other proposal \u2014 unaccepted, at zero confidence \u2014 so the rule holds: what\nbecomes a cost is what someone ticked, whoever typed it."
+      },
       "InvoiceLineResponse": {
         "properties": {
           "id": {
@@ -8291,6 +8514,16 @@
             "type": "string",
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Confidence"
+          },
+          "confidence_band": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConfidenceBand"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "accepted": {
             "type": "boolean",
@@ -8525,6 +8758,16 @@
             ],
             "title": "Confidence"
           },
+          "confidence_band": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConfidenceBand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "extractor": {
             "anyOf": [
               {
@@ -8535,6 +8778,10 @@
               }
             ],
             "title": "Extractor"
+          },
+          "extractor_kind": {
+            "$ref": "#/components/schemas/ExtractorKind",
+            "default": "UNKNOWN"
           },
           "error": {
             "anyOf": [
@@ -8720,6 +8967,16 @@
             ],
             "title": "Confidence"
           },
+          "confidence_band": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConfidenceBand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "extractor": {
             "anyOf": [
               {
@@ -8730,6 +8987,10 @@
               }
             ],
             "title": "Extractor"
+          },
+          "extractor_kind": {
+            "$ref": "#/components/schemas/ExtractorKind",
+            "default": "UNKNOWN"
           },
           "error": {
             "anyOf": [
@@ -8866,6 +9127,11 @@
             "type": "object",
             "title": "Totals"
           },
+          "matched_pairs": {
+            "type": "integer",
+            "title": "Matched Pairs",
+            "default": 0
+          },
           "completeness": {
             "anyOf": [
               {
@@ -8912,6 +9178,13 @@
             },
             "type": "array",
             "title": "Warnings"
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/ReportNote"
+            },
+            "type": "array",
+            "title": "Notes"
           }
         },
         "type": "object",
@@ -8923,7 +9196,8 @@
           "costs",
           "warnings"
         ],
-        "title": "LandedCostReport"
+        "title": "LandedCostReport",
+        "description": "Landed-cost figures only: recoverable import VAT is in `totals.vat` and in no other total.\n\nThe keys of `totals` are meant to be added up by the person reading them:\n`allocated == estimated + actual`, `actual == matched_actual + unforecast_actual`, and\n`variance == matched_actual - matched_estimated` on the `matched_pairs` estimates an invoice has\nactually replaced. Nothing else compares an estimate with an invoice that was never its own."
       },
       "LoadIn": {
         "properties": {
@@ -10317,6 +10591,48 @@
           "by_cost_type"
         ],
         "title": "ReportLine"
+      },
+      "ReportNote": {
+        "properties": {
+          "cost_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Cost Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "load_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Load Ids"
+          },
+          "load_labels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Load Labels",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "cost_id",
+          "code",
+          "message",
+          "load_ids"
+        ],
+        "title": "ReportNote",
+        "description": "A rule applied to a cost that *was* allocated \u2014 never an amount missing from the total.\n\nSame shape as a warning minus the amount, precisely so it cannot be rendered as \"x \u20ac unallocated\"."
       },
       "ReportSkuLine": {
         "properties": {

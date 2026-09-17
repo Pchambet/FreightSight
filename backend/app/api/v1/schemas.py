@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, field_valida
 from pydantic_core import PydanticCustomError
 
 from app.domain.alerts.text import LOCALES
+from app.domain.invoices.ports import ConfidenceBand, ExtractorKind, confidence_band, extractor_kind
 from app.domain.models import (
     AlertKind,
     AlertSeverity,
@@ -460,6 +461,19 @@ class ReportWarning(BaseModel):
     load_labels: list[str] = []
 
 
+class ReportNote(BaseModel):
+    """A rule applied to a cost that *was* allocated — never an amount missing from the total.
+
+    Same shape as a warning minus the amount, precisely so it cannot be rendered as "x € unallocated".
+    """
+
+    cost_id: UUID
+    code: str
+    message: str
+    load_ids: list[UUID]
+    load_labels: list[str] = []
+
+
 class CostTypeSplit(BaseModel):
     estimated: Money = Decimal("0.00")
     actual: Money = Decimal("0.00")
@@ -487,9 +501,20 @@ class ReportLine(BaseModel):
 
 
 class LandedCostReport(BaseModel):
+    """Landed-cost figures only: recoverable import VAT is in `totals.vat` and in no other total.
+
+    The keys of `totals` are meant to be added up by the person reading them:
+    `allocated == estimated + actual`, `actual == matched_actual + unforecast_actual`, and
+    `variance == matched_actual - matched_estimated` on the `matched_pairs` estimates an invoice has
+    actually replaced. Nothing else compares an estimate with an invoice that was never its own.
+    """
+
     base_currency: str
-    #: fob, allocated, vat, landed, unallocated, estimated, actual, variance
+    #: fob, allocated, vat, landed, unallocated, estimated, actual, variance, matched_estimated,
+    #: matched_actual, unforecast_actual
     totals: dict[str, Money]
+    #: How many estimate/invoice pairs `variance` rests on. Zero means there is no variance to show.
+    matched_pairs: int = 0
     #: Share of the cost types on this scope that have a real invoice, 0 to 1. Null when none is
     #: expected yet.
     completeness: Decimal | None = None
@@ -498,6 +523,7 @@ class LandedCostReport(BaseModel):
     lines: list[ReportLine]
     costs: list[CostResponse]
     warnings: list[ReportWarning]
+    notes: list[ReportNote] = Field(default_factory=list)
 
 
 class PreviewRequest(BaseModel):
@@ -537,6 +563,9 @@ class ImportJobResponse(BaseModel):
     report: dict[str, Any]
     created_at: datetime
     committed_at: datetime | None
+    #: How the file got here: a person dropped it, or an ERP sync produced it. Not stored on the
+    #: job — the sync run that drove it says so (see api/v1/imports.py).
+    source: Literal["upload", "erp_sync"] = "upload"
 
 
 class ImportValidateRequest(BaseModel):
@@ -676,9 +705,16 @@ class InvoiceLineResponse(BaseModel):
     scope: CostScope | None
     target_id: UUID | None
     confidence: Decimal
+    #: The same figure as a band the screen can put a word on. The number stays, for a ticket.
+    confidence_band: ConfidenceBand | None = None
     accepted: bool
     notes: str | None
     cost_id: UUID | None
+
+    @model_validator(mode="after")
+    def _band(self) -> InvoiceLineResponse:
+        self.confidence_band = confidence_band(self.confidence)
+        return self
 
 
 class InvoiceSummary(BaseModel):
@@ -695,11 +731,20 @@ class InvoiceSummary(BaseModel):
     subtotal_amount: Money | None
     vat_amount: Money | None
     confidence: Decimal | None
+    confidence_band: ConfidenceBand | None = None
     extractor: str | None
+    #: Who read the document, as a value to translate: « regex » and 0.60 are ours, not a CFO's.
+    extractor_kind: ExtractorKind = ExtractorKind.UNKNOWN
     error: str | None
     document_id: UUID
     filename: str | None = None
     created_at: datetime
+
+    @model_validator(mode="after")
+    def _named_for_a_person(self) -> InvoiceSummary:
+        self.confidence_band = confidence_band(self.confidence)
+        self.extractor_kind = extractor_kind(self.extractor)
+        return self
 
 
 class InvoiceResponse(InvoiceSummary):
@@ -723,6 +768,32 @@ class InvoiceLineUpdate(BaseModel):
     @classmethod
     def _currency(cls, v: str | None) -> str | None:
         return None if v is None else currency_code(v)
+
+
+class InvoiceLineCreate(BaseModel):
+    """The charge the arithmetic says is missing, added by the person who is looking at the PDF.
+
+    It arrives like every other proposal — unaccepted, at zero confidence — so the rule holds: what
+    becomes a cost is what someone ticked, whoever typed it.
+    """
+
+    description: str = Field(default="", max_length=500)
+    amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
+    currency: str | None = None  # the invoice's own, when not stated
+    cost_type: CostType | None = None
+    scope: CostScope | None = None
+    target_id: UUID | None = None
+
+    @field_validator("currency")
+    @classmethod
+    def _currency(cls, v: str | None) -> str | None:
+        return None if v is None else currency_code(v)
+
+
+class InvoiceConfirmRequest(BaseModel):
+    """Confirm again after looking at what the duplicate check found."""
+
+    force: bool = False
 
 
 class InvoiceContainerLink(BaseModel):

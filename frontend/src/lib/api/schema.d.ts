@@ -45,8 +45,39 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Readyz */
+        /**
+         * Readyz
+         * @description Is this API able to serve? Railway uses it as the deploy healthcheck.
+         *
+         *     Which is why a dead worker must not fail it: the day the worker crashes is the day you most
+         *     need to be able to deploy a fix. `worker_seen_at` is reported here for whoever is reading,
+         *     and `GET /healthz/worker` is the probe that actually fails on it.
+         */
         get: operations["readyz_readyz_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/healthz/worker": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Healthz Worker
+         * @description The probe an external uptime service points at, separately from the API's own.
+         *
+         *     Nobody would otherwise know the worker had died: there is no exception to report, there is
+         *     no process, and every screen goes on showing the numbers it last computed while the alerts
+         *     that the product is sold on quietly stop being raised.
+         */
+        get: operations["healthz_worker_healthz_worker_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -605,7 +636,18 @@ export interface paths {
         };
         /**
          * Landed Costs Csv
-         * @description One row per load: the whole landed cost, at the level it is computed.
+         * @description One row per load, and the same numbers as the on-screen report — because they are its numbers.
+         *
+         *     The export used to add the allocations up a second way and forgot what every other surface of the
+         *     product applies: import VAT is recoverable and does not belong in a landed cost. The file the
+         *     finance director reconciles against his trial balance was inflated by exactly the VAT he claims
+         *     back. It now reads `organization_report`, so the CSV and the container report cannot diverge
+         *     again, and the VAT stands in a column of its own.
+         *
+         *     The period is read against the arrival date, like the landed-cost report on screen; a cost that
+         *     never reached a container has no arrival date, so the trailing `UNALLOCATED` rows are filed under
+         *     their own date and say so in `period_basis`. Their amounts are what the sum of `allocated` is
+         *     missing: an export whose total is quietly short of the invoices is an export nobody can use.
          */
         get: operations["landed_costs_csv_api_v1_exports_landed_costs_csv_get"];
         put?: never;
@@ -623,7 +665,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Costs Csv */
+        /**
+         * Costs Csv
+         * @description One row per cost piece, over the period the pieces are *dated* in.
+         *
+         *     Which is not the period `landed-costs.csv` answers to — that one files a cost under the month its
+         *     goods landed. A freight invoice dated 28 August on a container arrived 4 September belongs to
+         *     August here and to September there, and the totals of the two files cannot match. That is a fact
+         *     about invoicing, not an error, so every row names the date its period was read against.
+         */
         get: operations["costs_csv_api_v1_exports_costs_csv_get"];
         put?: never;
         post?: never;
@@ -643,6 +693,9 @@ export interface paths {
         /**
          * Purchase Orders Csv
          * @description One row per purchase-order line, which is the level anything is decided at.
+         *
+         *     The period is read against the order date, like the orders list on screen — a third date again,
+         *     and again named on every row.
          */
         get: operations["purchase_orders_csv_api_v1_exports_purchase_orders_csv_get"];
         put?: never;
@@ -984,6 +1037,31 @@ export interface paths {
         patch: operations["update_line_api_v1_invoices__invoice_id__lines__line_id__patch"];
         trace?: never;
     };
+    "/api/v1/invoices/{invoice_id}/lines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Line
+         * @description Add the charge the reading missed — the other half of « it does not add up ».
+         *
+         *     The arithmetic check is only worth printing if the screen it prints on can answer it: a line the
+         *     patterns dropped because its wording carried « TVA 20 % », or a charge on a second page nobody
+         *     read, otherwise sends the reviewer off to key a cost somewhere else, unlinked to the invoice it
+         *     came from and flagged as a duplicate on the next one.
+         */
+        post: operations["add_line_api_v1_invoices__invoice_id__lines_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invoices/{invoice_id}/confirm": {
         parameters: {
             query?: never;
@@ -1018,7 +1096,12 @@ export interface paths {
         put?: never;
         /**
          * Reopen
-         * @description Put a rejected invoice back in review without re-uploading the file.
+         * @description Put an invoice back in review without re-uploading the file.
+         *
+         *     A rejected one only changes status. A confirmed one gives back what it wrote: the costs it
+         *     created are deleted in this same transaction and the audit entry names them, so the correction
+         *     the forwarder sent the next morning is made on the invoice it belongs to. Once those costs have
+         *     reached the customer's ERP the confirmation stops being ours to undo, and the service refuses.
          */
         post: operations["reopen_api_v1_invoices__invoice_id__reopen_post"];
         delete?: never;
@@ -1385,6 +1468,12 @@ export interface components {
             /** File */
             file: string;
         };
+        /**
+         * ConfidenceBand
+         * @description How much of a second look a reading needs. `confidence` keeps the number as it is.
+         * @enum {string}
+         */
+        ConfidenceBand: "HIGH" | "MEDIUM" | "LOW";
         /** ContainerCreate */
         ContainerCreate: {
             /** Container Number */
@@ -1973,6 +2062,16 @@ export interface components {
              */
             recorded_at: string;
         };
+        /**
+         * ExtractorKind
+         * @description Who read the document, in words a finance director can be shown.
+         *
+         *     The extractor's own name — « regex », « llm » — is our plumbing and reaches a CFO's screen
+         *     through the API. The name stays, because that is what a support ticket needs; this is what the
+         *     front translates.
+         * @enum {string}
+         */
+        ExtractorKind: "RULES" | "MODEL" | "UNKNOWN";
         /** FxRateResponse */
         FxRateResponse: {
             /** Base */
@@ -2043,6 +2142,12 @@ export interface components {
             created_at: string;
             /** Committed At */
             committed_at: string | null;
+            /**
+             * Source
+             * @default upload
+             * @enum {string}
+             */
+            source: "upload" | "erp_sync";
         };
         /**
          * ImportKind
@@ -2077,6 +2182,17 @@ export interface components {
                 [key: string]: string;
             }[];
         };
+        /**
+         * InvoiceConfirmRequest
+         * @description Confirm again after looking at what the duplicate check found.
+         */
+        InvoiceConfirmRequest: {
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+        };
         /** InvoiceConfirmResponse */
         InvoiceConfirmResponse: {
             invoice: components["schemas"]["InvoiceResponse"];
@@ -2101,6 +2217,28 @@ export interface components {
             /** Container Number */
             container_number: string;
         };
+        /**
+         * InvoiceLineCreate
+         * @description The charge the arithmetic says is missing, added by the person who is looking at the PDF.
+         *
+         *     It arrives like every other proposal — unaccepted, at zero confidence — so the rule holds: what
+         *     becomes a cost is what someone ticked, whoever typed it.
+         */
+        InvoiceLineCreate: {
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Amount */
+            amount: number | string;
+            /** Currency */
+            currency?: string | null;
+            cost_type?: components["schemas"]["CostType"] | null;
+            scope?: components["schemas"]["CostScope"] | null;
+            /** Target Id */
+            target_id?: string | null;
+        };
         /** InvoiceLineResponse */
         InvoiceLineResponse: {
             /**
@@ -2122,6 +2260,7 @@ export interface components {
             target_id: string | null;
             /** Confidence */
             confidence: string;
+            confidence_band?: components["schemas"]["ConfidenceBand"] | null;
             /** Accepted */
             accepted: boolean;
             /** Notes */
@@ -2171,8 +2310,11 @@ export interface components {
             vat_amount: string | null;
             /** Confidence */
             confidence: string | null;
+            confidence_band?: components["schemas"]["ConfidenceBand"] | null;
             /** Extractor */
             extractor: string | null;
+            /** @default UNKNOWN */
+            extractor_kind: components["schemas"]["ExtractorKind"];
             /** Error */
             error: string | null;
             /**
@@ -2224,8 +2366,11 @@ export interface components {
             vat_amount: string | null;
             /** Confidence */
             confidence: string | null;
+            confidence_band?: components["schemas"]["ConfidenceBand"] | null;
             /** Extractor */
             extractor: string | null;
+            /** @default UNKNOWN */
+            extractor_kind: components["schemas"]["ExtractorKind"];
             /** Error */
             error: string | null;
             /**
@@ -2260,7 +2405,15 @@ export interface components {
             skus: components["schemas"]["ReportSkuLine"][];
             totals: components["schemas"]["ReportBucket"];
         };
-        /** LandedCostReport */
+        /**
+         * LandedCostReport
+         * @description Landed-cost figures only: recoverable import VAT is in `totals.vat` and in no other total.
+         *
+         *     The keys of `totals` are meant to be added up by the person reading them:
+         *     `allocated == estimated + actual`, `actual == matched_actual + unforecast_actual`, and
+         *     `variance == matched_actual - matched_estimated` on the `matched_pairs` estimates an invoice has
+         *     actually replaced. Nothing else compares an estimate with an invoice that was never its own.
+         */
         LandedCostReport: {
             /** Base Currency */
             base_currency: string;
@@ -2268,6 +2421,11 @@ export interface components {
             totals: {
                 [key: string]: string;
             };
+            /**
+             * Matched Pairs
+             * @default 0
+             */
+            matched_pairs: number;
             /** Completeness */
             completeness?: string | null;
             /** By Cost Type */
@@ -2284,6 +2442,8 @@ export interface components {
             costs: components["schemas"]["CostResponse"][];
             /** Warnings */
             warnings: components["schemas"]["ReportWarning"][];
+            /** Notes */
+            notes?: components["schemas"]["ReportNote"][];
         };
         /** LoadIn */
         LoadIn: {
@@ -2692,6 +2852,30 @@ export interface components {
             by_cost_type: {
                 [key: string]: string;
             };
+        };
+        /**
+         * ReportNote
+         * @description A rule applied to a cost that *was* allocated — never an amount missing from the total.
+         *
+         *     Same shape as a warning minus the amount, precisely so it cannot be rendered as "x € unallocated".
+         */
+        ReportNote: {
+            /**
+             * Cost Id
+             * Format: uuid
+             */
+            cost_id: string;
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /** Load Ids */
+            load_ids: string[];
+            /**
+             * Load Labels
+             * @default []
+             */
+            load_labels: string[];
         };
         /** ReportSkuLine */
         ReportSkuLine: {
@@ -3104,6 +3288,26 @@ export interface operations {
         };
     };
     readyz_readyz_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    healthz_worker_healthz_worker_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -5422,6 +5626,43 @@ export interface operations {
             };
         };
     };
+    add_line_api_v1_invoices__invoice_id__lines_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceLineCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     confirm_api_v1_invoices__invoice_id__confirm_post: {
         parameters: {
             query?: never;
@@ -5433,7 +5674,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["InvoiceConfirmRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

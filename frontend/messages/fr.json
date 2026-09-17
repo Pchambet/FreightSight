@@ -26,11 +26,16 @@
     "invoices": "Factures",
     "audit": "Historique",
     "variance": "Écarts",
-    "reports": "Rapports"
+    "reports": "Rapports",
+    "help": "Aide"
+  },
+  "help": {
+    "subject": "Aide FreightSight — {org}",
+    "body": "Organisation : {org}\nPage : {url}\n\nDécrivez votre problème :\n"
   },
   "containers": {
     "title": "Conteneurs",
-    "subtitle": "{total} suivis · {active} en cours · {atRisk} exposés aux surestaries",
+    "subtitle": "{total, plural, one {# suivi} other {# suivis}} · {active} en cours · {atRisk, plural, one {# exposé} other {# exposés}} aux surestaries",
     "th": {
       "container": "Conteneur",
       "shipment": "Expédition",
@@ -72,6 +77,7 @@
       "atRisk": "Exposés aux surestaries",
       "noCost": "Sans coût saisi",
       "nextLfd": "prochain dernier jour franc le {date}",
+      "nextLfdOver": "dernier jour franc dépassé depuis le {date}",
       "activeCount": "{count} conteneurs en cours",
       "ofActive": "sur {count} en cours",
       "noneAtRisk": "aucun dernier jour franc sous 3 jours"
@@ -101,7 +107,8 @@
     "breadcrumb": "Conteneurs",
     "lastFreeDay": "Dernier jour franc {date}",
     "shipment": "Expédition {reference}",
-    "unallocatedSuffix": "non ventilé",
+    "unallocatedSuffix": "non ventilé — montant total de la pièce, même si elle dépasse ce conteneur",
+    "notesTitle": "À savoir sur cette ventilation",
     "totals": {
       "fob": "FOB",
       "allocated": "Ventilé",
@@ -135,7 +142,7 @@
   },
   "tracking": {
     "title": "Suivi",
-    "manualNote": "manuel tant qu'aucun fournisseur de tracking n'est connecté",
+    "manualNote": "manuel tant qu'aucun fournisseur de suivi n'est connecté",
     "milestone": "Étape",
     "dischargedOn": "Déchargé le",
     "freeDays": "Jours francs (surestaries)",
@@ -148,7 +155,7 @@
     "saved": "Suivi mis à jour",
     "failed": "Impossible de mettre à jour le conteneur",
     "providerTitle": "Fournisseur de suivi",
-    "providerHelp": "Utilisé quand vous cliquez « Suivre ce conteneur ». Manuel : vous saisissez les événements. Terminal49 et Shipsgo : les événements arrivent seuls, avec une clé API posée sur le serveur.",
+    "providerHelp": "Utilisé quand vous cliquez « Suivre ce conteneur ». Manuel : vous saisissez les événements. Terminal49 et Shipsgo : les événements arrivent seuls une fois le fournisseur activé pour votre société — contactez-nous pour l'activer.",
     "providerDefault": "Fournisseur par défaut",
     "provider": {
       "manual": "Manuel",
@@ -162,7 +169,7 @@
     "unsubscribed": "Suivi arrêté",
     "subscribeFailed": "Impossible d'activer le suivi",
     "subStatus": "statut {status}",
-    "subError": "erreur : {error}"
+    "lastAttemptFailed": "La dernière tentative de synchronisation a échoué."
   },
   "loads": {
     "empty": "Rien de chargé pour l'instant. Aucun coût ne peut être ventilé tant qu'aucune ligne de commande n'est dans ce conteneur.",
@@ -218,7 +225,13 @@
       "empty": "Aucun coût saisi pour l'instant.",
       "delete": "Supprimer le coût",
       "deleted": "Coût supprimé",
-      "deleteFailed": "Impossible de supprimer le coût"
+      "deleteFailed": "Impossible de supprimer le coût",
+      "deleteConfirmTitle": "Supprimer ce coût ?",
+      "deleteConfirmBody": "{type}, {amount}, daté du {date}. L'historique du conteneur gardera cette suppression.",
+      "deleteConfirmConfirm": "Supprimer",
+      "deleteConfirmCancel": "Annuler",
+      "undo": "Annuler",
+      "restored": "Coût rétabli"
     }
   },
   "unitCostHighlight": {
@@ -231,7 +244,7 @@
   "allocation": {
     "title": "Coût rendu par ligne de commande",
     "preview": "simulation, non enregistrée",
-    "lineCount": "{count} lignes",
+    "lineCount": "{count, plural, one {# ligne} other {# lignes}}",
     "whatIf": "Et si la ventilation était :",
     "asRecorded": "telle que saisie",
     "recomputing": "recalcul…",
@@ -246,7 +259,8 @@
       "unitCost": "Coût unitaire"
     },
     "empty": "Aucune ligne de commande chargée. Ajoutez d'abord des chargements.",
-    "total": "Total"
+    "total": "Total",
+    "vatHint": "TVA récupérable, hors coût de revient."
   },
   "purchaseOrders": {
     "title": "Commandes",
@@ -272,6 +286,7 @@
     "ordered": "commandé le {date}",
     "linesCard": "Lignes",
     "addCostCard": "Ajouter un coût sur cette commande",
+    "notesTitle": "À savoir sur cette ventilation",
     "sections": {
       "addCostHint": "Coût appliqué à toute la commande, ventilé sur ses lignes chargées",
       "ledger": "Journal des coûts",
@@ -325,7 +340,11 @@
       "FAILED": "Échec"
     },
     "result": "{pos} commandes, {lines} lignes, {containers} conteneurs, {loads} chargements",
-    "continue": "reprendre"
+    "continue": "reprendre",
+    "source": {
+      "upload": "Fichier déposé",
+      "erp_sync": "Synchronisation Odoo — automatique"
+    }
   },
   "importWizard": {
     "title": "Importer des commandes",
@@ -365,19 +384,22 @@
       "purchaseOrders": "Commandes",
       "lines": "Lignes",
       "containersLoads": "Conteneurs / chargements",
-      "newUpdated": "{created} nouvelles, {updated} mises à jour",
+      "newUpdated": "{created, plural, one {# nouvelle} other {# nouvelles}}, {updated, plural, one {# mise à jour} other {# mises à jour}}",
       "warningCount": "{count, plural, one {# avertissement} other {# avertissements}}",
-      "errorSummary": "{rows, plural, one {# ligne} other {# lignes}} avec {errors, plural, one {# erreur} other {# erreurs}} seront ignorées",
+      "errorSummary": "{rows, plural, one {# ligne} other {# lignes}} avec {errors, plural, one {# erreur} other {# erreurs}} {rows, plural, one {sera ignorée} other {seront ignorées}}",
       "noError": "Aucune erreur de ligne.",
+      "headerRow": "En-têtes lus à la ligne {line}.",
+      "totalsRowIgnored": "Ligne de totaux ignorée.",
+      "forwardFilled": "{count} ligne(s) rattachées à la commande de la ligne précédente.",
       "backToMapping": "Retour aux colonnes",
       "importValid": "Importer les lignes valides",
       "import": "Importer",
       "orFix": "ou corrigez le fichier et déposez-le à nouveau",
       "failed": "L'import a échoué",
+      "unknownIssue": "Vérifiez cette valeur.",
       "th": {
         "row": "Ligne",
         "field": "Champ",
-        "code": "Code",
         "message": "Message"
       }
     },
@@ -534,6 +556,21 @@
       "PO": "Commande",
       "PO_LINE": "Ligne de commande"
     },
+    "fxSource": {
+      "ecb": "BCE",
+      "ecb_latest": "dernier taux BCE publié",
+      "manual": "manuel",
+      "same": "même devise"
+    },
+    "extractorKind": {
+      "RULES": "Lecture automatique par règles",
+      "MODEL": "Lecture automatique par IA",
+      "UNKNOWN": "Lecture non aboutie"
+    },
+    "erpDocumentState": {
+      "done": "validé",
+      "cancel": "annulé"
+    },
     "auditAction": {
       "cost_created": "Coût créé",
       "cost_updated": "Coût modifié",
@@ -551,7 +588,11 @@
   "errors": {
     "fallback": "La requête a échoué",
     "fieldPrefix": "{field} : {message}",
-    "OVER_ALLOCATED": "La quantité chargée dépasse la quantité de la ligne de commande.",
+    "withRequestId": "{message} (réf. {id})",
+    "unknownField": "Valeur invalide.",
+    "NETWORK_ERROR": "Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.",
+    "REQUEST_TIMEOUT": "Le serveur met trop de temps à répondre. Réessayez.",
+    "OVER_ALLOCATED": "{loaded} unités chargées dépassent la quantité de la ligne de commande ({line_quantity}), conteneur {container_number}.",
     "DUPLICATE_LINE": "Cette ligne de commande apparaît deux fois.",
     "MANUAL_SPLITS_REQUIRED": "Une ventilation manuelle exige des pourcentages.",
     "INVALID_MANUAL_SPLIT": "Les pourcentages de ventilation manuelle doivent totaliser 100,00.",
@@ -579,15 +620,15 @@
     "IMPORT_ABORTED": "Import interrompu : aucune ligne n'a été écrite.",
     "IMPORT_ALREADY_DONE": "Cet import a déjà été validé.",
     "REQUIRED": "Valeur obligatoire.",
-    "NOT_A_NUMBER": "Ce n'est pas un nombre.",
-    "NOT_A_DATE": "Ce n'est pas une date.",
-    "NOT_POSITIVE": "La valeur doit être strictement positive.",
-    "NEGATIVE": "La valeur ne peut pas être négative.",
-    "INVALID_CURRENCY": "Code devise invalide.",
-    "INVALID_CONTAINER_NUMBER": "Numéro de conteneur invalide (ISO 6346).",
-    "DUPLICATE_IN_FILE": "Ligne en double dans le fichier.",
-    "DEPRECATED_COLUMN": "Colonne obsolète, ignorée.",
-    "FX_RATE_DEFAULTED": "Taux de change par défaut appliqué.",
+    "NOT_A_NUMBER": "« {value} » n'est pas un nombre.",
+    "NOT_A_DATE": "« {value} » n'est pas une date reconnue (formats acceptés : 31/12/2026, 31.12.2026, 2026-12-31).",
+    "NOT_POSITIVE": "La valeur doit être supérieure à zéro ({value}).",
+    "NEGATIVE": "Le prix unitaire ne peut pas être négatif ({value}).",
+    "INVALID_CURRENCY": "« {value} » n'est pas un code devise ISO à 3 lettres.",
+    "INVALID_CONTAINER_NUMBER": "« {value} » n'est pas un numéro de conteneur ISO 6346 (4 lettres puis 7 chiffres).",
+    "DUPLICATE_IN_FILE": "La ligne {line_no} de la commande {po_number} apparaît deux fois dans le fichier.",
+    "DEPRECATED_COLUMN": "La colonne « {column} » (pourcentage de répartition) est ignorée : la répartition suit la méthode par défaut de l'organisation.",
+    "FX_RATE_DEFAULTED": "Commande en {currency} : aucun taux de change connu au {rate_date}, le taux {rate} ({currency}→{base_currency}, source : taux par défaut) a été appliqué. Corrigez-le sur la commande.",
     "NOT_AN_ACTUAL": "Seul un coût réel peut remplacer un estimé.",
     "SELF_SUPERSEDE": "Un coût ne peut pas se remplacer lui-même.",
     "NOT_AN_ESTIMATE": "Le coût visé n'est pas un estimé.",
@@ -598,6 +639,32 @@
     "ERP_NO_CONNECTION": "Aucun ERP connecté : impossible de vérifier ce qui existe là-bas.",
     "ERP_URL_HAS_CREDENTIALS": "L'adresse ne doit pas contenir d'identifiant : mettez l'utilisateur dans « Identifiant » et le mot de passe dans « Clé API ».",
     "ERP_URL_SCHEME": "L'adresse doit commencer par http:// ou https://.",
+    "DUPLICATE_MANUAL_SPLIT": "Une ventilation manuelle cite deux fois la même cible : donnez-lui une seule ligne et un seul pourcentage.",
+    "ZERO_BASIS_LINES": "Ces lignes n'ont reçu aucun frais : leur base de ventilation est nulle. Choisissez « par quantité » ou « au poids » si elles doivent en porter.",
+    "DUTY_RATE_PARTIAL": "Droits répartis à la valeur en douane : ces lignes n'ont pas de taux de droit. Renseignez leur code SH pour une répartition au droit théorique.",
+    "CREDIT_NOTE_MANUAL": "Ce document a été lu comme un avoir : saisissez le remboursement à la main, un coût ne peut pas encore être négatif.",
+    "NEGATIVE_COST_UNSUPPORTED": "Une ligne négative ne peut pas devenir un coût : décochez-la et saisissez le remboursement à la main.",
+    "DUPLICATE_COST": "Un coût du même type est déjà enregistré sur ce fret. Vérifiez, puis confirmez à nouveau si cette facture est une charge différente.",
+    "COSTS_PUSHED_TO_ERP": "Les coûts de cette facture sont déjà dans l'ERP : corrigez-les là-bas par un document d'ajustement, ou oubliez le push d'abord.",
+    "INVALID_STATUS": "Cette action n'est pas possible dans l'état actuel de la facture.",
+    "URL_NOT_PUBLIC": "Cette adresse n'est pas joignable depuis Internet : FreightSight ne s'y connectera pas. Vérifiez l'URL de votre Odoo ({host}).",
+    "ERP_UNREACHABLE": "Odoo est injoignable à l'adresse {host}.",
+    "ERP_TIMEOUT": "Odoo n'a pas répondu en moins de {seconds} secondes à l'adresse {host}.",
+    "ERP_BAD_RESPONSE": "{host} a répondu quelque chose qui n'est pas une interface XML-RPC Odoo.",
+    "ERP_AUTH_FAILED": "Odoo a refusé les identifiants de {login} sur la base {database}. Vérifiez le login et la clé d'API (Préférences → Sécurité du compte → Clés d'API).",
+    "ERP_PROTOCOL_ERROR": "Odoo n'a pas pu répondre à {model}.{method}.",
+    "ERP_FORGET_REASON_REQUIRED": "Un motif est nécessaire pour oublier ce push : le document existe encore dans l'ERP.",
+    "ERP_SPLIT_MISMATCH": "La ventilation de {label} totalise {split} alors que la charge est de {amount}. Rien n'a été écrit : un document qu'Odoo refusera de valider est pire que pas de document.",
+    "ERP_SPLIT_UNMATCHED": "Le document ne contient pas la charge « {label} » que nous venons d'y écrire ; impossible de savoir à quelle ligne rattacher notre ventilation. Supprimez ce brouillon dans Odoo et repoussez.",
+    "AMBIGUOUS_SCIENTIFIC": "La valeur « {value} » est écrite en notation scientifique avec une virgule : elle ne peut pas être lue sans risque d'erreur d'un facteur 100 000. Réécrivez le nombre en entier dans le fichier.",
+    "CURRENCY_MISMATCH": "La commande {po_number} est en {po_currency} ; cette ligne indique {row_currency}. Une commande ne peut porter qu'une seule devise : la ligne n'a pas été importée.",
+    "RETURN_NOT_SUPPORTED": "Quantité négative ({value}) : les retours et avoirs ne sont pas encore gérés par l'import. La ligne n'a pas été importée.",
+    "HEADER_ROW_DETECTED": "Les noms de colonnes ont été lus à la ligne {line} du fichier ; les lignes au-dessus ont été ignorées.",
+    "TOTALS_ROW_IGNORED": "La dernière ligne du fichier est une ligne de totaux : elle n'a pas été importée.",
+    "DECIMAL_COMMA_ASSUMED": "Dans la colonne « {column} », la virgule de « {example} » peut se lire de deux façons ; elle a été lue comme {comma, select, thousands {un séparateur de milliers (1,250 = 1 250)} other {une virgule décimale (1,250 = 1,25)}}. Si ce n'est pas le cas, corrigez le fichier avant de valider.",
+    "UNIT_COLUMN_AMBIGUOUS": "La colonne « {column} » ne précise pas s'il s'agit d'une valeur par unité ou pour la ligne entière : elle est lue comme une valeur unitaire. Si c'est un total de ligne, divisez-la par la quantité avant l'import.",
+    "PO_NUMBER_FORWARD_FILLED": "{rows} ligne(s) sans numéro de commande ont été rattachées à la commande indiquée au-dessus (colonne « {column} »).",
+    "DUPLICATE_SKU_NEW_LINE": "L'article {sku} apparaît une seconde fois sur la commande {po_number} avec une quantité ou un prix différents : il a été importé comme ligne {line_no} distincte.",
     "page": {
       "title": "Une erreur est survenue",
       "body": "Quelque chose s'est mal passé. Réessayez ou retournez à l'accueil.",
@@ -642,7 +709,7 @@
   "alerts": {
     "title": "Alertes",
     "subtitle": "{unread} non lues · {total} au total",
-    "empty": "Aucune alerte. Elles apparaîtront ici quand un conteneur change de niveau de risque, quand une ETA bouge de plus de 12 h ou quand un suivi reste muet 48 h.",
+    "empty": "Aucune alerte. Elles apparaîtront ici quand un conteneur change de niveau de risque, quand une ETA bouge de plus de 12 h ou quand un jalon attendu n'arrive pas.",
     "markRead": "Marquer comme lue",
     "markAllRead": "Tout marquer comme lu",
     "marked": "Alerte marquée comme lue",
@@ -652,14 +719,27 @@
     "bell": "Alertes, {count} non lues",
     "unreadOnly": "Non lues seulement",
     "showAll": "Tout afficher",
+    "superseded": "Remplacée par une alerte plus récente",
     "text": {
       "DND_RISK": {
         "title": "{container} : risque de surestaries {risk}",
         "titleRunning": "{container} : surestaries en cours",
+        "titleRunningAmount": "{container} : surestaries en cours, {amount}",
+        "titleDetention": "{container} : risque de détention {risk}",
+        "titleDetentionRunning": "{container} : détention en cours",
+        "titleDetentionRunningAmount": "{container} : détention en cours, {amount}",
         "body": "Dernier jour franc le {lfd}.",
         "bodyRunning": "Le dernier jour franc était le {lfd}. Les surestaries courent.",
+        "bodyRunningDays": "Le dernier jour franc était le {lfd}. Les surestaries courent depuis {days, plural, one {# jour} other {# jours}}.",
         "bodyLeft": "Dernier jour franc le {lfd}, {days, plural, one {# jour restant} other {# jours restants}}.",
-        "bodyNoLfd": "Dernier jour franc inconnu."
+        "bodyNoLfd": "Dernier jour franc inconnu.",
+        "bodyDetention": "Retour du vide attendu le {deadline}.",
+        "bodyDetentionLeft": "Retour du vide attendu le {deadline}, {days, plural, one {# jour restant} other {# jours restants}}.",
+        "bodyDetentionRunning": "Le vide devait être rendu le {deadline}. La détention court.",
+        "bodyDetentionRunningDays": "Le vide devait être rendu le {deadline}. La détention court depuis {days, plural, one {# jour} other {# jours}}.",
+        "amount": "{amount} à ce jour, {rate} par jour.",
+        "noRate": "Ajoutez un tarif journalier dans vos réglages pour voir le montant.",
+        "portUnconfirmed": "Port de déchargement non confirmé : vérifiez qu'il s'agit bien du port final."
       },
       "ETA_CHANGED": {
         "title": "{container} : arrivée décalée de {hours} h {direction}",
@@ -670,7 +750,12 @@
       },
       "TRACKING_DATA_MISSING": {
         "title": "Aucune donnée de suivi pour {container}",
-        "body": "{provider} n'a rien envoyé depuis au moins {hours} h. Vérifiez le conteneur sur le site du transporteur."
+        "body": "{provider} n'a rien envoyé depuis au moins {hours} h alors qu'un événement était attendu. Vérifiez le conteneur sur le site du transporteur.",
+        "bodyManual": "{container} devait arriver le {eta} et aucun jalon n'a été saisi depuis. Saisissez le déchargement pour que nous puissions compter vos jours francs."
+      },
+      "NOTIFICATION_FAILED": {
+        "title": "Vos alertes ne partent plus par e-mail",
+        "body": "Nous n'avons pas réussi à envoyer votre récapitulatif après {attempts} tentatives ({reason}). Vos alertes restent visibles ici et repartiront dès que l'envoi refonctionnera."
       },
       "TRACKING_PROVIDER_DOWN": {
         "title": "{provider} ne répond pas",
@@ -738,7 +823,7 @@
       "reopenAction": "Rouvrir pour relecture",
       "reopened": "Facture rouverte — vous pouvez accepter les lignes et confirmer.",
       "notes": "Contrôles",
-      "extractor": "Lue par {extractor}, confiance {confidence}",
+      "extractedBy": "Lue par {extractor}",
       "vendor": "Émetteur",
       "number": "N° de facture",
       "date": "Date de facture",
@@ -747,16 +832,38 @@
       "subtotalMissing": "non imprimé",
       "vat": "TVA",
       "lowConfidenceTitle": "Confiance de lecture faible —",
-      "lowConfidenceBody": "vérifiez chaque ligne avant de confirmer (confiance {confidence})."
+      "lowConfidenceBody": "vérifiez chaque ligne avant de confirmer.",
+      "confirmAnyway": "Confirmer quand même",
+      "duplicateBlocked": "Au moins un coût du même type est déjà enregistré sur ce fret (voir les lignes en rouge). Confirmez à nouveau pour l'enregistrer quand même.",
+      "creditNoteBanner": "Ce document est un avoir : les remboursements ne peuvent pas encore devenir des coûts. Saisissez le remboursement à la main.",
+      "reopenConfirmedAction": "Rouvrir pour correction",
+      "reopenConfirmedTitle": "Rouvrir cette facture confirmée ?",
+      "reopenConfirmedBody": "Les {count} coûts créés par cette confirmation seront supprimés. La facture repasse à relire ; rien d'autre n'est touché.",
+      "reopenConfirmedConfirm": "Rouvrir et supprimer les coûts",
+      "reopenConfirmedCancel": "Annuler",
+      "reopenedConfirmed": "Facture rouverte, {count} coût(s) supprimé(s).",
+      "addLine": "Ajouter une ligne",
+      "addLineTitle": "Ajouter une ligne à la main",
+      "addLineSubmit": "Ajouter",
+      "addLineAdded": "Ligne ajoutée",
+      "addLineFailed": "Impossible d'ajouter la ligne",
+      "cancel": "Annuler"
     },
     "lineNotes": {
       "singleContainer": "Facturé sur {container}, seul conteneur mentionné sur la facture.",
-      "duplicateCost": "Doublon probable : un {type} est déjà saisi ({vendor}, {invoice}, {amount} {currency}). Refusez cette ligne sauf si vous remplacez l'ancien coût.",
+      "duplicateCost": "Un coût {type} de {amount} existe déjà sur {scope, select, CONTAINER {ce conteneur} SHIPMENT {cette expédition} PO {cette commande} other {ce périmètre}} ({vendor}, facture {invoice}). Risque de double comptage.",
       "unknownContainer": "{container} n'est pas un conteneur de votre organisation — choisissez la cible à la main.",
       "noFxRate": "Pas de taux {currency} pour le {date} : saisissez le taux avant de confirmer.",
       "arithmeticMore": "Les lignes lues dépassent le total de {amount} — une ligne manque peut-être ou est mal lue.",
       "arithmeticLess": "Les lignes lues sont inférieures au total de {amount} — une ligne manque peut-être ou est mal lue.",
-      "multiContainer": "Cette facture mentionne plusieurs conteneurs — vérifiez que chaque ligne est sur le bon."
+      "multiContainer": "Cette facture mentionne plusieurs conteneurs — vérifiez que chaque ligne est sur le bon.",
+      "creditNote": "Ce document est un avoir : les remboursements ne peuvent pas encore devenir des coûts, saisissez-le à la main.",
+      "negativeLine": "Ligne négative ({amount}) : elle reste affichée, mais elle ne peut pas encore devenir un coût.",
+      "droppedLine": "Ligne non chiffrée, écartée de la revue : « {description} » ({amount}). Ajoutez-la à la main si elle doit compter.",
+      "currencyGuess": "Plusieurs devises figurent sur le document : {chosen} a été retenue (vu aussi : {others}). Vérifiez avant de confirmer.",
+      "addedByHuman": "Ligne ajoutée à la main pendant la revue.",
+      "forcedDuplicate": "Ligne {line_no} confirmée malgré un coût {type} déjà enregistré ({amount}, {vendor}, facture {invoice}).",
+      "pushedCost": "Coût déjà écrit dans l'ERP : document {document} ({state})."
     },
     "line": {
       "accepted": "Accepter",
@@ -768,7 +875,6 @@
       "target": "Cible",
       "chooseTarget": "Choisir…",
       "noTarget": "sans cible",
-      "confidence": "confiance {value}",
       "save": "Enregistrer",
       "saved": "Ligne mise à jour",
       "failed": "Impossible de mettre à jour la ligne",
@@ -788,8 +894,12 @@
     "unchanged": "sans détail",
     "next": "Entrées plus anciennes",
     "filterAll": "Toutes les actions",
-    "actor": "utilisateur {id}",
+    "actorUnknown": "Utilisateur non identifié",
     "system": "système",
+    "yes": "Oui",
+    "no": "Non",
+    "otherField": "Autre champ",
+    "unknownValue": "Valeur inconnue",
     "entity": {
       "cost": "Coût",
       "container": "Conteneur",
@@ -801,7 +911,51 @@
       "invoice_number": "N° facture",
       "vendor": "Fournisseur",
       "total_amount": "Montant",
-      "cost_ids": "Coûts créés"
+      "cost_ids": "Coûts créés",
+      "lineRef": "Ligne {id}",
+      "scope": "Périmètre",
+      "shipment_id": "Expédition",
+      "container_id": "Conteneur",
+      "po_id": "Commande",
+      "po_line_id": "Ligne de commande",
+      "cost_type": "Type de coût",
+      "amount": "Montant",
+      "currency": "Devise",
+      "fx_rate": "Taux de change",
+      "fx_date": "Date du taux",
+      "fx_source": "Source du taux",
+      "amount_base": "Montant (devise société)",
+      "allocation_method": "Méthode de ventilation",
+      "manual_splits": "Ventilation manuelle",
+      "cost_date": "Date du coût",
+      "notes": "Notes",
+      "supersedes_cost_id": "Remplace l'estimé",
+      "closed_at": "Clos le",
+      "close_reason": "Motif de clôture",
+      "created_at": "Créé le",
+      "name": "Nom",
+      "base_currency": "Devise de référence",
+      "default_allocation_method": "Méthode de ventilation par défaut",
+      "default_incoterm": "Incoterm par défaut",
+      "free_days_demurrage": "Jours francs de surestaries",
+      "free_days_detention": "Jours francs de détention",
+      "locale": "Langue des e-mails",
+      "settings": "Réglages",
+      "code": "Événement",
+      "occurred_at": "Date et heure",
+      "is_estimate": "Estimation",
+      "location_unlocode": "Lieu (code)",
+      "location_name": "Nom du lieu",
+      "vessel_name": "Navire",
+      "voyage": "Voyage",
+      "note": "Note",
+      "odoo_id": "Identifiant Odoo",
+      "odoo_name": "Document Odoo",
+      "record_url": "Lien Odoo",
+      "adopted": "Repris automatiquement",
+      "forgotten_at": "Oublié le",
+      "forgotten_reason": "Motif d'oubli",
+      "document_state": "État du document dans l'ERP"
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "À relire",
@@ -812,12 +966,24 @@
     },
     "costCount": "{count, plural, one {# coût créé} other {# coûts créés}}"
   },
+  "confidence": {
+    "high": "Lecture fiable",
+    "medium": "Lecture automatique · à relire",
+    "low": "Lecture incertaine · à relire",
+    "scoreTitle": "Confiance de lecture : {value}"
+  },
   "estimates": {
     "title": "Estimé → réel",
-    "estimated": "Estimé",
-    "actual": "Réel",
+    "estimated": "Encore estimé",
+    "estimatedHint": "Postes estimés qu'aucune facture n'a encore remplacés.",
+    "actual": "Facturé",
+    "unforecastNote": "dont, sans estimé :",
+    "allocated": "Ventilé",
+    "allocatedHint": "Encore estimé + facturé.",
     "variance": "Écart",
-    "varianceHint": "réel − estimé, sur les postes qui ont les deux",
+    "varianceHint": "Facturé moins estimé, sur les seuls postes où une facture a remplacé un estimé.",
+    "varianceBasis": "{count} poste(s) recalé(s)",
+    "varianceNone": "aucun estimé remplacé par une facture",
     "completeness": "Postes facturés",
     "completenessDetail": "{actual} sur {expected} types de coûts facturés",
     "completenessHint": "Compte les types de coûts (fret, THC…), pas les lignes de facture.",
@@ -838,8 +1004,13 @@
   },
   "rateCards": {
     "title": "Barèmes d'estimation",
-    "hint": "Un barème par type de coût. Appliqué à la demande sur un conteneur pour créer des coûts estimés, remplacés ensuite par la facture réelle. Un barème DEMURRAGE est lu comme un tarif journalier, il sert au calcul des surestaries évitées.",
+    "hint": "Un barème par type de coût. Appliqué à la demande sur un conteneur pour créer des coûts estimés, remplacés ensuite par la facture réelle. Un barème {demurrage} est lu comme un tarif journalier, il sert au calcul des surestaries évitées.",
     "empty": "Aucun barème.",
+    "emptyHint": "Pas encore de barème : commencez avec l'exemple ci-dessous, puis ajustez les montants à vos tarifs.",
+    "example": "Ajouter des barèmes d'exemple",
+    "exampleAdded": "Barèmes d'exemple ajoutés — ajustez les montants à votre tarif.",
+    "exampleFailed": "Impossible d'ajouter les barèmes d'exemple",
+    "exampleNote": "Exemple — à ajuster",
     "costType": "Type de coût",
     "scope": "Périmètre",
     "basis": "Base",
@@ -851,6 +1022,10 @@
     "added": "Barème ajouté",
     "deleted": "Barème supprimé",
     "failed": "Impossible d'enregistrer le barème",
+    "deleteConfirmTitle": "Supprimer ce barème ?",
+    "deleteConfirmBody": "{type} · {amount}. Les coûts déjà estimés avec ce barème ne sont pas modifiés.",
+    "deleteConfirmConfirm": "Supprimer",
+    "deleteConfirmCancel": "Annuler",
     "basisLabel": {
       "FLAT": "Forfait",
       "PER_100KG": "Par 100 kg",
@@ -864,6 +1039,7 @@
     "subtitle": "Réel moins estimé, sur les coûts réels datés du mois, par type et par commande. Pour la clôture.",
     "period": "Mois",
     "pairs": "{count} coûts réels appariés à un estimé",
+    "basis": "Ces trois totaux ne portent que sur les postes où une facture a remplacé un estimé. Une facture qu'aucun estimé n'attendait n'y figure pas, et la TVA à l'import non plus : c'est la règle appliquée à l'écart d'un conteneur.",
     "byType": "Par type de coût",
     "byPo": "Par commande",
     "empty": "Aucun coût réel apparié à un estimé sur ce mois.",
@@ -891,7 +1067,7 @@
     "connectedDetail": "{kind} {version} · {company}",
     "lastSync": "dernière synchronisation le {date}",
     "neverSynced": "jamais synchronisé",
-    "lastError": "Dernière erreur : {error}",
+    "lastErrorGeneric": "La dernière synchronisation a échoué. Vérifiez la connexion Odoo ci-dessus.",
     "sync": "Synchroniser maintenant",
     "syncing": "Synchronisation…",
     "synced": "{orders} commandes, {lines} lignes lues",
@@ -935,6 +1111,7 @@
       "showLines": "Voir la ventilation par ligne",
       "hideLines": "Masquer la ventilation",
       "blocker": {
+        "unknown": "Un point bloque l'écriture dans l'ERP. Rechargez la page ; si le message reste, écrivez-nous depuis le menu Aide.",
         "no_erp_connection": "Aucun ERP n'est connecté. Rendez-vous dans Paramètres, Connexion ERP.",
         "no_actual_costs": "Aucun coût facturé n'est ventilé sur ce conteneur. Les estimations ne sont jamais poussées.",
         "no_receipt": "Aucune réception validée dans l'ERP pour {po_numbers}. Le coût de réception s'accroche à une réception : la marchandise doit d'abord y être reçue.",
@@ -943,8 +1120,10 @@
         "unmatched_line": "{po_number} ligne {line_no} ({sku}) ne correspond à aucune ligne de la réception {receipt}. Les coûts sont poussés ligne à ligne : chaque ligne doit correspondre.",
         "already_pushed": "Ces coûts ont déjà été poussés sous le nom {existing}.",
         "noSku": "sans SKU",
-        "pushed_cost_changed": "{existing} a été créé avec des montants qui ont changé depuis ({changes}). Le brouillon porte encore les anciens chiffres. Supprimez-le dans Odoo, oubliez le push ici, puis poussez à nouveau.",
-        "pushed_cost_gone": "{existing} porte {costs}, qui ne compte plus sur ce conteneur (supprimé, clôturé ou déplacé). Le brouillon le porte encore. Supprimez-le dans Odoo, oubliez le push ici, puis poussez à nouveau."
+        "pushed_cost_changed": "{existing} a été écrit avec des montants qui ont changé depuis ({changes}). Le document porte toujours les anciens chiffres : refaites-le dans l'ERP, oubliez le push ici, puis repoussez.",
+        "pushed_cost_gone": "{existing} porte {costs}, qui ne compte plus sur ce conteneur (supprimé, clôturé ou déplacé). Le document le porte encore : refaites-le dans l'ERP, oubliez le push ici, puis repoussez.",
+        "ambiguous_line": "La ligne {line_no} de {po_number} ({sku}) correspond à {count} lignes de la réception {receipt}. Le même produit reçu en plusieurs lots y a plusieurs lignes et rien ne dit laquelle correspond à cette ligne de commande : ventiler au hasard mettrait le coût sur la mauvaise marchandise. Poussez ce conteneur à la main, ou réceptionnez la commande sur une seule ligne.",
+        "erp_currency_mismatch": "La société Odoo tient ses comptes en {erp_currency} alors que cette organisation travaille en {base_currency}. Nos montants seraient lus comme des {erp_currency} et la valorisation de stock serait fausse du taux de change : rien n'est écrit."
       },
       "pushedAs": "déjà dans {name}",
       "willGo": "{count, plural, one {# coût partira} other {# coûts partiront}}",
@@ -1006,11 +1185,20 @@
     "empty": "Aucune marchandise arrivée sur la période. Un conteneur sans date de déchargement, d'arrivée ni d'ETA n'est pas compté.",
     "skus": "Coût unitaire par référence",
     "dnd": "Surestaries et détention",
-    "dndHint": "« Payé » = coûts réels de surestaries et détention. « Évité » = jours entre la première alerte et l'enlèvement, au tarif journalier du barème DEMURRAGE de vos réglages. Sans barème, pas de chiffre.",
+    "dndHint": "« Payé » = coûts réels de surestaries et détention. « Évité » = jours entre la première alerte et l'enlèvement, au tarif journalier du barème {demurrage} de vos réglages. Sans barème, pas de chiffre.",
     "dndEmpty": "Aucune surestarie payée ou évitée sur la période.",
     "atRiskTitle": "À risque maintenant (encore au terminal)",
     "skuAverageHint": "Moyenne pondérée sur tous les conteneurs — le coût unitaire peut varier selon le conteneur.",
     "notEstimable": "non estimable",
+    "dndRule": {
+      "noAlert": "Aucune alerte de risque ni date d'enlèvement enregistrées : rien à estimer.",
+      "noRateCard": "Non estimable : ajoutez un barème {demurrage} (son montant est lu comme un tarif journalier) pour obtenir un chiffre.",
+      "estimable": "{days, plural, one {# jour} other {# jours}} entre la première alerte et l'enlèvement, à {rate} par jour.",
+      "lfdOver": "Dernier jour franc dépassé depuis le {date} : des surestaries peuvent courir.",
+      "lfdLeft": "Dernier jour franc le {date}, {days, plural, one {# jour restant} other {# jours restants}}.",
+      "riskNoLfd": "Risque {risk}, aucun dernier jour franc enregistré.",
+      "unknown": "Détail indisponible."
+    },
     "exports": "Exports CSV",
     "exportsHint": "Séparateur et décimales adaptés à Excel français (point-virgule, virgule), UTF-8 avec BOM. Dates en ISO.",
     "export": {
@@ -1104,7 +1292,14 @@
       "uploadAction": "Choisir un fichier",
       "resume": "Reprenez l'import en cours : vérifiez le mapping des colonnes.",
       "continue": "Continuer l'import",
-      "backList": "Retour aux imports"
+      "backList": "Retour aux imports",
+      "mapping": "Faites correspondre les colonnes du fichier aux champs attendus, puis validez à blanc.",
+      "mappingAction": "Faire correspondre les colonnes",
+      "reviewErrors": "Le rapport de validation a trouvé des erreurs — corrigez le fichier ou importez seulement les lignes valides.",
+      "reviewOk": "Le rapport de validation est propre — importez les lignes.",
+      "reviewAction": "Voir le rapport de validation",
+      "done": "Import validé. Vérifiez que vos commandes sont bien chargées dans les conteneurs.",
+      "doneAction": "Voir les commandes"
     },
     "pos": {
       "empty": "Aucune commande pour l'instant. Importez un fichier ou chargez le jeu d'exemple.",

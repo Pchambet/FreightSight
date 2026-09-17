@@ -26,7 +26,12 @@
     "invoices": "Invoices",
     "audit": "History",
     "variance": "Variance",
-    "reports": "Reports"
+    "reports": "Reports",
+    "help": "Help"
+  },
+  "help": {
+    "subject": "FreightSight help — {org}",
+    "body": "Organization: {org}\nPage: {url}\n\nDescribe the issue:\n"
   },
   "containers": {
     "title": "Containers",
@@ -72,6 +77,7 @@
       "atRisk": "At demurrage risk",
       "noCost": "No cost recorded",
       "nextLfd": "next last free day on {date}",
+      "nextLfdOver": "last free day passed on {date}",
       "activeCount": "{count} active containers",
       "ofActive": "of {count} active",
       "noneAtRisk": "no last free day within 3 days"
@@ -101,7 +107,8 @@
     "breadcrumb": "Containers",
     "lastFreeDay": "Last free day {date}",
     "shipment": "Shipment {reference}",
-    "unallocatedSuffix": "unallocated",
+    "unallocatedSuffix": "unallocated — full amount of the charge, even if it spans beyond this container",
+    "notesTitle": "Worth knowing about this allocation",
     "totals": {
       "fob": "FOB",
       "allocated": "Allocated",
@@ -148,7 +155,7 @@
     "saved": "Tracking updated",
     "failed": "Could not update the container",
     "providerTitle": "Tracking provider",
-    "providerHelp": "Used when you click \"Track this container\". Manual: you enter the events. Terminal49 and Shipsgo: events arrive by themselves, with an API key set on the server.",
+    "providerHelp": "Used when you click \"Track this container\". Manual: you enter the events. Terminal49 and Shipsgo: events arrive by themselves once the provider is enabled for your organization — contact us to enable it.",
     "providerDefault": "Default provider",
     "provider": {
       "manual": "Manual",
@@ -162,7 +169,7 @@
     "unsubscribed": "Tracking stopped",
     "subscribeFailed": "Could not enable tracking",
     "subStatus": "status {status}",
-    "subError": "error: {error}"
+    "lastAttemptFailed": "The last sync attempt failed."
   },
   "loads": {
     "empty": "Nothing loaded yet. Costs cannot be allocated until a purchase-order line is in this container.",
@@ -218,7 +225,13 @@
       "empty": "No cost recorded yet.",
       "delete": "Delete cost",
       "deleted": "Cost deleted",
-      "deleteFailed": "Could not delete the cost"
+      "deleteFailed": "Could not delete the cost",
+      "deleteConfirmTitle": "Delete this cost?",
+      "deleteConfirmBody": "{type}, {amount}, dated {date}. The container's history will keep this deletion.",
+      "deleteConfirmConfirm": "Delete",
+      "deleteConfirmCancel": "Cancel",
+      "undo": "Undo",
+      "restored": "Cost restored"
     }
   },
   "unitCostHighlight": {
@@ -231,7 +244,7 @@
   "allocation": {
     "title": "Landed cost per purchase-order line",
     "preview": "preview, not saved",
-    "lineCount": "{count} lines",
+    "lineCount": "{count, plural, one {# line} other {# lines}}",
     "whatIf": "What if the allocation were:",
     "asRecorded": "as recorded",
     "recomputing": "recomputing…",
@@ -246,7 +259,8 @@
       "unitCost": "Unit cost"
     },
     "empty": "No purchase-order line loaded. Add loads first.",
-    "total": "Total"
+    "total": "Total",
+    "vatHint": "Import VAT: recoverable, outside the landed cost."
   },
   "purchaseOrders": {
     "title": "Purchase orders",
@@ -272,6 +286,7 @@
     "ordered": "ordered {date}",
     "linesCard": "Lines",
     "addCostCard": "Add a cost on this order",
+    "notesTitle": "Worth knowing about this allocation",
     "sections": {
       "addCostHint": "Cost applied to the whole PO, allocated across loaded lines",
       "ledger": "Cost ledger",
@@ -325,7 +340,11 @@
       "FAILED": "Failed"
     },
     "result": "{pos} POs, {lines} lines, {containers} containers, {loads} loads",
-    "continue": "continue"
+    "continue": "continue",
+    "source": {
+      "upload": "Uploaded file",
+      "erp_sync": "Odoo sync — automatic"
+    }
   },
   "importWizard": {
     "title": "Import purchase orders",
@@ -365,19 +384,22 @@
       "purchaseOrders": "Purchase orders",
       "lines": "Lines",
       "containersLoads": "Containers / loads",
-      "newUpdated": "{created} new, {updated} updated",
+      "newUpdated": "{created, plural, one {# new} other {# new}}, {updated, plural, one {# updated} other {# updated}}",
       "warningCount": "{count, plural, one {# warning} other {# warnings}}",
       "errorSummary": "{rows, plural, one {# row} other {# rows}} with {errors, plural, one {# error} other {# errors}} will be skipped",
       "noError": "No row error.",
+      "headerRow": "Column names read from line {line}.",
+      "totalsRowIgnored": "Totals row ignored.",
+      "forwardFilled": "{count} row(s) attached to the order on the row above.",
       "backToMapping": "Back to mapping",
       "importValid": "Import valid rows",
       "import": "Import",
       "orFix": "or fix the file and upload again",
       "failed": "Import failed",
+      "unknownIssue": "Check this value.",
       "th": {
         "row": "Row",
         "field": "Field",
-        "code": "Code",
         "message": "Message"
       }
     },
@@ -534,6 +556,21 @@
       "PO": "Purchase order",
       "PO_LINE": "Purchase-order line"
     },
+    "fxSource": {
+      "ecb": "ECB",
+      "ecb_latest": "latest published ECB rate",
+      "manual": "manual",
+      "same": "same currency"
+    },
+    "extractorKind": {
+      "RULES": "Read automatically by rules",
+      "MODEL": "Read automatically by AI",
+      "UNKNOWN": "Not read"
+    },
+    "erpDocumentState": {
+      "done": "validated",
+      "cancel": "cancelled"
+    },
     "auditAction": {
       "cost_created": "Cost created",
       "cost_updated": "Cost updated",
@@ -551,7 +588,11 @@
   "errors": {
     "fallback": "Request failed",
     "fieldPrefix": "{field}: {message}",
-    "OVER_ALLOCATED": "More would be loaded than the purchase-order line holds.",
+    "withRequestId": "{message} (ref. {id})",
+    "unknownField": "Invalid value.",
+    "NETWORK_ERROR": "Could not reach the server. Check your connection and try again.",
+    "REQUEST_TIMEOUT": "The server is taking too long to respond. Try again.",
+    "OVER_ALLOCATED": "{loaded} units loaded exceed the order line quantity ({line_quantity}), container {container_number}.",
     "DUPLICATE_LINE": "This purchase-order line appears twice.",
     "MANUAL_SPLITS_REQUIRED": "A manual allocation needs percentages.",
     "INVALID_MANUAL_SPLIT": "Manual splits must sum to 100.00.",
@@ -579,15 +620,15 @@
     "IMPORT_ABORTED": "Import aborted: no row was written.",
     "IMPORT_ALREADY_DONE": "This import has already been committed.",
     "REQUIRED": "Value required.",
-    "NOT_A_NUMBER": "Not a number.",
-    "NOT_A_DATE": "Not a date.",
-    "NOT_POSITIVE": "The value must be strictly positive.",
-    "NEGATIVE": "The value cannot be negative.",
-    "INVALID_CURRENCY": "Invalid currency code.",
-    "INVALID_CONTAINER_NUMBER": "Invalid container number (ISO 6346).",
-    "DUPLICATE_IN_FILE": "Duplicate row in the file.",
-    "DEPRECATED_COLUMN": "Deprecated column, ignored.",
-    "FX_RATE_DEFAULTED": "A default exchange rate was applied.",
+    "NOT_A_NUMBER": "\"{value}\" is not a number.",
+    "NOT_A_DATE": "\"{value}\" is not a recognised date (accepted: 31/12/2026, 31.12.2026, 2026-12-31).",
+    "NOT_POSITIVE": "The value must be greater than zero ({value}).",
+    "NEGATIVE": "The unit price cannot be negative ({value}).",
+    "INVALID_CURRENCY": "\"{value}\" is not a 3-letter ISO currency code.",
+    "INVALID_CONTAINER_NUMBER": "\"{value}\" is not an ISO 6346 container number (4 letters then 7 digits).",
+    "DUPLICATE_IN_FILE": "Line {line_no} of order {po_number} appears twice in the file.",
+    "DEPRECATED_COLUMN": "Column \"{column}\" (allocation percentage) is ignored: costs follow the organization's default allocation method.",
+    "FX_RATE_DEFAULTED": "Order in {currency}: no exchange rate known as of {rate_date}, rate {rate} ({currency}→{base_currency}, source: default) was applied. Correct it on the order.",
     "NOT_AN_ACTUAL": "Only an actual cost can replace an estimate.",
     "SELF_SUPERSEDE": "A cost cannot replace itself.",
     "NOT_AN_ESTIMATE": "The targeted cost is not an estimate.",
@@ -598,6 +639,32 @@
     "ERP_NO_CONNECTION": "No ERP connected: cannot check what exists over there.",
     "ERP_URL_HAS_CREDENTIALS": "The address must not carry a login: put the user in “Login” and the password in “API key”.",
     "ERP_URL_SCHEME": "The address must start with http:// or https://.",
+    "DUPLICATE_MANUAL_SPLIT": "A manual split names the same target twice: give it one line and one percentage.",
+    "ZERO_BASIS_LINES": "These lines received no charge: their allocation basis is zero. Pick by quantity or by weight if they should carry some.",
+    "DUTY_RATE_PARTIAL": "Duty spread on the customs value: these lines have no duty rate. Fill in their HS code for a theoretical-duty split.",
+    "CREDIT_NOTE_MANUAL": "This document was read as a credit note: enter the refund by hand, a cost cannot be negative yet.",
+    "NEGATIVE_COST_UNSUPPORTED": "A negative line cannot become a cost: untick it and enter the refund by hand.",
+    "DUPLICATE_COST": "A cost of the same type is already recorded on this freight. Check it, then confirm again if this invoice is a different charge.",
+    "COSTS_PUSHED_TO_ERP": "This invoice's costs are already in the ERP: correct them there with an adjustment document, or forget the push first.",
+    "INVALID_STATUS": "This action is not possible given the invoice's current state.",
+    "URL_NOT_PUBLIC": "{host} is not a publicly reachable address, so this server will not connect to it.",
+    "ERP_UNREACHABLE": "Odoo is unreachable at {host}.",
+    "ERP_TIMEOUT": "Odoo at {host} did not answer within {seconds} seconds.",
+    "ERP_BAD_RESPONSE": "{host} answered something that is not an Odoo XML-RPC endpoint.",
+    "ERP_AUTH_FAILED": "Odoo refused the credentials for {login} on database {database}. Check the login and the API key (Preferences → Account Security → API keys).",
+    "ERP_PROTOCOL_ERROR": "Odoo could not answer {model}.{method}.",
+    "ERP_FORGET_REASON_REQUIRED": "A reason is needed to forget this push: the document still exists in the ERP.",
+    "ERP_SPLIT_MISMATCH": "The split of {label} adds up to {split} where the charge is {amount}. Nothing was written: a document Odoo cannot validate is worse than no document at all.",
+    "ERP_SPLIT_UNMATCHED": "The document does not carry the charge {label} we just wrote into it, so we cannot tell which line our split belongs to. Delete this draft in Odoo and push again.",
+    "AMBIGUOUS_SCIENTIFIC": "Value \"{value}\" is written in scientific notation with a decimal comma: it cannot be read without risking a factor of 100,000. Write the number out in full in the file.",
+    "CURRENCY_MISMATCH": "Order {po_number} is in {po_currency}; this row says {row_currency}. An order carries a single currency: the row was not imported.",
+    "RETURN_NOT_SUPPORTED": "Negative quantity ({value}): returns and credit notes cannot be imported yet. The row was not imported.",
+    "HEADER_ROW_DETECTED": "Column names were read from line {line}; the lines above were ignored.",
+    "TOTALS_ROW_IGNORED": "The last row of the file is a totals row: it was not imported.",
+    "DECIMAL_COMMA_ASSUMED": "In column \"{column}\", the comma in \"{example}\" can be read two ways; it was read as {comma, select, thousands {a thousands separator (1,250 = 1250)} other {a decimal separator (1,250 = 1.25)}}. If that is wrong, fix the file before validating.",
+    "UNIT_COLUMN_AMBIGUOUS": "Column \"{column}\" does not say whether it holds a per-unit value or a line total: it is read as per unit. If it is a line total, divide it by the quantity before importing.",
+    "PO_NUMBER_FORWARD_FILLED": "{rows} row(s) with no order number were attached to the order stated above them (column \"{column}\").",
+    "DUPLICATE_SKU_NEW_LINE": "Article {sku} appears again on order {po_number} with a different quantity or price: it was imported as a separate line {line_no}.",
     "page": {
       "title": "Something went wrong",
       "body": "Something went wrong. Try again or return to the home screen.",
@@ -642,7 +709,7 @@
   "alerts": {
     "title": "Alerts",
     "subtitle": "{unread} unread · {total} in total",
-    "empty": "No alert. They show up here when a container changes risk level, when an ETA moves by more than 12 h, or when tracking stays silent for 48 h.",
+    "empty": "No alert. They show up here when a container changes risk level, when an ETA moves by more than 12 h, or when an expected milestone does not arrive.",
     "markRead": "Mark as read",
     "markAllRead": "Mark all as read",
     "marked": "Alert marked as read",
@@ -652,14 +719,27 @@
     "bell": "Alerts, {count} unread",
     "unreadOnly": "Unread only",
     "showAll": "Show all",
+    "superseded": "Superseded by a newer alert",
     "text": {
       "DND_RISK": {
         "title": "{container}: demurrage risk {risk}",
         "titleRunning": "{container}: demurrage running",
+        "titleRunningAmount": "{container}: demurrage running, {amount}",
+        "titleDetention": "{container}: detention risk {risk}",
+        "titleDetentionRunning": "{container}: detention running",
+        "titleDetentionRunningAmount": "{container}: detention running, {amount}",
         "body": "Last free day {lfd}.",
         "bodyRunning": "The last free day was {lfd}. Demurrage is running.",
+        "bodyRunningDays": "The last free day was {lfd}. Demurrage has been running for {days, plural, one {# day} other {# days}}.",
         "bodyLeft": "Last free day {lfd}, {days, plural, one {# day left} other {# days left}}.",
-        "bodyNoLfd": "Last free day unknown."
+        "bodyNoLfd": "Last free day unknown.",
+        "bodyDetention": "Empty due back {deadline}.",
+        "bodyDetentionLeft": "Empty due back {deadline}, {days, plural, one {# day left} other {# days left}}.",
+        "bodyDetentionRunning": "The empty was due back {deadline}. Detention is running.",
+        "bodyDetentionRunningDays": "The empty was due back {deadline}. Detention has been running for {days, plural, one {# day} other {# days}}.",
+        "amount": "{amount} so far, at {rate} per day.",
+        "noRate": "Add a daily rate in your settings to see the amount.",
+        "portUnconfirmed": "Port of discharge not confirmed: check that this is the final port."
       },
       "ETA_CHANGED": {
         "title": "{container}: arrival moved {hours} h {direction}",
@@ -670,7 +750,12 @@
       },
       "TRACKING_DATA_MISSING": {
         "title": "No tracking data for {container}",
-        "body": "{provider} has sent nothing for at least {hours} h. Check the container on the carrier's own site."
+        "body": "{provider} has sent nothing for at least {hours} h, and an event was due. Check the container on the carrier's own site.",
+        "bodyManual": "{container} was due on {eta} and no milestone has been entered since. Enter the discharge so we can count your free days."
+      },
+      "NOTIFICATION_FAILED": {
+        "title": "Your alerts are no longer being e-mailed",
+        "body": "We could not send your digest after {attempts} attempts ({reason}). Your alerts stay visible here and will be sent again as soon as e-mail works."
       },
       "TRACKING_PROVIDER_DOWN": {
         "title": "{provider} is not answering",
@@ -738,7 +823,7 @@
       "reopenAction": "Reopen for review",
       "reopened": "Invoice reopened — you can accept lines and confirm.",
       "notes": "Checks",
-      "extractor": "Read by {extractor}, confidence {confidence}",
+      "extractedBy": "Read by {extractor}",
       "vendor": "Vendor",
       "number": "Invoice no.",
       "date": "Invoice date",
@@ -747,16 +832,38 @@
       "subtotalMissing": "not printed",
       "vat": "VAT",
       "lowConfidenceTitle": "Low read confidence —",
-      "lowConfidenceBody": "check every line before confirming (confidence {confidence})."
+      "lowConfidenceBody": "check every line before confirming.",
+      "confirmAnyway": "Confirm anyway",
+      "duplicateBlocked": "At least one cost of the same type is already recorded on this freight (see the lines in red). Confirm again to record it anyway.",
+      "creditNoteBanner": "This document is a credit note: refunds cannot become costs yet. Enter the refund by hand.",
+      "reopenConfirmedAction": "Reopen for correction",
+      "reopenConfirmedTitle": "Reopen this confirmed invoice?",
+      "reopenConfirmedBody": "The {count} costs this confirmation created will be deleted. The invoice goes back to review; nothing else is touched.",
+      "reopenConfirmedConfirm": "Reopen and delete the costs",
+      "reopenConfirmedCancel": "Cancel",
+      "reopenedConfirmed": "Invoice reopened, {count} cost(s) deleted.",
+      "addLine": "Add a line",
+      "addLineTitle": "Add a line by hand",
+      "addLineSubmit": "Add",
+      "addLineAdded": "Line added",
+      "addLineFailed": "Could not add the line",
+      "cancel": "Cancel"
     },
     "lineNotes": {
       "singleContainer": "Charged to {container}, the only container named on the invoice.",
-      "duplicateCost": "Likely duplicate: {type} already invoiced ({vendor}, {invoice}, {amount} {currency}). Reject this line unless you intend to replace the existing cost.",
+      "duplicateCost": "A {type} cost of {amount} is already recorded on {scope, select, CONTAINER {this container} SHIPMENT {this shipment} PO {this order} other {this scope}} ({vendor}, invoice {invoice}). It may be counted twice.",
       "unknownContainer": "{container} is not one of your containers — choose the target manually.",
       "noFxRate": "No {currency} rate for {date}: enter the rate before confirming.",
       "arithmeticMore": "Lines read exceed the total by {amount} — a line may be missing or misread.",
       "arithmeticLess": "Lines read are short of the total by {amount} — a line may be missing or misread.",
-      "multiContainer": "This invoice mentions several containers — check each line is on the right one."
+      "multiContainer": "This invoice mentions several containers — check each line is on the right one.",
+      "creditNote": "This document is a credit note: refunds cannot become costs yet, enter it by hand.",
+      "negativeLine": "Negative line ({amount}): it stays on screen, but it cannot become a cost yet.",
+      "droppedLine": "A line could not be priced and is not shown: “{description}” ({amount}). Add it by hand if it counts.",
+      "currencyGuess": "The document names several currencies: {chosen} was used (also seen: {others}). Check before confirming.",
+      "addedByHuman": "Line added by hand during review.",
+      "forcedDuplicate": "Line {line_no} was confirmed despite an existing {type} cost ({amount}, {vendor}, invoice {invoice}).",
+      "pushedCost": "Cost already written into the ERP: document {document} ({state})."
     },
     "line": {
       "accepted": "Accept",
@@ -768,7 +875,6 @@
       "target": "Target",
       "chooseTarget": "Choose…",
       "noTarget": "no target",
-      "confidence": "confidence {value}",
       "save": "Save",
       "saved": "Line updated",
       "failed": "Could not update the line",
@@ -788,8 +894,12 @@
     "unchanged": "no detail",
     "next": "Older entries",
     "filterAll": "All actions",
-    "actor": "user {id}",
+    "actorUnknown": "Unidentified user",
     "system": "system",
+    "yes": "Yes",
+    "no": "No",
+    "otherField": "Other field",
+    "unknownValue": "Unknown value",
     "entity": {
       "cost": "Cost",
       "container": "Container",
@@ -801,7 +911,51 @@
       "invoice_number": "Invoice no.",
       "vendor": "Vendor",
       "total_amount": "Amount",
-      "cost_ids": "Costs created"
+      "cost_ids": "Costs created",
+      "lineRef": "Line {id}",
+      "scope": "Scope",
+      "shipment_id": "Shipment",
+      "container_id": "Container",
+      "po_id": "Purchase order",
+      "po_line_id": "PO line",
+      "cost_type": "Cost type",
+      "amount": "Amount",
+      "currency": "Currency",
+      "fx_rate": "FX rate",
+      "fx_date": "FX date",
+      "fx_source": "FX source",
+      "amount_base": "Amount (org currency)",
+      "allocation_method": "Allocation method",
+      "manual_splits": "Manual splits",
+      "cost_date": "Cost date",
+      "notes": "Notes",
+      "supersedes_cost_id": "Replaces estimate",
+      "closed_at": "Closed on",
+      "close_reason": "Close reason",
+      "created_at": "Created on",
+      "name": "Name",
+      "base_currency": "Base currency",
+      "default_allocation_method": "Default allocation method",
+      "default_incoterm": "Default incoterm",
+      "free_days_demurrage": "Demurrage free days",
+      "free_days_detention": "Detention free days",
+      "locale": "E-mail language",
+      "settings": "Settings",
+      "code": "Event",
+      "occurred_at": "Date and time",
+      "is_estimate": "Estimate",
+      "location_unlocode": "Location (code)",
+      "location_name": "Location name",
+      "vessel_name": "Vessel",
+      "voyage": "Voyage",
+      "note": "Note",
+      "odoo_id": "Odoo id",
+      "odoo_name": "Odoo document",
+      "record_url": "Odoo link",
+      "adopted": "Auto-resumed",
+      "forgotten_at": "Forgotten on",
+      "forgotten_reason": "Forget reason",
+      "document_state": "ERP document state"
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "Needs review",
@@ -812,12 +966,24 @@
     },
     "costCount": "{count, plural, one {# cost created} other {# costs created}}"
   },
+  "confidence": {
+    "high": "Reliable read",
+    "medium": "Automatic read · needs review",
+    "low": "Uncertain read · needs review",
+    "scoreTitle": "Extraction confidence: {value}"
+  },
   "estimates": {
     "title": "Estimated → actual",
-    "estimated": "Estimated",
-    "actual": "Actual",
+    "estimated": "Still estimated",
+    "estimatedHint": "Estimated charges no invoice has replaced yet.",
+    "actual": "Invoiced",
+    "unforecastNote": "of which, with no estimate:",
+    "allocated": "Allocated",
+    "allocatedHint": "Still estimated + invoiced.",
     "variance": "Variance",
-    "varianceHint": "actual − estimated, on the cost types that have both",
+    "varianceHint": "Invoiced minus estimated, on the charges where an invoice has replaced an estimate — and only those.",
+    "varianceBasis": "{count} charge(s) matched",
+    "varianceNone": "no estimate replaced by an invoice yet",
     "completeness": "Invoiced cost types",
     "completenessDetail": "{actual} of {expected} cost types invoiced",
     "completenessHint": "Counts cost types (freight, THC…), not invoice lines.",
@@ -838,8 +1004,13 @@
   },
   "rateCards": {
     "title": "Estimation rate cards",
-    "hint": "One rate card per cost type. Applied on demand to a container to create estimated costs, later replaced by the real invoice. A DEMURRAGE rate card is read as a daily rate and feeds the avoided-demurrage estimate.",
+    "hint": "One rate card per cost type. Applied on demand to a container to create estimated costs, later replaced by the real invoice. A {demurrage} rate card is read as a daily rate and feeds the avoided-demurrage estimate.",
     "empty": "No rate card.",
+    "emptyHint": "No rate card yet: start from the example below, then adjust the amounts to your own rates.",
+    "example": "Add example rate cards",
+    "exampleAdded": "Example rate cards added — adjust the amounts to your rate.",
+    "exampleFailed": "Could not add the example rate cards",
+    "exampleNote": "Example — adjust me",
     "costType": "Cost type",
     "scope": "Scope",
     "basis": "Basis",
@@ -851,6 +1022,10 @@
     "added": "Rate card added",
     "deleted": "Rate card deleted",
     "failed": "Could not save the rate card",
+    "deleteConfirmTitle": "Delete this rate card?",
+    "deleteConfirmBody": "{type} · {amount}. Costs already estimated with it are not changed.",
+    "deleteConfirmConfirm": "Delete",
+    "deleteConfirmCancel": "Cancel",
     "basisLabel": {
       "FLAT": "Flat",
       "PER_100KG": "Per 100 kg",
@@ -864,6 +1039,7 @@
     "subtitle": "Actual minus estimated, on actual costs dated in the month, by type and by purchase order. For month-end close.",
     "period": "Month",
     "pairs": "{count} actual costs paired with an estimate",
+    "basis": "These three totals cover only the charges where an invoice has replaced an estimate. An invoice no estimate was waiting for is not in them, and neither is import VAT: the same rule as a container's variance.",
     "byType": "By cost type",
     "byPo": "By purchase order",
     "empty": "No actual cost paired with an estimate this month.",
@@ -891,7 +1067,7 @@
     "connectedDetail": "{kind} {version} · {company}",
     "lastSync": "last sync on {date}",
     "neverSynced": "never synced",
-    "lastError": "Last error: {error}",
+    "lastErrorGeneric": "The last sync failed. Check the Odoo connection above.",
     "sync": "Sync now",
     "syncing": "Syncing…",
     "synced": "{orders} orders, {lines} lines read",
@@ -935,6 +1111,7 @@
       "showLines": "Show the split per line",
       "hideLines": "Hide the split",
       "blocker": {
+        "unknown": "Something blocks the write to the ERP. Reload the page; if this message stays, write to us from the Help menu.",
         "no_erp_connection": "No ERP is connected. Go to Settings, ERP connection.",
         "no_actual_costs": "No invoiced cost is allocated to this container. Estimates are never pushed.",
         "no_receipt": "No done receipt in the ERP for {po_numbers}. A landed cost attaches to a receipt: the goods have to be received there first.",
@@ -943,8 +1120,10 @@
         "unmatched_line": "{po_number} line {line_no} ({sku}) matches no line on receipt {receipt}. Costs are pushed per line: every line has to match.",
         "already_pushed": "These costs were already pushed as {existing}.",
         "noSku": "no SKU",
-        "pushed_cost_changed": "{existing} was written with amounts that have changed since ({changes}). The draft still carries the old figures. Delete it in Odoo, forget the push here, then push again.",
-        "pushed_cost_gone": "{existing} carries {costs}, which no longer counts on this container (deleted, closed or moved). The draft still holds it. Delete it in Odoo, forget the push here, then push again."
+        "pushed_cost_changed": "{existing} was written with amounts that have changed since ({changes}). It still carries the old figures. Redo the document in the ERP, forget the push here, then push again.",
+        "pushed_cost_gone": "{existing} carries {costs}, which no longer counts on this container (deleted, closed or moved). The document still holds it. Redo the document in the ERP, forget the push here, then push again.",
+        "ambiguous_line": "{po_number} line {line_no} ({sku}) matches {count} lines of receipt {receipt}. The same product received in several lots has several lines there, and nothing says which one this order line is: splitting it by guesswork would put the cost on the wrong goods, so it is refused. Push this container by hand, or receive the order on a single line.",
+        "erp_currency_mismatch": "The ERP company keeps its books in {erp_currency} and this organisation works in {base_currency}. Our amounts would be read as {erp_currency} and the stock valuation would be wrong by the exchange rate, so nothing is written."
       },
       "pushedAs": "already in {name}",
       "willGo": "{count, plural, one {# cost will go} other {# costs will go}}",
@@ -1006,11 +1185,20 @@
     "empty": "No goods arrived in the period. A container with no discharge, arrival or ETA date is not counted.",
     "skus": "Unit cost per SKU",
     "dnd": "Demurrage and detention",
-    "dndHint": "\"Paid\" = actual demurrage and detention costs. \"Avoided\" = days between the first risk alert and pickup, at the daily rate of your DEMURRAGE rate card. No rate card, no figure.",
+    "dndHint": "\"Paid\" = actual demurrage and detention costs. \"Avoided\" = days between the first risk alert and pickup, at the daily rate of your {demurrage} rate card. No rate card, no figure.",
     "dndEmpty": "No demurrage paid or avoided in the period.",
     "atRiskTitle": "At risk now (still at terminal)",
     "skuAverageHint": "Weighted average across containers — unit cost may differ per container.",
     "notEstimable": "not estimable",
+    "dndRule": {
+      "noAlert": "No risk alert and no pickup date recorded: nothing to estimate.",
+      "noRateCard": "Not estimable: add a {demurrage} rate card (its amount is read as a daily rate) to get a figure.",
+      "estimable": "{days, plural, one {# day} other {# days}} between the first risk alert and pickup, at {rate} per day.",
+      "lfdOver": "Last free day passed on {date}: demurrage may be running.",
+      "lfdLeft": "Last free day {date}, {days, plural, one {# day left} other {# days left}}.",
+      "riskNoLfd": "Risk {risk}, no last free day recorded.",
+      "unknown": "Detail unavailable."
+    },
     "exports": "CSV exports",
     "exportsHint": "Separator and decimals suited to French Excel (semicolon, comma), UTF-8 with BOM. Dates in ISO.",
     "export": {
@@ -1104,7 +1292,14 @@
       "uploadAction": "Choose a file",
       "resume": "Resume the import in progress: check column mapping.",
       "continue": "Continue import",
-      "backList": "Back to imports"
+      "backList": "Back to imports",
+      "mapping": "Match the file's columns to the expected fields, then validate as a dry run.",
+      "mappingAction": "Match columns",
+      "reviewErrors": "The validation report found errors — fix the file or import only the valid rows.",
+      "reviewOk": "The validation report is clean — import the rows.",
+      "reviewAction": "View the validation report",
+      "done": "Import committed. Check that your purchase orders are loaded into containers.",
+      "doneAction": "View purchase orders"
     },
     "pos": {
       "empty": "No purchase orders yet. Import a file or load the sample data.",
