@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/layout/AppShell";
 import CollapsibleSection from "@/components/shared/CollapsibleSection";
 import SettingsForm from "@/features/settings/SettingsForm";
 import RateCards from "@/features/settings/RateCards";
+import ServiceStatus from "@/features/settings/ServiceStatus";
 import ErpConnection from "@/features/erp/ErpConnection";
 import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
 import { settingsHubStep } from "@/features/workflow/steps";
@@ -15,11 +16,12 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function SettingsPage() {
-  const [{ data, error }, cards, erp, runs, t] = await Promise.all([
+  const [{ data, error }, cards, erp, runs, service, t] = await Promise.all([
     api.GET("/api/v1/organization"),
     api.GET("/api/v1/organization/rate-cards"),
     api.GET("/api/v1/erp/connection"),
     api.GET("/api/v1/erp/sync-runs", { params: { query: { limit: 10 } } }),
+    api.GET("/api/v1/service-status"),
     getTranslations("settings"),
   ]);
   if (error || !data) throw new Error("api_error");
@@ -46,6 +48,11 @@ export default async function SettingsPage() {
             <ErpConnection connection={erp.response.status === 200 ? (erp.data ?? null) : null} runs={runs.data ?? []} />
           </div>
         </CollapsibleSection>
+        {service.data ? (
+          <CollapsibleSection id="service" title={t("sections.service")} hint={t("sections.serviceHint")} defaultOpen={service.data.checks.some((c) => c.state === "degraded")}>
+            <ServiceStatus checks={service.data.checks} checkedAt={service.data.checked_at} />
+          </CollapsibleSection>
+        ) : null}
       </div>
     </>
   );

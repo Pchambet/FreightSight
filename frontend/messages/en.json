@@ -460,11 +460,43 @@
       "rateCards": "Estimate rate cards",
       "rateCardsHint": "Estimate freight and fees before invoices arrive",
       "erp": "ERP connection",
-      "erpHint": "Sync Odoo purchase orders and push landed costs"
+      "erpHint": "Sync Odoo purchase orders and push landed costs",
+      "service": "Service status",
+      "serviceHint": "What is switched on for your account: alert e-mails, automatic tracking, invoice reading, background jobs, backups."
     },
     "save": "Save settings",
     "saved": "Settings saved",
-    "failed": "Could not save the settings"
+    "failed": "Could not save the settings",
+    "service": {
+      "state": {
+        "ok": "Running",
+        "off": "Not switched on",
+        "degraded": "Needs attention"
+      },
+      "never": "never",
+      "unknown": "Status not reported.",
+      "checkedAt": "Checked on {when} (UTC).",
+      "check": {
+        "alert_emails": "Alert e-mails",
+        "automatic_tracking": "Automatic container tracking",
+        "invoice_reading": "Invoice reading",
+        "background_jobs": "Background jobs",
+        "backups": "Backups"
+      },
+      "code": {
+        "ALERT_EMAILS_ON": "Alerts (last free day, demurrage) are e-mailed to the company's members.",
+        "ALERT_EMAILS_OFF": "Alerts are computed and shown on screen, but no e-mail is sent. Sending is switched on when your pilot opens.",
+        "TRACKING_ON": "Events and arrival dates are received automatically ({providers}).",
+        "TRACKING_POLLING_ONLY": "Automatic tracking polls the provider at regular intervals ({providers}); instant delivery of events is not in place.",
+        "TRACKING_MANUAL_ONLY": "Containers are tracked by entering events by hand. Automatic tracking is switched on when your pilot opens.",
+        "READING_RULES_ONLY": "Your invoices are read by rules, without AI: no model provider sees your documents.",
+        "READING_RULES_AND_MODEL": "Your invoices are read by rules, then by an AI model for the layouts the rules do not recognise.",
+        "WORKER_ALIVE": "Background jobs are running (invoice reading, alerts, synchronisation). Last sign of life on {when}.",
+        "WORKER_SILENT": "Background jobs have not given a sign of life recently (last one: {when}). Uploaded invoices may wait for their reading.",
+        "BACKUPS_FRESH": "The last encrypted backup was verified on {when}.",
+        "BACKUPS_UNVERIFIED": "No recent backup could be verified (last check: {when})."
+      }
+    }
   },
   "auth": {
     "chooseOrganization": {

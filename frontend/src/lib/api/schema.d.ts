@@ -144,6 +144,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/service-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Service Status
+         * @description What this deployment has switched on, in terms of what a customer can rely on: are alert
+         *     e-mails really sent, are containers tracked without typing, is the worker alive, were the backups
+         *     checked. An alert that is logged instead of sent looks, from every other screen, exactly like one
+         *     that was sent. States and codes only: never a key, never a variable name.
+         */
+        get: operations["service_status_api_v1_service_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/suppliers": {
         parameters: {
             query?: never;
@@ -3276,6 +3299,32 @@ export interface components {
             /** Results */
             results: components["schemas"]["SearchHit"][];
         };
+        /** ServiceCheck */
+        ServiceCheck: {
+            /** Key */
+            key: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ok" | "off" | "degraded";
+            /** Code */
+            code: string;
+            /** Params */
+            params?: {
+                [key: string]: string;
+            };
+        };
+        /** ServiceStatus */
+        ServiceStatus: {
+            /**
+             * Checked At
+             * Format: date-time
+             */
+            checked_at: string;
+            /** Checks */
+            checks: components["schemas"]["ServiceCheck"][];
+        };
         /** ShipmentCreate */
         ShipmentCreate: {
             /** Reference */
@@ -3933,6 +3982,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SampleDataResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    service_status_api_v1_service_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceStatus"];
                 };
             };
             /** @description Validation Error */

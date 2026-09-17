@@ -460,11 +460,43 @@
       "rateCards": "Barèmes d'estimation",
       "rateCardsHint": "Estimer le fret et les frais avant l'arrivée des factures",
       "erp": "Connexion ERP",
-      "erpHint": "Synchroniser les commandes Odoo et pousser les coûts de réception"
+      "erpHint": "Synchroniser les commandes Odoo et pousser les coûts de réception",
+      "service": "État du service",
+      "serviceHint": "Ce qui est activé sur votre compte : e-mails d'alerte, suivi automatique, lecture des factures, tâches de fond, sauvegardes."
     },
     "save": "Enregistrer",
     "saved": "Paramètres enregistrés",
-    "failed": "Impossible d'enregistrer les paramètres"
+    "failed": "Impossible d'enregistrer les paramètres",
+    "service": {
+      "state": {
+        "ok": "En service",
+        "off": "Non activé",
+        "degraded": "À surveiller"
+      },
+      "never": "jamais",
+      "unknown": "État non renseigné.",
+      "checkedAt": "Vérifié le {when} (UTC).",
+      "check": {
+        "alert_emails": "E-mails d'alerte",
+        "automatic_tracking": "Suivi automatique des conteneurs",
+        "invoice_reading": "Lecture des factures",
+        "background_jobs": "Tâches de fond",
+        "backups": "Sauvegardes"
+      },
+      "code": {
+        "ALERT_EMAILS_ON": "Les alertes (dernier jour franc, surestaries) partent par e-mail aux membres de la société.",
+        "ALERT_EMAILS_OFF": "Les alertes sont calculées et visibles à l'écran, mais aucun e-mail ne part. L'envoi est activé à l'ouverture de votre pilote.",
+        "TRACKING_ON": "Les événements et les dates d'arrivée sont reçus automatiquement ({providers}).",
+        "TRACKING_POLLING_ONLY": "Le suivi automatique interroge le fournisseur à intervalles réguliers ({providers}) ; la réception instantanée des événements n'est pas en place.",
+        "TRACKING_MANUAL_ONLY": "Les conteneurs sont suivis par saisie manuelle des événements. Le suivi automatique est activé à l'ouverture de votre pilote.",
+        "READING_RULES_ONLY": "Vos factures sont lues par des règles, sans IA : aucun fournisseur de modèle ne voit vos documents.",
+        "READING_RULES_AND_MODEL": "Vos factures sont lues par des règles, puis par un modèle d'IA pour les mises en page que les règles ne reconnaissent pas.",
+        "WORKER_ALIVE": "Les tâches de fond tournent (lecture des factures, alertes, synchronisation). Dernier signe de vie le {when}.",
+        "WORKER_SILENT": "Les tâches de fond n'ont pas donné signe de vie récemment (dernier signe : {when}). Les factures déposées peuvent attendre leur lecture.",
+        "BACKUPS_FRESH": "La dernière sauvegarde chiffrée a été vérifiée le {when}.",
+        "BACKUPS_UNVERIFIED": "Aucune sauvegarde récente n'a pu être vérifiée (dernière vérification : {when})."
+      }
+    }
   },
   "auth": {
     "chooseOrganization": {
