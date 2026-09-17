@@ -23,6 +23,7 @@ from app.core.errors import NotFound, Unprocessable
 from app.core.settings import Settings, get_settings
 from app.core.tenancy import TenantSession
 from app.domain.erp.ports import ErpConnector, ErpPurchaseOrder, ErpWriter
+from app.domain.fx.service import FxService
 from app.domain.imports import service as imports
 from app.domain.models import (
     ErpConnection,
@@ -217,6 +218,7 @@ def sync(
     since: datetime | None = None,
     limit: int | None = None,
     full: bool = False,
+    fx: FxService | None = None,
 ) -> SyncResult:
     """Read the ERP and import what it says. One run row, whatever happens.
 
@@ -249,7 +251,7 @@ def sync(
         job = imports.create_job(t, ImportKind.PURCHASE_ORDERS, content, "odoo-sync.csv")
         # Our own columns, so the mapping is the identity: no guessing, no remembered mapping.
         mapping = {column: column for column in COLUMNS}
-        report = imports.run_job(t, job, mapping, dry_run=False, on_error="skip_rows")
+        report = imports.run_job(t, job, mapping, dry_run=False, on_error="skip_rows", fx=fx)
 
         run.status = ErpSyncStatus.SUCCEEDED
         run.import_job_id = job.id

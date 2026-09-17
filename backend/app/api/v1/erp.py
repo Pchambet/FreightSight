@@ -12,7 +12,7 @@ from fastapi import APIRouter, status
 from sqlalchemy import select
 
 from app.api.v1 import schemas
-from app.api.v1.deps import WriterDep
+from app.api.v1.deps import FxDep, WriterDep
 from app.core.crypto import CryptoError
 from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.net import assert_public_host
@@ -85,7 +85,7 @@ def delete_connection(t: TenantDep, _: WriterDep) -> None:
 
 
 @router.post("/sync", response_model=schemas.ErpSyncRunResponse, status_code=status.HTTP_202_ACCEPTED)
-def sync_now(t: TenantDep, _: WriterDep, full: bool = False) -> ErpSyncRun:
+def sync_now(t: TenantDep, fx: FxDep, _: WriterDep, full: bool = False) -> ErpSyncRun:
     """Read the ERP now, in this request.
 
     Deliberately synchronous: someone has just connected their Odoo and is watching this button.
@@ -96,7 +96,7 @@ def sync_now(t: TenantDep, _: WriterDep, full: bool = False) -> ErpSyncRun:
     if connection is None:
         raise NotFound("ERP connection")
     try:
-        result = service.sync(t, connection, full=full)
+        result = service.sync(t, connection, full=full, fx=fx)
     except Exception:
         # The run row was written before the failure and says why; keep it and let the error surface.
         t.db.commit()

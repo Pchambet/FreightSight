@@ -783,7 +783,7 @@ def sync_erp(db: Session, org_id: UUID | None = None, *, now: datetime | None = 
             principal = Principal(org_id=org.id, user_id=None, role=MemberRole.OWNER, via="dev")
             t = TenantSession(db, principal, org)
             try:
-                erp_service.sync(t, connection)
+                erp_service.sync(t, connection, fx=FxService(make_fetcher(get_settings().fx_api_url)))
                 db.commit()
                 succeeded += 1
             except Exception as exc:

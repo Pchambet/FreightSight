@@ -228,12 +228,12 @@ function IssueTable({ title, issues, tone }: { title: string; issues: Issue[]; t
   // the code never reaches the screen at all, only its translated message (or a neutral fallback).
   //
   // A raw ISO date or an unrounded rate string inside a sentence is the same leak one level down
-  // (audit B22's own example carries a date), so the one code that ships them — FX_RATE_DEFAULTED —
-  // gets its `rate_date`/`rate` run through the same formatters as everywhere else on screen before
+  // (audit B22's own example carries a date), so the two codes that ship them — FX_RATE_APPLIED and
+  // FX_RATE_DEFAULTED — get their `rate_date`/`rate` run through the same formatters as everywhere else on screen before
   // the sentence is built, instead of every backend message reaching in and picking its own format.
   const displayParams = (i: Issue): Record<string, string> | undefined => {
     if (!i.params) return undefined;
-    if (i.code !== "FX_RATE_DEFAULTED") return i.params;
+    if (i.code !== "FX_RATE_DEFAULTED" && i.code !== "FX_RATE_APPLIED") return i.params;
     return { ...i.params, rate_date: dateShort(i.params.rate_date, locale), rate: formatRate(i.params.rate, locale) };
   };
   return (

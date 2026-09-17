@@ -13,6 +13,7 @@ from sqlalchemy import func, select
 from app.core.errors import Conflict, Unprocessable
 from app.core.tenancy import TenantSession
 from app.domain.costing.service import recompute_org
+from app.domain.fx.service import FxService
 from app.domain.imports.parsing import (
     CONTAINER_NUMBER_RE,
     REQUIRED,
@@ -149,7 +150,13 @@ def _check_mapping(kind: ImportKind, mapping: dict[str, str], columns: list[str]
 
 
 def run_job(
-    t: TenantSession, job: ImportJob, mapping: dict[str, str], *, dry_run: bool, on_error: str = "skip_rows"
+    t: TenantSession,
+    job: ImportJob,
+    mapping: dict[str, str],
+    *,
+    dry_run: bool,
+    on_error: str = "skip_rows",
+    fx: FxService | None = None,
 ) -> ImportReport:
     """Apply the import inside a SAVEPOINT. Dry run rolls it back; commit keeps it and marks the job DONE."""
     _check_mapping(job.kind, mapping, list(job.columns))
@@ -165,7 +172,7 @@ def run_job(
     nested = t.db.begin_nested()
     try:
         if job.kind is ImportKind.PURCHASE_ORDERS:
-            _apply_purchase_orders(t, table, mapping, report, conventions)
+            _apply_purchase_orders(t, table, mapping, report, conventions, fx)
         else:
             _apply_legacy(t, table, mapping, report, conventions)
         if report.errors and on_error == "abort":
@@ -464,12 +471,54 @@ def _forward_filled_rows(table: Table, mapping: dict[str, str], report: ImportRe
     return rows
 
 
+def _set_order_rate(t: TenantSession, fx: FxService | None, po: PurchaseOrder, r: _Row) -> None:
+    """Give a foreign-currency order the ECB rate of its date, and say which one was used.
+
+    It used to get 1 every time, with a warning: a 40 000 $ order counted as 40 000 €, a FOB about
+    15 % too high until somebody noticed, and with it every share allocated by value. The rate of
+    the order date (today without one) is what the purchase-order screen applies; the import now
+    does the same. Only when no rate can be had does the order fall back to 1, and the warning says
+    so with the three things a CFO needs: which rate, of which day, from where.
+    """
+    on_date = po.order_date or datetime.now(UTC).date()
+    resolved = None
+    if fx is not None:
+        try:
+            resolved = fx.resolve(t.db, t.org.base_currency, po.currency, on_date)
+        except Unprocessable:
+            resolved = None
+    if resolved is None:
+        r.warn(
+            "currency",
+            "FX_RATE_DEFAULTED",
+            f"PO in {po.currency}: no rate known, fx_rate set to 1; adjust it on the PO",
+            currency=po.currency,
+            base_currency=t.org.base_currency,
+            rate="1",
+            rate_date=on_date.isoformat(),
+            source="DEFAULT",
+        )
+        return
+    po.fx_rate, po.fx_date = resolved.rate, resolved.rate_date
+    r.warn(
+        "currency",
+        "FX_RATE_APPLIED",
+        f"PO in {po.currency}: ECB rate {resolved.rate} of {resolved.rate_date.isoformat()} applied",
+        currency=po.currency,
+        base_currency=t.org.base_currency,
+        rate=str(resolved.rate),
+        rate_date=resolved.rate_date.isoformat(),
+        source=resolved.source,
+    )
+
+
 def _apply_purchase_orders(
     t: TenantSession,
     table: Table,
     mapping: dict[str, str],
     report: ImportReport,
     conventions: dict[str, ColumnNumbers] | None = None,
+    fx: FxService | None = None,
 ) -> None:
     seen_lines: set[tuple[str, int]] = set()
     # (po, sku or description, nth line with that identity) -> line_no, and what that line said.
@@ -599,18 +648,7 @@ def _apply_purchase_orders(
             t.db.flush()
             report.purchase_orders_created += 1
             if currency != t.org.base_currency:
-                # Which rate, of which day, from where: a CFO reading "default rate applied" with
-                # none of the three has to open the order to find out what was actually used.
-                r.warn(
-                    "currency",
-                    "FX_RATE_DEFAULTED",
-                    f"PO in {currency}: no rate known, fx_rate set to 1; adjust it on the PO",
-                    currency=currency,
-                    base_currency=t.org.base_currency,
-                    rate="1",
-                    rate_date=(order_date or datetime.now(UTC).date()).isoformat(),
-                    source="DEFAULT",
-                )
+                _set_order_rate(t, fx, po, r)
         else:
             changed = False
             if supplier and po.supplier_id != supplier.id:

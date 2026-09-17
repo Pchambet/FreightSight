@@ -7,7 +7,7 @@ from fastapi import APIRouter, File, Form, UploadFile, status
 from sqlalchemy import select
 
 from app.api.v1 import schemas
-from app.api.v1.deps import WriterDep
+from app.api.v1.deps import FxDep, WriterDep
 from app.core.errors import Unprocessable
 from app.core.tenancy import TenantDep, TenantSession
 from app.domain.imports import service
@@ -76,7 +76,7 @@ def get_import(import_id: UUID, t: TenantDep) -> schemas.ImportJobResponse:
 
 @router.post("/{import_id}/validate", response_model=schemas.ImportJobResponse)
 def validate_import(
-    import_id: UUID, payload: schemas.ImportValidateRequest, t: TenantDep, _: WriterDep
+    import_id: UUID, payload: schemas.ImportValidateRequest, t: TenantDep, fx: FxDep, _: WriterDep
 ) -> ImportJob:
     """Dry run: the commit code path under a SAVEPOINT that is rolled back.
 
@@ -85,7 +85,7 @@ def validate_import(
     job = t.get_or_404(ImportJob, import_id, "Import")
     service.ensure_not_done(job)
     try:
-        service.run_job(t, job, payload.mapping, dry_run=True)
+        service.run_job(t, job, payload.mapping, dry_run=True, fx=fx)
     except Unprocessable as e:
         job.mapping = payload.mapping
         job.report = {"error": e.message, "code": e.code, **e.extra}
@@ -98,12 +98,12 @@ def validate_import(
 
 @router.post("/{import_id}/commit", response_model=schemas.ImportJobResponse)
 def commit_import(
-    import_id: UUID, payload: schemas.ImportCommitRequest, t: TenantDep, _: WriterDep
+    import_id: UUID, payload: schemas.ImportCommitRequest, t: TenantDep, fx: FxDep, _: WriterDep
 ) -> ImportJob:
     job = t.get_or_404(ImportJob, import_id, "Import")
     service.ensure_not_done(job)
     mapping = payload.mapping or dict(job.mapping)
-    service.run_job(t, job, mapping, dry_run=False, on_error=payload.on_error)
+    service.run_job(t, job, mapping, dry_run=False, on_error=payload.on_error, fx=fx)
     t.db.commit()
     t.db.refresh(job)
     return job

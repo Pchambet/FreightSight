@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -299,19 +300,29 @@ def test_a_negative_quantity_says_returns_are_not_supported(client: TestClient) 
     assert error["params"] == {"value": "-5"}
 
 
-def test_a_defaulted_exchange_rate_says_which_rate_of_which_date_and_from_where(
-    client: TestClient,
-) -> None:
-    """ "Default rate applied" with neither the rate nor the date is the most worrying line of the
-    report for a CFO, and the one they cannot check."""
+def test_a_foreign_order_says_which_rate_of_which_date_and_from_where(client: TestClient) -> None:
+    """ "Default rate applied" with neither the rate nor the date was the most worrying line of the
+    report for a CFO, and the one they could not check. And the rate itself was 1: a 40 000 $ order
+    counted as 40 000 EUR, every share by value skewed with it. The import now applies the ECB rate
+    of the order date, as the purchase-order screen does, and says so."""
     job = upload(client, (IMPORTS_FIXTURES / "ebp_commandes.csv").read_bytes(), "PURCHASE_ORDERS", "ebp.csv")
     assert job["mapping"]["po_number"] == "N° cde" and job["mapping"]["unit_weight_kg"] == "Poids net"
     report = validate(client, job)
     assert report["valid_rows"] == 3
-    fx = next(w for w in report["warnings"] if w["code"] == "FX_RATE_DEFAULTED")
+    assert not [w for w in report["warnings"] if w["code"] == "FX_RATE_DEFAULTED"]
+    fx = next(w for w in report["warnings"] if w["code"] == "FX_RATE_APPLIED")
     assert fx["field"] == "currency" and fx["params"]["currency"] == "USD"
-    assert fx["params"]["base_currency"] == "EUR" and fx["params"]["rate"] == "1"
-    assert fx["params"]["source"] == "DEFAULT" and len(fx["params"]["rate_date"]) == 10
+    assert fx["params"]["base_currency"] == "EUR" and Decimal(fx["params"]["rate"]) == Decimal("0.92")
+    assert fx["params"]["source"].startswith("ecb") and len(fx["params"]["rate_date"]) == 10
+
+
+def test_a_currency_nobody_quotes_falls_back_to_one_and_says_so(client: TestClient) -> None:
+    content = b"po_number;currency;order_date;sku;quantity;unit_price\nPO-XTS;XTS;2026-09-10;A;10;100,00\n"
+    job = upload(client, content, "PURCHASE_ORDERS")
+    report = validate(client, job)
+    fx = next(w for w in report["warnings"] if w["code"] == "FX_RATE_DEFAULTED")
+    assert fx["params"]["rate"] == "1" and fx["params"]["source"] == "DEFAULT"
+    assert fx["params"]["rate_date"] == "2026-09-10"
 
 
 def test_an_erp_sync_is_labelled_as_a_sync_not_as_a_dropped_file(
