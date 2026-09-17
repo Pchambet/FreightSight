@@ -8,16 +8,22 @@ from fastapi import APIRouter, status
 from app.api.v1 import schemas
 from app.api.v1.deps import FxDep, WriterDep
 from app.core.auth import PrincipalDep
-from app.core.errors import Conflict, Unprocessable
+from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.settings import get_settings
 from app.core.tenancy import TenantDep
 from app.domain.alerts.service import raise_dnd_risk_alert, unread_count
-from app.domain.audit.service import ORGANIZATION_UPDATED, record
+from app.domain.audit.service import ORGANIZATION_UPDATED, SAMPLE_DATA_DELETED, record
 from app.domain.costing.service import recompute_org
 from app.domain.documents.registry import get_store
 from app.domain.readiness import checks, job_runs
 from app.domain.sample_data import has_data, seed_sample_data
 from app.domain.sample_history import seed_history
+from app.domain.sample_registry import (
+    blockers,
+    delete_sample_data,
+    has_sample_data,
+    register_everything,
+)
 from app.domain.tracking.registry import provider_names
 from app.domain.tracking.state import derive_dnd
 
@@ -45,6 +51,7 @@ def _check_settings(settings: dict[str, object] | None) -> None:
 def _organization(t: TenantDep) -> schemas.OrganizationResponse:
     response = schemas.OrganizationResponse.model_validate(t.org)
     response.unread_alerts = unread_count(t.db, t.org_id)
+    response.has_sample_data = has_sample_data(t.db, t.org_id)
     return response
 
 
@@ -106,6 +113,8 @@ def load_sample_data(
         derive_dnd(c, t.org, now)
         raise_dnd_risk_alert(t.db, t.org, c, now)
     t.db.flush()
+    # The organization was empty a moment ago: everything in it now is the demo's, alerts included.
+    register_everything(t.db, t.org_id)
     t.db.commit()
     return schemas.SampleDataResponse(
         suppliers=sample.supplier_count,
@@ -115,6 +124,35 @@ def load_sample_data(
         shipment_reference=sample.shipment_reference,
         container_ids=[c.id for c in sample.containers],
     )
+
+
+@router.delete("/organization/sample-data", response_model=schemas.SampleDataDeleted)
+def delete_sample(t: TenantDep, p: PrincipalDep, _: WriterDep) -> schemas.SampleDataDeleted:
+    """Take the demo dataset away: what it created, and what only existed because of it (a cost typed
+    on a demo container goes with the container). Real data tied to it is refused by name, never
+    deleted along: a line of the user's own order in a demo container, a cost from an invoice they
+    uploaded, a draft pushed to their ERP."""
+    if not has_sample_data(t.db, t.org_id):
+        raise NotFound("Sample data", code="NO_SAMPLE_DATA")
+    in_the_way = blockers(t.db, t.org_id)
+    if in_the_way:
+        raise Conflict(
+            "Some of your own data is attached to the sample data",
+            code="SAMPLE_DATA_IN_USE",
+            errors=[{"field": b.field, "code": b.code, "message": b.code} for b in in_the_way],
+        )
+    gone = delete_sample_data(t.db, get_store(t.db), t.org)
+    record(
+        t.db,
+        t.org_id,
+        actor_user_id=p.user_id,
+        action=SAMPLE_DATA_DELETED,
+        entity_type="organization",
+        entity_id=t.org_id,
+        after={"deleted": dict(gone)},
+    )
+    t.db.commit()
+    return schemas.SampleDataDeleted(deleted=dict(gone))
 
 
 @router.get("/service-status", response_model=schemas.ServiceStatus)

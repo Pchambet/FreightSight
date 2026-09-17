@@ -84,6 +84,14 @@ class OrganizationResponse(BaseModel):
     locale: str
     settings: dict[str, Any]
     unread_alerts: int = 0  # what the bell shows
+    #: The demo dataset is loaded here, and `DELETE /organization/sample-data` can take it away.
+    has_sample_data: bool = False
+
+
+class SampleDataDeleted(BaseModel):
+    """What DELETE /organization/sample-data took away, by kind."""
+
+    deleted: dict[str, int]
 
 
 class SampleDataResponse(BaseModel):

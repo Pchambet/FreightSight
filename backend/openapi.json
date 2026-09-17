@@ -317,6 +317,55 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "organization"
+        ],
+        "summary": "Delete Sample",
+        "description": "Take the demo dataset away: what it created, and what only existed because of it (a cost typed\non a demo container goes with the container). Real data tied to it is refused by name, never\ndeleted along: a line of the user's own order in a demo container, a cost from an invoice they\nuploaded, a draft pushed to their ERP.",
+        "operationId": "delete_sample_api_v1_organization_sample_data_delete",
+        "parameters": [
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SampleDataDeleted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/service-status": {
@@ -10263,6 +10312,11 @@
             "type": "integer",
             "title": "Unread Alerts",
             "default": 0
+          },
+          "has_sample_data": {
+            "type": "boolean",
+            "title": "Has Sample Data",
+            "default": false
           }
         },
         "type": "object",
@@ -12072,6 +12126,23 @@
           "load_ids"
         ],
         "title": "ReportWarning"
+      },
+      "SampleDataDeleted": {
+        "properties": {
+          "deleted": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "title": "SampleDataDeleted",
+        "description": "What DELETE /organization/sample-data took away, by kind."
       },
       "SampleDataResponse": {
         "properties": {

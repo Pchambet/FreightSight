@@ -957,6 +957,22 @@ class Product(Timestamped, OrgScoped, Base):
     sale_currency: Mapped[str | None] = mapped_column(CHAR(3))
 
 
+class SampleObject(OrgScoped, Base):
+    """One row per object the demo dataset created, so that it can be taken away again.
+
+    A register rather than a `source` column on eleven tables: the business tables stay what they
+    are, and "is this the demo's?" is one lookup. It is filled when the dataset is loaded — which only
+    happens in an empty organization, so everything that exists at that moment is the demo's.
+    """
+
+    __tablename__ = "sample_objects"
+    __table_args__ = (UniqueConstraint("org_id", "kind", "object_id", name="uq_sample_objects"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    object_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+
+
 class SkuCostHistory(OrgScoped, Base):
     """The landed unit cost of a SKU, as it stood each day the numbers were recomputed.
 

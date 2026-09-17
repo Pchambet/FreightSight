@@ -23,8 +23,10 @@ class NotFound(DomainError):
     status = 404
     code = "NOT_FOUND"
 
-    def __init__(self, what: str):
+    def __init__(self, what: str, *, code: str | None = None):
         super().__init__(f"{what} not found")
+        if code is not None:
+            self.code = code
 
 
 class Conflict(DomainError):
