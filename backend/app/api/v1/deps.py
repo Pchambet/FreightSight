@@ -15,9 +15,10 @@ from app.domain.tracking.ports import TrackingProvider
 from app.domain.tracking.registry import get_provider
 
 WriterDep = Annotated[Principal, Depends(require_role(*WRITE_ROLES))]
-#: Closing a month is an accounting act: the people who answer for the accounts.
+#: Closing a month, and reopening one, is an accounting act: the people who answer for the accounts.
+#: Not OWNER alone: a Clerk organization only knows `org:admin` and `org:member`, so nobody in a real
+#: organization is an OWNER, and a month closed there could never have been reopened.
 AdminDep = Annotated[Principal, Depends(require_role(MemberRole.OWNER, MemberRole.ADMIN))]
-OwnerDep = Annotated[Principal, Depends(require_role(MemberRole.OWNER))]
 
 
 @lru_cache(maxsize=1)

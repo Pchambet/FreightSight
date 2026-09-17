@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Path, status
 
 from app.api.v1 import schemas
-from app.api.v1.deps import AdminDep, OwnerDep
+from app.api.v1.deps import AdminDep
 from app.core.tenancy import TenantDep
 from app.domain.audit.service import PERIOD_CLOSED, PERIOD_REOPENED, record
 from app.domain.costing.service import compute
@@ -59,7 +59,7 @@ def close(t: TenantDep, p: AdminDep, period: str = Period) -> schemas.PeriodSumm
 
 
 @router.delete("/{period}/close", status_code=status.HTTP_204_NO_CONTENT)
-def reopen(t: TenantDep, p: OwnerDep, period: str = Period) -> None:
+def reopen(t: TenantDep, p: AdminDep, period: str = Period) -> None:
     """Undo a close. The frozen figures are deleted; the audit log keeps what they were."""
     closed = periods.reopen_period(t.db, t.org, period)
     record(

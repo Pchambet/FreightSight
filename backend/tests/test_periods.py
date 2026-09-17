@@ -206,10 +206,12 @@ def test_closing_is_for_those_who_answer_for_the_accounts(
     refused = client.post(f"/api/v1/periods/{MARCH}/close")
     assert refused.status_code == 403 and refused.json()["code"] == "FORBIDDEN_ROLE"
     assert client.get("/api/v1/periods").status_code == 200  # reading is for everyone
+    # ADMIN is the highest role a Clerk organization has: it closes, and it reopens
     as_role(MemberRole.ADMIN)
     assert client.post(f"/api/v1/periods/{MARCH}/close").status_code == 201
+    as_role(MemberRole.MEMBER)
     assert client.delete(f"/api/v1/periods/{MARCH}/close").json()["code"] == "FORBIDDEN_ROLE"
-    as_role(MemberRole.OWNER)
+    as_role(MemberRole.ADMIN)
     assert client.delete(f"/api/v1/periods/{MARCH}/close").status_code == 204
 
 
