@@ -1389,14 +1389,22 @@
     "supplierSub": "{fees} de frais pour {fob} achetés",
     "todo": {
       "title": "À traiter",
-      "none": "Rien d'urgent : aucun conteneur exposé, aucune facture en attente de relecture.",
+      "none": "Rien d'urgent : aucun conteneur exposé, aucune facture en attente.",
       "open": "Ouvrir",
       "exposedLate": "a dépassé son dernier jour franc ({date}) de {days, plural, one {# jour} other {# jours}} : les surestaries courent.",
       "exposedLeft": "{days, plural, =0 {sort de franchise aujourd'hui ({date}).} one {sort de franchise dans # jour ({date}).} other {sort de franchise dans # jours ({date}).}}",
       "exposedNoDate": "est exposé aux surestaries, sans dernier jour franc renseigné.",
       "review": "{count, plural, one {# facture lue attend votre relecture avant d'entrer dans les coûts.} other {# factures lues attendent votre relecture avant d'entrer dans les coûts.}}",
       "reviewAction": "Relire",
-      "uncosted": "est chargé mais n'a encore aucun coût : son coût rendu est égal au prix d'achat."
+      "uncosted": "{count, plural, one {# conteneur chargé n'a encore aucun coût : son coût rendu est égal au prix d'achat.} other {# conteneurs chargés n'ont encore aucun coût : leur coût rendu est égal au prix d'achat.}}",
+      "soFar": "{amount} à ce jour",
+      "failed": "{count, plural, one {# facture n'a pas pu être lue.} other {# factures n'ont pas pu être lues.}}",
+      "failedAction": "Voir",
+      "estimates": "{count, plural, one {# coût estimé attend toujours sa facture, sur un conteneur déjà arrivé.} other {# coûts estimés attendent toujours leur facture, sur des conteneurs déjà arrivés.}}",
+      "estimatesAction": "Voir les écarts",
+      "uncostedAction": "Voir",
+      "unloaded": "{count, plural, one {# conteneur ne porte aucune ligne de commande.} other {# conteneurs ne portent aucune ligne de commande.}}",
+      "unloadedAction": "Voir"
     },
     "empty": {
       "title": "Pas encore de chiffres à montrer",
@@ -1416,7 +1424,13 @@
       "fobSub": "{loads, plural, one {# ligne chargée} other {# lignes chargées}}",
       "dnd": "Surestaries payées",
       "dndHint": "Surestaries et détention réellement facturées sur la période. « Évité » : ce que les conteneurs sortis à temps après une alerte auraient coûté au tarif de vos barèmes.",
-      "dndAvoided": "{amount} évités"
+      "dndAvoided": "{amount} évités",
+      "feesSub": "sur {fob} d'achats · {containers, plural, one {# conteneur} other {# conteneurs}}",
+      "variance": "Écart estimé → réel",
+      "varianceHint": "Sur les coûts estimés à l'embarquement puis remplacés par une facture : réel moins estimé. Positif : vos factures dépassent vos barèmes.",
+      "varianceSub": "{pairs, plural, one {# coût recalé} other {# coûts recalés}}, pour {estimated} estimés",
+      "varianceNone": "Aucun estimé remplacé par une facture sur la période.",
+      "dndAtRisk": "{amount} en cours"
     },
     "structure": {
       "title": "Frais d'approche par mois",
@@ -1447,6 +1461,11 @@
         "unitLanded": "Rendu unitaire",
         "coef": "Coef."
       }
+    },
+    "orgChanged": {
+      "title": "Votre dernière action n'a pas été enregistrée",
+      "body": "Vous avez changé de société dans un autre onglet pendant que cette page était ouverte. Rien n'a été écrit. Vérifiez la société affichée en haut à droite, puis recommencez.",
+      "dismiss": "Compris"
     }
   },
   "palette": {

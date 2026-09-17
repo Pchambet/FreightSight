@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
-import { AlertTriangle, ArrowRight, CheckCircle2, FileText, PackageOpen, Receipt } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, FileText, FileWarning, Hourglass, PackageOpen, Receipt } from "lucide-react";
 import { PageHeader, btnPrimary, btnSecondary } from "@/components/layout/AppShell";
 import BreakdownBar from "@/components/charts/BreakdownBar";
 import StackedColumns, { type StackedColumn } from "@/components/charts/StackedColumns";
@@ -14,8 +14,7 @@ import RankBars, { type RankRow } from "@/features/overview/RankBars";
 import { WINDOWS, monthLabel, monthTitle, windows, type WindowMonths } from "@/features/overview/period";
 import { skuHref } from "@/features/skus/href";
 import { api } from "@/lib/api/client";
-import { demurrageRelevant } from "@/lib/domain";
-import { dateShort, daysUntil, money, pct, qty } from "@/lib/format";
+import { dateShort, money, pct, qty } from "@/lib/format";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("overview");
@@ -27,25 +26,21 @@ const num = (v: string | number | null | undefined) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-export default async function OverviewPage({ searchParams }: { searchParams: Promise<{ months?: string }> }) {
+export default async function OverviewPage({ searchParams }: { searchParams: Promise<{ months?: string; notice?: string }> }) {
   const [sp, t, tf, locale] = await Promise.all([searchParams, getTranslations("overview"), getTranslations("costFamily"), getLocale()]);
   const months: WindowMonths = (WINDOWS as readonly number[]).includes(Number(sp.months)) ? (Number(sp.months) as WindowMonths) : 6;
-  const { current, previous } = windows(months);
+  const { current } = windows(months);
   const cur = { period_from: current.from, period_to: current.to };
-  const prev = { period_from: previous.from, period_to: previous.to };
 
-  const [byMonth, bySupplier, before, dnd, dndBefore, board, toReview] = await Promise.all([
+  const [overview, byMonth, bySupplier, dnd] = await Promise.all([
+    api.GET("/api/v1/reports/overview", { params: { query: cur } }),
     api.GET("/api/v1/reports/landed-cost", { params: { query: { group_by: "month", ...cur } } }),
     api.GET("/api/v1/reports/landed-cost", { params: { query: { group_by: "supplier", ...cur } } }),
-    api.GET("/api/v1/reports/landed-cost", { params: { query: { group_by: "month", ...prev } } }),
     api.GET("/api/v1/reports/dnd", { params: { query: cur } }),
-    api.GET("/api/v1/reports/dnd", { params: { query: prev } }),
-    api.GET("/api/v1/containers"),
-    api.GET("/api/v1/invoices", { params: { query: { invoice_status: "NEEDS_REVIEW" } } }),
   ]);
 
-  // Any of the three reads the page stands on failing means "no answer", never "no data".
-  const failure = [byMonth, bySupplier, board].find((r) => r.error || !r.data);
+  // Any of the reads the page stands on failing means "no answer", never "no data".
+  const failure = [overview, byMonth, bySupplier].find((r) => r.error || !r.data);
   if (failure) {
     return (
       <>
@@ -56,25 +51,25 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   }
 
   const a = byMonth.data;
-  const currency = a?.base_currency ?? "EUR";
-  const fob = num(a?.totals.fob);
+  const o = overview.data!;
+  const currency = o.base_currency;
+  // The headline figures come from the API's own overview (same numbers as the detailed reports, by
+  // test); only what it does not carry — the charges, per month and per family — is read from the
+  // landed-cost report of the same dates.
+  const fob = num(o.current.fob);
+  const landed = num(o.current.landed);
   const fees = num(a?.totals.allocated);
-  const landed = num(a?.totals.landed);
-  const fobBefore = num(before.data?.totals.fob);
-  const feesBefore = num(before.data?.totals.allocated);
-  const landedBefore = num(before.data?.totals.landed);
-  const coef = fob > 0 ? landed / fob : null;
-  const coefBefore = fobBefore > 0 ? landedBefore / fobBefore : null;
+  const coef = o.current.coefficient !== null ? num(o.current.coefficient) : null;
+  const coefBefore = o.previous.coefficient !== null ? num(o.previous.coefficient) : null;
   const hasData = fob > 0 || fees > 0;
 
   const familyLabels = Object.fromEntries(COST_FAMILIES.map((f) => [f, tf(f)])) as Record<CostFamily, string>;
   const ratio = (v: number) => new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
   const signed = (v: number, digits = 1) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-GB", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(Math.abs(v))}`;
   const versus = t("versus", { months });
-  // A "before" only compares if it was a period of activity too: against a window where goods landed
-  // in fewer than half the months (a company that has just started, the first months of a history),
-  // every figure would read "+2 500 %" — true, and useless.
-  const comparable = (before.data?.buckets ?? []).filter((b) => b.key !== "unknown" && num(b.fob) > 0).length >= Math.ceil(months / 2);
+  // A "before" only compares if it was a period of activity too: against the first weeks of a
+  // history, every figure would read "+2 500 %" — true, and useless.
+  const comparable = o.previous.containers >= Math.max(2, Math.ceil(o.current.containers / 3));
   /** Relative change, or nothing when there is no "before" to compare with. */
   const change = (now: number, then: number, upIsGood: boolean | null): Delta | null => {
     if (!comparable || then <= 0) return null;
@@ -117,17 +112,22 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
 
   const skus = [...(bySupplier.data?.skus ?? [])].sort((x, y) => num(y.landed) - num(x.landed)).slice(0, 6);
 
-  // What needs a human today, most urgent first.
-  const containers = board.data ?? [];
-  const exposed = containers
-    .filter((c) => demurrageRelevant(c) && (c.dnd_risk === "INCURRING" || c.dnd_risk === "HIGH" || c.dnd_risk === "MEDIUM"))
-    .sort((x, y) => (x.last_free_day ?? "9999").localeCompare(y.last_free_day ?? "9999"));
-  const uncosted = containers.filter((c) => (c.load_count ?? 0) > 0 && (c.cost_types_present ?? []).length === 0);
-  const reviewCount = toReview.data?.length ?? 0;
-  const todo = exposed.length + uncosted.length + (reviewCount > 0 ? 1 : 0);
+  // What needs a human today, most urgent first. Independent of the period shown.
+  const atRisk = [...(dnd.data?.at_risk ?? [])].sort((x, y) => (x.last_free_day ?? "9999").localeCompare(y.last_free_day ?? "9999"));
+  const todoRows: { key: string; icon: "review" | "failed" | "estimates" | "uncosted" | "unloaded"; count: number; href: string }[] = [
+    { key: "review", icon: "review" as const, count: o.todo.invoices_to_review, href: "/invoices" },
+    { key: "failed", icon: "failed" as const, count: o.todo.invoices_failed, href: "/invoices" },
+    { key: "estimates", icon: "estimates" as const, count: o.todo.estimates_awaiting_invoice, href: "/reports/variance" },
+    { key: "uncosted", icon: "uncosted" as const, count: o.todo.containers_without_cost, href: "/containers" },
+    { key: "unloaded", icon: "unloaded" as const, count: o.todo.containers_without_loads, href: "/containers" },
+  ].filter((r) => r.count > 0);
+  const todo = atRisk.length + todoRows.length;
+  const TODO_ICON = { review: Receipt, failed: FileWarning, estimates: Hourglass, uncosted: FileText, unloaded: PackageOpen };
+  const hasContainers = o.current.containers + o.previous.containers + o.todo.containers_without_cost + o.todo.containers_without_loads + atRisk.length > 0;
 
-  const paid = num(dnd.data?.paid);
-  const avoided = num(dnd.data?.avoided);
+  const paid = num(o.current.demurrage_paid);
+  const avoided = num(o.current.demurrage_avoided);
+  const variance = num(o.current.variance);
 
   return (
     <>
@@ -150,6 +150,17 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         }
       />
 
+      {sp.notice === "org-changed" ? (
+        <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 px-5 py-4 mb-6 flex items-start gap-3 text-sm">
+          <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0 text-amber-600" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-amber-950">{t("orgChanged.title")}</p>
+            <p className="mt-0.5 text-amber-900">{t("orgChanged.body")}</p>
+          </div>
+          <Link href="/overview" className="shrink-0 font-medium text-amber-950 underline underline-offset-2 hover:no-underline">{t("orgChanged.dismiss")}</Link>
+        </div>
+      ) : null}
+
       <Panel
         title={t("todo.title")}
         right={todo === 0 ? null : <span className="rounded-full bg-amber-100 text-amber-900 px-2 py-0.5 font-medium tabular-nums">{todo}</span>}
@@ -159,42 +170,38 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
           <p className="flex items-center gap-2 text-sm text-slate-600"><CheckCircle2 className="w-4 h-4 text-emerald-600" aria-hidden />{t("todo.none")}</p>
         ) : (
           <ul className="-my-2 divide-y divide-slate-100">
-            {exposed.map((c) => {
-              const days = daysUntil(c.last_free_day);
-              const late = c.dnd_risk === "INCURRING" || (days !== null && days < 0);
+            {atRisk.map((c) => {
+              const over = c.days_over ?? 0;
+              const left = c.days_left ?? null;
+              const late = over > 0 || c.dnd_risk === "INCURRING";
               return (
-                <li key={c.id} className="py-2.5 flex items-center gap-3 text-sm">
+                <li key={c.container_id} className="py-2.5 flex items-center gap-3 text-sm">
                   <AlertTriangle className={`w-4 h-4 shrink-0 ${late ? "text-red-600" : "text-amber-600"}`} aria-hidden />
                   <span className="min-w-0 flex-1">
                     <span className="font-mono font-medium text-slate-900">{c.container_number}</span>{" "}
                     <span className="text-slate-600">
-                      {c.last_free_day === null || days === null
+                      {c.last_free_day === null || c.last_free_day === undefined || left === null
                         ? t("todo.exposedNoDate")
-                        : days < 0
-                          ? t("todo.exposedLate", { days: -days, date: dateShort(c.last_free_day, locale) })
-                          : t("todo.exposedLeft", { days, date: dateShort(c.last_free_day, locale) })}
+                        : late
+                          ? t("todo.exposedLate", { days: over, date: dateShort(c.last_free_day, locale) })
+                          : t("todo.exposedLeft", { days: Math.max(left, 0), date: dateShort(c.last_free_day, locale) })}
                     </span>
+                    {num(c.amount_at_risk) > 0 ? <span className="ml-2 font-medium text-red-700 tabular-nums whitespace-nowrap">{t("todo.soFar", { amount: money(c.amount_at_risk, currency, locale) })}</span> : null}
                   </span>
-                  <Link href={`/container/${c.id}#suivi`} className="shrink-0 inline-flex items-center gap-1 text-blue-700 hover:underline">{t("todo.open")}<ArrowRight className="w-3.5 h-3.5" aria-hidden /></Link>
+                  <Link href={`/container/${c.container_id}#suivi`} className="shrink-0 inline-flex items-center gap-1 text-blue-700 hover:underline">{t("todo.open")}<ArrowRight className="w-3.5 h-3.5" aria-hidden /></Link>
                 </li>
               );
             })}
-            {reviewCount > 0 ? (
-              <li className="py-2.5 flex items-center gap-3 text-sm">
-                <Receipt className="w-4 h-4 shrink-0 text-blue-600" aria-hidden />
-                <span className="min-w-0 flex-1 text-slate-600">{t("todo.review", { count: reviewCount })}</span>
-                <Link href="/invoices" className="shrink-0 inline-flex items-center gap-1 text-blue-700 hover:underline">{t("todo.reviewAction")}<ArrowRight className="w-3.5 h-3.5" aria-hidden /></Link>
-              </li>
-            ) : null}
-            {uncosted.map((c) => (
-              <li key={c.id} className="py-2.5 flex items-center gap-3 text-sm">
-                <FileText className="w-4 h-4 shrink-0 text-slate-500" aria-hidden />
-                <span className="min-w-0 flex-1">
-                  <span className="font-mono font-medium text-slate-900">{c.container_number}</span> <span className="text-slate-600">{t("todo.uncosted")}</span>
-                </span>
-                <Link href={`/container/${c.id}`} className="shrink-0 inline-flex items-center gap-1 text-blue-700 hover:underline">{t("todo.open")}<ArrowRight className="w-3.5 h-3.5" aria-hidden /></Link>
-              </li>
-            ))}
+            {todoRows.map((r) => {
+              const Icon = TODO_ICON[r.icon];
+              return (
+                <li key={r.key} className="py-2.5 flex items-center gap-3 text-sm">
+                  <Icon className={`w-4 h-4 shrink-0 ${r.key === "failed" ? "text-red-600" : r.key === "review" ? "text-blue-600" : "text-slate-500"}`} aria-hidden />
+                  <span className="min-w-0 flex-1 text-slate-600">{t(`todo.${r.key}`, { count: r.count })}</span>
+                  <Link href={r.href} className="shrink-0 inline-flex items-center gap-1 text-blue-700 hover:underline">{t(`todo.${r.key}Action`)}<ArrowRight className="w-3.5 h-3.5" aria-hidden /></Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </Panel>
@@ -204,11 +211,11 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
           <div className="py-10 text-center max-w-md mx-auto">
             <PackageOpen className="w-8 h-8 mx-auto text-slate-400" aria-hidden />
             <h2 className="mt-3 font-semibold text-slate-900">{t("empty.title")}</h2>
-            <p className="mt-1 text-sm text-slate-600">{containers.length === 0 ? t("empty.noContainers") : t("empty.noArrivals", { months })}</p>
+            <p className="mt-1 text-sm text-slate-600">{!hasContainers ? t("empty.noContainers") : t("empty.noArrivals", { months })}</p>
             <div className="mt-4 flex flex-wrap justify-center gap-2 text-sm">
-              {containers.length === 0 ? <LoadSampleDataButton profile="history" primary /> : null}
-              <Link href="/containers" className={containers.length === 0 ? btnSecondary : btnPrimary}>{t("empty.goContainers")}</Link>
-              {months !== 12 && containers.length > 0 ? <Link href="/overview?months=12" className={btnSecondary}>{t("empty.widen")}</Link> : null}
+              {!hasContainers ? <LoadSampleDataButton profile="history" primary /> : null}
+              <Link href="/containers" className={!hasContainers ? btnSecondary : btnPrimary}>{t("empty.goContainers")}</Link>
+              {months !== 12 && hasContainers ? <Link href="/overview?months=12" className={btnSecondary}>{t("empty.widen")}</Link> : null}
             </div>
           </div>
         </Panel>
@@ -223,15 +230,22 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
               delta={comparable && coef !== null && coefBefore !== null ? { text: signed(coef - coefBefore, 2), direction: Math.abs(coef - coefBefore) < 0.005 ? "flat" : coef > coefBefore ? "up" : "down", good: coef <= coefBefore, versus } : null}
               spark={coefSpark}
             />
-            <StatTile label={t("kpi.fees")} hint={t("kpi.feesHint")} value={money(fees, currency, locale)} delta={change(fees, feesBefore, null)} href={`/reports?group_by=cost_type&from=${current.from}&to=${current.to}`} />
-            <StatTile label={t("kpi.fob")} hint={t("kpi.fobHint")} value={money(fob, currency, locale)} delta={change(fob, fobBefore, null)} sub={t("kpi.fobSub", { loads: a?.totals.load_count ?? 0 })} />
+            <StatTile label={t("kpi.fees")} hint={t("kpi.feesHint")} value={money(fees, currency, locale)} sub={t("kpi.feesSub", { fob: money(fob, currency, locale), containers: o.current.containers })} href={`/reports?group_by=cost_type&from=${current.from}&to=${current.to}`} />
+            <StatTile
+              label={t("kpi.variance")}
+              hint={t("kpi.varianceHint")}
+              value={o.current.variance_pairs > 0 ? `${variance > 0 ? "+" : variance < 0 ? "−" : ""}${money(Math.abs(variance), currency, locale)}` : "—"}
+              tone={o.current.variance_pairs > 0 && variance > 0 ? "warning" : "default"}
+              sub={o.current.variance_pairs > 0 ? t("kpi.varianceSub", { pairs: o.current.variance_pairs, estimated: money(o.current.variance_estimated, currency, locale) }) : t("kpi.varianceNone")}
+              href="/reports/variance"
+            />
             <StatTile
               label={t("kpi.dnd")}
               hint={t("kpi.dndHint")}
               value={money(paid, currency, locale)}
               tone={paid > 0 ? "danger" : "default"}
-              delta={comparable ? change(paid, num(dndBefore.data?.paid), false) : null}
-              sub={avoided > 0 ? t("kpi.dndAvoided", { amount: money(avoided, currency, locale) }) : undefined}
+              delta={comparable ? change(paid, num(o.previous.demurrage_paid), false) : null}
+              sub={[avoided > 0 ? t("kpi.dndAvoided", { amount: money(avoided, currency, locale) }) : null, num(o.todo.amount_at_risk) > 0 ? t("kpi.dndAtRisk", { amount: money(o.todo.amount_at_risk, currency, locale) }) : null].filter(Boolean).join(" · ") || undefined}
               href="/reports#dnd"
             />
           </div>

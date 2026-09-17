@@ -1389,14 +1389,22 @@
     "supplierSub": "{fees} of charges on {fob} purchased",
     "todo": {
       "title": "To do",
-      "none": "Nothing urgent: no container exposed, no invoice waiting for review.",
+      "none": "Nothing urgent: no container exposed, no invoice waiting.",
       "open": "Open",
       "exposedLate": "is {days, plural, one {# day} other {# days}} past its last free day ({date}): demurrage is running.",
       "exposedLeft": "{days, plural, =0 {runs out of free time today ({date}).} one {runs out of free time in # day ({date}).} other {runs out of free time in # days ({date}).}}",
       "exposedNoDate": "is exposed to demurrage, with no last free day on file.",
       "review": "{count, plural, one {# read invoice is waiting for your review before it becomes a cost.} other {# read invoices are waiting for your review before they become costs.}}",
       "reviewAction": "Review",
-      "uncosted": "is loaded but has no cost yet: its landed cost equals its purchase price."
+      "uncosted": "{count, plural, one {# loaded container has no cost yet: its landed cost equals its purchase price.} other {# loaded containers have no cost yet: their landed cost equals their purchase price.}}",
+      "soFar": "{amount} so far",
+      "failed": "{count, plural, one {# invoice could not be read.} other {# invoices could not be read.}}",
+      "failedAction": "See",
+      "estimates": "{count, plural, one {# estimated cost is still waiting for its invoice, on a container that has landed.} other {# estimated costs are still waiting for their invoices, on containers that have landed.}}",
+      "estimatesAction": "See variances",
+      "uncostedAction": "See",
+      "unloaded": "{count, plural, one {# container carries no order line.} other {# containers carry no order line.}}",
+      "unloadedAction": "See"
     },
     "empty": {
       "title": "No figures to show yet",
@@ -1416,7 +1424,13 @@
       "fobSub": "{loads, plural, one {# loaded line} other {# loaded lines}}",
       "dnd": "Demurrage paid",
       "dndHint": "Demurrage and detention actually invoiced in the period. “Avoided”: what containers picked up in time after an alert would have cost at your rate cards' tariff.",
-      "dndAvoided": "{amount} avoided"
+      "dndAvoided": "{amount} avoided",
+      "feesSub": "on {fob} purchased · {containers, plural, one {# container} other {# containers}}",
+      "variance": "Estimated → actual",
+      "varianceHint": "On costs estimated at shipment and later replaced by an invoice: actual minus estimated. Positive: your invoices exceed your rate cards.",
+      "varianceSub": "{pairs, plural, one {# cost trued up} other {# costs trued up}}, for {estimated} estimated",
+      "varianceNone": "No estimate replaced by an invoice in the period.",
+      "dndAtRisk": "{amount} running"
     },
     "structure": {
       "title": "Landing charges per month",
@@ -1447,6 +1461,11 @@
         "unitLanded": "Unit landed",
         "coef": "Ratio"
       }
+    },
+    "orgChanged": {
+      "title": "Your last action was not saved",
+      "body": "You switched company in another tab while this page was open. Nothing was written. Check the company shown at the top right, then try again.",
+      "dismiss": "Got it"
     }
   },
   "palette": {

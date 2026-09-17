@@ -417,6 +417,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Overview
+         * @description The first screen in one call: the period (the last ninety days by default) against the same
+         *     number of days before it, and what is waiting for somebody today. Every figure is the one the
+         *     detailed report gives for the same dates.
+         */
+        get: operations["overview_api_v1_reports_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/skus": {
         parameters: {
             query?: never;
@@ -1947,6 +1969,17 @@ export interface components {
             last_free_day: string | null;
             /** Rule */
             rule: string;
+            /**
+             * Days Over
+             * @default 0
+             */
+            days_over: number;
+            /** Days Left */
+            days_left?: number | null;
+            /** Daily Rate */
+            daily_rate?: string | null;
+            /** Amount At Risk */
+            amount_at_risk?: string | null;
         };
         /** DndReportLine */
         DndReportLine: {
@@ -2717,6 +2750,66 @@ export interface components {
             settings?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** OverviewFigures */
+        OverviewFigures: {
+            /**
+             * Period From
+             * Format: date
+             */
+            period_from: string;
+            /**
+             * Period To
+             * Format: date
+             */
+            period_to: string;
+            /** Containers */
+            containers: number;
+            /** Fob */
+            fob: string;
+            /** Landed */
+            landed: string;
+            /** Coefficient */
+            coefficient: string | null;
+            /** Variance Estimated */
+            variance_estimated: string;
+            /** Variance Actual */
+            variance_actual: string;
+            /** Variance */
+            variance: string;
+            /** Variance Pairs */
+            variance_pairs: number;
+            /** Demurrage Paid */
+            demurrage_paid: string;
+            /** Demurrage Avoided */
+            demurrage_avoided: string;
+        };
+        /** OverviewResponse */
+        OverviewResponse: {
+            /** Base Currency */
+            base_currency: string;
+            current: components["schemas"]["OverviewFigures"];
+            previous: components["schemas"]["OverviewFigures"];
+            todo: components["schemas"]["OverviewTodo"];
+        };
+        /** OverviewTodo */
+        OverviewTodo: {
+            /** Invoices To Review */
+            invoices_to_review: number;
+            /** Invoices Failed */
+            invoices_failed: number;
+            /** Containers Without Cost */
+            containers_without_cost: number;
+            /** Containers Without Loads */
+            containers_without_loads: number;
+            /** Estimates Awaiting Invoice */
+            estimates_awaiting_invoice: number;
+            /** Containers Overdue */
+            containers_overdue: number;
+            /** Containers At Risk */
+            containers_at_risk: number;
+            /** Amount At Risk */
+            amount_at_risk: string | null;
         };
         /** PoLineIn */
         PoLineIn: {
@@ -4539,6 +4632,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DndAnalysis"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    overview_api_v1_reports_overview_get: {
+        parameters: {
+            query?: {
+                period_from?: string | null;
+                period_to?: string | null;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverviewResponse"];
                 };
             };
             /** @description Validation Error */
