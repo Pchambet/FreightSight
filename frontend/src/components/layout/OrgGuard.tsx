@@ -14,7 +14,11 @@ export const TAB_ORG_HEADER = "x-fs-tab-org";
  */
 function cookieOrg(): string | null {
   try {
-    const raw = document.cookie.split("; ").find((c) => /^__session(_[A-Za-z0-9]+)?=/.test(c));
+    // A development instance writes both `__session` and `__session_<suffix>`, and on localhost the
+    // bare one may belong to another application served from the same host: the suffixed cookie is
+    // this application's own, so it wins when it exists.
+    const all = document.cookie.split("; ");
+    const raw = all.find((c) => /^__session_[A-Za-z0-9]+=/.test(c)) ?? all.find((c) => c.startsWith("__session="));
     const payload = raw?.slice(raw.indexOf("=") + 1).split(".")[1];
     if (!payload) return null;
     const claims = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as { o?: { id?: string }; org_id?: string };
@@ -23,6 +27,9 @@ function cookieOrg(): string | null {
     return null;
   }
 }
+
+/** A forced token refresh is a call to Clerk: at most one per disagreement, and never two within this many ms. */
+const RECLAIM_EVERY_MS = 10_000;
 /** Long enough for Clerk's own switch (token, cookie, router refresh) to finish by itself. */
 const SETTLE_MS = 2000;
 
@@ -67,13 +74,19 @@ export default function OrgGuard({ renderedFor }: { renderedFor: string }) {
   useEffect(() => {
     if (!isLoaded || !orgId) return;
     const original = window.fetch;
+    // What was last reclaimed and when: a cookie this tab cannot win back (or cannot read right)
+    // must not turn every request into a round trip to Clerk.
+    let reclaimed: { held: string; at: number } | null = null;
     const guarded: typeof window.fetch = async (input, init) => {
       let next = init;
       try {
         const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url, window.location.href);
         if (url.origin === window.location.origin) {
           const held = cookieOrg();
-          if (held && held !== orgId) await getToken({ skipCache: true }).catch(() => null);
+          if (held && held !== orgId && (reclaimed?.held !== held || Date.now() - reclaimed.at > RECLAIM_EVERY_MS)) {
+            reclaimed = { held, at: Date.now() };
+            await getToken({ skipCache: true }).catch(() => null);
+          }
           if (!(input instanceof Request)) {
             const headers = new Headers(init?.headers);
             headers.set(TAB_ORG_HEADER, orgId);
