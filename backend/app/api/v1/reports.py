@@ -19,6 +19,7 @@ from app.domain.costing.report import estimate_allocations
 from app.domain.costing.service import compute
 from app.domain.models import CostType, RateBasis, RateCard
 from app.domain.reporting import service as reporting
+from app.domain.reporting.overview import overview as build_overview
 from app.domain.reporting.skus import sku_report
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -205,16 +206,23 @@ def demurrage_and_detention(
             )
             for line in report.lines
         ],
-        at_risk=[
-            schemas.DndAtRiskLine(
-                container_id=line.container_id,
-                container_number=line.container_number,
-                dnd_risk=line.dnd_risk,
-                last_free_day=line.last_free_day,
-                rule=line.rule,
-            )
-            for line in report.at_risk
-        ],
+        at_risk=[schemas.DndAtRiskLine.model_validate(line) for line in report.at_risk],
+    )
+
+
+@router.get("/overview", response_model=schemas.OverviewResponse)
+def overview(
+    t: TenantDep, period_from: date | None = None, period_to: date | None = None
+) -> schemas.OverviewResponse:
+    """The first screen in one call: the period (the last ninety days by default) against the same
+    number of days before it, and what is waiting for somebody today. Every figure is the one the
+    detailed report gives for the same dates."""
+    found = build_overview(t.db, compute(t.db, t.org), t.org, period_from=period_from, period_to=period_to)
+    return schemas.OverviewResponse(
+        base_currency=found.base_currency,
+        current=schemas.OverviewFigures.model_validate(found.current),
+        previous=schemas.OverviewFigures.model_validate(found.previous),
+        todo=schemas.OverviewTodo.model_validate(found.todo),
     )
 
 

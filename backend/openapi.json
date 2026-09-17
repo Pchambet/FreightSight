@@ -1748,6 +1748,91 @@
         }
       }
     },
+    "/api/v1/reports/overview": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Overview",
+        "description": "The first screen in one call: the period (the last ninety days by default) against the same\nnumber of days before it, and what is waiting for somebody today. Every figure is the one the\ndetailed report gives for the same dates.",
+        "operationId": "overview_api_v1_reports_overview_get",
+        "parameters": [
+          {
+            "name": "period_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period From"
+            }
+          },
+          {
+            "name": "period_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period To"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reports/skus": {
       "get": {
         "tags": [
@@ -7962,6 +8047,44 @@
           "rule": {
             "type": "string",
             "title": "Rule"
+          },
+          "days_over": {
+            "type": "integer",
+            "title": "Days Over",
+            "default": 0
+          },
+          "days_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Left"
+          },
+          "daily_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Rate"
+          },
+          "amount_at_risk": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount At Risk"
           }
         },
         "type": "object",
@@ -10204,6 +10327,163 @@
         },
         "type": "object",
         "title": "OrganizationUpdate"
+      },
+      "OverviewFigures": {
+        "properties": {
+          "period_from": {
+            "type": "string",
+            "format": "date",
+            "title": "Period From"
+          },
+          "period_to": {
+            "type": "string",
+            "format": "date",
+            "title": "Period To"
+          },
+          "containers": {
+            "type": "integer",
+            "title": "Containers"
+          },
+          "fob": {
+            "type": "string",
+            "title": "Fob"
+          },
+          "landed": {
+            "type": "string",
+            "title": "Landed"
+          },
+          "coefficient": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coefficient"
+          },
+          "variance_estimated": {
+            "type": "string",
+            "title": "Variance Estimated"
+          },
+          "variance_actual": {
+            "type": "string",
+            "title": "Variance Actual"
+          },
+          "variance": {
+            "type": "string",
+            "title": "Variance"
+          },
+          "variance_pairs": {
+            "type": "integer",
+            "title": "Variance Pairs"
+          },
+          "demurrage_paid": {
+            "type": "string",
+            "title": "Demurrage Paid"
+          },
+          "demurrage_avoided": {
+            "type": "string",
+            "title": "Demurrage Avoided"
+          }
+        },
+        "type": "object",
+        "required": [
+          "period_from",
+          "period_to",
+          "containers",
+          "fob",
+          "landed",
+          "coefficient",
+          "variance_estimated",
+          "variance_actual",
+          "variance",
+          "variance_pairs",
+          "demurrage_paid",
+          "demurrage_avoided"
+        ],
+        "title": "OverviewFigures"
+      },
+      "OverviewResponse": {
+        "properties": {
+          "base_currency": {
+            "type": "string",
+            "title": "Base Currency"
+          },
+          "current": {
+            "$ref": "#/components/schemas/OverviewFigures"
+          },
+          "previous": {
+            "$ref": "#/components/schemas/OverviewFigures"
+          },
+          "todo": {
+            "$ref": "#/components/schemas/OverviewTodo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "base_currency",
+          "current",
+          "previous",
+          "todo"
+        ],
+        "title": "OverviewResponse"
+      },
+      "OverviewTodo": {
+        "properties": {
+          "invoices_to_review": {
+            "type": "integer",
+            "title": "Invoices To Review"
+          },
+          "invoices_failed": {
+            "type": "integer",
+            "title": "Invoices Failed"
+          },
+          "containers_without_cost": {
+            "type": "integer",
+            "title": "Containers Without Cost"
+          },
+          "containers_without_loads": {
+            "type": "integer",
+            "title": "Containers Without Loads"
+          },
+          "estimates_awaiting_invoice": {
+            "type": "integer",
+            "title": "Estimates Awaiting Invoice"
+          },
+          "containers_overdue": {
+            "type": "integer",
+            "title": "Containers Overdue"
+          },
+          "containers_at_risk": {
+            "type": "integer",
+            "title": "Containers At Risk"
+          },
+          "amount_at_risk": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount At Risk"
+          }
+        },
+        "type": "object",
+        "required": [
+          "invoices_to_review",
+          "invoices_failed",
+          "containers_without_cost",
+          "containers_without_loads",
+          "estimates_awaiting_invoice",
+          "containers_overdue",
+          "containers_at_risk",
+          "amount_at_risk"
+        ],
+        "title": "OverviewTodo"
       },
       "PoLineIn": {
         "properties": {

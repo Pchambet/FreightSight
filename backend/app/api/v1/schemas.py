@@ -813,6 +813,53 @@ class InvoiceConfirmResponse(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+# ---------------------------------------------------------------------------- overview
+
+
+class OverviewFigures(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    period_from: date
+    period_to: date
+    #: Containers that landed in the period (discharge, else arrival, else the shipment's ETA).
+    containers: int
+    fob: Money
+    landed: Money
+    #: landed / fob, four decimals: 1.1400 means the goods cost 14 % more than their purchase price
+    #: once they are in the warehouse. Null when nothing landed.
+    coefficient: Qty | None
+    #: Estimates replaced by an invoice dated in the period, and what the invoices came to.
+    variance_estimated: Money
+    variance_actual: Money
+    variance: Money
+    variance_pairs: int
+    demurrage_paid: Money
+    demurrage_avoided: Money
+
+
+class OverviewTodo(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    invoices_to_review: int
+    invoices_failed: int
+    #: Active containers carrying goods and not one cost, and active containers carrying nothing.
+    containers_without_cost: int
+    containers_without_loads: int
+    #: Estimates on containers that have landed and that no invoice has replaced yet.
+    estimates_awaiting_invoice: int
+    #: Today's demurrage exposure, whatever the period: boxes past their last free day, boxes close
+    #: to it, and what the days already run come to (null without a DEMURRAGE rate card).
+    containers_overdue: int
+    containers_at_risk: int
+    amount_at_risk: Money | None
+
+
+class OverviewResponse(BaseModel):
+    base_currency: str
+    current: OverviewFigures
+    #: The same number of days, immediately before.
+    previous: OverviewFigures
+    todo: OverviewTodo
+
+
 # ---------------------------------------------------------------------------- products
 
 
@@ -1179,11 +1226,19 @@ class DndReportLine(BaseModel):
 
 
 class DndAtRiskLine(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     container_id: UUID
     container_number: str
     dnd_risk: DndRisk
     last_free_day: date | None
     rule: str
+    #: Days already past the last free day (0 while it is ahead), and days left (negative once past).
+    days_over: int = 0
+    days_left: int | None = None
+    #: The organization's DEMURRAGE rate card read as a price per day, and `days_over` at that price.
+    #: Both null without a rate card: no figure is made up.
+    daily_rate: Money | None = None
+    amount_at_risk: Money | None = None
 
 
 class DndAnalysis(BaseModel):

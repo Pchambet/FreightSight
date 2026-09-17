@@ -293,6 +293,13 @@ class DndAtRiskLine:
     dnd_risk: DndRisk
     last_free_day: date | None
     rule: str
+    #: Days already past the last free day, zero while it is still ahead; and how many are left.
+    days_over: int = 0
+    days_left: int | None = None
+    #: The organization's own daily rate, and what the days already run come to at that rate. None
+    #: without a rate card: there is no default, and no figure is made up.
+    daily_rate: Decimal | None = None
+    amount_at_risk: Decimal | None = None
 
 
 @dataclass
@@ -422,6 +429,8 @@ def dnd_report(
             rule = "DND_AT_RISK_OVERDUE"
         else:
             rule = "DND_AT_RISK_DAYS_LEFT"
+        days_left = (lfd - today).days if lfd is not None else None
+        days_over = max(-days_left, 0) if days_left is not None else 0
         at_risk.append(
             DndAtRiskLine(
                 container_id=container.id,
@@ -429,6 +438,10 @@ def dnd_report(
                 dnd_risk=container.dnd_risk,
                 last_free_day=lfd,
                 rule=rule,
+                days_over=days_over,
+                days_left=days_left,
+                daily_rate=daily_rate,
+                amount_at_risk=q2(Decimal(days_over) * daily_rate) if daily_rate is not None else None,
             )
         )
 
