@@ -3495,6 +3495,10 @@ export interface components {
             margin_unit: string | null;
             /** Margin Pct */
             margin_pct: string | null;
+            /** Last Margin Unit */
+            last_margin_unit?: string | null;
+            /** Last Margin Pct */
+            last_margin_pct?: string | null;
         };
         /** SupplierCreate */
         SupplierCreate: {

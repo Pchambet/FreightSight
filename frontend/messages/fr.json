@@ -1637,9 +1637,10 @@
       "oneArrival": "Un seul arrivage pour l'instant.",
       "unitFob": "Achat unitaire moyen",
       "quantity": "{qty} unités reçues",
-      "margin": "Marge au coût rendu",
+      "margin": "Marge au coût rendu moyen",
       "marginSub": "{unit} par unité, vendu {price} HT",
-      "marginOtherCurrency": "Prix de vente dans une autre devise : pas de marge calculée."
+      "marginOtherCurrency": "Prix de vente dans une autre devise : pas de marge calculée.",
+      "marginLast": "{margin} sur le dernier arrivage"
     },
     "trend": {
       "title": "Coût unitaire, arrivage après arrivage",

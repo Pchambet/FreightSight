@@ -107,7 +107,13 @@ export default async function SkuPage({ params }: Params) {
           hint={t("kpi.marginHint")}
           value={s.margin_pct !== null ? pct(s.margin_pct, locale) : "—"}
           tone={s.margin_pct !== null && Number(s.margin_pct) < 0 ? "danger" : "default"}
-          sub={s.margin_unit !== null && s.sale_price !== null ? t("detail.marginSub", { unit: money(s.margin_unit, currency, locale), price: money(s.sale_price, currency, locale) }) : s.sale_price !== null ? t("detail.marginOtherCurrency") : t("kpi.noPrice")}
+          sub={
+            s.margin_unit !== null && s.sale_price !== null
+              ? [t("detail.marginSub", { unit: money(s.margin_unit, currency, locale), price: money(s.sale_price, currency, locale) }), s.last_margin_pct != null ? t("detail.marginLast", { margin: pct(s.last_margin_pct, locale) }) : null].filter(Boolean).join(" · ")
+              : s.sale_price !== null
+                ? t("detail.marginOtherCurrency")
+                : t("kpi.noPrice")
+          }
           href={s.sale_price === null ? "#fiche" : undefined}
         />
       </div>

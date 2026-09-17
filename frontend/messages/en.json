@@ -1637,9 +1637,10 @@
       "oneArrival": "Only one arrival so far.",
       "unitFob": "Average unit purchase",
       "quantity": "{qty} units received",
-      "margin": "Margin at landed cost",
+      "margin": "Margin at average landed cost",
       "marginSub": "{unit} per unit, sold {price} excl. VAT",
-      "marginOtherCurrency": "Selling price in another currency: no margin computed."
+      "marginOtherCurrency": "Selling price in another currency: no margin computed.",
+      "marginLast": "{margin} on the last arrival"
     },
     "trend": {
       "title": "Unit cost, arrival after arrival",
