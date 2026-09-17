@@ -10,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("title") };
 }
 
-const ACTIONS = ["cost.created", "cost.updated", "cost.deleted", "invoice.confirmed", "invoice.rejected", "invoice.reopened", "container.loads_replaced", "container.tracking_event_added", "organization.updated"];
+const ACTIONS = ["cost.created", "cost.updated", "cost.deleted", "invoice.confirmed", "invoice.rejected", "invoice.reopened", "container.loads_replaced", "container.tracking_event_added", "container.shared", "purchase_order.shared", "share.revoked", "period.closed", "period.reopened", "period.drift_acknowledged", "organization.updated", "organization.sample_data_deleted"];
 
 export default async function AuditPage({ searchParams }: { searchParams: Promise<{ entity_type?: string; entity_id?: string; action?: string; cursor?: string }> }) {
   const [sp, t, actionLabel] = await Promise.all([searchParams, getTranslations("audit"), getTranslations("domain.auditAction")]);
@@ -30,7 +30,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       <div className="flex flex-wrap gap-1 text-sm mb-3">
         <Link href={link({ action: undefined, cursor: undefined })} className={`px-3 py-1.5 rounded-md ${!sp.action ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{t("filterAll")}</Link>
         {ACTIONS.map((a) => (
-          <Link key={a} href={link({ action: a, cursor: undefined })} className={`px-3 py-1.5 rounded-md ${sp.action === a ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{actionLabel(a.replace(".", "_"))}</Link>
+          <Link key={a} href={link({ action: a, cursor: undefined })} className={`px-3 py-1.5 rounded-md ${sp.action === a ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{actionLabel(a.replaceAll(".", "_"))}</Link>
         ))}
       </div>
       <Card>

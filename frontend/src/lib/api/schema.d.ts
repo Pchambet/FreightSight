@@ -1719,22 +1719,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/public/shared-reports/{token}": {
+    "/api/v1/public/shared-reports/open": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
+        get?: never;
+        put?: never;
         /**
          * Open Shared Report
          * @description No account, no organization: the token is the whole of the right, and what it opens is the
          *     snapshot taken when the link was made. Unknown, expired and revoked are the same 404 — an answer
          *     that told them apart would tell a stranger which tokens once existed.
+         *
+         *     The token travels in the body, never in the URL: a URL is what access logs, error reports and
+         *     proxies keep, and this one is a bearer credential.
          */
-        get: operations["open_shared_report_api_v1_public_shared_reports__token__get"];
-        put?: never;
-        post?: never;
+        post: operations["open_shared_report_api_v1_public_shared_reports_open_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3853,6 +3856,11 @@ export interface components {
              * @default 30
              */
             expires_in_days: number;
+            /**
+             * Redact Vendors
+             * @default false
+             */
+            redact_vendors: boolean;
         };
         /** ShareCreated */
         ShareCreated: {
@@ -3870,11 +3878,23 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+            /** Landed */
+            landed: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
         };
         /** ShareIssuer */
         ShareIssuer: {
             /** Name */
             name: string;
+        };
+        /** ShareOpen */
+        ShareOpen: {
+            /** Token */
+            token: string;
         };
         /** ShareSummary */
         ShareSummary: {
@@ -3904,10 +3924,13 @@ export interface components {
             expires_at: string;
             /** Revoked At */
             revoked_at: string | null;
-            /** View Count */
+            /**
+             * View Count
+             * @default 0
+             */
             view_count: number;
             /** Last Viewed At */
-            last_viewed_at: string | null;
+            last_viewed_at?: string | null;
             /**
              * Status
              * @default active
@@ -3947,6 +3970,11 @@ export interface components {
              * @default false
              */
             sample_data: boolean;
+            /**
+             * Redacted
+             * @default false
+             */
+            redacted: boolean;
             report: components["schemas"]["LandedCostReport"];
         };
         /** ShipmentCreate */
@@ -8013,16 +8041,18 @@ export interface operations {
             };
         };
     };
-    open_shared_report_api_v1_public_shared_reports__token__get: {
+    open_shared_report_api_v1_public_shared_reports_open_post: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                token: string;
-            };
+            path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShareOpen"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

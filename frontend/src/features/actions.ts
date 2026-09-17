@@ -567,15 +567,15 @@ export type ShareSubject = { kind: "container" | "purchase_order"; id: string };
 export type ShareSummary = Schemas["ShareSummary"];
 
 /** The token comes back this once and is stored nowhere readable: the caller shows the link at once. */
-export async function createShare(subject: ShareSubject, expiresInDays: number): Promise<ActionResult<{ path: string; expiresAt: string }>> {
+export async function createShare(subject: ShareSubject, expiresInDays: number, redactVendors: boolean): Promise<ActionResult<{ path: string; expiresAt: string; landed: string; generatedAt: string }>> {
   await protectAction();
-  const body = { expires_in_days: Math.min(Math.max(Math.round(expiresInDays), 1), 365) };
+  const body = { expires_in_days: Math.min(Math.max(Math.round(expiresInDays), 1), 365), redact_vendors: redactVendors };
   const { data, error } =
     subject.kind === "container"
       ? await api.POST("/api/v1/containers/{container_id}/share", { params: { path: { container_id: subject.id } }, body })
       : await api.POST("/api/v1/purchase-orders/{po_id}/share", { params: { path: { po_id: subject.id } }, body });
   if (error || !data) return await fail(error, "share.createFailed");
-  return { ok: true, data: { path: data.path, expiresAt: data.expires_at } };
+  return { ok: true, data: { path: data.path, expiresAt: data.expires_at, landed: data.landed, generatedAt: data.generated_at } };
 }
 
 export async function listShares(subject: ShareSubject): Promise<ActionResult<ShareSummary[]>> {

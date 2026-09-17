@@ -765,7 +765,8 @@
     "PERIOD_EMPTY": "Aucun conteneur n'est arrivé ce mois-là : il n'y a rien à clôturer.",
     "PERIOD_NOT_CLOSED": "Ce mois n'est pas clos.",
     "FORBIDDEN_ROLE": "Votre rôle dans cette société ne permet pas cette action.",
-    "SHARE_NOT_FOUND": "Ce lien de partage n'existe pas ou n'est plus valable."
+    "SHARE_NOT_FOUND": "Ce lien de partage n'existe pas ou n'est plus valable.",
+    "RATE_LIMITED": "Trop de demandes en peu de temps. Réessayez dans un instant."
   },
   "timeline": {
     "title": "Chronologie",
@@ -1959,6 +1960,10 @@
     "gone": {
       "title": "Ce lien n'est plus valable",
       "body": "Le rapport a expiré ou son émetteur l'a retiré. Demandez-lui un nouveau lien."
+    },
+    "busy": {
+      "title": "Trop d'ouvertures en peu de temps",
+      "body": "Réessayez dans un instant."
     }
   },
   "share": {
@@ -1998,6 +2003,8 @@
       "action": "Préparer l'e-mail",
       "subject": "Coût de revient rendu – {label}",
       "body": "Bonjour,\n\nVoici le coût de revient rendu de {label}, par référence, avec le détail des frais :\n{url}\n\nLe lien s'ouvre sans compte et reste valable jusqu'au {date}. Le rapport s'imprime ou s'enregistre en PDF depuis la page.\n\nBien cordialement,"
-    }
+    },
+    "redact": "Masquer les prestataires et les numéros de facture",
+    "redactHint": "Pour un destinataire qui n'a pas à connaître votre transitaire : ces informations ne sont pas écrites dans le rapport partagé, pas seulement cachées."
   }
 }

@@ -12,6 +12,8 @@ export type SheetHeader = {
   generatedAt: string;
   expiresAt?: string | null;
   sampleData?: boolean;
+  /** The sender chose to leave vendors and invoice numbers out: the snapshot does not hold them. */
+  redacted?: boolean;
 };
 
 /**
@@ -137,7 +139,7 @@ export default async function LandedCostSheet({ header, report, locale }: { head
               <thead className="bg-slate-50">
                 <tr>
                   <th className={thc}>{t("th.cost")}</th>
-                  <th className={thc}>{t("th.source")}</th>
+                  {header.redacted ? null : <th className={thc}>{t("th.source")}</th>}
                   <th className={thc}>{t("th.method")}</th>
                   <th className={`${thc} text-right`}>{t("th.amount")}</th>
                   <th className={`${thc} text-right`}>{t("th.amountBase", { currency: cur })}</th>
@@ -150,7 +152,7 @@ export default async function LandedCostSheet({ header, report, locale }: { head
                       {tt.has(c.cost_type) ? tt(c.cost_type) : c.cost_type}
                       {c.status === "ESTIMATE" ? <span className="ml-2 rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-violet-800 ring-1 ring-inset ring-violet-600/20">{t("estimate")}</span> : null}
                     </td>
-                    <td className={`${tdc} text-slate-600`}>{[c.vendor, c.invoice_number].filter(Boolean).join(" · ") || "—"}<div className="text-xs text-slate-500">{dateShort(c.cost_date, locale)}</div></td>
+                    {header.redacted ? null : <td className={`${tdc} text-slate-600`}>{[c.vendor, c.invoice_number].filter(Boolean).join(" · ") || "—"}<div className="text-xs text-slate-500">{dateShort(c.cost_date, locale)}</div></td>}
                     <td className={`${tdc} text-slate-600`}>{c.allocation_method && tm.has(c.allocation_method) ? tm(c.allocation_method) : "—"}</td>
                     <td className={`${tdc} text-right tabular-nums text-slate-600 whitespace-nowrap`}>{money(c.amount, c.currency, locale)}{c.currency !== cur && c.fx_rate ? <div className="text-xs text-slate-500">{t("fx", { rate: rate(c.fx_rate, locale), date: dateShort(c.fx_date, locale) })}</div> : null}</td>
                     <td className={`${tdc} text-right tabular-nums font-medium whitespace-nowrap`}>{money(c.amount_base, cur, locale)}</td>

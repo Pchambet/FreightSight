@@ -765,7 +765,8 @@
     "PERIOD_EMPTY": "No container arrived in that month: there is nothing to close.",
     "PERIOD_NOT_CLOSED": "This month is not closed.",
     "FORBIDDEN_ROLE": "Your role in this company does not allow this action.",
-    "SHARE_NOT_FOUND": "This share link does not exist or is no longer valid."
+    "SHARE_NOT_FOUND": "This share link does not exist or is no longer valid.",
+    "RATE_LIMITED": "Too many requests in a short time. Try again in a moment."
   },
   "timeline": {
     "title": "Timeline",
@@ -1959,6 +1960,10 @@
     "gone": {
       "title": "This link is no longer valid",
       "body": "The report has expired or its issuer withdrew it. Ask them for a new link."
+    },
+    "busy": {
+      "title": "Too many openings in a short time",
+      "body": "Try again in a moment."
     }
   },
   "share": {
@@ -1998,6 +2003,8 @@
       "action": "Prepare the e-mail",
       "subject": "Landed cost – {label}",
       "body": "Hello,\n\nHere is the landed cost of {label}, per SKU, with the detail of the charges:\n{url}\n\nThe link opens without an account and stays valid until {date}. The report can be printed or saved as PDF from the page.\n\nBest regards,"
-    }
+    },
+    "redact": "Hide vendors and invoice numbers",
+    "redactHint": "For a recipient who need not know your forwarder: this information is not written into the shared report, not merely hidden."
   }
 }

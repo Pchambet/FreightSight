@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { btnPrimary, btnSecondary, input, label } from "@/components/layout/AppShell";
 import { createShare, listShares, revokeShare, type ShareSubject, type ShareSummary } from "@/features/actions";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
-import { dateShort, dateTimeShort } from "@/lib/format";
+import { dateShort, dateTimeShort, money } from "@/lib/format";
 
 /**
  * Send the report to someone who has no account: a read-only link to a snapshot frozen at the moment
@@ -15,12 +15,13 @@ import { dateShort, dateTimeShort } from "@/lib/format";
  * front of the sender at once, with a copy button and an e-mail ready to go. Underneath, the links
  * already out: how often each was opened, and a way to withdraw it.
  */
-export default function ShareDialog({ subject, subjectLabel, landed, estimatedOnly }: { subject: ShareSubject; subjectLabel: string; landed: string; estimatedOnly: boolean }) {
+export default function ShareDialog({ subject, subjectLabel, currency, estimatedOnly }: { subject: ShareSubject; subjectLabel: string; currency: string; estimatedOnly: boolean }) {
   const t = useTranslations("share");
   const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [days, setDays] = useState(30);
-  const [created, setCreated] = useState<{ url: string; expiresAt: string; at: string } | null>(null);
+  const [redact, setRedact] = useState(false);
+  const [created, setCreated] = useState<{ url: string; expiresAt: string; at: string; landed: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [shares, setShares] = useState<ShareSummary[] | null>(null);
   const [pending, start] = useTransition();
@@ -78,7 +79,7 @@ export default function ShareDialog({ subject, subjectLabel, landed, estimatedOn
             <div className="px-5 py-4">
               {created ? (
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                  <p className="text-sm font-medium text-emerald-950">{t("created", { when: dateTimeShortLocal(created.at, locale), landed })}</p>
+                  <p className="text-sm font-medium text-emerald-950">{t("created", { when: dateTimeShortLocal(created.at, locale), landed: money(created.landed, currency, locale) })}</p>
                   <div className="mt-3 flex gap-2">
                     <input readOnly value={created.url} aria-label={t("linkLabel")} onFocus={(e) => e.currentTarget.select()} className={`${input} font-mono text-xs`} />
                     <button type="button" onClick={copy} className={`${btnSecondary} shrink-0`}>
@@ -107,9 +108,10 @@ export default function ShareDialog({ subject, subjectLabel, landed, estimatedOn
                       className={btnPrimary}
                       onClick={() =>
                         start(async () => {
-                          const r = await createShare(subject, days);
+                          const r = await createShare(subject, days, redact);
                           if (!r.ok) return void toast.error(r.error);
-                          setCreated({ url: `${window.location.origin}${r.data.path}`, expiresAt: r.data.expiresAt, at: new Date().toISOString() });
+                          // The figure and the time are the server's: what was frozen, not what this screen showed.
+                          setCreated({ url: `${window.location.origin}${r.data.path}`, expiresAt: r.data.expiresAt, at: r.data.generatedAt, landed: r.data.landed });
                           refresh();
                         })
                       }
@@ -118,6 +120,13 @@ export default function ShareDialog({ subject, subjectLabel, landed, estimatedOn
                       {pending ? t("creating") : t("create")}
                     </button>
                   </div>
+                  <label className="mt-4 flex items-start gap-2.5 text-sm text-slate-700">
+                    <input type="checkbox" className="mt-0.5" checked={redact} onChange={(e) => setRedact(e.target.checked)} />
+                    <span>
+                      {t("redact")}
+                      <span className="block text-xs text-slate-500">{t("redactHint")}</span>
+                    </span>
+                  </label>
                   <p className="mt-3 text-xs text-slate-500">{t("frozenHint")}</p>
                 </>
               )}
