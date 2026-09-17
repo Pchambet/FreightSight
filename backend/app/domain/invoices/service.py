@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import Unprocessable
@@ -21,7 +21,7 @@ from app.domain.costing.service import recompute_org
 from app.domain.documents.ports import DocumentStore
 from app.domain.documents.service import store_document
 from app.domain.fx.service import FxService
-from app.domain.invoices.checks import check
+from app.domain.invoices.checks import CREDIT_NOTE_NOTE, check, duplicate_cost_note
 from app.domain.invoices.ports import (
     DocumentExtractor,
     ExtractionContext,
@@ -35,6 +35,7 @@ from app.domain.models import (
     Cost,
     CostScope,
     CostStatus,
+    ErpPush,
     Invoice,
     InvoiceLine,
     InvoiceStatus,
@@ -202,11 +203,15 @@ def confirm(
     invoice: Invoice,
     *,
     created_by: UUID | None = None,
+    force: bool = False,
 ) -> Confirmation:
     """Turn the accepted lines into costs, all of them or none.
 
     Everything happens in the caller's transaction: if the tenth line is wrong, the first nine costs
     do not exist either. The rate is the one of the invoice date, fixed on the cost like any other.
+
+    `force` is the answer to the duplicate check below, and only to that: it says a person looked at
+    the cost we found and decided this invoice is not the same charge.
     """
     if invoice.status is InvoiceStatus.CONFIRMED:
         raise Unprocessable("This invoice has already been confirmed", code="ALREADY_CONFIRMED")
@@ -239,10 +244,36 @@ def confirm(
             errors=incomplete,
         )
 
+    # A credit note refunds money; a cost adds it. Until a cost can carry a negative amount — the
+    # database itself refuses one — the two cannot meet, and guessing which way round the figures go
+    # is how a 2 450 € refund becomes a 2 450 € charge. It is refused, by name, with the document
+    # still on file so it can be entered by hand against the same container.
+    if any(note.startswith(CREDIT_NOTE_NOTE) for note in _reading_notes(invoice)):
+        raise Unprocessable(
+            "This document was read as a credit note: enter the refund by hand, costs cannot yet "
+            "carry a negative amount",
+            code="CREDIT_NOTE_MANUAL",
+        )
+    negative = [line for line in accepted if line.amount < 0]
+    if negative:
+        raise Unprocessable(
+            "A negative charge cannot become a cost yet; leave the line unaccepted and enter it by hand",
+            code="NEGATIVE_COST_UNSUPPORTED",
+            errors=[
+                {
+                    "field": f"line {line.line_no}",
+                    "code": "NEGATIVE_COST_UNSUPPORTED",
+                    "message": f"@negative_line|{line.amount}",
+                }
+                for line in negative
+            ],
+        )
+
+    notes: list[str] = _duplicate_notes(db, org, accepted, force=force)
+
     cost_date = invoice.invoice_date or datetime.now(UTC).date()
     costs: list[Cost] = []
     superseded: list[UUID] = []
-    notes: list[str] = []
     for line in accepted:
         assert line.scope is not None and line.target_id is not None and line.cost_type is not None
         model, foreign_key, what = SCOPE_MODEL[line.scope]
@@ -295,6 +326,110 @@ def confirm(
     db.flush()
     recompute_org(db, org)
     return Confirmation(invoice=invoice, costs=costs, superseded=superseded, notes=notes)
+
+
+def reopen_confirmed(db: Session, org: Organization, invoice: Invoice) -> list[UUID]:
+    """Undo a confirmation, costs and all, while nothing has left for the ERP yet.
+
+    A confirmed invoice is history — except when the forwarder sends the correction the next day and
+    the costs have gone nowhere. Then the honest move is to take back exactly what this confirmation
+    wrote, rather than leave the reviewer to key a correction in somewhere else and be told, on the
+    next invoice, that it looks like a duplicate.
+
+    The line is drawn at the customer's own books: once a cost has been written into a landed cost
+    over there, deleting it here would leave their stock valuation carrying a figure nothing on our
+    side remembers. That is refused, with the push named, and corrected the way an accountant
+    corrects a posted document — with another one.
+    """
+    costs = list(
+        db.scalars(
+            select(Cost).where(
+                Cost.org_id == org.id,
+                Cost.id.in_([line.cost_id for line in invoice.lines if line.cost_id is not None]),
+            )
+        )
+    )
+    pushed = _live_pushes_carrying(db, org, costs)
+    if pushed:
+        raise Unprocessable(
+            "This invoice's costs are already in the ERP; correct them there with an adjustment "
+            "document, or forget the push first",
+            code="COSTS_PUSHED_TO_ERP",
+            errors=[
+                {
+                    "field": "erp",
+                    "code": "COSTS_PUSHED_TO_ERP",
+                    "message": f"@pushed_cost|{push.odoo_name or push.odoo_id}|{push.status}",
+                }
+                for push in pushed
+            ],
+        )
+    removed = [cost.id for cost in costs]
+    for line in invoice.lines:
+        line.cost_id = None
+    for cost in costs:
+        db.delete(cost)
+    invoice.status = InvoiceStatus.NEEDS_REVIEW
+    invoice.confirmed_at = None
+    db.flush()
+    recompute_org(db, org)
+    return removed
+
+
+def _live_pushes_carrying(db: Session, org: Organization, costs: list[Cost]) -> list[ErpPush]:
+    """The ERP documents still holding any of these costs. A forgotten push holds nothing."""
+    if not costs:
+        return []
+    return list(
+        db.scalars(
+            select(ErpPush)
+            .where(
+                ErpPush.org_id == org.id,
+                ErpPush.forgotten_at.is_(None),
+                or_(*[ErpPush.cost_ids.contains([str(cost.id)]) for cost in costs]),
+            )
+            .order_by(ErpPush.created_at)
+        )
+    )
+
+
+def _reading_notes(invoice: Invoice) -> list[str]:
+    """The notes the reading left on the document, as stored."""
+    raw = invoice.raw if isinstance(invoice.raw, dict) else {}
+    return [str(note) for note in raw.get("notes", [])]
+
+
+def _duplicate_notes(
+    db: Session, org: Organization, accepted: list[InvoiceLine], *, force: bool
+) -> list[str]:
+    """Look for the cost this invoice would double, now, and not only when it was read.
+
+    A week can pass between the reading and the confirmation. Monday the logistics manager keys in
+    the 2 450 € of freight to close the month; Tuesday the finance director confirms the invoice
+    that was read on Friday, when nothing existed to warn about. The container ends up with 4 900 €
+    of freight in it, and in the customer's stock valuation at the next push.
+
+    Saying it is enough: a person who has looked at the cost we found can confirm anyway, and what
+    they overrode is written into the confirmation's notes.
+    """
+    collisions = [
+        (line, note)
+        for line in accepted
+        if (note := duplicate_cost_note(db, org.id, line.cost_type, line.scope, line.target_id))
+    ]
+    if not collisions:
+        return []
+    if not force:
+        raise Unprocessable(
+            "A cost of the same type is already recorded on this freight; confirm again with "
+            "force=true if this invoice is a different charge",
+            code="DUPLICATE_COST",
+            errors=[
+                {"field": f"line {line.line_no}", "code": "DUPLICATE_COST", "message": note}
+                for line, note in collisions
+            ],
+        )
+    return [f"@forced_duplicate|{line.line_no}|{note.split('|', 1)[1]}" for line, note in collisions]
 
 
 def _open_estimates(db: Session, org: Organization, line: InvoiceLine) -> list[Cost]:

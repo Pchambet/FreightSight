@@ -6,13 +6,14 @@ import { useLocale, useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { btnPrimary, btnSecondary, input } from "@/components/layout/AppShell";
-import { confirmInvoice, rejectInvoice, reopenInvoice, retryInvoice, updateInvoiceLine } from "@/features/actions";
+import ConfidenceBadge from "@/components/shared/ConfidenceBadge";
+import { addInvoiceLine, confirmInvoice, rejectInvoice, reopenInvoice, retryInvoice, updateInvoiceLine } from "@/features/actions";
 import InvoiceContinueLinks, { type ContainerLink } from "@/features/invoices/InvoiceContinueLinks";
 import { containerLinksFromLines } from "@/features/invoices/containerLinks";
 import { formatInvoiceNote, isDuplicateCostNote, splitInvoiceNotes } from "@/features/invoices/lineNotes";
 import type { InvoiceLineResponse, InvoiceResponse } from "@/lib/api/client";
 import { COST_SCOPES, COST_TYPES, type CostScope, type CostType } from "@/lib/domain";
-import { money } from "@/lib/format";
+import { amountPlaceholder, money } from "@/lib/format";
 
 export type Target = { id: string; label: string };
 export type Targets = Record<CostScope, Target[]>;
@@ -22,6 +23,7 @@ function LineRow({ invoiceId, line, targets, editable }: { invoiceId: string; li
   const noteT = useTranslations("invoices.lineNotes");
   const typeLabel = useTranslations("domain.costType");
   const scopeLabel = useTranslations("domain.costScope");
+  const locale = useLocale();
   const [amount, setAmount] = useState(line.amount);
   const [currency, setCurrency] = useState(line.currency);
   const [costType, setCostType] = useState<CostType | "">(line.cost_type ?? "");
@@ -31,11 +33,9 @@ function LineRow({ invoiceId, line, targets, editable }: { invoiceId: string; li
   const [pending, start] = useTransition();
   const router = useRouter();
   const dirty = amount !== line.amount || currency !== line.currency || costType !== (line.cost_type ?? "") || scope !== (line.scope ?? "") || target !== (line.target_id ?? "") || accepted !== line.accepted;
-  const conf = Number(line.confidence);
-  const confClass = conf >= 0.85 ? "text-emerald-700" : conf >= 0.6 ? "text-amber-700" : "text-red-700";
   const lineNotes = splitInvoiceNotes(line.notes);
   const hasDuplicate = lineNotes.some(isDuplicateCostNote);
-  const formattedNotes = lineNotes.map((n) => formatInvoiceNote(n, noteT, (k) => typeLabel(k as CostType)));
+  const formattedNotes = lineNotes.map((n) => formatInvoiceNote(n, noteT, (k) => typeLabel(k as CostType), locale, line.currency));
 
   const save = (patch?: Partial<Parameters<typeof updateInvoiceLine>[2]>) =>
     start(async () => {
@@ -57,7 +57,7 @@ function LineRow({ invoiceId, line, targets, editable }: { invoiceId: string; li
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline justify-between gap-3">
             <div className="text-sm font-medium text-slate-900 truncate">{line.line_no}. {line.description}</div>
-            <div className={`text-xs tabular-nums whitespace-nowrap ${confClass}`}>{t("confidence", { value: conf.toFixed(2) })}</div>
+            <ConfidenceBadge value={line.confidence} band={(line as { confidence_band?: "HIGH" | "MEDIUM" | "LOW" }).confidence_band} className="shrink-0" />
           </div>
           {editable ? (
             <div className="mt-2 grid grid-cols-2 md:grid-cols-6 gap-2">
@@ -96,11 +96,83 @@ function LineRow({ invoiceId, line, targets, editable }: { invoiceId: string; li
   );
 }
 
+function AddLineForm({ invoiceId, targets }: { invoiceId: string; targets: Targets }) {
+  const t = useTranslations("invoices.detail");
+  const tl = useTranslations("invoices.line");
+  const typeLabel = useTranslations("domain.costType");
+  const scopeLabel = useTranslations("domain.costScope");
+  const locale = useLocale();
+  const [open, setOpen] = useState(false);
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [costType, setCostType] = useState<CostType | "">("");
+  const [scope, setScope] = useState<CostScope | "">("");
+  const [target, setTarget] = useState("");
+  const [pending, start] = useTransition();
+  const router = useRouter();
+
+  const submit = () =>
+    start(async () => {
+      const r = await addInvoiceLine(invoiceId, { description, amount, cost_type: costType || undefined, scope: scope || undefined, target_id: target || undefined });
+      if (!r.ok) return void toast.error(r.error);
+      toast.success(t("addLineAdded"));
+      setOpen(false);
+      setDescription("");
+      setAmount("");
+      setCostType("");
+      setScope("");
+      setTarget("");
+      router.refresh();
+    });
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="text-sm text-blue-600 hover:underline px-2">
+        {t("addLine")}
+      </button>
+    );
+  }
+
+  const options = scope ? targets[scope] : [];
+  return (
+    <div className="px-5 py-4 border-t border-slate-200 bg-slate-50/60 space-y-2">
+      <div className="text-xs font-medium uppercase tracking-wider text-slate-500">{t("addLineTitle")}</div>
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+        <input aria-label={tl("description")} placeholder={tl("description")} value={description} onChange={(e) => setDescription(e.target.value)} className={`${input} md:col-span-2`} />
+        <input aria-label={tl("amount")} placeholder={amountPlaceholder(locale)} value={amount} onChange={(e) => setAmount(e.target.value)} className={`${input} text-right tabular-nums`} />
+        <select aria-label={tl("costType")} value={costType} onChange={(e) => setCostType(e.target.value as CostType)} className={input}>
+          <option value="">—</option>
+          {COST_TYPES.map((c) => <option key={c} value={c}>{typeLabel(c)}</option>)}
+        </select>
+        <select aria-label={tl("scope")} value={scope} onChange={(e) => { setScope(e.target.value as CostScope); setTarget(""); }} className={input}>
+          <option value="">—</option>
+          {COST_SCOPES.map((s) => <option key={s} value={s}>{scopeLabel(s)}</option>)}
+        </select>
+        <select aria-label={tl("target")} value={target} onChange={(e) => setTarget(e.target.value)} className={input} disabled={!scope}>
+          <option value="">{scope ? tl("chooseTarget") : tl("noTarget")}</option>
+          {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+        </select>
+      </div>
+      <div className="flex gap-2">
+        <button type="button" onClick={submit} disabled={pending || !amount.trim()} className={btnPrimary}>
+          {pending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}{t("addLineSubmit")}
+        </button>
+        <button type="button" onClick={() => setOpen(false)} disabled={pending} className={btnSecondary}>{t("cancel")}</button>
+      </div>
+    </div>
+  );
+}
+
 export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResponse; targets: Targets }) {
   const t = useTranslations("invoices.detail");
+  const noteT = useTranslations("invoices.lineNotes");
+  const typeLabel = useTranslations("domain.costType");
   const locale = useLocale();
   const [pending, start] = useTransition();
   const [continueTo, setContinueTo] = useState<ContainerLink[] | null>(null);
+  // Set only after a confirm attempt comes back with DUPLICATE_COST: the next click on the same
+  // button retries with `force: true`, the answer to that refusal and only that one.
+  const [forceConfirm, setForceConfirm] = useState(false);
   const router = useRouter();
   const editable = invoice.status === "NEEDS_REVIEW";
   const lines = invoice.lines ?? [];
@@ -134,27 +206,44 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
         {lines.map((l) => <LineRow key={l.id} invoiceId={invoice.id} line={l} targets={targets} editable={editable} />)}
       </ul>
       {editable ? (
-        <div className="px-5 py-4 border-t border-slate-200 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            disabled={!ready || pending}
-            onClick={() =>
-              start(async () => {
-                const r = await confirmInvoice(invoice.id);
-                if (!r.ok) return void toast.error(r.error ?? t("failed"));
-                toast.success(t("confirmed", { count: r.data.costsCreated }));
-                setContinueTo(r.data.containers);
-                router.refresh();
-              })
-            }
-            className={btnPrimary}
-          >
-            {pending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}{acceptedCount ? t("confirm", { count: acceptedCount }) : t("confirmNone")}
-          </button>
-          <button type="button" disabled={pending} onClick={() => run(() => rejectInvoice(invoice.id), () => t("rejected"))} className={btnSecondary}>{t("reject")}</button>
-          <button type="button" disabled={pending} onClick={() => run(() => retryInvoice(invoice.id), () => t("retried"))} className="text-sm text-slate-500 hover:underline">{t("retry")}</button>
-          <span className="text-xs text-slate-400 ml-auto">{new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { dateStyle: "medium" }).format(new Date(invoice.created_at))}</span>
-        </div>
+        <>
+          <div className="px-5 py-4 border-t border-slate-200 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              disabled={!ready || pending}
+              onClick={() =>
+                start(async () => {
+                  const r = await confirmInvoice(invoice.id, forceConfirm);
+                  if (!r.ok) {
+                    if (r.code === "DUPLICATE_COST") {
+                      setForceConfirm(true);
+                      toast.error(t("duplicateBlocked"), { duration: 10000 });
+                      return;
+                    }
+                    toast.error(r.error ?? t("failed"));
+                    return;
+                  }
+                  setForceConfirm(false);
+                  // `@forced_duplicate|...` notes are transient — this confirmation's own record
+                  // that it went ahead over a duplicate — and never land on a line's own notes, so
+                  // this toast is the only place they are ever shown.
+                  const forced = r.data.notes.map((n) => formatInvoiceNote(n, noteT, (k) => typeLabel(k as CostType), locale, invoice.currency ?? "EUR")).join(" ");
+                  toast.success(t("confirmed", { count: r.data.costsCreated }), forced ? { description: forced, duration: 10000 } : undefined);
+                  setContinueTo(r.data.containers);
+                  router.refresh();
+                })
+              }
+              className={forceConfirm ? `${btnPrimary} !bg-amber-600 hover:!bg-amber-700 focus-visible:!ring-amber-500` : btnPrimary}
+            >
+              {pending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              {forceConfirm ? t("confirmAnyway") : acceptedCount ? t("confirm", { count: acceptedCount }) : t("confirmNone")}
+            </button>
+            <button type="button" disabled={pending} onClick={() => run(() => rejectInvoice(invoice.id), () => t("rejected"))} className={btnSecondary}>{t("reject")}</button>
+            <button type="button" disabled={pending} onClick={() => run(() => retryInvoice(invoice.id), () => t("retried"))} className="text-sm text-slate-500 hover:underline">{t("retry")}</button>
+            <span className="text-xs text-slate-400 ml-auto">{new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { dateStyle: "medium" }).format(new Date(invoice.created_at))}</span>
+          </div>
+          <AddLineForm invoiceId={invoice.id} targets={targets} />
+        </>
       ) : null}
       {invoice.status === "FAILED" ? (
         <div className="px-5 py-4 border-t border-slate-200 flex items-center gap-3">

@@ -11,6 +11,7 @@ looked, and the extractor is exactly where a wrong 0.01 is easiest to introduce 
 
 from __future__ import annotations
 
+import enum
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -21,6 +22,49 @@ from pydantic import BaseModel, Field
 
 from app.core.errors import DomainError
 from app.domain.models import CostType
+
+
+class ExtractorKind(enum.StrEnum):
+    """Who read the document, in words a finance director can be shown.
+
+    The extractor's own name — « regex », « llm » — is our plumbing and reaches a CFO's screen
+    through the API. The name stays, because that is what a support ticket needs; this is what the
+    front translates.
+    """
+
+    RULES = "RULES"
+    MODEL = "MODEL"
+    UNKNOWN = "UNKNOWN"
+
+
+class ConfidenceBand(enum.StrEnum):
+    """How much of a second look a reading needs. `confidence` keeps the number as it is."""
+
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
+
+
+#: A reading nothing was found wrong with. Below it, something was capped or missed.
+HIGH_CONFIDENCE = Decimal("0.8")
+#: Under this, no line of the reading can be trusted enough to be read rather than retyped.
+LOW_CONFIDENCE = Decimal("0.5")
+
+EXTRACTOR_KINDS = {"regex": ExtractorKind.RULES, "llm": ExtractorKind.MODEL}
+
+
+def extractor_kind(name: str | None) -> ExtractorKind:
+    return EXTRACTOR_KINDS.get(name or "", ExtractorKind.UNKNOWN)
+
+
+def confidence_band(confidence: Decimal | None) -> ConfidenceBand | None:
+    if confidence is None:
+        return None
+    if confidence >= HIGH_CONFIDENCE:
+        return ConfidenceBand.HIGH
+    if confidence >= LOW_CONFIDENCE:
+        return ConfidenceBand.MEDIUM
+    return ConfidenceBand.LOW
 
 
 class ExtractionFailed(DomainError):

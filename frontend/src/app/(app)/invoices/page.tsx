@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Receipt } from "lucide-react";
 import { Card, PageHeader, btnPrimary, td, tdRight, th, thRight } from "@/components/layout/AppShell";
+import ConfidenceBadge from "@/components/shared/ConfidenceBadge";
 import UploadForm from "@/features/invoices/UploadForm";
 import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
 import { invoicesHubStep } from "@/features/workflow/steps";
@@ -73,7 +74,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                   <td className={`${td} text-slate-600`}>{dateShort(i.invoice_date, locale)}</td>
                   <td className={tdRight}>{i.total_amount && i.currency ? money(i.total_amount, i.currency, locale) : "—"}</td>
                   <td className={td}><span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${STATUS_STYLE[i.status]}`}>{statusLabel(i.status)}</span></td>
-                  <td className={`${tdRight} text-slate-600`}>{i.confidence ? Number(i.confidence).toFixed(2) : "—"}</td>
+                  <td className={tdRight}><ConfidenceBadge value={i.confidence} band={(i as { confidence_band?: "HIGH" | "MEDIUM" | "LOW" }).confidence_band} /></td>
                   <td className={`${td} text-xs text-slate-500 max-w-[16rem] truncate`}>{i.filename ?? "—"}</td>
                 </tr>
               ))}

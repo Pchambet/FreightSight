@@ -6,10 +6,14 @@ the tenancy facts that no witness gets to overrule:
   * the lines plus VAT have to add up to the stated total, to the cent (0.02 of slack for the
     supplier's own rounding). They usually do not, because a charge was missed — so the confidence
     is capped and a person is told which way it is out;
+  * a document that refunds rather than charges — a credit note — is named as one, whatever it is
+    headed and whichever way its signs are written;
   * a container reference only survives if it is a container this organization actually has. A model
     handed a list can still return something that is not on it;
   * a currency with no ECB rate for the invoice date cannot become a cost silently;
-  * an invoiced cost of the same type on the same target is flagged so a person does not double-count.
+  * an invoiced cost of the same type on the same freight is flagged so a person does not
+    double-count — across scopes, because the freight billed per container is often already recorded
+    on the shipment.
 """
 
 from __future__ import annotations
@@ -19,17 +23,19 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, or_, select
 from sqlalchemy.orm import Session
 
 from app.domain.fx.service import FxService
-from app.domain.invoices.ports import ExtractionContext, FreightInvoice
-from app.domain.models import Cost, CostScope, CostStatus, CostType
+from app.domain.invoices.ports import ExtractedLine, ExtractionContext, FreightInvoice
+from app.domain.models import Container, Cost, CostScope, CostStatus, CostType, PurchaseOrderLine
 
 #: How far the sum of the lines may be from the stated total before we stop believing the reading.
 TOLERANCE = Decimal("0.02")
 #: The ceiling applied to a reading whose arithmetic does not hold.
 CAPPED_CONFIDENCE = 0.5
+#: Every note that says « this document refunds money, it does not ask for any ».
+CREDIT_NOTE_NOTE = "@credit_note"
 
 
 @dataclass
@@ -80,38 +86,78 @@ def arithmetic_holds(invoice: FreightInvoice) -> tuple[bool, Decimal | None]:
     return abs(difference) <= TOLERANCE, difference
 
 
-def _existing_cost_note(
+def _same_freight(db: Session, org_id: UUID, scope: CostScope, target_id: UUID) -> ColumnElement[bool] | None:
+    """Where a cost covering this target may already sit, whatever scope it was recorded at.
+
+    A forwarder bills the ocean freight per container; the same freight is very often already on
+    file at shipment level, because that is how it was quoted. Comparing scope for scope catches
+    the cheapest duplicate — drayage, container against container — and lets the most expensive one
+    through in silence: on the sample data that is 3 000 € of freight counted twice, with a green
+    tick next to it. A charge landing on a box therefore also looks at its shipment, and the reverse;
+    a PO line and its order stand in the same relation.
+    """
+    if scope is CostScope.CONTAINER:
+        shipment_id = db.scalar(
+            select(Container.shipment_id).where(Container.id == target_id, Container.org_id == org_id)
+        )
+        if shipment_id is None:
+            return Cost.container_id == target_id
+        return or_(Cost.container_id == target_id, Cost.shipment_id == shipment_id)
+    if scope is CostScope.SHIPMENT:
+        boxes = select(Container.id).where(Container.shipment_id == target_id, Container.org_id == org_id)
+        return or_(Cost.shipment_id == target_id, Cost.container_id.in_(boxes))
+    if scope is CostScope.PO:
+        po_lines = select(PurchaseOrderLine.id).where(
+            PurchaseOrderLine.po_id == target_id, PurchaseOrderLine.org_id == org_id
+        )
+        return or_(Cost.po_id == target_id, Cost.po_line_id.in_(po_lines))
+    if scope is CostScope.PO_LINE:
+        po_id = db.scalar(
+            select(PurchaseOrderLine.po_id).where(
+                PurchaseOrderLine.id == target_id, PurchaseOrderLine.org_id == org_id
+            )
+        )
+        if po_id is None:
+            return Cost.po_line_id == target_id
+        return or_(Cost.po_line_id == target_id, Cost.po_id == po_id)
+    return None
+
+
+def duplicate_cost_note(
     db: Session,
     org_id: UUID,
     cost_type: CostType | None,
     scope: CostScope | None,
     target_id: UUID | None,
 ) -> str | None:
-    """Machine-readable note when an invoiced cost of this type already exists on the target."""
+    """Machine-readable note when an invoiced cost of this type already covers the same freight.
+
+    Run at extraction and again at confirmation: a week can pass between the two, and the cost the
+    logistics manager keyed in by hand on Monday did not exist when the invoice was read on Friday.
+    """
     if cost_type is None or scope is None or target_id is None:
         return None
-    stmt = select(Cost).where(
-        Cost.org_id == org_id,
-        Cost.status == CostStatus.ACTUAL,
-        Cost.closed_at.is_(None),
-        Cost.cost_type == cost_type,
-    )
-    if scope == CostScope.CONTAINER:
-        stmt = stmt.where(Cost.container_id == target_id)
-    elif scope == CostScope.SHIPMENT:
-        stmt = stmt.where(Cost.shipment_id == target_id)
-    elif scope == CostScope.PO:
-        stmt = stmt.where(Cost.po_id == target_id)
-    elif scope == CostScope.PO_LINE:
-        stmt = stmt.where(Cost.po_line_id == target_id)
-    else:
+    where = _same_freight(db, org_id, scope, target_id)
+    if where is None:
         return None
-    existing = db.scalars(stmt.order_by(Cost.cost_date.desc()).limit(1)).first()
+    existing = db.scalars(
+        select(Cost)
+        .where(
+            Cost.org_id == org_id,
+            Cost.status == CostStatus.ACTUAL,
+            Cost.closed_at.is_(None),
+            Cost.cost_type == cost_type,
+            where,
+        )
+        .order_by(Cost.cost_date.desc())
+        .limit(1)
+    ).first()
     if existing is None:
         return None
     return (
         f"@duplicate_cost|{cost_type.value}|{existing.vendor or ''}|"
-        f"{existing.invoice_number or ''}|{existing.amount_base}|{existing.currency}"
+        f"{existing.invoice_number or ''}|{existing.amount_base}|{existing.currency}|"
+        f"{existing.scope.value}"
     )
 
 
@@ -133,6 +179,29 @@ def check(
         direction = "more_than" if difference > 0 else "less_than"
         notes.append(f"@arithmetic_mismatch|{abs(difference)}|{direction}")
 
+    # A line the reading could not turn into money is a line nobody will ever see again, and the
+    # arithmetic above counted it. Both facts belong on the screen rather than in a log.
+    priced: list[tuple[ExtractedLine, Decimal]] = []
+    for line in invoice.lines:
+        amount = line.decimal()
+        if amount is None or amount == 0:
+            notes.append(f"@dropped_line|{line.description[:60]}|{line.amount}")
+            confidence = min(confidence, CAPPED_CONFIDENCE)
+        else:
+            priced.append((line, amount))
+
+    # A refund read as a charge is the most expensive mistake this pipeline can make: the amount
+    # lands on the container twice over, once as money never received and once as money never spent,
+    # and the arithmetic holds perfectly throughout because every figure is consistently wrong. The
+    # totals decide first — a document whose bottom line is negative is a credit note whatever it is
+    # headed — then an invoice on which nothing is charged at all.
+    if _negative(invoice.total) or _negative(invoice.subtotal):
+        notes.append(f"{CREDIT_NOTE_NOTE}|negative_total")
+    elif priced and all(amount < 0 for _, amount in priced):
+        notes.append(f"{CREDIT_NOTE_NOTE}|negative_lines")
+    if any(note.startswith(CREDIT_NOTE_NOTE) for note in notes):
+        confidence = min(confidence, CAPPED_CONFIDENCE)
+
     # When the invoice names exactly one container we know, every charge on it is about that box.
     # This is the ordinary case — a forwarder invoices per container — and it is deterministic, so
     # it is decided here rather than left to whatever read the document.
@@ -140,13 +209,16 @@ def check(
     single_container = known[0] if len(known) == 1 else None
 
     checked: list[CheckedLine] = []
-    for line in invoice.lines:
-        amount = line.decimal()
-        if amount is None or amount <= 0:
-            continue
+    for line, amount in priced:
         currency = (line.currency or invoice.currency or base_currency).upper()
         line_notes: list[str] = []
         line_confidence = min(line.confidence, confidence)
+        if amount < 0:
+            # A commercial discount is a legitimate negative charge, and dropping it — which is what
+            # used to happen — overstates the landed cost by exactly its amount while the arithmetic
+            # still ticks. It stays visible and signed; what it cannot do is become a cost.
+            line_notes.append(f"@negative_line|{amount}")
+            line_confidence = min(line_confidence, CAPPED_CONFIDENCE)
 
         scope: CostScope | None = None
         target_id = None
@@ -171,7 +243,7 @@ def check(
             line_notes.append(f"@no_fx_rate|{currency}|{invoice_date.isoformat() if invoice_date else ''}")
             line_confidence = min(line_confidence, CAPPED_CONFIDENCE)
 
-        duplicate = _existing_cost_note(db, org_id, line.cost_type, scope, target_id)
+        duplicate = duplicate_cost_note(db, org_id, line.cost_type, scope, target_id)
         if duplicate:
             line_notes.append(duplicate)
             line_confidence = min(line_confidence, CAPPED_CONFIDENCE)
@@ -192,6 +264,16 @@ def check(
     if len(invoice.container_numbers) > 1:
         notes.append("@multi_container")
     return CheckedInvoice(invoice=invoice, lines=checked, confidence=round(confidence, 2), notes=notes)
+
+
+def _negative(stated: str | None) -> bool:
+    """Whether a total the document states is a figure below zero. An unreadable one is not."""
+    if stated is None:
+        return False
+    try:
+        return Decimal(stated) < 0
+    except ArithmeticError:  # pragma: no cover - the model validated it
+        return False
 
 
 def _rate_available(db: Session, fx: FxService, base: str, quote: str, on_date: date | None) -> bool:

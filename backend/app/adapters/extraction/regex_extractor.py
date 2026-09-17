@@ -13,6 +13,7 @@ from __future__ import annotations
 import io
 import logging
 import re
+from collections import Counter
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
@@ -41,6 +42,15 @@ CURRENCY_SYMBOLS = {"€": "EUR", "$": "USD", "£": "GBP"}
 #: What an invoice puts after the amount in the last column, and nothing else.
 TRAILING_NOISE_RE = re.compile(r"[\s]*(?:EUR|USD|GBP|CNY|CHF|€|\$|£|HT|TTC|TVAC|\*+)?[\s.]*$", re.IGNORECASE)
 
+#: The minus signs a PDF actually carries: the keyboard hyphen, and the typographic minus that most
+#: invoice fonts print instead of it.
+MINUS_SIGNS = ("-", "\u2212")
+#: A refund, in the words French and English invoices head it with. « Avoir » is also an ordinary
+#: verb, so it only counts in the header block, where a document states what it is.
+CREDIT_NOTE_RE = re.compile(r"\bAVOIRS?\b|\bNOTE\s+DE\s+CR[EÉ]DIT\b|\bCREDIT\s+NOTE\b", re.IGNORECASE)
+#: How far down the page a document is still introducing itself.
+HEADER_LINES = 12
+
 TOTAL_WORDS = ("TOTAL TTC", "TOTAL À PAYER", "TOTAL A PAYER", "MONTANT TOTAL", "TOTAL DUE", "TOTAL")
 VAT_WORDS = ("TVA", "VAT", "T.V.A")
 #: « TVA FR12812345678 » is the supplier's registration number, not an amount of tax. Same for a
@@ -56,10 +66,14 @@ COST_KEYWORDS: tuple[tuple[str, CostType], ...] = (
     ("SURESTARIE", CostType.DEMURRAGE),
     ("DEMURRAGE", CostType.DEMURRAGE),
     ("DETENTION", CostType.DETENTION),
+    ("DÉTENTION", CostType.DETENTION),
     ("CAMIONNAGE", CostType.DRAYAGE),
     ("DRAYAGE", CostType.DRAYAGE),
     ("LIVRAISON", CostType.DRAYAGE),
     ("TRUCKING", CostType.DRAYAGE),
+    # Swapping a box between two trucks is a haulage operation, billed by the haulier.
+    ("ECHANGE DE CONTENEUR", CostType.DRAYAGE),
+    ("ÉCHANGE DE CONTENEUR", CostType.DRAYAGE),
     ("FRET AERIEN", CostType.AIR_FREIGHT),
     ("AIR FREIGHT", CostType.AIR_FREIGHT),
     ("FRET MARITIME", CostType.OCEAN_FREIGHT),
@@ -75,20 +89,58 @@ COST_KEYWORDS: tuple[tuple[str, CostType], ...] = (
     ("DÉDOUANEMENT", CostType.CUSTOMS_BROKERAGE),
     ("CUSTOMS CLEARANCE", CostType.CUSTOMS_BROKERAGE),
     ("HONORAIRES DOUANE", CostType.CUSTOMS_BROKERAGE),
+    # The customs agent's own fee, as his invoice names it — « honoraires d'agréé en douane », HAD.
+    ("HONORAIRES D'AGREE", CostType.CUSTOMS_BROKERAGE),
+    ("HONORAIRES D'AGRÉÉ", CostType.CUSTOMS_BROKERAGE),
     ("FRAIS DE DOSSIER", CostType.BL_FEE),
     ("BL FEE", CostType.BL_FEE),
     ("B/L", CostType.BL_FEE),
     ("BILL OF LADING", CostType.BL_FEE),
     ("CONNAISSEMENT", CostType.BL_FEE),
+    # Releasing the bill of lading is what the « frais de release » on a forwarder's invoice buys.
+    ("RELEASE", CostType.BL_FEE),
     ("ENTREPOSAGE", CostType.WAREHOUSING),
+    # What a terminal or a forwarder calls storage in French: « entreposage » is a bonded warehouse,
+    # « magasinage » and « stationnement » are the box sitting on the terminal, which is the charge.
+    ("MAGASINAGE", CostType.WAREHOUSING),
+    ("STATIONNEMENT", CostType.WAREHOUSING),
+    ("DEPOTAGE", CostType.WAREHOUSING),
+    ("DÉPOTAGE", CostType.WAREHOUSING),
     ("STORAGE", CostType.WAREHOUSING),
     ("WAREHOUS", CostType.WAREHOUSING),
     ("INSPECTION", CostType.INSPECTION),
+    # Customs pulling the box for a look, by scanner or by hand: billed as an inspection.
+    ("VISITE DOUANE", CostType.INSPECTION),
+    ("VISITE DOUANIERE", CostType.INSPECTION),
+    ("VISITE DOUANIÈRE", CostType.INSPECTION),
+    ("SCANNER", CostType.INSPECTION),
+    ("SCANNING", CostType.INSPECTION),
     ("FRAIS BANCAIRES", CostType.BANK_FEES),
     ("BANK FEE", CostType.BANK_FEES),
     ("FRAIS ORIGINE", CostType.ORIGIN_CHARGES),
     ("ORIGIN CHARGE", CostType.ORIGIN_CHARGES),
 )
+
+#: The charges that ocean invoices name by their initials, which cannot be looked for as substrings:
+#: « ENS » sits inside « DÉPENSES », « HAD » inside a dozen words. They are matched as whole words.
+#:
+#: The surcharges (BAF, CAF, LSS, PSS, ISPS) are the freight rate cut into pieces by the carrier's
+#: tariff — one voyage, billed in five lines — so they land on OCEAN_FREIGHT, where they are
+#: allocated exactly as the base freight is; the wording keeps the detail for whoever reads it.
+COST_ACRONYMS: tuple[tuple[str, CostType], ...] = (
+    ("BAF", CostType.OCEAN_FREIGHT),
+    ("CAF", CostType.OCEAN_FREIGHT),
+    ("LSS", CostType.OCEAN_FREIGHT),
+    ("PSS", CostType.OCEAN_FREIGHT),
+    ("ISPS", CostType.OCEAN_FREIGHT),
+    ("ENS", CostType.CUSTOMS_BROKERAGE),
+    ("T1", CostType.CUSTOMS_BROKERAGE),
+    ("HAD", CostType.CUSTOMS_BROKERAGE),
+)
+ACRONYM_RE = re.compile(rf"(?<![A-Z0-9])({'|'.join(k for k, _ in COST_ACRONYMS)})(?![A-Z0-9])")
+#: « Valeur CAF » is the customs value of the goods — the same three letters as the currency
+#: surcharge, on a line that is not a charge at all. Reading it as freight would invent thousands.
+NOT_A_CHARGE_RE = re.compile(r"VALEUR\s+CAF|CAF\s+VALUE")
 
 
 def text_of(document: ExtractionInput) -> str:
@@ -144,26 +196,44 @@ def parse_amount(raw: str) -> Decimal | None:
         return None
 
 
-def last_amount(line: str) -> Decimal | None:
-    """The rightmost number on the line: quantities and unit rates come before it."""
-    found = [parse_amount(m.group(0)) for m in AMOUNT_RE.finditer(line)]
-    values = [v for v in found if v is not None]
-    return values[-1] if values else None
+def is_negative(text: str, start: int, end: int) -> bool:
+    """Whether the amount at `text[start:end]` is written as a negative one.
+
+    Four notations reach us from real documents and all four mean the same refund: a minus glued to
+    the figure, a minus loose in front of it, the typographic minus the PDF font carries instead of
+    the hyphen, a minus printed after the figure, and the accountant's parentheses. Reading any of
+    them as a charge turns a credit note into money owed, twice over — once as a refund never
+    received, once as a cost never incurred.
+    """
+    before = text[:start].rstrip(" \u00a0")
+    after = text[end:].lstrip(" \u00a0")
+    if before.endswith(MINUS_SIGNS) or after.startswith(MINUS_SIGNS):
+        return True
+    return before.endswith("(") and after.startswith(")")
 
 
 def trailing_amount(line: str) -> Decimal | None:
-    """The rightmost number, but only when the line actually *ends* on it.
+    """The rightmost number, signed, but only when the line actually *ends* on it.
 
     An invoice table puts the money in the last column. A header sentence that happens to name a
     charge — « Dossier · B/L MEDUSH2604417 · Conteneur MSCU1234567 (40' HC) · Navire… » — has its
     numbers in the middle, and reading 40 as a bill-of-lading fee is exactly the kind of quiet
-    nonsense a review is supposed to be spared.
+    nonsense a review is supposed to be spared. What a figure may still be followed by is its own
+    sign: a trailing minus, or the parenthesis that closes an accounting negative.
     """
     stripped = TRAILING_NOISE_RE.sub("", line.rstrip())
     matches = list(AMOUNT_RE.finditer(stripped))
-    if not matches or matches[-1].end() != len(stripped):
+    if not matches:
         return None
-    return parse_amount(matches[-1].group(0))
+    last = matches[-1]
+    negative = is_negative(stripped, last.start(), last.end())
+    rest = stripped[last.end() :].strip(" \u00a0")
+    if rest not in ("", *MINUS_SIGNS) and not (negative and rest == ")"):
+        return None
+    value = parse_amount(last.group(0))
+    if value is None:
+        return None
+    return -value if negative else value
 
 
 def describe(line: str) -> str:
@@ -187,7 +257,7 @@ def describe(line: str) -> str:
 
 
 #: What an invoice leaves between the wording and its columns, once the numbers are gone.
-COLUMN_SEPARATORS = " \t\u00b7\u2013\u2014-:*"
+COLUMN_SEPARATORS = " \t\u00b7\u2013\u2014-\u2212:*"
 
 
 def _without_separators(head: str) -> str:
@@ -205,6 +275,44 @@ def find_currency(text: str) -> str | None:
     if not match:
         return None
     return match.group(1) or CURRENCY_SYMBOLS.get(match.group(2) or "")
+
+
+def currencies_in(text: str) -> list[str]:
+    """Every currency the document names, in the order it names them, without repeats."""
+    seen: list[str] = []
+    for match in CURRENCY_RE.finditer(text):
+        code = match.group(1) or CURRENCY_SYMBOLS.get(match.group(2) or "")
+        if code and code not in seen:
+            seen.append(code)
+    return seen
+
+
+def document_currency(lines: list[str], upper_lines: list[str]) -> tuple[str | None, list[str]]:
+    """What the invoice is denominated in, and every currency it mentions.
+
+    The one thing that must not decide is the first currency word on the page: a forwarder prints
+    the day's USD/EUR rate in its header and its dollar IBAN in its footer, and a EUR invoice read
+    as USD is converted twice — around 8 % of landed cost, silently, with a perfectly valid rate.
+
+    So the totals line comes first: that is where a document commits to what it wants to be paid in.
+    Failing that, the currency most of the charge lines carry — a majority of rows beats a sentence.
+    """
+    named = currencies_in("\n".join(lines))
+    totals = [
+        raw
+        for raw, upper in zip(lines, upper_lines, strict=True)
+        if any(word in upper for word in (*TOTAL_WORDS, *SUBTOTAL_WORDS))
+    ]
+    for raw in reversed(totals):  # invoices repeat their totals; the last one is the one to pay
+        stated = find_currency(raw)
+        if stated:
+            return stated, named
+    counted = Counter(
+        code for raw in lines if trailing_amount(raw) is not None and (code := find_currency(raw)) is not None
+    )
+    if not counted:
+        return None, named
+    return counted.most_common(1)[0][0], named
 
 
 def find_date(text: str) -> date | None:
@@ -227,6 +335,11 @@ def cost_type_of(line: str) -> CostType | None:
     for keyword, cost_type in COST_KEYWORDS:
         if keyword in upper:
             return cost_type
+    if NOT_A_CHARGE_RE.search(upper):
+        return None
+    match = ACRONYM_RE.search(upper)
+    if match:
+        return dict(COST_ACRONYMS)[match.group(1)]
     return None
 
 
@@ -247,7 +360,8 @@ class RegexExtractor:
         lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
         upper_lines = [ln.upper() for ln in lines]
 
-        currency = find_currency(text) or context.base_currency
+        stated_currency, named_currencies = document_currency(lines, upper_lines)
+        currency = stated_currency or context.base_currency
         total = self._labelled(lines, upper_lines, TOTAL_WORDS, exclude=SUBTOTAL_WORDS)
         subtotal = self._labelled(lines, upper_lines, SUBTOTAL_WORDS)
         vat = self._vat(lines, upper_lines, total, subtotal)
@@ -264,7 +378,7 @@ class RegexExtractor:
                 continue  # a total that happens to name a charge is not a charge
             amount = trailing_amount(raw)
             if amount is None or amount == 0:
-                continue
+                continue  # a charge of nothing is a table rule or a heading, not money
             charges.append(
                 ExtractedLine(
                     description=describe(raw),
@@ -275,6 +389,15 @@ class RegexExtractor:
                     confidence=0.6,
                 )
             )
+
+        notes: list[str] = []
+        if CREDIT_NOTE_RE.search("\n".join(lines[:HEADER_LINES])):
+            notes.append("@credit_note|header")
+        if len(named_currencies) > 1:
+            others = [c for c in named_currencies if c != currency]
+            notes.append("|".join(["@currency_guess", currency, *others]))
+        if not charges:
+            notes.append("No charge line recognised; every amount needs entering by hand.")
 
         vendor = next((ln for ln in lines[:3] if not ln.upper().startswith(("FACTURE", "INVOICE"))), None)
         return FreightInvoice(
@@ -290,7 +413,7 @@ class RegexExtractor:
             bl_numbers=[m.group(1) for m in BL_RE.finditer(text)],
             po_numbers=[m.group(1).upper() for m in PO_RE.finditer(text)],
             confidence=0.6 if charges else 0.2,
-            notes=[] if charges else ["No charge line recognised; every amount needs entering by hand."],
+            notes=notes,
         )
 
     def _vat(
@@ -305,9 +428,15 @@ class RegexExtractor:
         Arithmetic first: when the invoice states both a total and a subtotal, the tax is their
         difference and no wording can mislead us. Only then fall back to reading a labelled line,
         skipping the ones that carry a registration number rather than an amount.
+
+        The difference has to point the same way as the invoice itself: on a credit note every
+        figure is negative, and the tax with them. A gap that points the other way means one of the
+        two totals was misread, and a tax invented from it would be worse than none.
         """
-        if total is not None and subtotal is not None and total >= subtotal:
-            return total - subtotal
+        if total is not None and subtotal is not None:
+            difference = total - subtotal
+            if difference == 0 or (difference < 0) == (total < 0):
+                return difference
         candidates = [
             (raw, upper)
             for raw, upper in zip(lines, upper_lines, strict=True)
@@ -324,13 +453,18 @@ class RegexExtractor:
         words: tuple[str, ...],
         exclude: tuple[str, ...] = (),
     ) -> Decimal | None:
-        """The amount on the last line naming one of these words. Invoices repeat their totals."""
+        """The amount on the last *row* naming one of these words. Invoices repeat their totals.
+
+        A row ends on its figure; a sentence does not, and a footer naming the word is a sentence.
+        « Fret et THC exonérés de TVA (art. 262 II-14° CGI) … IBAN FR76 3000 4000 0500 » is the last
+        line of a real invoice that names the tax, and it once made the VAT 76.
+        """
         found: Decimal | None = None
         for raw, upper in zip(lines, upper_lines, strict=True):
             if any(word in upper for word in exclude):
                 continue
             if any(word in upper for word in words):
-                amount = last_amount(raw)
+                amount = trailing_amount(raw)
                 if amount is not None:
                     found = amount
         return found

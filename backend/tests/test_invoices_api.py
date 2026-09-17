@@ -7,7 +7,12 @@ from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
-from invoice_fixtures import FRENCH_ONE_CONTAINER, FRENCH_TWO_CONTAINERS, USD_INVOICE
+from invoice_fixtures import (
+    CREDIT_NOTE_MINUS_GLUED,
+    FRENCH_ONE_CONTAINER,
+    FRENCH_TWO_CONTAINERS,
+    USD_INVOICE,
+)
 from pdfs import make_pdf, make_pdf_without_text
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
@@ -105,6 +110,10 @@ def test_a_read_invoice_waits_for_a_person(client: TestClient, db: Session, org:
     assert body["subtotal_amount"] == "3830.00"
     assert body["vat_amount"] == "766.00"
     assert body["extractor"] == "regex"
+    # « regex » and 0.60 are ours; what the screen shows a finance director is the pair beside them
+    assert body["extractor_kind"] == "RULES"
+    assert body["confidence_band"] == "MEDIUM"
+    assert {line["confidence_band"] for line in body["lines"]} == {"MEDIUM"}
     assert len(body["lines"]) == 4
     # nothing is accepted, so nothing can become a cost yet
     assert all(line["accepted"] is False for line in body["lines"])
@@ -252,6 +261,112 @@ def test_a_confirmed_invoice_is_history(client: TestClient, db: Session, org: Or
         == 404
     )
     assert client.post(f"/api/v1/invoices/{invoice_id}/reject").status_code == 404
+    assert (
+        client.post(
+            f"/api/v1/invoices/{invoice_id}/lines", json={"amount": "50.00", "description": "Frais"}
+        ).status_code
+        == 404
+    )
+
+
+# ---------------------------------------------------------------------------- adding what was missed
+
+
+def test_the_reviewer_can_add_the_line_the_arithmetic_says_is_missing(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """« Il manque 220 € » is only worth printing if the screen it prints on can answer it."""
+    invoice_id, lines = review(client, db, org)
+    container_id = lines[0]["target_id"]
+
+    res = client.post(
+        f"/api/v1/invoices/{invoice_id}/lines",
+        json={
+            "description": "Frais de B/L",
+            "amount": "65.00",
+            "cost_type": "BL_FEE",
+            "scope": "CONTAINER",
+            "target_id": container_id,
+        },
+    )
+    assert res.status_code == 201, res.text
+    added = res.json()["lines"][-1]
+    assert added["line_no"] == len(lines) + 1
+    assert added["accepted"] is False  # nothing becomes a cost because it was typed
+    assert Decimal(added["confidence"]) == 0
+    assert added["confidence_band"] == "LOW"
+    assert added["notes"] == "@added_by_human"
+    assert added["currency"] == "EUR"  # the invoice's own
+
+    client.patch(f"/api/v1/invoices/{invoice_id}/lines/{added['id']}", json={"accepted": True})
+    confirmed = client.post(f"/api/v1/invoices/{invoice_id}/confirm")
+    assert confirmed.status_code == 200, confirmed.text
+    (cost,) = client.get("/api/v1/costs").json()
+    assert (cost["cost_type"], cost["amount"]) == ("BL_FEE", "65.00")
+
+
+def test_a_line_added_by_hand_still_needs_a_target(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    invoice_id, _ = review(client, db, org)
+    added = client.post(
+        f"/api/v1/invoices/{invoice_id}/lines",
+        json={"description": "Frais divers", "amount": "1200.00"},
+    ).json()["lines"][-1]
+    client.patch(f"/api/v1/invoices/{invoice_id}/lines/{added['id']}", json={"accepted": True})
+    res = client.post(f"/api/v1/invoices/{invoice_id}/confirm")
+    assert res.status_code == 422
+    assert res.json()["code"] == "LINE_INCOMPLETE"
+
+
+# ---------------------------------------------------------------------------- refunds
+
+
+def credit_note(client: TestClient, db: Session, org: Organization) -> tuple[str, list[dict]]:  # type: ignore[type-arg]
+    seed_container(client)
+    invoice_id = upload(client, make_pdf(CREDIT_NOTE_MINUS_GLUED), "avoir.pdf").json()["id"]
+    run_extraction(db, org, invoice_id)
+    return invoice_id, client.get(f"/api/v1/invoices/{invoice_id}").json()["lines"]
+
+
+def test_a_credit_note_is_shown_as_one_and_never_confirmed(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """An « AVOIR » of 2 450 € used to be indistinguishable from a bill: positive lines, arithmetic
+    holding, confidence untouched. Confirmed, it put a 2 450 € charge where a 2 450 € refund was —
+    an error of 4 900 € on the container, and in the customer's stock valuation at the next push."""
+    invoice_id, lines = credit_note(client, db, org)
+    body = client.get(f"/api/v1/invoices/{invoice_id}").json()
+    assert body["total_amount"] == "-2940.00"
+    assert [line["amount"] for line in lines] == ["-2450.00"]
+    assert any(note.startswith("@credit_note|") for note in body["notes"])
+    assert body["confidence_band"] in ("LOW", "MEDIUM")
+
+    client.patch(f"/api/v1/invoices/{invoice_id}/lines/{lines[0]['id']}", json={"accepted": True})
+    res = client.post(f"/api/v1/invoices/{invoice_id}/confirm")
+    assert res.status_code == 422
+    assert res.json()["code"] == "CREDIT_NOTE_MANUAL"
+    assert client.get("/api/v1/costs").json() == []
+
+
+def test_a_negative_line_cannot_become_a_cost(client: TestClient, db: Session, org: Organization) -> None:
+    """The database refuses a negative cost; the refusal has to arrive before that, by name."""
+    from app.domain.models import Invoice, InvoiceLine
+
+    invoice_id, lines = review(client, db, org)
+    invoice = db.get(Invoice, uuid.UUID(invoice_id))
+    assert invoice is not None
+    invoice.raw = {"reading": {}, "notes": []}  # not read as a credit note: one discount line
+    line = db.get(InvoiceLine, uuid.UUID(lines[0]["id"]))
+    assert line is not None
+    line.amount, line.accepted = Decimal("-150.00"), True
+    db.commit()
+
+    res = client.post(f"/api/v1/invoices/{invoice_id}/confirm")
+    assert res.status_code == 422
+    assert res.json()["code"] == "NEGATIVE_COST_UNSUPPORTED"
+    assert res.json()["errors"][0]["message"] == "@negative_line|-150.00"
+    assert client.get("/api/v1/costs").json() == []
 
 
 def test_rejecting_creates_nothing(client: TestClient, db: Session, org: Organization) -> None:
@@ -320,6 +435,125 @@ def test_the_fx_rate_is_the_one_of_the_invoice_date(
     assert cost["currency"] == "USD"
     assert cost["fx_date"] == "2026-03-12"
     assert Decimal(cost["amount_base"]) == Decimal(cost["amount"]) * Decimal(cost["fx_rate"])
+
+
+# ---------------------------------------------------------------------------- the duplicate check
+
+
+def manual_cost(client: TestClient, container_id: str, *, cost_type: str, amount: str) -> str:
+    res = client.post(
+        "/api/v1/costs",
+        json={
+            "scope": "CONTAINER",
+            "target_id": container_id,
+            "cost_type": cost_type,
+            "amount": amount,
+            "currency": "EUR",
+            "cost_date": "2026-03-10",
+            "status": "ACTUAL",
+        },
+    )
+    assert res.status_code == 201, res.text
+    return str(res.json()["id"])
+
+
+def test_a_cost_keyed_in_since_the_reading_stops_the_confirmation(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """Monday the logistics manager keys in the freight to close the month; the invoice was read on
+    Friday, when there was nothing to warn about. Tuesday's confirmation used to put 3 000 € of
+    freight on the container twice, because the duplicate check only ever ran at extraction time."""
+    invoice_id, lines = review(client, db, org)
+    freight = next(line for line in lines if line["cost_type"] == "OCEAN_FREIGHT")
+    assert "@duplicate_cost" not in (freight["notes"] or "")  # nothing existed when it was read
+    manual_cost(client, freight["target_id"], cost_type="OCEAN_FREIGHT", amount="3000.00")
+    client.patch(f"/api/v1/invoices/{invoice_id}/lines/{freight['id']}", json={"accepted": True})
+
+    res = client.post(f"/api/v1/invoices/{invoice_id}/confirm")
+    assert res.status_code == 422
+    assert res.json()["code"] == "DUPLICATE_COST"
+    assert res.json()["errors"][0]["message"].startswith("@duplicate_cost|OCEAN_FREIGHT|")
+    assert len(client.get("/api/v1/costs").json()) == 1  # only the one keyed in by hand
+    assert client.get(f"/api/v1/invoices/{invoice_id}").json()["status"] == "NEEDS_REVIEW"
+
+    forced = client.post(f"/api/v1/invoices/{invoice_id}/confirm", json={"force": True})
+    assert forced.status_code == 200, forced.text
+    assert forced.json()["costs_created"] == 1
+    assert forced.json()["notes"][0].startswith("@forced_duplicate|1|OCEAN_FREIGHT|")
+
+
+# ---------------------------------------------------------------------------- undoing a confirmation
+
+
+def test_a_confirmation_can_be_taken_back_while_nothing_has_left_for_the_erp(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """Nine lines are plain, the tenth waits for the forwarder's answer. Confirming the nine used to
+    freeze the invoice for good: the correction had to be keyed in as a cost of its own, unlinked,
+    and flagged as a duplicate on the next invoice."""
+    invoice_id, lines = review(client, db, org)
+    client.patch(f"/api/v1/invoices/{invoice_id}/lines/{lines[0]['id']}", json={"accepted": True})
+    confirmed = client.post(f"/api/v1/invoices/{invoice_id}/confirm").json()
+    assert confirmed["costs_created"] == 1
+
+    reopened = client.post(f"/api/v1/invoices/{invoice_id}/reopen")
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.json()["status"] == "NEEDS_REVIEW"
+    assert client.get("/api/v1/costs").json() == []  # what it wrote, it took back
+    assert all(line["cost_id"] is None for line in reopened.json()["lines"])
+
+    entries = client.get("/api/v1/audit-log", params={"action": "invoice.reopened"}).json()["entries"]
+    assert entries[0]["after"]["costs_deleted"] == confirmed["cost_ids"]
+
+    # and the correction is made on the invoice it came from
+    client.patch(f"/api/v1/invoices/{invoice_id}/lines/{lines[0]['id']}", json={"amount": "2950.00"})
+    again = client.post(f"/api/v1/invoices/{invoice_id}/confirm")
+    assert again.status_code == 200, again.text
+    (cost,) = client.get("/api/v1/costs").json()
+    assert cost["amount"] == "2950.00"
+
+
+def test_a_confirmation_already_in_the_customers_erp_is_not_ours_to_undo(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """Once a cost has been written into a landed cost over there, deleting it here would leave
+    their stock valuation carrying a figure nothing on our side remembers."""
+    from app.domain.models import Container, ErpConnection, ErpKind, ErpPush
+
+    invoice_id, lines = review(client, db, org)
+    client.patch(f"/api/v1/invoices/{invoice_id}/lines/{lines[0]['id']}", json={"accepted": True})
+    confirmed = client.post(f"/api/v1/invoices/{invoice_id}/confirm").json()
+    connection = ErpConnection(
+        org_id=org.id,
+        kind=ErpKind.ODOO,
+        url="https://erp.example.test",
+        database="fstest",
+        login="admin",
+        api_key_sealed=b"sealed",
+    )
+    db.add(connection)
+    db.flush()
+    db.add(
+        ErpPush(
+            org_id=org.id,
+            connection_id=connection.id,
+            container_id=db.scalars(select(Container)).first().id,  # type: ignore[union-attr]
+            cost_ids=confirmed["cost_ids"],
+            carried={},
+            odoo_model="stock.landed.cost",
+            odoo_id=42,
+            odoo_name="LC/2026/0042",
+            status="done",
+        )
+    )
+    db.commit()
+
+    res = client.post(f"/api/v1/invoices/{invoice_id}/reopen")
+    assert res.status_code == 422
+    assert res.json()["code"] == "COSTS_PUSHED_TO_ERP"
+    assert res.json()["errors"][0]["message"] == "@pushed_cost|LC/2026/0042|done"
+    assert len(client.get("/api/v1/costs").json()) == 1  # nothing was taken back
+    assert client.get(f"/api/v1/invoices/{invoice_id}").json()["status"] == "CONFIRMED"
 
 
 # ---------------------------------------------------------------------------- replacing an estimate

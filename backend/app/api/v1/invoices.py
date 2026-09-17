@@ -7,6 +7,7 @@ in the ledger, and it writes only the lines somebody accepted.
 
 from __future__ import annotations
 
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, File, Response, UploadFile, status
@@ -20,8 +21,8 @@ from app.core.tenancy import TenantDep, TenantSession
 from app.domain.audit.service import INVOICE_CONFIRMED, INVOICE_REJECTED, INVOICE_REOPENED, record
 from app.domain.documents.registry import get_store
 from app.domain.invoices.service import confirm as confirm_invoice
-from app.domain.invoices.service import create_invoice
-from app.domain.models import Container, Cost, Invoice, InvoiceStatus
+from app.domain.invoices.service import create_invoice, reopen_confirmed
+from app.domain.models import Container, Cost, Invoice, InvoiceLine, InvoiceStatus
 from app.jobs.app import defer
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -146,8 +147,56 @@ def update_line(
     return _response(invoice)
 
 
+@router.post(
+    "/{invoice_id}/lines",
+    response_model=schemas.InvoiceResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_line(
+    invoice_id: UUID,
+    payload: schemas.InvoiceLineCreate,
+    t: TenantDep,
+    _: WriterDep,
+) -> schemas.InvoiceResponse:
+    """Add the charge the reading missed — the other half of « it does not add up ».
+
+    The arithmetic check is only worth printing if the screen it prints on can answer it: a line the
+    patterns dropped because its wording carried « TVA 20 % », or a charge on a second page nobody
+    read, otherwise sends the reviewer off to key a cost somewhere else, unlinked to the invoice it
+    came from and flagged as a duplicate on the next one.
+    """
+    invoice = _get(t, invoice_id)
+    if invoice.status is InvoiceStatus.CONFIRMED:
+        raise NotFound("Invoice line")  # a confirmed invoice is history, not a draft
+    line = InvoiceLine(
+        org_id=t.org_id,
+        invoice_id=invoice.id,
+        line_no=max((ln.line_no for ln in invoice.lines), default=0) + 1,
+        description=payload.description,
+        amount=payload.amount,
+        currency=payload.currency or invoice.currency or t.org.base_currency,
+        cost_type=payload.cost_type,
+        scope=payload.scope,
+        target_id=payload.target_id,
+        confidence=Decimal("0"),  # nothing read it; someone typed it
+        accepted=False,  # and someone still has to tick it
+        notes="@added_by_human",
+    )
+    t.db.add(line)
+    t.db.flush()
+    t.db.commit()
+    t.db.refresh(invoice)
+    return _response(invoice)
+
+
 @router.post("/{invoice_id}/confirm", response_model=schemas.InvoiceConfirmResponse)
-def confirm(invoice_id: UUID, t: TenantDep, fx: FxDep, p: WriterDep) -> schemas.InvoiceConfirmResponse:
+def confirm(
+    invoice_id: UUID,
+    t: TenantDep,
+    fx: FxDep,
+    p: WriterDep,
+    payload: schemas.InvoiceConfirmRequest | None = None,
+) -> schemas.InvoiceConfirmResponse:
     """Create the accepted lines as costs — all of them, or none of them.
 
     One transaction: the costs, the invoice's new status and the recomputed allocations land
@@ -155,7 +204,9 @@ def confirm(invoice_id: UUID, t: TenantDep, fx: FxDep, p: WriterDep) -> schemas.
     """
     invoice = _get(t, invoice_id)
     try:
-        result = confirm_invoice(t.db, fx, t.org, invoice, created_by=p.user_id)
+        result = confirm_invoice(
+            t.db, fx, t.org, invoice, created_by=p.user_id, force=bool(payload and payload.force)
+        )
     except Exception:
         # All or nothing, said out loud: a refusal halfway through leaves no half-written costs
         # behind, not even for the rest of this session.
@@ -189,11 +240,17 @@ def confirm(invoice_id: UUID, t: TenantDep, fx: FxDep, p: WriterDep) -> schemas.
 
 @router.post("/{invoice_id}/reopen", response_model=schemas.InvoiceResponse)
 def reopen(invoice_id: UUID, t: TenantDep, p: WriterDep) -> schemas.InvoiceResponse:
-    """Put a rejected invoice back in review without re-uploading the file."""
+    """Put an invoice back in review without re-uploading the file.
+
+    A rejected one only changes status. A confirmed one gives back what it wrote: the costs it
+    created are deleted in this same transaction and the audit entry names them, so the correction
+    the forwarder sent the next morning is made on the invoice it belongs to. Once those costs have
+    reached the customer's ERP the confirmation stops being ours to undo, and the service refuses.
+    """
     invoice = _get(t, invoice_id)
-    if invoice.status is not InvoiceStatus.REJECTED:
+    if invoice.status not in (InvoiceStatus.REJECTED, InvoiceStatus.CONFIRMED):
         raise Unprocessable(
-            f"Only a rejected invoice can be reopened (this one is {invoice.status.value})",
+            f"Only a rejected or confirmed invoice can be reopened (this one is {invoice.status.value})",
             code="INVALID_STATUS",
         )
     if not invoice.lines:
@@ -202,7 +259,17 @@ def reopen(invoice_id: UUID, t: TenantDep, p: WriterDep) -> schemas.InvoiceRespo
             code="NO_LINES",
         )
     before = {"status": invoice.status}
-    invoice.status = InvoiceStatus.NEEDS_REVIEW
+    removed: list[UUID] = []
+    if invoice.status is InvoiceStatus.CONFIRMED:
+        try:
+            removed = reopen_confirmed(t.db, t.org, invoice)
+        except Exception:
+            # Same all-or-nothing as the confirmation it undoes: a refusal leaves every cost where
+            # it was, not a half-emptied invoice.
+            t.db.rollback()
+            raise
+    else:
+        invoice.status = InvoiceStatus.NEEDS_REVIEW
     record(
         t.db,
         t.org_id,
@@ -211,7 +278,7 @@ def reopen(invoice_id: UUID, t: TenantDep, p: WriterDep) -> schemas.InvoiceRespo
         entity_type="invoice",
         entity_id=invoice.id,
         before=before,
-        after={"status": invoice.status},
+        after={"status": invoice.status, "costs_deleted": removed},
     )
     t.db.commit()
     t.db.refresh(invoice)

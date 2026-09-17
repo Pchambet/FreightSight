@@ -11,12 +11,25 @@ import httpx
 import pytest
 from conftest import fake_fetcher
 from fastapi.testclient import TestClient
-from invoice_fixtures import FRENCH_ONE_CONTAINER, FRENCH_TWO_CONTAINERS, USD_INVOICE
+from invoice_fixtures import (
+    CREDIT_NOTE_MINUS_GLUED,
+    CREDIT_NOTE_PARENTHESES,
+    CREDIT_NOTE_POSITIVE_FIGURES,
+    CREDIT_NOTE_TRAILING_MINUS,
+    CREDIT_NOTE_UNICODE_MINUS,
+    CREDIT_NOTES,
+    DOLLAR_IBAN_IN_FOOTER,
+    EXCHANGE_RATE_IN_HEADER,
+    FRENCH_ONE_CONTAINER,
+    FRENCH_TWO_CONTAINERS,
+    FRENCH_WITH_DISCOUNT,
+    USD_INVOICE,
+)
 from pdfs import make_pdf, make_pdf_without_text
 from sqlalchemy.orm import Session
 
 from app.adapters.extraction.llm_extractor import LlmExtractor
-from app.adapters.extraction.regex_extractor import RegexExtractor, describe, last_amount
+from app.adapters.extraction.regex_extractor import RegexExtractor, describe, trailing_amount
 from app.domain.fx.service import FxService
 from app.domain.invoices.checks import CAPPED_CONFIDENCE, arithmetic_holds, check
 from app.domain.invoices.ports import (
@@ -69,10 +82,10 @@ def test_a_french_forwarder_invoice_is_read_in_full() -> None:
 
 def test_the_charge_is_the_rightmost_amount_on_the_line() -> None:
     """« THC 2 x 137,50  275,00 » is a charge of 275, not of 2 or of 137.50."""
-    assert last_amount("THC destination Le Havre    2    137,50    275,00") == Decimal("275.00")
-    assert last_amount("Fret maritime CNNGB / FRLEH   1   3 000,00   3 000,00") == Decimal("3000.00")
-    assert last_amount("Ocean freight               4,200.00") == Decimal("4200.00")
-    assert last_amount("Nothing numeric here") is None
+    assert trailing_amount("THC destination Le Havre    2    137,50    275,00") == Decimal("275.00")
+    assert trailing_amount("Fret maritime CNNGB / FRLEH   1   3 000,00   3 000,00") == Decimal("3000.00")
+    assert trailing_amount("Ocean freight               4,200.00") == Decimal("4200.00")
+    assert trailing_amount("Nothing numeric here") is None
 
 
 def test_totals_and_vat_are_not_mistaken_for_charges() -> None:
@@ -205,6 +218,72 @@ def test_an_invoiced_cost_of_the_same_type_is_flagged(db: Session, org: Organiza
     freight = next(ln for ln in checked.lines if ln.cost_type == CostType.OCEAN_FREIGHT)
     assert any(n.startswith("@duplicate_cost|OCEAN_FREIGHT|") for n in freight.notes)
     assert freight.confidence <= CAPPED_CONFIDENCE
+
+
+def test_the_freight_already_recorded_on_the_shipment_is_flagged_too(db: Session, org: Organization) -> None:
+    """The duplicate that costs the most is the one that used to go through: a forwarder bills the
+    ocean freight per container while the same freight is already on file at shipment level, which
+    is how it was quoted. Scope-for-scope, that comparison found nothing — 3 000 € counted twice
+    with a green tick, on the demo's own data."""
+    from app.domain.models import (
+        AllocationMethod,
+        Container,
+        ContainerMilestone,
+        Cost,
+        CostStatus,
+        Shipment,
+        TrackingState,
+    )
+
+    shipment = Shipment(org_id=org.id, reference="MEDUSH2604417")
+    db.add(shipment)
+    db.flush()
+    db.add(
+        Container(
+            id=CONTAINER_A,
+            org_id=org.id,
+            shipment_id=shipment.id,
+            container_number="MSCU4821990",
+            milestone=ContainerMilestone.DISCHARGED,
+            tracking_state=TrackingState.MANUAL,
+        )
+    )
+    db.add(
+        Cost(
+            org_id=org.id,
+            scope=CostScope.SHIPMENT,
+            shipment_id=shipment.id,
+            cost_type=CostType.OCEAN_FREIGHT,
+            amount=Decimal("3000.00"),
+            currency="EUR",
+            fx_rate=Decimal("1"),
+            fx_date=date(2026, 3, 1),
+            fx_source="same",
+            amount_base=Decimal("3000.00"),
+            allocation_method=AllocationMethod.BY_WEIGHT,
+            cost_date=date(2026, 3, 1),
+            status=CostStatus.ACTUAL,
+            vendor="Transitex SAS",
+        )
+    )
+    db.flush()
+
+    checked = check(
+        db,
+        fx(),
+        read(FRENCH_ONE_CONTAINER),
+        CONTEXT,
+        org_id=org.id,
+        base_currency="EUR",
+        invoice_date=date(2026, 3, 12),
+    )
+    freight = next(ln for ln in checked.lines if ln.cost_type == CostType.OCEAN_FREIGHT)
+    note = next(n for n in freight.notes if n.startswith("@duplicate_cost|"))
+    assert note.endswith("|SHIPMENT")  # and the screen can say where it already sits
+    assert freight.confidence <= CAPPED_CONFIDENCE
+    # a charge of another type on the same shipment is still not a duplicate of this one
+    thc = next(ln for ln in checked.lines if ln.cost_type == CostType.THC)
+    assert not any(n.startswith("@duplicate_cost|") for n in thc.notes)
 
 
 def test_a_container_we_do_not_have_is_dropped_and_said_out_loud(db: Session, org: Organization) -> None:
@@ -488,3 +567,210 @@ def test_a_registration_number_is_not_an_amount_of_tax() -> None:
     ]
     invoice = read(lines)
     assert invoice.vat == "167.00"
+
+
+def test_a_legal_mention_naming_the_tax_is_not_the_tax() -> None:
+    """The real invoice's last line — an exemption article and an IBAN — names « TVA » and ends on
+    « FR76 3000 4000 0500 ». Read as the last labelled amount, the VAT of that invoice was 76.
+
+    Without a stated « Total HT » nothing else stands in the way, which is the layout half of our
+    invoices use. A total is a table row and ends on its figure; this is a sentence."""
+    lines = [
+        "TRANSIT MARITIME ATLANTIQUE SAS",
+        "Facture n° FAC-2026-08871",
+        "Fret maritime Shanghai / Le Havre 2 450,00",
+        "TVA 20 % (sur prestations taxables : 835,00) 167,00",
+        "Total TTC 2 617,00",
+        "Fret maritime et THC exonérés de TVA (art. 262 II-14° CGI). Paiement à 30 jours par "
+        "virement. IBAN FR76 3000 4000 0500",
+    ]
+    assert read(lines).vat == "167.00"
+
+
+# ---------------------------------------------------------------------------- credit notes
+
+
+@pytest.mark.parametrize("lines", CREDIT_NOTES)
+def test_a_credit_note_is_never_read_as_a_charge(lines: list[str], db: Session, org: Organization) -> None:
+    """Five refunds, written the five ways they are written. Each one adds up to the cent — which
+    is the whole problem: the arithmetic check blesses them, so it cannot be what decides."""
+    invoice = read(lines)
+    holds, difference = arithmetic_holds(invoice)
+    assert holds and difference == Decimal("0.00")
+
+    checked = check(
+        db, fx(), invoice, CONTEXT, org_id=org.id, base_currency="EUR", invoice_date=date(2026, 3, 22)
+    )
+    assert any(note.startswith("@credit_note|") for note in checked.notes), checked.notes
+    assert checked.confidence <= CAPPED_CONFIDENCE
+
+
+def test_the_sign_of_a_refund_survives_to_the_review_screen() -> None:
+    """A minus glued to the figure, one in parentheses, one printed after it: all three used to come
+    back as money owed, and the review screen had nothing to show for it."""
+    assert read(CREDIT_NOTE_MINUS_GLUED).lines[0].amount == "-2450.00"
+    assert read(CREDIT_NOTE_PARENTHESES).lines[0].amount == "-275.00"
+    assert read(CREDIT_NOTE_TRAILING_MINUS).lines[0].amount == "-1200.00"
+    assert read(CREDIT_NOTE_MINUS_GLUED).total == "-2940.00"
+    assert read(CREDIT_NOTE_PARENTHESES).vat == "-55.00"
+
+
+def test_the_typographic_minus_is_read_as_a_minus() -> None:
+    """A PDF font prints the typographic minus (U+2212) rather than the keyboard hyphen, and often
+    sets it off with a space. The fixture is read as text: our test PDF writer is latin-1."""
+    from app.adapters.extraction.regex_extractor import CREDIT_NOTE_RE, HEADER_LINES
+
+    charge, subtotal, total = (
+        CREDIT_NOTE_UNICODE_MINUS[5],
+        CREDIT_NOTE_UNICODE_MINUS[7],
+        CREDIT_NOTE_UNICODE_MINUS[-1],
+    )
+    assert trailing_amount(charge) == Decimal("-425.00")
+    assert trailing_amount(subtotal) == Decimal("-425.00")
+    assert trailing_amount(total) == Decimal("-510.00")
+    # the sign belongs to the amount, not to the wording it was printed next to
+    assert describe(charge) == "Camionnage Le Havre - Rouen"
+    assert CREDIT_NOTE_RE.search("\n".join(CREDIT_NOTE_UNICODE_MINUS[:HEADER_LINES]))
+
+
+def test_a_credit_note_whose_figures_are_all_positive_is_caught_by_its_heading() -> None:
+    """« AVOIR N° A-2026-211 » with positive figures below is the commonest of the five, and the
+    only thing that distinguishes it from a bill is the word."""
+    invoice = read(CREDIT_NOTE_POSITIVE_FIGURES)
+    assert invoice.lines[0].amount == "360.00"
+    assert "@credit_note|header" in invoice.notes
+
+
+def test_a_credit_note_line_is_shown_and_refused_rather_than_dropped(db: Session, org: Organization) -> None:
+    invoice = read(CREDIT_NOTE_MINUS_GLUED)
+    checked = check(
+        db, fx(), invoice, CONTEXT, org_id=org.id, base_currency="EUR", invoice_date=date(2026, 3, 14)
+    )
+    (line,) = checked.lines
+    assert line.amount == Decimal("-2450.00")
+    assert "@negative_line|-2450.00" in " ".join(line.notes)
+
+
+def test_a_discount_the_patterns_cannot_name_is_said_out_loud(db: Session, org: Organization) -> None:
+    """« Remise commerciale » is no charge word, so the pattern extractor does not read that line —
+    and then the charges no longer reach the « Total HT » the invoice prints. Which is the point:
+    the reviewer is told 150 € are missing rather than shown a tidy invoice that is 150 € too high.
+    """
+    invoice = read(FRENCH_WITH_DISCOUNT)
+    assert [ln.amount for ln in invoice.lines] == ["2450.00"]
+    checked = check(
+        db, fx(), invoice, CONTEXT, org_id=org.id, base_currency="EUR", invoice_date=date(2026, 3, 31)
+    )
+    assert "@arithmetic_mismatch|150.00|more_than" in checked.notes
+    assert checked.confidence <= CAPPED_CONFIDENCE
+
+
+def test_a_discount_a_model_did_read_stays_on_the_invoice_instead_of_vanishing(
+    db: Session, org: Organization
+) -> None:
+    """The silent half of the same defect: a negative line used to be dropped by the checks while
+    `arithmetic_holds` went on counting it, so the screen showed one line of 2 450 €, the landed
+    cost was 150 € too high, and the tick next to it was green."""
+    invoice = FreightInvoice(
+        currency="EUR",
+        subtotal="2300.00",
+        lines=[
+            ExtractedLine(description="Fret maritime", amount="2450.00", cost_type=CostType.OCEAN_FREIGHT),
+            ExtractedLine(description="Remise commerciale", amount="-150.00", confidence=0.9),
+        ],
+    )
+    holds, difference = arithmetic_holds(invoice)
+    assert holds and difference == Decimal("0.00")
+
+    checked = check(
+        db, fx(), invoice, CONTEXT, org_id=org.id, base_currency="EUR", invoice_date=date(2026, 3, 31)
+    )
+    assert [ln.amount for ln in checked.lines] == [Decimal("2450.00"), Decimal("-150.00")]
+    assert "@negative_line|-150.00" in " ".join(checked.lines[1].notes)
+    # one charge and one credit is a discount, not a credit note: the document still asks for money
+    assert not any(note.startswith("@credit_note|") for note in checked.notes)
+
+
+def test_a_line_the_reading_could_not_price_is_named_rather_than_dropped(
+    db: Session, org: Organization
+) -> None:
+    invoice = FreightInvoice(
+        currency="EUR",
+        subtotal="275.00",
+        lines=[
+            ExtractedLine(description="THC", amount="275.00", cost_type=CostType.THC),
+            ExtractedLine(description="Frais divers", amount="à confirmer"),
+        ],
+    )
+    checked = check(
+        db, fx(), invoice, CONTEXT, org_id=org.id, base_currency="EUR", invoice_date=date(2026, 3, 12)
+    )
+    assert len(checked.lines) == 1
+    assert "@dropped_line|Frais divers|à confirmer" in checked.notes
+    assert checked.confidence <= CAPPED_CONFIDENCE
+
+
+# ---------------------------------------------------------------------------- the currency
+
+
+def test_the_currency_comes_from_the_totals_not_from_the_first_word_on_the_page() -> None:
+    """The forwarder prints the day's USD/EUR rate in its header; the invoice is in euros. Read as
+    dollars it loses 8 % of the landed cost, with a perfectly valid rate and no note anywhere."""
+    invoice = read(EXCHANGE_RATE_IN_HEADER)
+    assert invoice.currency == "EUR"
+    assert "@currency_guess|EUR|USD" in invoice.notes
+
+
+def test_a_dollar_account_under_the_totals_does_not_make_a_dollar_invoice() -> None:
+    invoice = read(DOLLAR_IBAN_IN_FOOTER)
+    assert invoice.currency == "EUR"
+    assert "@currency_guess|EUR|USD" in invoice.notes
+
+
+def test_an_invoice_naming_one_currency_says_nothing_about_it() -> None:
+    assert read(FRENCH_ONE_CONTAINER).notes == []
+    assert read(USD_INVOICE).currency == "USD"
+
+
+# ---------------------------------------------------------------------------- the charge words
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("Magasinage conteneur 5 jours 210,00", CostType.WAREHOUSING),
+        ("Frais de stationnement terminal 95,00", CostType.WAREHOUSING),
+        ("Dépotage entrepôt Gennevilliers 340,00", CostType.WAREHOUSING),
+        ("Surestaries 4 jours x 80,00 320,00", CostType.DEMURRAGE),
+        ("Détention conteneur 3 jours 150,00", CostType.DETENTION),
+        ("Surcharge BAF 185,00", CostType.OCEAN_FREIGHT),
+        ("CAF 3 % 73,50", CostType.OCEAN_FREIGHT),
+        ("LSS low sulphur surcharge 45,00", CostType.OCEAN_FREIGHT),
+        ("PSS peak season surcharge 120,00", CostType.OCEAN_FREIGHT),
+        ("ISPS destination 12,00", CostType.OCEAN_FREIGHT),
+        ("Déclaration ENS 35,00", CostType.CUSTOMS_BROKERAGE),
+        ("Document de transit T1 55,00", CostType.CUSTOMS_BROKERAGE),
+        ("HAD honoraires 90,00", CostType.CUSTOMS_BROKERAGE),
+        ("Honoraires d'agréé en douane 90,00", CostType.CUSTOMS_BROKERAGE),
+        ("DTHC Le Havre 285,00", CostType.THC),
+        ("Frais de B/L 65,00", CostType.BL_FEE),
+        ("Frais de release 45,00", CostType.BL_FEE),
+        ("Frais de dossier 55,00", CostType.BL_FEE),
+        ("Échange de conteneur 180,00", CostType.DRAYAGE),
+        ("Visite douane scanner 145,00", CostType.INSPECTION),
+    ],
+)
+def test_the_words_french_forwarder_invoices_actually_use(line: str, expected: CostType) -> None:
+    from app.adapters.extraction.regex_extractor import cost_type_of
+
+    assert cost_type_of(line) == expected
+
+
+def test_an_acronym_is_a_word_and_not_a_run_of_letters() -> None:
+    """« CAF » is a currency surcharge and also the customs value of the goods; « ENS » sits inside
+    « dépenses ». Three letters found anywhere would invent thousands of euros of freight."""
+    from app.adapters.extraction.regex_extractor import cost_type_of
+
+    assert cost_type_of("Valeur CAF déclarée 12 500,00") is None
+    assert cost_type_of("Dépenses avancées pour votre compte 240,00") is None
+    assert cost_type_of("Port1 quai nord 40,00") is None

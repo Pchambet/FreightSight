@@ -1,4 +1,4 @@
-"""Three invoices, written as the text a forwarder's PDF actually carries."""
+"""Invoices, written as the text a forwarder's PDF actually carries — refunds included."""
 
 from __future__ import annotations
 
@@ -39,6 +39,125 @@ FRENCH_TWO_CONTAINERS = [
     "Total HT                                                         1 060,00",
     "TVA 20%                                                            212,00",
     "Total TTC                                                        1 272,00 EUR",
+]
+
+#: A refund, written the five ways refunds are actually written. Every one of them adds up: the
+#: arithmetic check blesses all five, which is precisely why it cannot be the thing that decides.
+CREDIT_NOTE_MINUS_GLUED = [
+    "TRANSITEX SAS",
+    "AVOIR N° A-2026-118",
+    "Date : 14/03/2026",
+    "Annule la facture FA-2026-0912 (surcharge facturée à tort)",
+    "Conteneur MSCU4821990",
+    "",
+    "Fret maritime Shanghai / Le Havre                                 -2 450,00",
+    "",
+    "Total HT                                                          -2 450,00",
+    "TVA 20%                                                             -490,00",
+    "Total TTC                                                         -2 940,00 EUR",
+]
+
+#: Accountants write a negative in parentheses; the minus never appears at all.
+CREDIT_NOTE_PARENTHESES = [
+    "TRANSITEX SAS",
+    "NOTE DE CRÉDIT N° NC-2026-044",
+    "Date : 20/03/2026",
+    "Conteneur MSCU4821990",
+    "",
+    "THC destination Le Havre                                            (275,00)",
+    "",
+    "Total HT                                                            (275,00)",
+    "TVA 20%                                                              (55,00)",
+    "Total TTC                                                           (330,00) EUR",
+]
+
+#: An English credit note from the same carrier, with the sign printed after the figure.
+CREDIT_NOTE_TRAILING_MINUS = [
+    "PACIFIC FORWARDING INC",
+    "CREDIT NOTE No CN-77120",
+    "Date: 2026-03-22",
+    "Container MSCU4821990",
+    "",
+    "Ocean freight Ningbo / Le Havre                                   1,200.00-",
+    "",
+    "Subtotal                                                          1,200.00-",
+    "VAT 20%                                                             240.00-",
+    "Total due                                                         1,440.00- USD",
+]
+
+#: The typographic minus a PDF font prints instead of the hyphen, loose in front of the figure.
+#: Read as text rather than through a PDF: the test writer's font is latin-1 and has no such glyph.
+CREDIT_NOTE_UNICODE_MINUS = [
+    "TRANSITEX SAS",
+    "AVOIR N° A-2026-205",
+    "Date : 25/03/2026",
+    "Conteneur MSCU4821990",
+    "",
+    "Camionnage Le Havre - Rouen                                        \u2212 425,00",
+    "",
+    "Total HT                                                           \u2212 425,00",
+    "TVA 20%                                                             \u2212 85,00",
+    "Total TTC                                                          \u2212 510,00 EUR",
+]
+
+#: The commonest of all, and the one no arithmetic can catch: every figure is positive, and only
+#: the word at the top says the money is going the other way.
+CREDIT_NOTE_POSITIVE_FIGURES = [
+    "TRANSITEX SAS",
+    "AVOIR N° A-2026-211",
+    "Date : 28/03/2026",
+    "Annule et remplace la facture FA-2026-0918",
+    "Conteneur MSCU4821990",
+    "",
+    "Surestaries 3 jours                                                  360,00",
+    "",
+    "Total HT                                                             360,00",
+    "TVA 20%                                                               72,00",
+    "Total TTC                                                            432,00 EUR",
+]
+
+#: The four that go through a PDF; the typographic one is read as text, see above.
+CREDIT_NOTES = [
+    CREDIT_NOTE_MINUS_GLUED,
+    CREDIT_NOTE_PARENTHESES,
+    CREDIT_NOTE_TRAILING_MINUS,
+    CREDIT_NOTE_POSITIVE_FIGURES,
+]
+
+#: An invoice with a commercial discount on it: one charge, one credit, and a total that proves it.
+FRENCH_WITH_DISCOUNT = [
+    "TRANSITEX SAS",
+    "FACTURE N° FA-2026-0931",
+    "Date : 31/03/2026",
+    "Conteneur MSCU4821990",
+    "",
+    "Fret maritime CNNGB / FRLEH                                        2 450,00",
+    "Remise commerciale                                                  -150,00",
+    "",
+    "Total HT                                                           2 300,00",
+    "TVA 20%                                                              460,00",
+    "Total TTC                                                          2 760,00 EUR",
+]
+
+#: The header the audit found: the forwarder prints the day's rate for the origin leg, and the
+#: whole invoice was being read as dollars because of it.
+EXCHANGE_RATE_IN_HEADER = [
+    "ACME TRANSIT SAS",
+    "Taux de change USD/EUR 1,0850",
+    "Facture n° F-2026-118",
+    "Fret maritime 2 450,00 EUR",
+]
+
+#: The same trap at the other end of the page: the supplier's dollar account under the totals.
+DOLLAR_IBAN_IN_FOOTER = [
+    "TRANSITEX SAS",
+    "Facture n° F-2026-119",
+    "Conteneur MSCU4821990",
+    "",
+    "Fret maritime CNNGB / FRLEH                                        2 450,00",
+    "",
+    "Total HT                                                           2 450,00 EUR",
+    "Paiement par virement - compte USD, IBAN US64 SVBK 3300 9605 8790 1863",
 ]
 
 #: An invoice in USD, dated a day for which we have no reference rate in the tests.

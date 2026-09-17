@@ -39,6 +39,9 @@ SYSTEM = """You read freight forwarder invoices and return structured data. Rule
 - Use only container numbers and purchase order numbers from the lists provided. If a reference on
   the invoice is not in the list, leave the field empty; do not guess or correct it.
 - One line per charge. Do not include totals, subtotals or VAT as charges.
+- Keep the sign. A refund, a discount and every figure on a credit note ("AVOIR", "CREDIT NOTE")
+  keep their minus: "-2450.00". Never return the absolute value of a negative amount, and never
+  turn a document that refunds money into one that asks for it.
 - subtotal is the pre-tax total the invoice itself prints ("Total HT", "Subtotal", "Net"), copied as
   written. Leave it null when the invoice does not print one; never compute it, and never subtract
   the VAT from the total to obtain it.
