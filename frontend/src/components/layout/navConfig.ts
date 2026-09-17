@@ -1,6 +1,6 @@
-import { BarChart3, Bell, ClipboardList, Container, History, LayoutDashboard, Receipt, Tags, Upload, type LucideIcon } from "lucide-react";
+import { BarChart3, Bell, ClipboardList, Container, History, LayoutDashboard, LockKeyhole, Receipt, Tags, Upload, type LucideIcon } from "lucide-react";
 
-export type NavKey = "overview" | "reports" | "skus" | "containers" | "purchaseOrders" | "invoices" | "alerts" | "imports" | "audit";
+export type NavKey = "overview" | "reports" | "skus" | "periods" | "containers" | "purchaseOrders" | "invoices" | "alerts" | "imports" | "audit";
 
 export type NavItem = {
   href: string;
@@ -26,6 +26,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/overview", key: "overview", icon: LayoutDashboard, match: under("/overview") },
       { href: "/reports", key: "reports", icon: BarChart3, match: under("/reports") },
       { href: "/skus", key: "skus", icon: Tags, match: under("/skus") },
+      { href: "/periods", key: "periods", icon: LockKeyhole, match: under("/periods") },
     ],
   },
   {

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
-import { ArrowDown, ArrowUp, ArrowUpDown, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, LockKeyhole, Search } from "lucide-react";
 import { Card, PageHeader, input, td, tdRight, th, thRight } from "@/components/layout/AppShell";
 import { MilestoneBadge, RiskBadge } from "@/components/shared/Badges";
 import { Money } from "@/components/shared/Money";
@@ -9,6 +9,7 @@ import MetricLabel from "@/components/shared/MetricLabel";
 import LoadSampleDataButton from "@/features/containers/LoadSampleDataButton";
 import NewContainerForm from "@/features/containers/NewContainerForm";
 import OnboardingChecklist from "@/features/onboarding/OnboardingChecklist";
+import { periodTitle } from "@/features/periods/format";
 import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
 import { containersHubStep } from "@/features/workflow/steps";
 import { api, type ContainerSummary } from "@/lib/api/client";
@@ -79,8 +80,9 @@ const fold = (v: string) => v.normalize("NFD").replace(/\p{Diacritic}/gu, "").to
 
 export default async function ContainersPage({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
-  const [{ containers, currency, invoicesToReview, confirmedInvoiceCount, purchaseOrderCount, error }, t, tc, costType, tg, locale] = await Promise.all([
+  const [{ containers, currency, invoicesToReview, confirmedInvoiceCount, purchaseOrderCount, error }, tp, t, tc, costType, tg, locale] = await Promise.all([
     load(),
+    getTranslations("periods.container"),
     getTranslations("containers"),
     getTranslations("common"),
     getTranslations("domain.costType"),
@@ -275,6 +277,12 @@ export default async function ContainersPage({ searchParams }: { searchParams: P
                   <tr key={c.id} className="hover:bg-slate-50">
                     <td className={td}>
                       <Link href={`/container/${c.id}`} className="font-mono font-medium text-blue-600 hover:underline">{c.container_number}</Link>
+                      {c.closed_period ? (
+                        <span title={tp("lock", { month: periodTitle(c.closed_period, locale) })} className="ml-1.5 inline-flex align-middle text-slate-400">
+                          <LockKeyhole className="w-3.5 h-3.5" aria-hidden />
+                          <span className="sr-only">{tp("lock", { month: periodTitle(c.closed_period, locale) })}</span>
+                        </span>
+                      ) : null}
                     </td>
                     <td className={`${td} text-slate-600`}>{c.shipment_reference ?? tc("empty")}</td>
                     <td className={td}><MilestoneBadge milestone={c.milestone} /></td>

@@ -97,6 +97,7 @@ export function auditEntityRef(
   f: Pick<Formatters, "label" | "costType">,
 ): string {
   const payload = { ...(before ?? {}), ...(after ?? {}) } as Record<string, unknown>;
+  if (entityType === "period" && typeof payload.period === "string") return `${entityLabel(entityType)} ${payload.period}`;
   if (entityType === "invoice") {
     const num = payload.invoice_number;
     if (typeof num === "string" && num) return `${entityLabel(entityType)} ${num}`;

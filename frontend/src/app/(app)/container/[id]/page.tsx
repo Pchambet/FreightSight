@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { AlertTriangle, Box, Info } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, Box, Info, LockKeyhole } from "lucide-react";
 import { PageHeader } from "@/components/layout/AppShell";
 import Breadcrumb from "@/components/shared/Breadcrumb";
 import MetricLabel from "@/components/shared/MetricLabel";
@@ -21,9 +22,10 @@ import EstimatePanel from "@/features/estimates/EstimatePanel";
 import LandedCostPush from "@/features/erp/LandedCostPush";
 import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
 import { containerWorkflowStep } from "@/features/workflow/steps";
-import { api, type ContainerResponse, type EtaHistoryResponse, type LandedCostReport, type LoadResponse, type PurchaseOrderSummary, type Schemas, type TrackingEventResponse } from "@/lib/api/client";
+import { api, type EtaHistoryResponse, type LandedCostReport, type LoadResponse, type PurchaseOrderSummary, type Schemas, type TrackingEventResponse } from "@/lib/api/client";
 import { demurrageRelevant } from "@/lib/domain";
-import { dateShort, daysUntil } from "@/lib/format";
+import { periodTitle, signedMoney } from "@/features/periods/format";
+import { dateShort, daysUntil, money } from "@/lib/format";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -34,7 +36,7 @@ const API_ERROR = "api_error";
 // not in the generated schema, until it is regenerated from the OpenAPI document (needs_other_lane).
 type ReportNote = { cost_id: string; code: string; message: string; load_ids: string[]; load_labels: string[] };
 
-async function load(id: string): Promise<{ container: ContainerResponse; report: LandedCostReport; loads: LoadResponse[]; pos: PurchaseOrderSummary[]; shipmentRef: string | null; events: TrackingEventResponse[]; etaHistory: EtaHistoryResponse[]; subscription: Schemas["TrackingSubscriptionResponse"] | null; erpConnected: boolean; invoicesToReview: number } | null> {
+async function load(id: string): Promise<{ container: Schemas["ContainerDetail"]; report: LandedCostReport; loads: LoadResponse[]; pos: PurchaseOrderSummary[]; shipmentRef: string | null; events: TrackingEventResponse[]; etaHistory: EtaHistoryResponse[]; subscription: Schemas["TrackingSubscriptionResponse"] | null; erpConnected: boolean; invoicesToReview: number } | null> {
   const c = await api.GET("/api/v1/containers/{container_id}", { params: { path: { container_id: id } } });
   if (c.response.status === 404 || c.response.status === 422) return null;
   if (c.error || !c.data) throw new Error(API_ERROR);
@@ -76,7 +78,7 @@ export default async function ContainerPage({ params }: Params) {
   const data = await load(containerId);
   if (!data) notFound();
   const { container, report, loads, pos, shipmentRef, events, etaHistory, subscription, erpConnected, invoicesToReview } = data;
-  const [t, errorCode, tg, locale] = await Promise.all([getTranslations("container"), getTranslations("errors"), getTranslations("glossary"), getLocale()]);
+  const [t, errorCode, tg, tp, locale] = await Promise.all([getTranslations("container"), getTranslations("errors"), getTranslations("glossary"), getTranslations("periods.container"), getLocale()]);
   const cur = report.base_currency;
   const revalidate = `/container/${container.id}`;
   const step = containerWorkflowStep(container, loads, report, invoicesToReview);
@@ -97,6 +99,19 @@ export default async function ContainerPage({ params }: Params) {
           </span>
         }
       />
+
+      {/* A closed month keeps this container's landed cost as it went to the books: say so, and say
+          what has moved since, before anyone edits a cost without knowing. */}
+      {container.closed_period ? (
+        <div className="rounded-xl border border-slate-200 bg-white shadow-card px-5 py-3.5 mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm print:hidden">
+          <LockKeyhole className="w-4 h-4 shrink-0 text-slate-500" aria-hidden />
+          <span className="text-slate-700">
+            {tp("frozen", { month: periodTitle(container.closed_period, locale), frozen: money(container.frozen_landed ?? "0", cur, locale) })}{" "}
+            {Number(container.drift ?? 0) === 0 ? <span className="text-slate-500">{tp("noDrift")}</span> : <span className="font-medium text-amber-800">{tp("drift", { drift: signedMoney(container.drift ?? "0", (v) => money(v, cur, locale)) })}</span>}
+          </span>
+          <Link href={`/periods/${container.closed_period}`} className="ml-auto text-blue-700 hover:underline">{tp("see")}</Link>
+        </div>
+      ) : null}
 
       <WorkflowNextStep step={step} />
 

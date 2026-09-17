@@ -12,6 +12,7 @@ export default function robots(): MetadataRoute.Robots {
       disallow: [
         "/overview",
         "/skus",
+        "/periods",
         "/containers",
         "/container/",
         "/purchase-orders",

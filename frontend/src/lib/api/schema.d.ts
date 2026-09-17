@@ -532,6 +532,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/periods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Periods
+         * @description Every month a container arrived in, newest first: open months with today's figures, closed
+         *     months with the frozen ones and how far today's have moved from them.
+         */
+        get: operations["list_periods_api_v1_periods_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/periods/{period}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Period */
+        get: operations["get_period_api_v1_periods__period__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/periods/{period}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close
+         * @description Freeze the landed cost of the containers that arrived this month, line by line. Nothing is
+         *     locked afterwards; the figure frozen here simply never moves again.
+         */
+        post: operations["close_api_v1_periods__period__close_post"];
+        /**
+         * Reopen
+         * @description Undo a close. The frozen figures are deleted; the audit log keeps what they were.
+         */
+        delete: operations["reopen_api_v1_periods__period__close_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shipments": {
         parameters: {
             query?: never;
@@ -880,6 +943,49 @@ export interface paths {
         };
         /** Containers Csv */
         get: operations["containers_csv_api_v1_exports_containers_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/period-close.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Period Close Csv
+         * @description The stock valuation a closed month froze: one row per article, with the quantity, the purchase
+         *     price, the landed cost and the unit cost as they went into the accounts. 404 for an open month —
+         *     the point of this file is that it never changes.
+         */
+        get: operations["period_close_csv_api_v1_exports_period_close_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/period-drift.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Period Drift Csv
+         * @description What has moved since a month was closed, container by container: the adjustment to book in the
+         *     open month, with the costs behind it.
+         */
+        get: operations["period_drift_csv_api_v1_exports_period_drift_csv_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1681,6 +1787,52 @@ export interface components {
             iso_type?: string | null;
         };
         /**
+         * ContainerDetail
+         * @description GET /containers/{id}: the container, and what the accounts hold of it.
+         */
+        ContainerDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Container Number */
+            container_number: string;
+            /** Shipment Id */
+            shipment_id: string | null;
+            /** Carrier Scac */
+            carrier_scac: string | null;
+            /** Iso Type */
+            iso_type: string | null;
+            milestone: components["schemas"]["ContainerMilestone"];
+            tracking_state: components["schemas"]["TrackingState"];
+            /** Eta */
+            eta: string | null;
+            /** Ata */
+            ata: string | null;
+            /** Discharged At */
+            discharged_at: string | null;
+            /** Gate Out At */
+            gate_out_at: string | null;
+            /** Empty Returned At */
+            empty_returned_at: string | null;
+            /** Free Days Demurrage */
+            free_days_demurrage: number | null;
+            /** Free Days Detention */
+            free_days_detention: number | null;
+            /** Last Free Day */
+            last_free_day: string | null;
+            /** Detention Deadline */
+            detention_deadline: string | null;
+            dnd_risk: components["schemas"]["DndRisk"];
+            /** Closed Period */
+            closed_period?: string | null;
+            /** Frozen Landed */
+            frozen_landed?: string | null;
+            /** Drift */
+            drift?: string | null;
+        };
+        /**
          * ContainerMilestone
          * @enum {string}
          */
@@ -1758,6 +1910,8 @@ export interface components {
             /** Detention Deadline */
             detention_deadline: string | null;
             dnd_risk: components["schemas"]["DndRisk"];
+            /** Closed Period */
+            closed_period?: string | null;
             /** Shipment Reference */
             shipment_reference?: string | null;
             /** Po Numbers */
@@ -2845,6 +2999,125 @@ export interface components {
             containers_at_risk: number;
             /** Amount At Risk */
             amount_at_risk: string | null;
+        };
+        /** PeriodChangedCost */
+        PeriodChangedCost: {
+            /**
+             * Cost Id
+             * Format: uuid
+             */
+            cost_id: string;
+            cost_type: components["schemas"]["CostType"];
+            /** Vendor */
+            vendor: string | null;
+            /** Invoice Number */
+            invoice_number: string | null;
+            /** Amount Base */
+            amount_base: string;
+            /**
+             * Changed At
+             * Format: date-time
+             */
+            changed_at: string;
+        };
+        /** PeriodDetail */
+        PeriodDetail: {
+            /** Base Currency */
+            base_currency: string;
+            summary: components["schemas"]["PeriodSummary"];
+            readiness: components["schemas"]["PeriodReadiness"] | null;
+            /** Drift Lines */
+            drift_lines: components["schemas"]["PeriodDrift"][];
+        };
+        /** PeriodDrift */
+        PeriodDrift: {
+            /**
+             * Container Id
+             * Format: uuid
+             */
+            container_id: string;
+            /** Container Number */
+            container_number: string;
+            /** Frozen Landed */
+            frozen_landed: string;
+            /** Live Landed */
+            live_landed: string;
+            /** Difference */
+            difference: string;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "costs" | "left_period" | "joined_period";
+            /** Costs Changed */
+            costs_changed: components["schemas"]["PeriodChangedCost"][];
+            /** Costs Deleted */
+            costs_deleted: number;
+        };
+        /** PeriodEstimatedBox */
+        PeriodEstimatedBox: {
+            /**
+             * Container Id
+             * Format: uuid
+             */
+            container_id: string;
+            /** Container Number */
+            container_number: string;
+            /** Estimated */
+            estimated: string;
+        };
+        /** PeriodList */
+        PeriodList: {
+            /** Base Currency */
+            base_currency: string;
+            /** Periods */
+            periods: components["schemas"]["PeriodSummary"][];
+        };
+        /**
+         * PeriodReadiness
+         * @description What is better settled before closing. Never a refusal.
+         */
+        PeriodReadiness: {
+            /** Containers With Estimates */
+            containers_with_estimates: components["schemas"]["PeriodEstimatedBox"][];
+            /** Estimated Total */
+            estimated_total: string;
+            /** Invoices To Review */
+            invoices_to_review: number;
+            /** Unallocated Costs */
+            unallocated_costs: number;
+            /** Containers Without Cost */
+            containers_without_cost: number;
+        };
+        /** PeriodSummary */
+        PeriodSummary: {
+            /** Period */
+            period: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "closed";
+            /** Containers */
+            containers: number;
+            /** Fob */
+            fob: string;
+            /** Landed */
+            landed: string;
+            /** Coefficient */
+            coefficient: string | null;
+            /** By Cost Type */
+            by_cost_type: {
+                [key: string]: string;
+            };
+            /** Closed At */
+            closed_at?: string | null;
+            /** Closed By Name */
+            closed_by_name?: string | null;
+            /** Drift */
+            drift?: string | null;
+            /** Drift Containers */
+            drift_containers?: number | null;
         };
         /** PoLineIn */
         PoLineIn: {
@@ -4959,6 +5232,137 @@ export interface operations {
             };
         };
     };
+    list_periods_api_v1_periods_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_period_api_v1_periods__period__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                /** @description YYYY-MM */
+                period: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    close_api_v1_periods__period__close_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                /** @description YYYY-MM */
+                period: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reopen_api_v1_periods__period__close_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                /** @description YYYY-MM */
+                period: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_shipments_api_v1_shipments_get: {
         parameters: {
             query?: never;
@@ -5215,7 +5619,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ContainerResponse"];
+                    "application/json": components["schemas"]["ContainerDetail"];
                 };
             };
             /** @description Validation Error */
@@ -5774,6 +6178,76 @@ export interface operations {
                 locale?: "fr" | "en";
                 period_from?: string | null;
                 period_to?: string | null;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    period_close_csv_api_v1_exports_period_close_csv_get: {
+        parameters: {
+            query: {
+                /** @description YYYY-MM */
+                period: string;
+                locale?: "fr" | "en";
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    period_drift_csv_api_v1_exports_period_drift_csv_get: {
+        parameters: {
+            query: {
+                /** @description YYYY-MM */
+                period: string;
+                locale?: "fr" | "en";
             };
             header?: {
                 "X-Org-Id"?: string | null;

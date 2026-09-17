@@ -561,6 +561,26 @@ export async function deleteSampleData(): Promise<{ ok: true; deleted: number } 
   return { ok: true, deleted: Object.values(data.deleted ?? {}).reduce((sum: number, n) => sum + (typeof n === "number" ? n : 0), 0) };
 }
 
+// ---------------------------------------------------------------------------- period close
+
+/** Freeze a month's landed costs as they stand. Nothing is locked afterwards: what moves is reported as drift. */
+export async function closePeriod(period: string): Promise<ActionResult<null>> {
+  await protectAction();
+  const { error } = await api.POST("/api/v1/periods/{period}/close", { params: { path: { period } } });
+  if (error) return await fail(error, "periods.closeFailed");
+  for (const path of ["/periods", `/periods/${period}`, "/containers"]) revalidatePath(path);
+  return { ok: true, data: null };
+}
+
+/** Owner only: the frozen figures are discarded (the audit trail keeps them). */
+export async function reopenPeriod(period: string): Promise<ActionResult<null>> {
+  await protectAction();
+  const { error } = await api.DELETE("/api/v1/periods/{period}/close", { params: { path: { period } } });
+  if (error) return await fail(error, "periods.reopenFailed");
+  for (const path of ["/periods", `/periods/${period}`, "/containers"]) revalidatePath(path);
+  return { ok: true, data: null };
+}
+
 // ---------------------------------------------------------------------------- settings
 
 export async function updateOrganization(input: {

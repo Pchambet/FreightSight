@@ -37,7 +37,8 @@
     "groupData": "Data",
     "search": "Search",
     "collapse": "Collapse menu",
-    "expand": "Expand menu"
+    "expand": "Expand menu",
+    "periods": "Period close"
   },
   "help": {
     "subject": "FreightSight help — {org}",
@@ -648,7 +649,9 @@
       "container_tracking_event_added": "Tracking event added",
       "erp_landed_cost_pushed": "ERP entry created (draft)",
       "erp_push_forgotten": "ERP push forgotten",
-      "organization_sample_data_deleted": "Sample data deleted"
+      "organization_sample_data_deleted": "Sample data deleted",
+      "period_closed": "Month closed",
+      "period_reopened": "Month reopened"
     }
   },
   "errors": {
@@ -752,7 +755,12 @@
     "PRODUCT_SKU_BLANK": "The SKU cannot be blank.",
     "LINE_INCOMPLETE": "A kept line is incomplete: it lacks its cost type, its scope or its target.",
     "SAMPLE_DATA_IN_USE": "Some of your own data leans on the sample set: nothing was deleted.",
-    "NO_SAMPLE_DATA": "This company holds no sample data."
+    "NO_SAMPLE_DATA": "This company holds no sample data.",
+    "PERIOD_ALREADY_CLOSED": "This month is already closed.",
+    "PERIOD_IN_FUTURE": "This month has not started yet: it cannot be closed.",
+    "PERIOD_EMPTY": "No container arrived in that month: there is nothing to close.",
+    "PERIOD_NOT_CLOSED": "This month is not closed.",
+    "FORBIDDEN_ROLE": "Your role in this company does not allow this action."
   },
   "timeline": {
     "title": "Timeline",
@@ -995,7 +1003,8 @@
       "cost": "Cost",
       "container": "Container",
       "invoice": "Invoice",
-      "organization": "Organization"
+      "organization": "Organization",
+      "period": "Month"
     },
     "fields": {
       "status": "Status",
@@ -1758,6 +1767,107 @@
       "OWN_COST_ON_SAMPLE": "{ref} carries a cost from one of your invoices. Attach that invoice elsewhere, or reject it, first.",
       "ERP_PUSH_ON_SAMPLE": "{ref}: a draft was written to your ERP from this sample container. Forget that push first.",
       "other": "{ref} is still tied to your own data."
+    }
+  },
+  "periods": {
+    "title": "Period close",
+    "subtitle": "Freeze a month's landed cost as it goes to the books, and follow what moves afterwards.",
+    "principle": "Closing a month freezes the landed cost of the containers that arrived in it. Nothing is locked afterwards: a forwarder's invoice that turns up six weeks later is recorded as usual, but the closed figure never changes again and the gap is shown apart, ready to be posted as an adjustment in the following month.",
+    "empty": "No month to close: a month shows up here as soon as a container has arrived in it.",
+    "open": "Open",
+    "closedOn": "Closed on {date}",
+    "noDrift": "unchanged",
+    "driftContainers": "{count, plural, one {# container} other {# containers}}",
+    "closeFailed": "Could not close this month",
+    "reopenFailed": "Could not reopen this month",
+    "th": {
+      "month": "Month of arrival",
+      "status": "Status",
+      "containers": "Containers",
+      "fob": "FOB",
+      "landed": "Landed cost",
+      "coef": "Ratio",
+      "drift": "Since closing"
+    },
+    "actions": {
+      "close": "Close {month}",
+      "reopen": "Reopen",
+      "closeNeedsRole": "Only an owner or an administrator of the company can close a month.",
+      "closeTitle": "Close {month}?",
+      "closeBody": "The landed cost of the containers that arrived in that month is frozen as it stands now. You can still record costs afterwards: they will show as a gap, without changing the closed figure.",
+      "closeBodyEstimated": "{amount} of this month are still estimates, not invoices. The landed cost will be frozen as it stands now; invoices arriving later will show as a gap, without changing the closed figure.",
+      "closeConfirm": "Close",
+      "reopenTitle": "Reopen {month}?",
+      "reopenBody": "The frozen figures are discarded and the month becomes live again. The history keeps a trace of the close. Avoid it if these figures are already in your books.",
+      "reopenConfirm": "Reopen the month",
+      "cancel": "Cancel",
+      "working": "Working…",
+      "closed": "{month} is closed.",
+      "reopened": "{month} is reopened."
+    },
+    "detail": {
+      "closedSubtitle": "Closed on {date} by {by}. The figures below are those of the close.",
+      "openSubtitle": "{count, plural, one {# container arrived in that month} other {# containers arrived in that month}}. Live figures: they move with every cost recorded.",
+      "frozenLanded": "Frozen landed cost",
+      "frozenHint": "The month's landed cost at the time of closing. It no longer changes, whatever happens next.",
+      "liveLanded": "Landed cost to date",
+      "onFob": "on {fob} purchased",
+      "coef": "Landed cost ratio",
+      "containers": "{count, plural, one {# container} other {# containers}}",
+      "drift": "Gap since closing",
+      "driftHint": "Today's landed cost minus the frozen one: late invoices, corrected costs, changed arrival dates. To be posted as an adjustment in the current month.",
+      "driftNone": "Nothing has moved since closing.",
+      "liveNow": "Landed cost today",
+      "liveNowSub": "frozen + gap",
+      "estimated": "Still estimated",
+      "estimatedHint": "Share of this month's landed cost that rests on your rate cards, pending the invoice. The figure that says whether to close or to wait.",
+      "estimatedSub": "{count, plural, one {on # container} other {on # containers}}",
+      "estimatedNone": "The whole month rests on invoices.",
+      "loose": "Loose ends",
+      "looseSub": "best settled before closing",
+      "looseNone": "No loose ends.",
+      "breakdownFrozen": "From purchase price to landed cost, at closing",
+      "breakdownLive": "From purchase price to landed cost, to date",
+      "fob": "Purchase price (FOB)",
+      "ofFob": "of FOB"
+    },
+    "ready": {
+      "title": "Before closing",
+      "subtitle": "None of this blocks: it is what is best settled first.",
+      "see": "See",
+      "estimates": "{count, plural, =0 {No container carries an estimate waiting for its invoice.} one {# container still carries estimated costs.} other {# containers still carry estimated costs.}}",
+      "invoices": "{count, plural, =0 {No invoice waiting for review.} one {# invoice is waiting for your review.} other {# invoices are waiting for your review.}}",
+      "unallocated": "{count, plural, =0 {Every cost is allocated.} one {# cost could not be allocated.} other {# costs could not be allocated.}}",
+      "nocost": "{count, plural, =0 {Every loaded container has costs.} one {# loaded container has no cost.} other {# loaded containers have no cost.}}"
+    },
+    "estimates": {
+      "title": "Containers still on estimates",
+      "subtitle": "Estimated amount waiting for an invoice, per container."
+    },
+    "exports": {
+      "title": "For your books",
+      "subtitle": "CSV files Excel can read.",
+      "close": "Frozen valuation per SKU",
+      "drift": "Gaps since closing"
+    },
+    "driftTable": {
+      "title": "What has moved since closing",
+      "subtitle": "One container per row, with the costs involved.",
+      "none": "Nothing has moved: today's landed cost is the closing one.",
+      "changedAt": "on {when}",
+      "deleted": "{count, plural, one {# cost deleted since closing} other {# costs deleted since closing}}",
+      "reason": {
+        "costs": "Costs or loads changed",
+        "left_period": "Arrival date changed: the container left the month",
+        "joined_period": "Arrival date changed: the container joined the month"
+      }
+    },
+    "container": {
+      "lock": "Closed in {month}",
+      "frozen": "This container belongs to {month}, closed at {frozen}.",
+      "drift": "{drift} since closing.",
+      "noDrift": "Nothing has moved since.",
+      "see": "See the close"
     }
   }
 }

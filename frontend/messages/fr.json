@@ -37,7 +37,8 @@
     "groupData": "Données",
     "search": "Rechercher",
     "collapse": "Réduire le menu",
-    "expand": "Déplier le menu"
+    "expand": "Déplier le menu",
+    "periods": "Clôtures"
   },
   "help": {
     "subject": "Aide FreightSight — {org}",
@@ -648,7 +649,9 @@
       "container_tracking_event_added": "Événement de suivi ajouté",
       "erp_landed_cost_pushed": "Écriture ERP créée (brouillon)",
       "erp_push_forgotten": "Push ERP oublié",
-      "organization_sample_data_deleted": "Données d'exemple effacées"
+      "organization_sample_data_deleted": "Données d'exemple effacées",
+      "period_closed": "Mois clôturé",
+      "period_reopened": "Mois rouvert"
     }
   },
   "errors": {
@@ -752,7 +755,12 @@
     "PRODUCT_SKU_BLANK": "La référence ne peut pas être vide.",
     "LINE_INCOMPLETE": "Une ligne retenue est incomplète : il lui manque son type de coût, son périmètre ou sa cible.",
     "SAMPLE_DATA_IN_USE": "Certaines de vos données s'appuient sur le jeu d'exemple : rien n'a été effacé.",
-    "NO_SAMPLE_DATA": "Cette société ne contient pas de données d'exemple."
+    "NO_SAMPLE_DATA": "Cette société ne contient pas de données d'exemple.",
+    "PERIOD_ALREADY_CLOSED": "Ce mois est déjà clos.",
+    "PERIOD_IN_FUTURE": "Ce mois n'est pas encore commencé : il ne peut pas être clôturé.",
+    "PERIOD_EMPTY": "Aucun conteneur n'est arrivé ce mois-là : il n'y a rien à clôturer.",
+    "PERIOD_NOT_CLOSED": "Ce mois n'est pas clos.",
+    "FORBIDDEN_ROLE": "Votre rôle dans cette société ne permet pas cette action."
   },
   "timeline": {
     "title": "Chronologie",
@@ -995,7 +1003,8 @@
       "cost": "Coût",
       "container": "Conteneur",
       "invoice": "Facture",
-      "organization": "Société"
+      "organization": "Société",
+      "period": "Mois"
     },
     "fields": {
       "status": "Statut",
@@ -1758,6 +1767,107 @@
       "OWN_COST_ON_SAMPLE": "{ref} porte un coût issu d'une de vos factures. Rattachez cette facture ailleurs, ou rejetez-la, d'abord.",
       "ERP_PUSH_ON_SAMPLE": "{ref} : un brouillon a été écrit dans votre ERP depuis ce conteneur d'exemple. Oubliez cet envoi d'abord.",
       "other": "{ref} est encore lié à vos propres données."
+    }
+  },
+  "periods": {
+    "title": "Clôtures",
+    "subtitle": "Figez le coût de revient d'un mois tel qu'il part en comptabilité, et suivez ce qui bouge ensuite.",
+    "principle": "Clôturer un mois fige le coût de revient des conteneurs arrivés ce mois-là. Rien n'est bloqué après : une facture de transitaire qui arrive six semaines plus tard s'enregistre normalement, mais le chiffre clos ne change plus jamais et l'écart est affiché à part, prêt à passer en ajustement sur le mois suivant.",
+    "empty": "Aucun mois à clôturer : un mois apparaît ici dès qu'un conteneur y est arrivé.",
+    "open": "Ouvert",
+    "closedOn": "Clos le {date}",
+    "noDrift": "inchangé",
+    "driftContainers": "{count, plural, one {# conteneur} other {# conteneurs}}",
+    "closeFailed": "Impossible de clôturer ce mois",
+    "reopenFailed": "Impossible de rouvrir ce mois",
+    "th": {
+      "month": "Mois d'arrivée",
+      "status": "État",
+      "containers": "Conteneurs",
+      "fob": "FOB",
+      "landed": "Coût rendu",
+      "coef": "Coef.",
+      "drift": "Depuis la clôture"
+    },
+    "actions": {
+      "close": "Clôturer {month}",
+      "reopen": "Rouvrir",
+      "closeNeedsRole": "Seul un propriétaire ou un administrateur de la société peut clôturer un mois.",
+      "closeTitle": "Clôturer {month} ?",
+      "closeBody": "Le coût de revient des conteneurs arrivés ce mois-là est figé tel qu'il est maintenant. Vous pourrez toujours enregistrer des coûts ensuite : ils apparaîtront comme un écart, sans changer le chiffre clos.",
+      "closeBodyEstimated": "{amount} de ce mois sont encore des estimés, pas des factures. Le coût de revient sera figé tel qu'il est maintenant ; les factures qui arriveront ensuite apparaîtront comme un écart, sans changer le chiffre clos.",
+      "closeConfirm": "Clôturer",
+      "reopenTitle": "Rouvrir {month} ?",
+      "reopenBody": "Les chiffres figés sont abandonnés et le mois redevient vivant. L'historique garde la trace de la clôture. À éviter si ces chiffres sont déjà en comptabilité.",
+      "reopenConfirm": "Rouvrir le mois",
+      "cancel": "Annuler",
+      "working": "En cours…",
+      "closed": "{month} est clos.",
+      "reopened": "{month} est rouvert."
+    },
+    "detail": {
+      "closedSubtitle": "Clos le {date} par {by}. Les chiffres ci-dessous sont ceux de la clôture.",
+      "openSubtitle": "{count, plural, one {# conteneur arrivé ce mois-là} other {# conteneurs arrivés ce mois-là}}. Chiffres vivants : ils bougent avec chaque coût enregistré.",
+      "frozenLanded": "Coût rendu figé",
+      "frozenHint": "Le coût de revient rendu du mois au moment de la clôture. Il ne change plus, quoi qu'il arrive ensuite.",
+      "liveLanded": "Coût rendu à ce jour",
+      "onFob": "sur {fob} d'achats",
+      "coef": "Coefficient d'approche",
+      "containers": "{count, plural, one {# conteneur} other {# conteneurs}}",
+      "drift": "Écart depuis la clôture",
+      "driftHint": "Coût rendu d'aujourd'hui moins coût rendu figé : factures tardives, coûts corrigés, dates d'arrivée modifiées. À passer en ajustement sur le mois en cours.",
+      "driftNone": "Rien n'a bougé depuis la clôture.",
+      "liveNow": "Coût rendu aujourd'hui",
+      "liveNowSub": "figé + écart",
+      "estimated": "Encore estimé",
+      "estimatedHint": "Part du coût rendu de ce mois qui repose sur vos barèmes, en attendant la facture. C'est le chiffre qui dit s'il vaut mieux clôturer ou attendre.",
+      "estimatedSub": "{count, plural, one {sur # conteneur} other {sur # conteneurs}}",
+      "estimatedNone": "Tout le mois repose sur des factures.",
+      "loose": "Points en suspens",
+      "looseSub": "à régler de préférence avant de clôturer",
+      "looseNone": "Rien en suspens.",
+      "breakdownFrozen": "Du prix d'achat au coût rendu, à la clôture",
+      "breakdownLive": "Du prix d'achat au coût rendu, à ce jour",
+      "fob": "Prix d'achat (FOB)",
+      "ofFob": "du FOB"
+    },
+    "ready": {
+      "title": "Avant de clôturer",
+      "subtitle": "Rien de tout cela ne bloque : c'est ce qu'il vaut mieux régler d'abord.",
+      "see": "Voir",
+      "estimates": "{count, plural, =0 {Aucun conteneur ne porte d'estimé en attente de facture.} one {# conteneur porte encore des coûts estimés.} other {# conteneurs portent encore des coûts estimés.}}",
+      "invoices": "{count, plural, =0 {Aucune facture en attente de relecture.} one {# facture attend votre relecture.} other {# factures attendent votre relecture.}}",
+      "unallocated": "{count, plural, =0 {Tous les coûts sont ventilés.} one {# coût n'a pas pu être ventilé.} other {# coûts n'ont pas pu être ventilés.}}",
+      "nocost": "{count, plural, =0 {Tous les conteneurs chargés ont des coûts.} one {# conteneur chargé n'a aucun coût.} other {# conteneurs chargés n'ont aucun coût.}}"
+    },
+    "estimates": {
+      "title": "Conteneurs encore en estimé",
+      "subtitle": "Montant estimé en attente de facture, par conteneur."
+    },
+    "exports": {
+      "title": "Pour la comptabilité",
+      "subtitle": "Des fichiers CSV en français, lisibles par Excel.",
+      "close": "Valorisation figée par référence",
+      "drift": "Écarts depuis la clôture"
+    },
+    "driftTable": {
+      "title": "Ce qui a bougé depuis la clôture",
+      "subtitle": "Un conteneur par ligne, avec les coûts en cause.",
+      "none": "Rien n'a bougé : le coût rendu d'aujourd'hui est celui de la clôture.",
+      "changedAt": "le {when}",
+      "deleted": "{count, plural, one {# coût supprimé depuis la clôture} other {# coûts supprimés depuis la clôture}}",
+      "reason": {
+        "costs": "Coûts ou chargements modifiés",
+        "left_period": "Date d'arrivée modifiée : le conteneur est sorti du mois",
+        "joined_period": "Date d'arrivée modifiée : le conteneur est entré dans le mois"
+      }
+    },
+    "container": {
+      "lock": "Clos en {month}",
+      "frozen": "Ce conteneur fait partie de {month}, clos à {frozen}.",
+      "drift": "{drift} depuis la clôture.",
+      "noDrift": "Rien n'a bougé depuis.",
+      "see": "Voir la clôture"
     }
   }
 }
