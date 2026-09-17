@@ -4,16 +4,25 @@ from __future__ import annotations
 
 import base64
 import binascii
+import contextlib
 from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Query
-from sqlalchemy import literal, tuple_
+from sqlalchemy import literal, select, tuple_
 
 from app.api.v1 import schemas
 from app.core.errors import Unprocessable
-from app.core.tenancy import TenantDep
-from app.domain.models import AuditLog
+from app.core.tenancy import TenantDep, TenantSession
+from app.domain.models import (
+    AuditLog,
+    Container,
+    Invoice,
+    PurchaseOrder,
+    PurchaseOrderLine,
+    Shipment,
+    User,
+)
 
 router = APIRouter(prefix="/audit-log", tags=["audit"])
 
@@ -30,6 +39,54 @@ def decode_cursor(cursor: str) -> tuple[datetime, UUID]:
         return datetime.fromisoformat(at), UUID(entry_id)
     except (ValueError, binascii.Error) as exc:
         raise Unprocessable("This cursor is not one of ours", code="INVALID_CURSOR") from exc
+
+
+def _ids_in(value: object) -> set[UUID]:
+    """Every uuid a payload mentions, as a value or as a key (`container.loads_replaced` is keyed by
+    order line)."""
+    found: set[UUID] = set()
+    if isinstance(value, dict):
+        for key, inner in value.items():
+            found |= _ids_in(key) | _ids_in(inner)
+    elif isinstance(value, list):
+        for inner in value:
+            found |= _ids_in(inner)
+    elif isinstance(value, str) and len(value) == 36:
+        with contextlib.suppress(ValueError):
+            found.add(UUID(value))
+    return found
+
+
+def _labels(t: TenantSession, ids: set[UUID]) -> dict[str, str]:
+    """Names for the ids of one page, in one query per kind, all inside the caller's organisation."""
+    if not ids:
+        return {}
+    labels: dict[str, str] = {}
+    for c in t.db.scalars(t.q(Container).where(Container.id.in_(ids))):
+        labels[str(c.id)] = c.container_number
+    for s in t.db.scalars(t.q(Shipment).where(Shipment.id.in_(ids))):
+        labels[str(s.id)] = s.reference
+    for po in t.db.scalars(t.q(PurchaseOrder).where(PurchaseOrder.id.in_(ids))):
+        labels[str(po.id)] = po.po_number
+    lines = t.db.execute(
+        t.q(PurchaseOrderLine)
+        .join(PurchaseOrder, PurchaseOrder.id == PurchaseOrderLine.po_id)
+        .where(PurchaseOrderLine.id.in_(ids))
+        .with_only_columns(PurchaseOrderLine.id, PurchaseOrder.po_number, PurchaseOrderLine.sku)
+    )
+    for line_id, po_number, sku in lines:
+        labels[str(line_id)] = f"{po_number} · {sku}"
+    for inv in t.db.scalars(t.q(Invoice).where(Invoice.id.in_(ids))):
+        if inv.invoice_number:
+            labels[str(inv.id)] = inv.invoice_number
+    return labels
+
+
+def _actor_names(t: TenantSession, ids: set[UUID]) -> dict[UUID, str]:
+    if not ids:
+        return {}
+    rows = t.db.execute(select(User.id, User.name, User.email).where(User.id.in_(ids)))
+    return {user_id: name or email for user_id, name, email in rows}
 
 
 @router.get("", response_model=schemas.AuditPage)
@@ -61,7 +118,19 @@ def list_audit_log(
     rows = list(t.db.scalars(stmt))
     has_more = len(rows) > limit
     page = rows[:limit]
+    actors = _actor_names(t, {row.actor_user_id for row in page if row.actor_user_id})
+    mentioned: set[UUID] = set()
+    entries = []
+    for row in page:
+        entry = schemas.AuditEntryResponse.model_validate(row)
+        if row.actor_user_id:
+            entry.actor_name = actors.get(row.actor_user_id)
+        entries.append(entry)
+        mentioned |= _ids_in(row.before) | _ids_in(row.after)
+        if row.entity_id:
+            mentioned.add(row.entity_id)
     return schemas.AuditPage(
-        entries=[schemas.AuditEntryResponse.model_validate(row) for row in page],
+        entries=entries,
         next_cursor=encode_cursor(page[-1]) if has_more and page else None,
+        labels=_labels(t, mentioned),
     )

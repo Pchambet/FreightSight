@@ -13,7 +13,15 @@ export type Formatters = {
   bool: (value: boolean) => string;
   lineRef: (id: string) => string;
   documentState: (code: string) => string;
+  fxSource: (code: string) => string;
+  date: (iso: string) => string;
+  dateTime: (iso: string) => string;
+  /** What an id is called on the other screens (container number, order number, "order · SKU"), when the API knows. */
+  label: (id: string) => string | undefined;
 };
+
+const DATE_KEYS = new Set(["fx_date", "cost_date"]);
+const DATE_TIME_KEYS = new Set(["closed_at", "created_at", "occurred_at", "forgotten_at"]);
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -55,7 +63,10 @@ function formatValue(key: string, v: unknown, f: Formatters): string {
   if (key === "scope" && typeof val === "string") return f.scope(val);
   if (key === "milestone" && typeof val === "string") return f.milestone(val);
   if (key === "document_state" && typeof val === "string") return f.documentState(val);
-  if (typeof val === "string" && UUID_RE.test(val)) return shortId(val);
+  if (key === "fx_source" && typeof val === "string") return f.fxSource(val);
+  if (DATE_KEYS.has(key) && typeof val === "string") return f.date(val);
+  if (DATE_TIME_KEYS.has(key) && typeof val === "string") return f.dateTime(val);
+  if (typeof val === "string" && UUID_RE.test(val)) return f.label(val) ?? shortId(val);
   if (typeof val === "object") return JSON.stringify(val);
   return String(val);
 }
@@ -69,10 +80,9 @@ export function auditDiff(before: Json, after: Json, f: Formatters): { key: stri
     .filter((k) => JSON.stringify(b[k]) !== JSON.stringify(a[k]))
     .map((k) => ({
       key: k,
-      // container_loads_replaced logs one entry per po_line_id, so the "field" is itself a uuid —
-      // there is no sku or line number in this payload to name it by (needs_other_lane: the backend
-      // would need to log a label alongside the id for a real one).
-      label: UUID_RE.test(k) ? f.lineRef(shortId(k)) : f.field(k),
+      // container_loads_replaced logs one entry per po_line_id, so the "field" is itself a uuid:
+      // the page's `labels` names it "order · SKU" while the line still exists.
+      label: UUID_RE.test(k) ? f.lineRef(f.label(k) ?? shortId(k)) : f.field(k),
       from: formatValue(k, b[k], f),
       to: formatValue(k, a[k], f),
     }));
@@ -84,12 +94,16 @@ export function auditEntityRef(
   before: Json,
   after: Json,
   entityLabel: (type: string) => string,
+  f: Pick<Formatters, "label" | "costType">,
 ): string {
   const payload = { ...(before ?? {}), ...(after ?? {}) } as Record<string, unknown>;
   if (entityType === "invoice") {
     const num = payload.invoice_number;
     if (typeof num === "string" && num) return `${entityLabel(entityType)} ${num}`;
   }
-  if (!entityId) return entityLabel(entityType);
-  return `${entityLabel(entityType)} ${entityId.slice(0, 8)}`;
+  // A cost has no number of its own: what names it is its type, which the payload still carries
+  // after the cost itself is gone.
+  if (entityType === "cost" && typeof payload.cost_type === "string") return `${entityLabel(entityType)} · ${f.costType(payload.cost_type)}`;
+  const known = entityId ? f.label(entityId) : undefined;
+  return known ? `${entityLabel(entityType)} ${known}` : entityLabel(entityType);
 }

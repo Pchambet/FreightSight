@@ -1426,6 +1426,8 @@ export interface components {
             id: string;
             /** Actor User Id */
             actor_user_id: string | null;
+            /** Actor Name */
+            actor_name?: string | null;
             /** Action */
             action: string;
             /** Entity Type */
@@ -1455,6 +1457,10 @@ export interface components {
             entries: components["schemas"]["AuditEntryResponse"][];
             /** Next Cursor */
             next_cursor?: string | null;
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            };
         };
         /** Body_create_import_api_v1_imports_post */
         Body_create_import_api_v1_imports_post: {

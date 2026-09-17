@@ -820,6 +820,8 @@ class AuditEntryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     actor_user_id: UUID | None
+    #: The member's name, or their e-mail when Clerk gave no name. Null for the system.
+    actor_name: str | None = None
     action: str
     entity_type: str
     entity_id: UUID | None
@@ -833,6 +835,10 @@ class AuditPage(BaseModel):
 
     entries: list[AuditEntryResponse]
     next_cursor: str | None = None
+    #: What each id met on this page is called by the people who read it: a container number, an
+    #: order number, "order · SKU" for a line, an invoice number. An id that names nothing any more
+    #: (the object was deleted) is simply absent.
+    labels: dict[str, str] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------- rate cards

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.tenancy import set_current_org
 from app.domain.audit.service import record
-from app.domain.models import AuditLog, Organization
+from app.domain.models import AuditLog, Organization, User
 
 
 @pytest.fixture
@@ -64,6 +64,33 @@ def test_the_life_of_a_cost_is_recorded(client: TestClient, org: Organization) -
     # the deletion keeps what was destroyed: this is the entry someone looks for later
     assert entries[0]["before"]["cost_type"] == "THC"
     assert entries[0]["after"] is None
+
+
+def test_the_log_names_who_did_it_and_what_the_ids_stand_for(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """A reader gets a name and a container number, not two uuid fragments."""
+    container_id, cost_id = seed_cost(client)
+    member = User(external_id="user_audit_reader", email="daf@roulezbio.example", name=None)
+    db.add(member)
+    db.flush()
+    record(
+        db,
+        org.id,
+        actor_user_id=member.id,
+        action="cost.closed",
+        entity_type="cost",
+        entity_id=uuid.UUID(cost_id),
+        after={"container_id": container_id},
+    )
+    db.commit()
+
+    page = client.get("/api/v1/audit-log", params={"entity_id": cost_id}).json()
+    closed, created = page["entries"]
+    assert closed["actor_name"] == "daf@roulezbio.example"  # no name at Clerk: the e-mail
+    assert created["actor_name"] is None  # the development principal is nobody
+    assert page["labels"][container_id] == "MSCU4821990"
+    assert cost_id not in page["labels"]  # a cost has no name of its own: the screen builds one
 
 
 def test_money_is_not_rounded_on_its_way_into_the_log(client: TestClient, org: Organization) -> None:

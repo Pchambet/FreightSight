@@ -34,7 +34,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
         ))}
       </div>
       <Card>
-        <AuditEntries entries={entries} />
+        <AuditEntries entries={entries} labels={res.data?.labels ?? {}} />
         {next ? <div className="px-5 py-3 border-t border-slate-200"><Link href={link({ cursor: next })} className="text-sm text-blue-600 hover:underline">{t("next")}</Link></div> : null}
       </Card>
     </>
