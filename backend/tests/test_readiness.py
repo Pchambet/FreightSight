@@ -4,6 +4,7 @@ which variable to set — and never as a value."""
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi.testclient import TestClient
 
@@ -97,3 +98,20 @@ def test_a_customer_sees_what_they_can_rely_on_and_nothing_about_the_plumbing(cl
     assert keys == ["alert_emails", "automatic_tracking", "invoice_reading", "background_jobs", "backups"]
     assert "fix" not in body["checks"][0]
     assert {c["state"] for c in body["checks"]} <= {"ok", "off", "degraded"}
+
+
+def test_a_webhook_router_that_cannot_see_tenants_is_said_and_only_when_known() -> None:
+    blind = {
+        c.key: (c.state, c.code) for c in checks(Settings(database_url=DB), {}, NOW, webhook_router_ok=False)
+    }
+    assert blind["webhook_routing"] == ("degraded", "WEBHOOK_ROUTER_BLIND")
+    fine = {c.key: c.state for c in checks(Settings(database_url=DB), {}, NOW, webhook_router_ok=True)}
+    assert fine["webhook_routing"] == "ok"
+    assert "webhook_routing" not in {c.key for c in checks(Settings(database_url=DB), {}, NOW)}
+
+
+def test_the_function_owner_is_read_from_the_catalogue(db: Any) -> None:
+    from app.domain.readiness import webhook_router_sees_tenants
+
+    # the test database is migrated by a superuser, as production is meant to be
+    assert webhook_router_sees_tenants(db.connection()) is True

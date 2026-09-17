@@ -51,7 +51,29 @@ def job_runs(conn: Connection) -> dict[str, JobRun]:
     return {name: JobRun(last_run_at, failures or 0) for name, last_run_at, failures in rows}
 
 
-def checks(settings: Settings, runs: dict[str, JobRun], now: datetime | None = None) -> list[Check]:
+def webhook_router_sees_tenants(conn: Connection) -> bool | None:
+    """Whether `tracking_resolve_subscription()` can see across organizations.
+
+    It is SECURITY DEFINER, and every table it reads is under FORCED row-level security, which binds
+    a table's owner too: the function only sees rows if the role that owns it is a superuser or has
+    BYPASSRLS. Owned by an ordinary role it returns nothing, every provider webhook is filed as
+    unroutable, and nothing else anywhere says so. None when the function is not there.
+    """
+    row = conn.execute(
+        text(
+            "SELECT r.rolsuper OR r.rolbypassrls FROM pg_proc p JOIN pg_roles r ON r.oid = p.proowner "
+            "WHERE p.proname = 'tracking_resolve_subscription'"
+        )
+    ).first()
+    return None if row is None else bool(row[0])
+
+
+def checks(
+    settings: Settings,
+    runs: dict[str, JobRun],
+    now: datetime | None = None,
+    webhook_router_ok: bool | None = None,
+) -> list[Check]:
     now = now or datetime.now(UTC)
     found: list[Check] = []
 
@@ -232,6 +254,20 @@ def checks(settings: Settings, runs: dict[str, JobRun], now: datetime | None = N
             else "set ERP_ENCRYPTION_KEY: no ERP connection can be saved without it",
         )
     )
+    if webhook_router_ok is not None:
+        found.append(
+            Check(
+                "webhook_routing",
+                "ok" if webhook_router_ok else "degraded",
+                "operator",
+                "WEBHOOK_ROUTER_OK" if webhook_router_ok else "WEBHOOK_ROUTER_BLIND",
+                fix=None
+                if webhook_router_ok
+                else "tracking_resolve_subscription() is owned by a role that row-level security binds: "
+                "it finds no subscription and every tracking webhook is dropped as unroutable. Run the "
+                "migrations as a superuser, or ALTER FUNCTION … OWNER TO one",
+            )
+        )
     found.append(
         Check(
             "error_reporting",

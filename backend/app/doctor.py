@@ -11,7 +11,7 @@ import sys
 
 from app.core.db import get_engine
 from app.core.settings import get_settings
-from app.domain.readiness import Check, checks, job_runs
+from app.domain.readiness import Check, checks, job_runs, webhook_router_sees_tenants
 
 MARK = {"ok": "ok      ", "degraded": "DEGRADED", "off": "OFF     "}
 
@@ -35,10 +35,11 @@ def main() -> int:
     try:
         with get_engine().connect() as conn:
             runs = job_runs(conn)
+            router_ok = webhook_router_sees_tenants(conn)
     except Exception as exc:  # the database being down is the first thing a doctor should say
         print(f"database unreachable: {exc}", file=sys.stderr)
         return 2
-    found = checks(settings, runs)
+    found = checks(settings, runs, webhook_router_ok=router_ok)
     print(f"FreightSight — APP_ENV={settings.app_env}")
     print(render(found))
     unhealthy = [c for c in found if c.audience == "customer" and c.state != "ok"]
