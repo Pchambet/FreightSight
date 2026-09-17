@@ -14,6 +14,7 @@ import io
 import logging
 import re
 from collections import Counter
+from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
@@ -32,7 +33,10 @@ CONTAINER_RE = re.compile(r"\b([A-Z]{4})[ -]?(\d{7})\b")
 BL_RE = re.compile(r"\b(?:B/?L|BILL OF LADING|CONNAISSEMENT)[\s:n°#]*([A-Z0-9]{6,20})\b", re.IGNORECASE)
 PO_RE = re.compile(r"\b(?:PO|P\.O\.|COMMANDE)[\s:n°#-]*([A-Z0-9][A-Z0-9-]{3,20})\b", re.IGNORECASE)
 INVOICE_NO_RE = re.compile(
-    r"(?:FACTURE|INVOICE)\s*(?:N[°ºo]|NO|NUMBER|#)?\s*[:.]?\s*([A-Z0-9][A-Z0-9/-]{3,24})", re.IGNORECASE
+    r"(?:FACTURE|INVOICE|AVOIR|CREDIT\s+NOTE|NOTE\s+DE\s+CR[EÉ]DIT)\s*(?:N[°ºo]\.?|NO\.?|NUMBER|#)?\s*[:.]?\s*"
+    # A number has a digit in it: « avoir confirmation de… » is a sentence, not a credit note.
+    r"(?=[A-Z0-9/-]*\d)([A-Z0-9][A-Z0-9/-]{3,24})",
+    re.IGNORECASE,
 )
 # French invoices group thousands with a space, often a non-breaking one.
 DATE_RE = re.compile(r"\b(\d{2})[/.-](\d{2})[/.-](\d{4})\b|\b(\d{4})-(\d{2})-(\d{2})\b")
@@ -51,15 +55,25 @@ CREDIT_NOTE_RE = re.compile(r"\bAVOIRS?\b|\bNOTE\s+DE\s+CR[EÉ]DIT\b|\bCREDIT\s+
 #: How far down the page a document is still introducing itself.
 HEADER_LINES = 12
 
-TOTAL_WORDS = ("TOTAL TTC", "TOTAL À PAYER", "TOTAL A PAYER", "MONTANT TOTAL", "TOTAL DUE", "TOTAL")
+TOTAL_WORDS = (
+    "TOTAL TTC", "TOTAL À PAYER", "TOTAL A PAYER", "NET À PAYER", "NET A PAYER", "MONTANT TTC",
+    "MONTANT TOTAL", "TOTAL DUE", "AMOUNT DUE", "TOTAL",
+)  # fmt: skip
 VAT_WORDS = ("TVA", "VAT", "T.V.A")
 #: « TVA FR12812345678 » is the supplier's registration number, not an amount of tax. Same for a
 #: line that only states the taxable base.
 VAT_NUMBER_RE = re.compile(r"\bTVA\s*[A-Z]{2}\s*\d{6,}|\bVAT\s*(?:NO|NUMBER|N[°º])", re.IGNORECASE)
-SUBTOTAL_WORDS = ("TOTAL HT", "SOUS-TOTAL", "SUBTOTAL", "TOTAL EXCL")
+SUBTOTAL_WORDS = ("TOTAL HT", "MONTANT HT", "BASE HT", "NET HT", "SOUS-TOTAL", "SUBTOTAL", "TOTAL EXCL")
 
 #: Words that name a charge, in the two languages the customers' invoices come in.
 COST_KEYWORDS: tuple[tuple[str, CostType], ...] = (
+    # Advanced by the forwarder with the duty, and recoverable: it is a row of the invoice, and the
+    # one cost type that never enters a landed cost. It has to be named before « DOUANE » is met.
+    ("TVA IMPORT", CostType.IMPORT_VAT),
+    ("TVA A L'IMPORT", CostType.IMPORT_VAT),
+    ("TVA À L'IMPORT", CostType.IMPORT_VAT),
+    ("TVA DOUANE", CostType.IMPORT_VAT),
+    ("IMPORT VAT", CostType.IMPORT_VAT),
     ("THC", CostType.THC),
     ("TERMINAL HANDLING", CostType.THC),
     ("MANUTENTION", CostType.THC),
@@ -140,10 +154,25 @@ COST_ACRONYMS: tuple[tuple[str, CostType], ...] = (
 ACRONYM_RE = re.compile(rf"(?<![A-Z0-9])({'|'.join(k for k, _ in COST_ACRONYMS)})(?![A-Z0-9])")
 #: « Valeur CAF » is the customs value of the goods — the same three letters as the currency
 #: surcharge, on a line that is not a charge at all. Reading it as freight would invent thousands.
-NOT_A_CHARGE_RE = re.compile(r"VALEUR\s+CAF|CAF\s+VALUE")
+NOT_A_CHARGE_RE = re.compile(
+    r"VALEUR\s+CAF|CAF\s+VALUE|VALEUR\s+EN\s+DOUANE|CUSTOMS\s+VALUE|VALEUR\s+(?:DE\s+LA\s+)?MARCHANDISE"
+    r"|TAUX\s+DE\s+CHANGE|EXCHANGE\s+RATE|\bCOURS\b|POIDS\s+(?:BRUT|NET)|(?:GROSS|NET)\s+WEIGHT"
+)
+#: The tax of the invoice itself, printed as a row of the table. The import VAT a forwarder advanced
+#: is a charge; this one is what the totals are for.
+VAT_ROW_RE = re.compile(r"^(?:T\.?V\.?A\.?|VAT)\b(?!\s+(?:IMPORT|[AÀ]\s+L'IMPORT|DOUANE))", re.IGNORECASE)
 
 
 def text_of(document: ExtractionInput) -> str:
+    """The text of the PDF, one line per *row of the page*.
+
+    `pypdf` can hand the text back in the order the file draws it, or rebuilt from where each piece
+    sits on the page. The first is what this used to read, and it is only a table when the file
+    happens to draw its cells row by row: the accounting packages that draw a column at a time give
+    every label first and every amount afterwards, and not one charge could be read. The second
+    keeps a row a row whatever the drawing order, and keeps the gap between two columns as a run of
+    spaces — which is also what tells « 2   285,00 » (two handlings at 285) from « 2 285,00 ».
+    """
     if document.content_type != "application/pdf":
         raise ExtractionFailed(
             "Only PDF invoices can be read without a vision model; this one is an image. "
@@ -154,7 +183,7 @@ def text_of(document: ExtractionInput) -> str:
 
     try:
         reader = PdfReader(io.BytesIO(document.content))
-        pages = [page.extract_text() or "" for page in reader.pages]
+        pages = [_page_text(page) for page in reader.pages]
     except Exception as exc:
         raise ExtractionFailed(f"This PDF could not be read: {exc}", code="UNREADABLE_PDF") from exc
     text = "\n".join(pages).strip()
@@ -167,6 +196,32 @@ def text_of(document: ExtractionInput) -> str:
     return text
 
 
+def _page_text(page: object) -> str:
+    try:
+        laid_out: str = page.extract_text(extraction_mode="layout") or ""  # type: ignore[attr-defined]
+    except Exception:  # a font the layout reader cannot measure: the drawing order is better than nothing
+        logger.warning("layout text extraction failed, falling back to drawing order", exc_info=True)
+        laid_out = ""
+    if laid_out.strip():
+        return laid_out.translate(SPACES)
+    plain: str = page.extract_text() or ""  # type: ignore[attr-defined]
+    return plain.translate(SPACES)
+
+
+#: The spaces French typography groups thousands with — no-break, narrow no-break, thin, figure —
+#: read as the ordinary one: « 12 336,89 » is one amount whichever of them the font carries.
+SPACES = {0x00A0: " ", 0x202F: " ", 0x2009: " ", 0x2007: " "}
+
+
+#: A cell: words separated by single spaces. Two spaces or more is the gap between two columns —
+#: one space is inside a label, or inside « 2 450,00 ».
+CELL_RE = re.compile(r"[^\s]+(?: [^\s]+)*")
+
+
+def cells_of(row: str) -> list[str]:
+    return [match.group(0) for match in CELL_RE.finditer(row.replace("\t", "  "))]
+
+
 def parse_amount(raw: str) -> Decimal | None:
     """Read an amount written either way round: 1 234,56 and 1,234.56 are the same money.
 
@@ -177,6 +232,11 @@ def parse_amount(raw: str) -> Decimal | None:
     if not text or not any(ch.isdigit() for ch in text):
         return None
     last_dot, last_comma = text.rfind("."), text.rfind(",")
+    # « 65,000,00 » is two cells of a table run together, not sixty-five thousand: nobody writes the
+    # thousands and the cents with the same sign. Better no amount than that one.
+    separator = text[max(last_dot, last_comma)] if max(last_dot, last_comma) >= 0 else ""
+    if separator and text.count(separator) > 1 and len(text) - max(last_dot, last_comma) - 1 != 3:
+        return None
     if last_dot >= 0 and last_comma >= 0:
         decimal_at = max(last_dot, last_comma)
         integer = re.sub(r"[.,]", "", text[:decimal_at])
@@ -352,13 +412,147 @@ def containers_in(text: str) -> list[str]:
     return seen
 
 
+#: What the heading row of a charge table is made of, in the two languages.
+TABLE_HEADINGS = (
+    "DESIGNATION", "DÉSIGNATION", "LIBELLE", "LIBELLÉ", "PRESTATION", "DESCRIPTION", "MONTANT", "AMOUNT",
+    "QTE", "QTÉ", "QUANTITE", "QUANTITÉ", "QTY", "PU", "P.U", "PRIX", "RATE", "TAUX", "DEVISE", "CUR",
+    "CODE", "TVA", "VAT", "BASIS", "TAXABLE", "NON TAXABLE", "CHARGE",
+)  # fmt: skip
+#: Where the table stops: the first row that *begins* with one of these.
+TABLE_END = (
+    "TOTAL", "NET A PAYER", "NET À PAYER", "NET HT", "BASE HT", "MONTANT HT", "MONTANT TTC", "MONTANT TVA",
+    "MONTANT A PAYER", "MONTANT À PAYER", "AMOUNT DUE",
+)  # fmt: skip
+#: Rows of the table that carry a figure and are not a charge.
+NOT_A_ROW = ("SOUS-TOTAL", "SOUS TOTAL", "SOUS-TOTAUX", "SUBTOTAL", "REPORT", "A REPORTER", "À REPORTER",
+             "CARRIED", "BROUGHT FORWARD")  # fmt: skip
+#: A money amount as an invoice table prints it: with its cents. « Page 1 / 2 » ends on a number too.
+WITH_CENTS_RE = re.compile(r"[.,]\d{2}\)?[\s\u00a0]*[-\u2212]?$")
+#: What may follow the amount in its own column: a VAT code (« E », « N », « T2 »), a VAT rate.
+VAT_CODE_RE = re.compile(r"^(?:[A-Z]{1,2}\d?|\d{1,2}(?:[.,]\d{1,2})?\s*%)$")
+#: A line reference printed before the wording: « P001 », « 0010 », « FRT ».
+LINE_CODE_RE = re.compile(r"^(?:[A-Z]{0,4}\d{1,5}|[A-Z]{2,4})$")
+#: A cell that is a figure and nothing else, with whatever sign or currency it is printed with.
+NUMBER_CELL_RE = re.compile(
+    r"^\(?[-\u2212]?\s*(?:EUR|USD|GBP|CNY|CHF|€|\$|£)?\s*\d[\d\s\u00a0.,]*\)?\s*[-\u2212]?\s*(?:EUR|USD|GBP|CNY|CHF|€|\$|£|%)?$"
+)
+CURRENCY_CELL_RE = re.compile(r"^(?:EUR|USD|GBP|CNY|CHF|€|\$|£)$")
+
+
+def heading_row(rows: list[list[str]]) -> int | None:
+    """The index of the row that heads the charge table, or None when the page has no such row."""
+    for index, cells in enumerate(rows):
+        if len(cells) < 2:
+            continue
+        headings = sum(1 for cell in cells if cell.upper().rstrip(" .:").startswith(TABLE_HEADINGS))
+        if headings >= 2:
+            return index
+    return None
+
+
+@dataclass(frozen=True)
+class TableRow:
+    label: str
+    amount: Decimal
+    #: The row carries its own currency and only one money column: the amount is in that currency.
+    currency: str | None
+
+
+#: A row of the table whose wording names no charge we know. The money is read as surely as on any
+#: other row — it is the cost type that is missing — so it stays "to review", not "to retype".
+UNNAMED_CONFIDENCE = 0.5
+AMOUNT_HEADINGS = ("MONTANT", "AMOUNT", "TOTAL", "NET")
+#: Headings over a column of figures. « TVA » is one only when it holds rates, which the figures
+#: themselves settle: a column of « E » and « N » is no column of figures.
+NUMERIC_HEADINGS = (*AMOUNT_HEADINGS, "QTE", "QTÉ", "QUANTITE", "QUANTITÉ", "QTY", "PU", "P.U", "PRIX",
+                    "RATE", "TAUX", "TVA", "VAT", "NON TAXABLE", "TAXABLE")  # fmt: skip
+
+
+def amount_position(heading: list[str]) -> tuple[int, int] | None:
+    """Which column of figures holds the money, when the heading row says so: its rank counted from
+    the right, and how many columns of figures there are.
+
+    « Montant HT | TVA % » prints a rate, with its cents, to the right of the money: the rightmost
+    figure of a row is then 20,00 and not the charge. The last heading naming an amount wins —
+    « Montant devise | Taux | Montant EUR » ends on the converted one. The rank is only ever applied
+    to a row that has a figure in every column: where a cell is blank, counting from the right would
+    point one column off, and the row falls back on its last column holding money.
+
+    (Where a figure sits on the page would settle it better than counting, but the text `pypdf` lays
+    out keeps the order of the columns and not their alignment: the same column ends ten characters
+    apart from one row to the next, depending on the width of the wording before it.)
+    """
+    over_figures = [
+        cell.upper() for cell in heading if cell.upper().rstrip(" .:%").startswith(NUMERIC_HEADINGS)
+    ]
+    named = [i for i, cell in enumerate(over_figures) if cell.startswith(AMOUNT_HEADINGS)]
+    if not named:
+        return None
+    return len(over_figures) - 1 - named[-1], len(over_figures)
+
+
+def read_row(cells: list[str], position: tuple[int, int] | None = None) -> TableRow | None:
+    """A row of the table as wording and money, or None when it carries no money.
+
+    Without a named amount column the money is the last column that holds any: « Non taxable |
+    Taxable » rows print 0,00 — or nothing — in the column that does not apply, and a quantity, a
+    unit price or a rate come before the amount, never after it. What may come after it is a VAT
+    code, which is not a number.
+    """
+    if len(cells) < 2:
+        return None
+    body = list(cells)
+    figures: list[Decimal | None] = []  # right to left; None for a column that holds no money
+    while len(body) > 1:
+        cell = body[-1]
+        if CURRENCY_CELL_RE.match(cell):
+            body.pop()  # « EUR » next to the amount is part of it, not a column of its own
+        elif VAT_CODE_RE.match(cell):
+            figures.append(None)
+            body.pop()
+        elif NUMBER_CELL_RE.match(cell):
+            value = trailing_amount(cell)
+            with_cents = WITH_CENTS_RE.search(TRAILING_NOISE_RE.sub("", cell)) is not None
+            figures.append(value if with_cents else None)  # a quantity or a rate: a column, not money
+            body.pop()
+        else:
+            break
+    charged = [value for value in figures if value]
+    if not charged:
+        return None
+    amount = charged[0]
+    if position is not None and len(figures) == position[1]:
+        under = figures[position[0]]
+        if not under:
+            return None  # every column is there and the amount one holds nothing: not a charge
+        amount = under
+    if len(body) > 1 and LINE_CODE_RE.match(body[0]):
+        body = body[1:]
+    label = " ".join(body).strip()
+    if label.endswith(":"):
+        return None  # « Valeur en douane : 28 450,00 » is a fact about the file, not a charge
+    # One money column and a currency on the row: the amount is in it. Two money columns is a
+    # conversion printed on the line, and the last one is already in the invoice's currency.
+    named = find_currency(" ".join(cells)) if len(charged) == 1 else None
+    return TableRow(label, amount, named)
+
+
+def _words(text: str) -> bool:
+    """Three letters in a row: a wording, as opposed to a code, a unit or a stray figure."""
+    return re.search(r"[^\W\d_]{3}", text) is not None
+
+
 class RegexExtractor:
     name = "regex"
 
     def extract(self, document: ExtractionInput, context: ExtractionContext) -> FreightInvoice:
         text = text_of(document)
-        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+        laid_out = [ln.rstrip() for ln in text.splitlines() if ln.strip()]
+        # The rows with their column gaps are for the table; everything that reads a sentence — a
+        # total, a date, a number — reads them with the gaps closed.
+        lines = [" ".join(cells_of(ln)) for ln in laid_out]
         upper_lines = [ln.upper() for ln in lines]
+        text = "\n".join(lines)
 
         stated_currency, named_currencies = document_currency(lines, upper_lines)
         currency = stated_currency or context.base_currency
@@ -369,6 +563,116 @@ class RegexExtractor:
         if match := INVOICE_NO_RE.search(text):
             invoice_number = match.group(1).strip(" .:")
 
+        charges = self._table(laid_out, currency) or self._by_keyword(lines, upper_lines, currency)
+
+        notes: list[str] = []
+        if CREDIT_NOTE_RE.search("\n".join(lines[:HEADER_LINES])):
+            notes.append("@credit_note|header")
+        if len(named_currencies) > 1:
+            others = [c for c in named_currencies if c != currency]
+            notes.append("|".join(["@currency_guess", currency, *others]))
+        if not charges:
+            notes.append("No charge line recognised; every amount needs entering by hand.")
+
+        heads = [cells_of(ln)[0] for ln in laid_out[:3]]
+        vendor = next((h for h in heads if not h.upper().startswith(("FACTURE", "INVOICE", "AVOIR"))), None)
+        return FreightInvoice(
+            vendor=vendor,
+            invoice_number=invoice_number,
+            invoice_date=find_date(text),
+            currency=currency,
+            total=f"{total:.2f}" if total is not None else None,
+            subtotal=f"{subtotal:.2f}" if subtotal is not None else None,
+            vat=f"{vat:.2f}" if vat is not None else None,
+            lines=charges,
+            container_numbers=containers_in(text),
+            bl_numbers=[m.group(1) for m in BL_RE.finditer(text)],
+            po_numbers=[m.group(1).upper() for m in PO_RE.finditer(text)],
+            confidence=0.6 if charges else 0.2,
+            notes=notes,
+        )
+
+    def _table(self, lines: list[str], currency: str) -> list[ExtractedLine]:
+        """Every row of the charge table, whether or not its wording is one we know.
+
+        This used to keep only the rows naming a charge from a list of keywords, and drop the rest
+        without a word: « Frais de sûreté portuaire », « Taxe d'escale », « Pesage VGM » never reached
+        the screen, the arithmetic check then said the invoice did not add up, and the reader was
+        left to find which lines were missing by comparing with the PDF. A row of the table is a
+        charge; one we cannot name comes back without a cost type and with a lower confidence, which
+        is a question put to a person instead of a line hidden from them.
+        """
+        rows = [cells_of(line) for line in lines]
+        start = heading_row(rows)
+        position = amount_position(rows[start]) if start is not None else None
+        if start is None:
+            # No heading row — sections titled « Débours », « Prestations » and nothing over the
+            # columns. The rows are still rows: a wording, a gap, an amount with its cents. What the
+            # top of a page holds (addresses, references, dates) has no such amount, so the table is
+            # taken to start at the first row that does; without one there is no table to follow.
+            start = next((i for i, row in enumerate(rows) if self._worded(self._charge(row))), None)
+            if start is None:
+                return []
+            start -= 1
+        charges: list[ExtractedLine] = []
+        container: str | None = None
+        carried: str | None = None  # the first line of a wording that runs over two
+        for cells in rows[start + 1 :]:
+            joined = " ".join(cells)
+            if cells[0].upper().startswith(TABLE_END):
+                break
+            row = self._charge(cells, position)
+            if row is not None and not _words(row.label) and carried is None:
+                row = None  # a figure next to a code or a unit, and no wording above to complete
+            if row is None:
+                # « Conteneur HLXU4377125 » on a line of its own heads the charges of that box.
+                named = containers_in(joined)
+                if (
+                    len(named) == 1
+                    and len(cells) == 1
+                    and not _words(
+                        CONTAINER_RE.sub("", joined.upper()).replace("CONTENEUR", "").replace("CONTAINER", "")
+                    )
+                ):
+                    container, carried = named[0], None
+                else:
+                    carried = joined if len(cells) == 1 and _words(joined) else None
+                continue
+            label = row.label
+            # « Fret maritime Shanghai / Le Havre, navire MSC GÜLSÜN, » then « voyage FE437W … 2 450,00 »:
+            # one charge written over two lines. The first line is the one that names it.
+            if carried is not None and (carried.endswith(",") or not label[:1].isupper()):
+                label = f"{carried} {label}"
+            carried = None
+            cost_type = cost_type_of(label)
+            charges.append(
+                ExtractedLine(
+                    description=label,
+                    amount=f"{row.amount:.2f}",
+                    currency=row.currency or currency,
+                    cost_type=cost_type,
+                    container_number=next(iter(containers_in(joined)), container),
+                    confidence=0.6 if cost_type is not None else UNNAMED_CONFIDENCE,
+                )
+            )
+        return charges
+
+    @staticmethod
+    def _worded(row: TableRow | None) -> bool:
+        return row is not None and _words(row.label)
+
+    @staticmethod
+    def _charge(cells: list[str], position: tuple[int, int] | None = None) -> TableRow | None:
+        """The row as a charge, unless it is one of the rows of a table that are not."""
+        upper = " ".join(cells).upper()
+        if any(word in upper for word in NOT_A_ROW) or NOT_A_CHARGE_RE.search(upper):
+            return None
+        if VAT_ROW_RE.match(upper) or upper.startswith(TABLE_END):
+            return None
+        return read_row(cells, position)
+
+    def _by_keyword(self, lines: list[str], upper_lines: list[str], currency: str) -> list[ExtractedLine]:
+        """Without a table to follow — no heading row — only a line that names a charge is one."""
         charges: list[ExtractedLine] = []
         for raw, upper in zip(lines, upper_lines, strict=True):
             cost_type = cost_type_of(raw)
@@ -389,32 +693,7 @@ class RegexExtractor:
                     confidence=0.6,
                 )
             )
-
-        notes: list[str] = []
-        if CREDIT_NOTE_RE.search("\n".join(lines[:HEADER_LINES])):
-            notes.append("@credit_note|header")
-        if len(named_currencies) > 1:
-            others = [c for c in named_currencies if c != currency]
-            notes.append("|".join(["@currency_guess", currency, *others]))
-        if not charges:
-            notes.append("No charge line recognised; every amount needs entering by hand.")
-
-        vendor = next((ln for ln in lines[:3] if not ln.upper().startswith(("FACTURE", "INVOICE"))), None)
-        return FreightInvoice(
-            vendor=vendor,
-            invoice_number=invoice_number,
-            invoice_date=find_date(text),
-            currency=currency,
-            total=f"{total:.2f}" if total is not None else None,
-            subtotal=f"{subtotal:.2f}" if subtotal is not None else None,
-            vat=f"{vat:.2f}" if vat is not None else None,
-            lines=charges,
-            container_numbers=containers_in(text),
-            bl_numbers=[m.group(1) for m in BL_RE.finditer(text)],
-            po_numbers=[m.group(1).upper() for m in PO_RE.finditer(text)],
-            confidence=0.6 if charges else 0.2,
-            notes=notes,
-        )
+        return charges
 
     def _vat(
         self,

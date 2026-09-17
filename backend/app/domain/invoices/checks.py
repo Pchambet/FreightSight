@@ -36,6 +36,8 @@ TOLERANCE = Decimal("0.02")
 CAPPED_CONFIDENCE = 0.5
 #: Every note that says « this document refunds money, it does not ask for any ».
 CREDIT_NOTE_NOTE = "@credit_note"
+#: Neither a total nor a pre-tax total could be read: nothing says the lines are all there.
+UNVERIFIED_TOTAL_NOTE = "@unverified_total"
 
 
 @dataclass
@@ -178,6 +180,13 @@ def check(
     if not holds and difference is not None:
         direction = "more_than" if difference > 0 else "less_than"
         notes.append(f"@arithmetic_mismatch|{abs(difference)}|{direction}")
+
+    # No total and no pre-tax total could be read: the check above had nothing to check against, and
+    # "it adds up" would be said of a reading nobody verified. A missed line is then invisible —
+    # which is the one failure this pipeline must not have — so the reading says it is unverified.
+    if invoice.lines and invoice.total is None and invoice.subtotal is None:
+        notes.append(UNVERIFIED_TOTAL_NOTE)
+        confidence = min(confidence, CAPPED_CONFIDENCE)
 
     # A line the reading could not turn into money is a line nobody will ever see again, and the
     # arithmetic above counted it. Both facts belong on the screen rather than in a log.

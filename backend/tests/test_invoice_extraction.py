@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session
 from app.adapters.extraction.llm_extractor import LlmExtractor
 from app.adapters.extraction.regex_extractor import RegexExtractor, describe, trailing_amount
 from app.domain.fx.service import FxService
-from app.domain.invoices.checks import CAPPED_CONFIDENCE, arithmetic_holds, check
+from app.domain.invoices.checks import CAPPED_CONFIDENCE, UNVERIFIED_TOTAL_NOTE, arithmetic_holds, check
 from app.domain.invoices.ports import (
     ExtractedLine,
     ExtractionContext,
@@ -471,7 +471,7 @@ def test_a_real_forwarder_invoice_reads_exactly(db: Session, org: Organization) 
         "THC destination Le Havre (Terminal Handling Charges)",
         "Frais de B/L (Bill of lading fee)",
         "Dédouanement import (customs brokerage)",
-        "Camionnage Le Havre →  entrepôt client (drayage)",
+        "Camionnage Le Havre → entrepôt client (drayage)",
     ]
     holds, difference = arithmetic_holds(invoice)
     assert holds and difference == Decimal("0.00")
@@ -651,18 +651,23 @@ def test_a_credit_note_line_is_shown_and_refused_rather_than_dropped(db: Session
     assert "@negative_line|-2450.00" in " ".join(line.notes)
 
 
-def test_a_discount_the_patterns_cannot_name_is_said_out_loud(db: Session, org: Organization) -> None:
-    """« Remise commerciale » is no charge word, so the pattern extractor does not read that line —
-    and then the charges no longer reach the « Total HT » the invoice prints. Which is the point:
-    the reviewer is told 150 € are missing rather than shown a tidy invoice that is 150 € too high.
+def test_a_discount_the_patterns_cannot_name_is_read_and_left_for_a_person_to_name(
+    db: Session, org: Organization
+) -> None:
+    """« Remise commerciale » is no charge word. The line used to be dropped, and the reviewer told
+    150 € were missing; it is now a row of the table like any other — read, with its minus, without
+    a cost type and with less confidence, so the invoice adds up and the question is on the screen.
     """
     invoice = read(FRENCH_WITH_DISCOUNT)
-    assert [ln.amount for ln in invoice.lines] == ["2450.00"]
+    assert [(ln.amount, ln.cost_type) for ln in invoice.lines] == [
+        ("2450.00", CostType.OCEAN_FREIGHT),
+        ("-150.00", None),
+    ]
+    assert invoice.lines[1].confidence < invoice.lines[0].confidence
     checked = check(
         db, fx(), invoice, CONTEXT, org_id=org.id, base_currency="EUR", invoice_date=date(2026, 3, 31)
     )
-    assert "@arithmetic_mismatch|150.00|more_than" in checked.notes
-    assert checked.confidence <= CAPPED_CONFIDENCE
+    assert not [note for note in checked.notes if note.startswith("@arithmetic_mismatch")]
 
 
 def test_a_discount_a_model_did_read_stays_on_the_invoice_instead_of_vanishing(
@@ -774,3 +779,20 @@ def test_an_acronym_is_a_word_and_not_a_run_of_letters() -> None:
     assert cost_type_of("Valeur CAF déclarée 12 500,00") is None
     assert cost_type_of("Dépenses avancées pour votre compte 240,00") is None
     assert cost_type_of("Port1 quai nord 40,00") is None
+
+
+def test_a_reading_with_no_total_to_check_against_says_it_is_unverified(
+    db: Session, org: Organization
+) -> None:
+    """« It adds up » cannot be said of a reading that found no total to add up to: a missed line
+    would then be invisible, which is the one failure this pipeline must not have."""
+    unread_totals = FreightInvoice(
+        currency="EUR",
+        lines=[ExtractedLine(description="Fret maritime", amount="2450.00", currency="EUR", confidence=0.9)],
+        confidence=0.9,
+    )
+    checked = check(
+        db, fx(), unread_totals, CONTEXT, org_id=org.id, base_currency="EUR", invoice_date=date(2026, 9, 17)
+    )
+    assert UNVERIFIED_TOTAL_NOTE in checked.notes
+    assert checked.confidence <= CAPPED_CONFIDENCE
