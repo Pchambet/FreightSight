@@ -66,23 +66,27 @@ export default async function SkuPage({ params }: Params) {
     );
   }
   const { summary: s, arrivals, base_currency: currency } = detail.data;
+  // `containers` reached the API a commit after this page: an API one deploy behind answers without it.
+  const boxes = detail.data.containers ?? [];
   const sheet = sheets.data?.products.find((p) => p.sku === sku) ?? null;
   const familyLabels = Object.fromEntries(COST_FAMILIES.map((f) => [f, tf(f)])) as Record<CostFamily, string>;
   const ratio = (v: number) => new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
-  const dated = arrivals.filter((a) => a.arrived_on !== null);
-  const points: TrendPoint[] = dated.map((a) => ({
-    key: a.load_id,
-    label: dayMonth(a.arrived_on!, locale),
-    title: `${a.container_number} · ${dateShort(a.arrived_on, locale)}`,
-    fob: Number(a.unit_fob),
-    landed: Number(a.unit_landed),
-    estimated: a.arrival_is_estimate || Number(a.estimated) > 0,
-    note: [a.supplier_name, t("trend.qty", { qty: qty(a.quantity, locale) }), a.arrival_is_estimate ? t("trend.eta") : null].filter(Boolean).join(" · "),
-    href: `/container/${a.container_id}#couts-unitaires`,
+  // One point per CONTAINER, not per order line: a SKU on two lines of the same container (a
+  // restock and a back-order) is one arrival. These are the API's own container figures — the two
+  // last landed ones are exactly what `change_pct` compares.
+  const dated = boxes.filter((b) => b.arrived_on !== null);
+  const points: TrendPoint[] = dated.map((b) => ({
+    key: b.container_id,
+    label: dayMonth(b.arrived_on!, locale),
+    title: `${b.container_number} · ${dateShort(b.arrived_on, locale)}`,
+    fob: Number(b.unit_fob),
+    landed: Number(b.unit_landed),
+    estimated: b.arrival_is_estimate || Number(b.estimated) > 0,
+    note: [t("trend.qty", { qty: qty(b.quantity, locale) }), b.arrival_is_estimate ? t("trend.eta") : null].filter(Boolean).join(" · "),
+    href: `/container/${b.container_id}#couts-unitaires`,
   }));
-  // The same two arrivals the API compares for `change_pct`: goods that really landed.
-  const landedOnes = dated.filter((a) => !a.arrival_is_estimate);
+  const landedOnes = dated.filter((b) => !b.arrival_is_estimate);
   const [previous, last] = landedOnes.slice(-2);
   const salePrice = s.sale_price !== null && s.margin_pct !== null ? Number(s.sale_price) : null;
 

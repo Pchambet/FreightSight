@@ -3377,11 +3377,51 @@ export interface components {
             /** Estimated */
             estimated: string;
         };
+        /**
+         * SkuBox
+         * @description The article in one container, whatever number of order lines carried it there. This is what
+         *     `last_unit_landed`, `previous_unit_landed` and `change_pct` compare, and what a curve plots.
+         */
+        SkuBox: {
+            /**
+             * Container Id
+             * Format: uuid
+             */
+            container_id: string;
+            /** Container Number */
+            container_number: string;
+            /** Arrived On */
+            arrived_on: string | null;
+            /** Arrival Is Estimate */
+            arrival_is_estimate: boolean;
+            /** Quantity */
+            quantity: string;
+            /** Fob */
+            fob: string;
+            /** Landed */
+            landed: string;
+            /** Unit Fob */
+            unit_fob: string;
+            /** Unit Landed */
+            unit_landed: string;
+            /** By Cost Type */
+            by_cost_type: {
+                [key: string]: string;
+            };
+            /** Unit By Cost Type */
+            unit_by_cost_type: {
+                [key: string]: string;
+            };
+            /** Estimated */
+            estimated: string;
+        };
         /** SkuDetailResponse */
         SkuDetailResponse: {
             /** Base Currency */
             base_currency: string;
             summary: components["schemas"]["SkuSummary"];
+            /** Containers */
+            containers: components["schemas"]["SkuBox"][];
             /** Arrivals */
             arrivals: components["schemas"]["SkuArrival"][];
         };

@@ -24,9 +24,10 @@ export const FAMILY_OF: Partial<Record<CostType, CostFamily>> = {
   BL_FEE: "port",
   CUSTOMS_DUTY: "customs",
   CUSTOMS_BROKERAGE: "customs",
+  // A customs examination or a scan is triggered by customs and billed with the broker's fees.
+  INSPECTION: "customs",
   DRAYAGE: "delivery",
   WAREHOUSING: "delivery",
-  INSPECTION: "delivery",
   DEMURRAGE: "dnd",
   DETENTION: "dnd",
   BANK_FEES: "other",
