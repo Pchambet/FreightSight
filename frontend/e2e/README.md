@@ -11,7 +11,8 @@ The **public** pages only, without a Clerk session and without the API running:
 - the landing page, `/securite` and the `/design-partner` one-pager render, with a booking link;
 - the demurrage calculator computes, and reads its state from the query string;
 - `/sign-in` renders and `/containers` redirects an anonymous visitor to it;
-- `robots.txt` keeps the application out of search engines.
+- `robots.txt` keeps the application out of search engines;
+- a shared report link (`/r/<token>`) that does not exist is a real 404, `noindex`, with no sign-in redirect.
 
 Every request that is not the local server is aborted in the tests, so a run is hermetic: no Clerk
 network call, no FX call, nothing that can make CI flaky. The Clerk keys in `playwright.config.ts` are

@@ -4,7 +4,9 @@ import { getLocale, getTranslations } from "next-intl/server";
 import Breadcrumb from "@/components/shared/Breadcrumb";
 import LandedCostSheet from "@/features/report/LandedCostSheet";
 import PrintButton from "@/features/report/PrintButton";
+import ShareDialog from "@/features/report/ShareDialog";
 import { api } from "@/lib/api/client";
+import { money } from "@/lib/format";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -32,7 +34,10 @@ export default async function ContainerReportPage({ params }: Params) {
     <>
       <div className="print:hidden flex flex-wrap items-center justify-between gap-3 mb-4">
         <Breadcrumb backHref={`/container/${id}`} backLabel={container.data.container_number} />
-        <PrintButton label={t("actions.print")} />
+        <div className="flex flex-wrap items-center gap-2">
+          <PrintButton label={t("actions.print")} />
+          <ShareDialog subject={{ kind: "container", id }} subjectLabel={container.data.container_number} landed={money(report.data.totals.landed, report.data.base_currency, locale)} estimatedOnly={report.data.costs.filter((c) => !c.closed_at).length > 0 && report.data.costs.filter((c) => !c.closed_at).every((c) => c.status === "ESTIMATE")} />
+        </div>
       </div>
       <LandedCostSheet
         locale={locale === "en" ? "en" : "fr"}

@@ -41,7 +41,10 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    // `/r/<token>` is a document for someone who has no account and no Clerk cookie: the middleware
+    // stays out of it entirely, so a development instance does not bounce that visitor through its
+    // handshake before showing the page.
+    "/((?!_next|r/|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     "/(api|trpc)(.*)",
     "/__clerk/(.*)",
   ],

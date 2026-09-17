@@ -12,7 +12,7 @@ import { closePeriod, reopenPeriod } from "@/features/actions";
 /**
  * Close or reopen a month. Both are decisions with an accounting meaning, so both ask once more and
  * say in plain words what will and will not happen. The buttons only show for the roles the API
- * accepts (close: owner or admin, reopen: owner); the API refuses anyway if the screen is wrong.
+ * accepts (owner or admin, for both); the API refuses anyway if the screen is wrong.
  */
 export default function PeriodActions({ period, title, status, canClose, canReopen, estimated }: { period: string; title: string; status: "open" | "closed"; canClose: boolean; canReopen: boolean; estimated: string | null }) {
   const t = useTranslations("periods.actions");

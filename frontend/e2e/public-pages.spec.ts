@@ -97,3 +97,12 @@ test("an unknown URL renders a real 404, not a sign-in redirect (A4-4)", async (
   await expect(page).toHaveURL(/\/this-does-not-exist$/);
   await expect(page.locator("h1").first()).toHaveText(/introuvable/i);
 });
+
+test("a shared report link that does not exist answers a real 404, out of search engines, without a session", async ({ page }) => {
+  // No API runs here, which is also what an unknown, expired or withdrawn token looks like from the
+  // page's side: one answer for all of them, and nothing that says which.
+  const response = await page.goto(`/r/${"x".repeat(43)}`);
+  expect(response?.status()).toBe(404);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/plus valable|no longer valid/);
+  await expect(page.locator('meta[name="robots"]').first()).toHaveAttribute("content", /noindex/);
+});

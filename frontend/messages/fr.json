@@ -651,7 +651,10 @@
       "erp_push_forgotten": "Push ERP oublié",
       "organization_sample_data_deleted": "Données d'exemple effacées",
       "period_closed": "Mois clôturé",
-      "period_reopened": "Mois rouvert"
+      "period_reopened": "Mois rouvert",
+      "container_shared": "Rapport du conteneur partagé",
+      "purchase_order_shared": "Rapport de la commande partagé",
+      "share_revoked": "Lien de partage retiré"
     }
   },
   "errors": {
@@ -760,7 +763,8 @@
     "PERIOD_IN_FUTURE": "Ce mois n'est pas encore commencé : il ne peut pas être clôturé.",
     "PERIOD_EMPTY": "Aucun conteneur n'est arrivé ce mois-là : il n'y a rien à clôturer.",
     "PERIOD_NOT_CLOSED": "Ce mois n'est pas clos.",
-    "FORBIDDEN_ROLE": "Votre rôle dans cette société ne permet pas cette action."
+    "FORBIDDEN_ROLE": "Votre rôle dans cette société ne permet pas cette action.",
+    "SHARE_NOT_FOUND": "Ce lien de partage n'existe pas ou n'est plus valable."
   },
   "timeline": {
     "title": "Chronologie",
@@ -1792,7 +1796,7 @@
     "actions": {
       "close": "Clôturer {month}",
       "reopen": "Rouvrir",
-      "closeNeedsRole": "Seul un propriétaire ou un administrateur de la société peut clôturer un mois.",
+      "closeNeedsRole": "Seul un administrateur de la société peut clôturer ou rouvrir un mois.",
       "closeTitle": "Clôturer {month} ?",
       "closeBody": "Le coût de revient des conteneurs arrivés ce mois-là est figé tel qu'il est maintenant. Vous pourrez toujours enregistrer des coûts ensuite : ils apparaîtront comme un écart, sans changer le chiffre clos.",
       "closeBodyEstimated": "{amount} de ce mois sont encore des estimés, pas des factures. Le coût de revient sera figé tel qu'il est maintenant ; les factures qui arriveront ensuite apparaîtront comme un écart, sans changer le chiffre clos.",
@@ -1922,6 +1926,45 @@
     "gone": {
       "title": "Ce lien n'est plus valable",
       "body": "Le rapport a expiré ou son émetteur l'a retiré. Demandez-lui un nouveau lien."
+    }
+  },
+  "share": {
+    "open": "Partager le rapport",
+    "close": "Fermer",
+    "title": "Partager le rapport de {label}",
+    "intro": "Un lien en lecture seule, pour quelqu'un qui n'a pas de compte : votre acheteur, votre expert-comptable, un client.",
+    "duration": "Validité du lien",
+    "days": "{days} jours",
+    "create": "Créer le lien",
+    "creating": "Création…",
+    "frozenHint": "Le rapport est figé au moment où vous créez le lien : si un coût change ensuite, le destinataire continue de voir le chiffre que vous lui avez envoyé. Pour envoyer le nouveau chiffre, créez un nouveau lien.",
+    "estimatedOnly": "Ce rapport ne contient que des coûts estimés, aucune facture : dites-le à votre destinataire, ou attendez la facture.",
+    "created": "Rapport figé le {when} · coût rendu {landed}",
+    "linkLabel": "Lien du rapport",
+    "copy": "Copier",
+    "copied": "Copié",
+    "copyFailed": "Impossible de copier : sélectionnez le lien et copiez-le à la main.",
+    "shownOnce": "Le lien n'est affiché que maintenant : copiez-le avant de fermer.",
+    "existing": "Liens déjà créés",
+    "loading": "Chargement…",
+    "none": "Aucun lien pour l'instant.",
+    "row": "Créé le {created} · valable jusqu'au {expires}",
+    "neverOpened": "Jamais ouvert",
+    "opened": "{count, plural, one {Ouvert # fois} other {Ouvert # fois}} · dernière fois le {when} (UTC)",
+    "revoke": "Retirer",
+    "revoked": "Lien retiré : il ne s'ouvre plus.",
+    "status": {
+      "active": "Actif",
+      "expired": "Expiré",
+      "revoked": "Retiré"
+    },
+    "createFailed": "Impossible de créer le lien",
+    "listFailed": "Impossible de lire les liens",
+    "revokeFailed": "Impossible de retirer le lien",
+    "mail": {
+      "action": "Préparer l'e-mail",
+      "subject": "Coût de revient rendu – {label}",
+      "body": "Bonjour,\n\nVoici le coût de revient rendu de {label}, par référence, avec le détail des frais :\n{url}\n\nLe lien s'ouvre sans compte et reste valable jusqu'au {date}. Le rapport s'imprime ou s'enregistre en PDF depuis la page.\n\nBien cordialement,"
     }
   }
 }

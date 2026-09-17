@@ -60,7 +60,7 @@ export default async function PeriodPage({ params }: Params) {
       <PageHeader
         title={<span className="flex items-center gap-2.5">{closed ? <LockKeyhole className="w-5 h-5 text-slate-500" aria-hidden /> : null}{title}</span>}
         subtitle={closed ? t("detail.closedSubtitle", { date: dateShort(s.closed_at, locale), by: s.closed_by_name ?? "—" }) : t("detail.openSubtitle", { count: s.containers })}
-        actions={<PeriodActions period={period} title={periodTitle(period, locale, true)} status={closed ? "closed" : "open"} canClose={role === "OWNER" || role === "ADMIN"} canReopen={role === "OWNER"} estimated={estimatedTotal > 0 ? money(estimatedTotal, currency, locale) : null} />}
+        actions={<PeriodActions period={period} title={periodTitle(period, locale, true)} status={closed ? "closed" : "open"} canClose={role === "OWNER" || role === "ADMIN"} canReopen={role === "OWNER" || role === "ADMIN"} estimated={estimatedTotal > 0 ? money(estimatedTotal, currency, locale) : null} />}
       />
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 mb-6">

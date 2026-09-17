@@ -561,6 +561,40 @@ export async function deleteSampleData(): Promise<{ ok: true; deleted: number } 
   return { ok: true, deleted: Object.values(data.deleted ?? {}).reduce((sum: number, n) => sum + (typeof n === "number" ? n : 0), 0) };
 }
 
+// ---------------------------------------------------------------------------- shared reports
+
+export type ShareSubject = { kind: "container" | "purchase_order"; id: string };
+export type ShareSummary = Schemas["ShareSummary"];
+
+/** The token comes back this once and is stored nowhere readable: the caller shows the link at once. */
+export async function createShare(subject: ShareSubject, expiresInDays: number): Promise<ActionResult<{ path: string; expiresAt: string }>> {
+  await protectAction();
+  const body = { expires_in_days: Math.min(Math.max(Math.round(expiresInDays), 1), 365) };
+  const { data, error } =
+    subject.kind === "container"
+      ? await api.POST("/api/v1/containers/{container_id}/share", { params: { path: { container_id: subject.id } }, body })
+      : await api.POST("/api/v1/purchase-orders/{po_id}/share", { params: { path: { po_id: subject.id } }, body });
+  if (error || !data) return await fail(error, "share.createFailed");
+  return { ok: true, data: { path: data.path, expiresAt: data.expires_at } };
+}
+
+export async function listShares(subject: ShareSubject): Promise<ActionResult<ShareSummary[]>> {
+  await protectAction();
+  const { data, error } =
+    subject.kind === "container"
+      ? await api.GET("/api/v1/containers/{container_id}/shares", { params: { path: { container_id: subject.id } } })
+      : await api.GET("/api/v1/purchase-orders/{po_id}/shares", { params: { path: { po_id: subject.id } } });
+  if (error || !data) return await fail(error, "share.listFailed");
+  return { ok: true, data };
+}
+
+export async function revokeShare(shareId: string): Promise<ActionResult<null>> {
+  await protectAction();
+  const { error } = await api.DELETE("/api/v1/shares/{share_id}", { params: { path: { share_id: shareId } } });
+  if (error) return await fail(error, "share.revokeFailed");
+  return { ok: true, data: null };
+}
+
 // ---------------------------------------------------------------------------- period close
 
 /** Freeze a month's landed costs as they stand. Nothing is locked afterwards: what moves is reported as drift. */

@@ -1559,6 +1559,120 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/containers/{container_id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share Container
+         * @description Freeze this container's landed-cost report as it stands and return a link to it. The token is
+         *     in this answer and nowhere else: only its hash is kept.
+         */
+        post: operations["share_container_api_v1_containers__container_id__share_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/purchase-orders/{po_id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Share Purchase Order */
+        post: operations["share_purchase_order_api_v1_purchase_orders__po_id__share_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/containers/{container_id}/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Container Shares */
+        get: operations["container_shares_api_v1_containers__container_id__shares_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/purchase-orders/{po_id}/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Purchase Order Shares */
+        get: operations["purchase_order_shares_api_v1_purchase_orders__po_id__shares_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{share_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke Share
+         * @description The link stops working at once. The row stays: the history of what was sent, and when.
+         */
+        delete: operations["revoke_share_api_v1_shares__share_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/shared-reports/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open Shared Report
+         * @description No account, no organization: the token is the whole of the right, and what it opens is the
+         *     snapshot taken when the link was made. Unknown, expired and revoked are the same 404 — an answer
+         *     that told them apart would tell a stranger which tokens once existed.
+         */
+        get: operations["open_shared_report_api_v1_public_shared_reports__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/containers/{container_id}/events": {
         parameters: {
             query?: never;
@@ -3619,6 +3733,109 @@ export interface components {
             checked_at: string;
             /** Checks */
             checks: components["schemas"]["ServiceCheck"][];
+        };
+        /** ShareCreate */
+        ShareCreate: {
+            /**
+             * Expires In Days
+             * @default 30
+             */
+            expires_in_days: number;
+        };
+        /** ShareCreated */
+        ShareCreated: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Token */
+            token: string;
+            /** Path */
+            path: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
+        /** ShareIssuer */
+        ShareIssuer: {
+            /** Name */
+            name: string;
+        };
+        /** ShareSummary */
+        ShareSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Subject Type
+             * @enum {string}
+             */
+            subject_type: "container" | "purchase_order";
+            /** Subject Label */
+            subject_label: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Name */
+            created_by_name?: string | null;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Revoked At */
+            revoked_at: string | null;
+            /** View Count */
+            view_count: number;
+            /** Last Viewed At */
+            last_viewed_at: string | null;
+            /**
+             * Status
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "expired" | "revoked";
+        };
+        /**
+         * SharedReportPublic
+         * @description What a link opens: the report as it stood when the link was made, and nothing else.
+         */
+        SharedReportPublic: {
+            issuer: components["schemas"]["ShareIssuer"];
+            /**
+             * Subject Type
+             * @enum {string}
+             */
+            subject_type: "container" | "purchase_order";
+            /** Subject Label */
+            subject_label: string;
+            /** Shipment Reference */
+            shipment_reference: string | null;
+            /** Locale */
+            locale: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Sample Data
+             * @default false
+             */
+            sample_data: boolean;
+            report: components["schemas"]["LandedCostReport"];
         };
         /** ShipmentCreate */
         ShipmentCreate: {
@@ -7392,6 +7609,208 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    share_container_api_v1_containers__container_id__share_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                container_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShareCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    share_purchase_order_api_v1_purchase_orders__po_id__share_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                po_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShareCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    container_shares_api_v1_containers__container_id__shares_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                container_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    purchase_order_shares_api_v1_purchase_orders__po_id__shares_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                po_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_share_api_v1_shares__share_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                share_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_shared_report_api_v1_public_shared_reports__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedReportPublic"];
                 };
             };
             /** @description Validation Error */

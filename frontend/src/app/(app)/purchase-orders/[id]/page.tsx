@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { AlertTriangle, Info } from "lucide-react";
-import { PageHeader, td, tdRight, th, thRight } from "@/components/layout/AppShell";
+import Link from "next/link";
+import { AlertTriangle, FileText, Info } from "lucide-react";
+import { PageHeader, btnSecondary, td, tdRight, th, thRight } from "@/components/layout/AppShell";
 import Breadcrumb from "@/components/shared/Breadcrumb";
 import MetricLabel from "@/components/shared/MetricLabel";
 import CollapsibleSection from "@/components/shared/CollapsibleSection";
@@ -60,11 +61,12 @@ export default async function PurchaseOrderPage({ params }: Params) {
   const data = await load(id);
   if (!data) notFound();
   const { po, report, firstContainer } = data;
-  const [t, tc, errorCode, tg, locale] = await Promise.all([
+  const [t, tc, errorCode, tg, ts, locale] = await Promise.all([
     getTranslations("purchaseOrder"),
     getTranslations("common"),
     getTranslations("errors"),
     getTranslations("glossary"),
+    getTranslations("sheet"),
     getLocale(),
   ]);
   const cur = report.base_currency;
@@ -78,6 +80,7 @@ export default async function PurchaseOrderPage({ params }: Params) {
       <PageHeader
         title={po.po_number}
         subtitle={<span>{po.supplier_name ?? t("noSupplier")} · {po.currency}{po.currency !== cur ? ` @ ${po.fx_rate} ${cur}` : ""}{po.order_date ? ` · ${t("ordered", { date: dateShort(po.order_date, locale) })}` : ""}{po.incoterm ? ` · ${po.incoterm}` : ""}</span>}
+        actions={report.lines.length > 0 ? <Link href={`/purchase-orders/${po.id}/report`} className={btnSecondary}><FileText className="w-4 h-4 mr-1.5" aria-hidden />{ts("actions.open")}</Link> : null}
       />
 
       <WorkflowNextStep step={step} />

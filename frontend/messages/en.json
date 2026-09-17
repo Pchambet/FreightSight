@@ -651,7 +651,10 @@
       "erp_push_forgotten": "ERP push forgotten",
       "organization_sample_data_deleted": "Sample data deleted",
       "period_closed": "Month closed",
-      "period_reopened": "Month reopened"
+      "period_reopened": "Month reopened",
+      "container_shared": "Container report shared",
+      "purchase_order_shared": "Order report shared",
+      "share_revoked": "Share link withdrawn"
     }
   },
   "errors": {
@@ -760,7 +763,8 @@
     "PERIOD_IN_FUTURE": "This month has not started yet: it cannot be closed.",
     "PERIOD_EMPTY": "No container arrived in that month: there is nothing to close.",
     "PERIOD_NOT_CLOSED": "This month is not closed.",
-    "FORBIDDEN_ROLE": "Your role in this company does not allow this action."
+    "FORBIDDEN_ROLE": "Your role in this company does not allow this action.",
+    "SHARE_NOT_FOUND": "This share link does not exist or is no longer valid."
   },
   "timeline": {
     "title": "Timeline",
@@ -1792,7 +1796,7 @@
     "actions": {
       "close": "Close {month}",
       "reopen": "Reopen",
-      "closeNeedsRole": "Only an owner or an administrator of the company can close a month.",
+      "closeNeedsRole": "Only an administrator of the company can close or reopen a month.",
       "closeTitle": "Close {month}?",
       "closeBody": "The landed cost of the containers that arrived in that month is frozen as it stands now. You can still record costs afterwards: they will show as a gap, without changing the closed figure.",
       "closeBodyEstimated": "{amount} of this month are still estimates, not invoices. The landed cost will be frozen as it stands now; invoices arriving later will show as a gap, without changing the closed figure.",
@@ -1922,6 +1926,45 @@
     "gone": {
       "title": "This link is no longer valid",
       "body": "The report has expired or its issuer withdrew it. Ask them for a new link."
+    }
+  },
+  "share": {
+    "open": "Share the report",
+    "close": "Close",
+    "title": "Share the report of {label}",
+    "intro": "A read-only link, for someone who has no account: your buyer, your accountant, a customer.",
+    "duration": "Link validity",
+    "days": "{days} days",
+    "create": "Create the link",
+    "creating": "Creating…",
+    "frozenHint": "The report is frozen when you create the link: if a cost changes later, the recipient still sees the figure you sent. To send the new figure, create a new link.",
+    "estimatedOnly": "This report holds estimated costs only, no invoice: tell your recipient, or wait for the invoice.",
+    "created": "Report frozen on {when} · landed cost {landed}",
+    "linkLabel": "Report link",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "Could not copy: select the link and copy it by hand.",
+    "shownOnce": "The link is shown only now: copy it before closing.",
+    "existing": "Links already created",
+    "loading": "Loading…",
+    "none": "No link yet.",
+    "row": "Created on {created} · valid until {expires}",
+    "neverOpened": "Never opened",
+    "opened": "{count, plural, one {Opened # time} other {Opened # times}} · last on {when} (UTC)",
+    "revoke": "Withdraw",
+    "revoked": "Link withdrawn: it no longer opens.",
+    "status": {
+      "active": "Active",
+      "expired": "Expired",
+      "revoked": "Withdrawn"
+    },
+    "createFailed": "Could not create the link",
+    "listFailed": "Could not read the links",
+    "revokeFailed": "Could not withdraw the link",
+    "mail": {
+      "action": "Prepare the e-mail",
+      "subject": "Landed cost – {label}",
+      "body": "Hello,\n\nHere is the landed cost of {label}, per SKU, with the detail of the charges:\n{url}\n\nThe link opens without an account and stays valid until {date}. The report can be printed or saved as PDF from the page.\n\nBest regards,"
     }
   }
 }
