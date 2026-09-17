@@ -832,6 +832,57 @@ class InvoiceConfirmResponse(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+# ---------------------------------------------------------------------------- shared reports
+
+
+class ShareCreate(BaseModel):
+    expires_in_days: int = Field(default=30, ge=1, le=365)
+
+
+class ShareCreated(BaseModel):
+    id: UUID
+    #: Returned here and never again: only its hash is stored. Show it, copy it, send it.
+    token: str
+    #: Where the front end serves it: "/r/<token>".
+    path: str
+    expires_at: datetime
+
+
+class ShareSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    subject_type: Literal["container", "purchase_order"]
+    subject_label: str
+    created_at: datetime
+    created_by_name: str | None = None
+    expires_at: datetime
+    revoked_at: datetime | None
+    #: How many times the public page was opened, and when last: "the prospect has read it".
+    view_count: int
+    last_viewed_at: datetime | None
+    status: Literal["active", "expired", "revoked"] = "active"
+
+
+class ShareIssuer(BaseModel):
+    name: str
+
+
+class SharedReportPublic(BaseModel):
+    """What a link opens: the report as it stood when the link was made, and nothing else."""
+
+    issuer: ShareIssuer
+    subject_type: Literal["container", "purchase_order"]
+    subject_label: str
+    shipment_reference: str | None
+    #: The language of the company that sent it, not of whoever opens it.
+    locale: str
+    generated_at: datetime
+    expires_at: datetime
+    #: The sending company held the demo dataset: the document must say "sample data".
+    sample_data: bool = False
+    report: LandedCostReport
+
+
 # ---------------------------------------------------------------------------- period close
 
 

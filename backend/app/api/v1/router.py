@@ -18,6 +18,7 @@ from app.api.v1 import (
     rate_cards,
     reports,
     search,
+    shares,
     shipments,
     suppliers,
     tracking,
@@ -46,6 +47,7 @@ for r in (
     alerts.router,
     audit.router,
     search.router,
+    shares.router,
     tracking.router,
     webhooks.router,
 ):

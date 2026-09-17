@@ -1007,6 +1007,29 @@ class PeriodCloseLine(OrgScoped, Base):
     close: Mapped[PeriodClose] = relationship(back_populates="lines")
 
 
+class SharedReport(Timestamped, OrgScoped, Base):
+    """A landed-cost report sent to somebody who has no account, frozen at the moment it was sent.
+
+    The link is a bearer token: whoever holds it reads this one snapshot and nothing else. Only its
+    SHA-256 is kept, so a copy of the database opens no link. The snapshot is the report as it stood —
+    the prospect who opens it three weeks later sees the figure they were sent, not today's.
+    """
+
+    __tablename__ = "shared_reports"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    subject_type: Mapped[str] = mapped_column(String, nullable=False)  # container | purchase_order
+    subject_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    subject_label: Mapped[str] = mapped_column(String, nullable=False)
+    token_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False, unique=True)
+    snapshot: Mapped[dict[str, Any]] = mapped_column(nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_viewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class SampleObject(OrgScoped, Base):
     """One row per object the demo dataset created, so that it can be taken away again.
 
