@@ -1257,7 +1257,29 @@
       "containers": "Containers"
     },
     "variance": "See the month's estimated → actual variance",
-    "since": "History recorded since 9 September 2026, at each recomputation."
+    "since": "History recorded since 9 September 2026, at each recomputation.",
+    "chart": {
+      "total": "Total charges",
+      "fob": "Purchase price (FOB)",
+      "ofFob": "of FOB",
+      "loads": "{count, plural, one {# loaded line} other {# loaded lines}}",
+      "month": {
+        "title": "Landing charges per month",
+        "subtitle": "By month of arrival of the goods, excluding purchase price and import VAT."
+      },
+      "supplier": {
+        "title": "What each supplier costs to bring in",
+        "subtitle": "Charges against the supplier's purchases, heaviest first; on the right, its landed cost ratio. Hover a row for the detail."
+      },
+      "route": {
+        "title": "What each route costs",
+        "subtitle": "Charges against the purchases shipped on the route, heaviest first; on the right, its landed cost ratio. Hover a row for the detail."
+      },
+      "cost_type": {
+        "title": "From purchase price to landed cost",
+        "subtitle": "What each family of charges adds to the price paid to suppliers."
+      }
+    }
   },
   "workflow": {
     "nextStep": "Next step",

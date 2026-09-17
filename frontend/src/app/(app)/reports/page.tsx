@@ -3,7 +3,13 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Download } from "lucide-react";
 import { Card, PageHeader, btnSecondary, input, label, td, tdRight, th, thRight } from "@/components/layout/AppShell";
+import BreakdownBar from "@/components/charts/BreakdownBar";
+import StackedColumns from "@/components/charts/StackedColumns";
+import StackedRows from "@/components/charts/StackedRows";
+import { COST_FAMILIES, foldFamilies, type CostFamily } from "@/components/charts/families";
 import { Money } from "@/components/shared/Money";
+import Panel from "@/components/ui/Panel";
+import { monthLabel, monthTitle } from "@/features/overview/period";
 import { parseDndRule } from "@/features/reports/dndRule";
 import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
 import { reportsHubStep } from "@/features/workflow/steps";
@@ -19,7 +25,7 @@ const GROUPS = ["supplier", "route", "month", "cost_type"] as const;
 type Group = (typeof GROUPS)[number];
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ group_by?: string; from?: string; to?: string }> }) {
-  const [sp, t, tc, tt, trisk, locale] = await Promise.all([searchParams, getTranslations("reports"), getTranslations("common"), getTranslations("domain.costType"), getTranslations("domain.risk"), getLocale()]);
+  const [sp, t, tc, tt, trisk, tfam, locale] = await Promise.all([searchParams, getTranslations("reports"), getTranslations("common"), getTranslations("domain.costType"), getTranslations("domain.risk"), getTranslations("costFamily"), getLocale()]);
   const groupBy: Group = (GROUPS as readonly string[]).includes(sp.group_by ?? "") ? (sp.group_by as Group) : "supplier";
   const isDate = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
   const period = { period_from: isDate(sp.from), period_to: isDate(sp.to) };
@@ -34,6 +40,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const hubStep = reportsHubStep(a?.skus ?? [], topContainer ? { id: topContainer.id, number: topContainer.container_number } : undefined);
   const cur = a?.base_currency ?? "EUR";
   const bucketLabel = (b: { key: string; label: string }) => (groupBy === "cost_type" && tt.has(b.key as never) ? tt(b.key as never) : b.label === "unknown route" ? t("unknownRoute") : b.label);
+  const familyLabels = Object.fromEntries(COST_FAMILIES.map((f) => [f, tfam(f)])) as Record<CostFamily, string>;
+  const ratio = (v: number) => new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
   const csvQuery = new URLSearchParams({ locale, ...(period.period_from ? { period_from: period.period_from } : {}), ...(period.period_to ? { period_to: period.period_to } : {}) }).toString();
   // `DndLine.rule` (paid/avoided, `dnd.lines`) is still a free-text English sentence from the
   // backend — parsed by `parseDndRule`'s pattern matching (needs_other_lane, see dndRule.ts).
@@ -87,6 +95,30 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         <div><label className={label} htmlFor="to">{t("to")}</label><input id="to" name="to" type="date" defaultValue={period.period_to ?? ""} className={input} /></div>
         <button type="submit" className={btnSecondary}>{t("apply")}</button>
       </form>
+
+      {a && a.buckets.length > 0 ? (
+        <Panel title={t(`chart.${groupBy}.title`)} subtitle={t(`chart.${groupBy}.subtitle`)} className="mb-6">
+          {groupBy === "month" ? (
+            <StackedColumns
+              columns={a.buckets.filter((b) => b.key !== "unknown").map((b) => ({ key: b.key, label: monthLabel(b.key, locale, true), title: monthTitle(b.key, locale), families: foldFamilies(b.by_cost_type as Record<string, string>), note: t("chart.loads", { count: b.load_count }) }))}
+              currency={cur}
+              locale={locale}
+              familyLabels={familyLabels}
+              totalLabel={t("chart.total")}
+            />
+          ) : groupBy === "cost_type" ? (
+            <BreakdownBar fob={Number(a.totals.fob)} families={foldFamilies(a.totals.by_cost_type as Record<string, string>)} currency={cur} locale={locale} fobLabel={t("chart.fob")} familyLabels={familyLabels} ofFobLabel={t("chart.ofFob")} />
+          ) : (
+            <StackedRows
+              rows={a.buckets.map((b) => ({ key: b.key, label: bucketLabel(b), fob: Number(b.fob), families: foldFamilies(b.by_cost_type as Record<string, string>), display: Number(b.fob) > 0 ? ratio(Number(b.landed) / Number(b.fob)) : "—" }))}
+              currency={cur}
+              locale={locale}
+              familyLabels={familyLabels}
+              ofFobLabel={t("chart.ofFob")}
+            />
+          )}
+        </Panel>
+      ) : null}
 
       <Card title={t("landed")} className="mb-6">
         <div className="overflow-x-auto">

@@ -1257,7 +1257,29 @@
       "containers": "Conteneurs"
     },
     "variance": "Voir les écarts estimé → réel du mois",
-    "since": "Historique enregistré depuis le 9 septembre 2026, à chaque recalcul."
+    "since": "Historique enregistré depuis le 9 septembre 2026, à chaque recalcul.",
+    "chart": {
+      "total": "Total des frais",
+      "fob": "Prix d'achat (FOB)",
+      "ofFob": "du FOB",
+      "loads": "{count, plural, one {# ligne chargée} other {# lignes chargées}}",
+      "month": {
+        "title": "Frais d'approche par mois",
+        "subtitle": "Par mois d'arrivée de la marchandise, hors prix d'achat et hors TVA import."
+      },
+      "supplier": {
+        "title": "Ce que chaque fournisseur coûte à faire venir",
+        "subtitle": "Frais rapportés aux achats du fournisseur, le plus lourd d'abord ; à droite, son coefficient d'approche. Survolez une ligne pour le détail."
+      },
+      "route": {
+        "title": "Ce que chaque route coûte",
+        "subtitle": "Frais rapportés aux achats passés par la route, la plus lourde d'abord ; à droite, son coefficient d'approche. Survolez une ligne pour le détail."
+      },
+      "cost_type": {
+        "title": "Du prix d'achat au coût rendu",
+        "subtitle": "Ce que chaque famille de frais ajoute au prix payé aux fournisseurs."
+      }
+    }
   },
   "workflow": {
     "nextStep": "Prochaine étape",
