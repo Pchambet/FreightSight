@@ -12531,6 +12531,90 @@
         ],
         "title": "SkuArrival"
       },
+      "SkuBox": {
+        "properties": {
+          "container_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Container Id"
+          },
+          "container_number": {
+            "type": "string",
+            "title": "Container Number"
+          },
+          "arrived_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived On"
+          },
+          "arrival_is_estimate": {
+            "type": "boolean",
+            "title": "Arrival Is Estimate"
+          },
+          "quantity": {
+            "type": "string",
+            "title": "Quantity"
+          },
+          "fob": {
+            "type": "string",
+            "title": "Fob"
+          },
+          "landed": {
+            "type": "string",
+            "title": "Landed"
+          },
+          "unit_fob": {
+            "type": "string",
+            "title": "Unit Fob"
+          },
+          "unit_landed": {
+            "type": "string",
+            "title": "Unit Landed"
+          },
+          "by_cost_type": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "By Cost Type"
+          },
+          "unit_by_cost_type": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Unit By Cost Type"
+          },
+          "estimated": {
+            "type": "string",
+            "title": "Estimated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "container_id",
+          "container_number",
+          "arrived_on",
+          "arrival_is_estimate",
+          "quantity",
+          "fob",
+          "landed",
+          "unit_fob",
+          "unit_landed",
+          "by_cost_type",
+          "unit_by_cost_type",
+          "estimated"
+        ],
+        "title": "SkuBox",
+        "description": "The article in one container, whatever number of order lines carried it there. This is what\n`last_unit_landed`, `previous_unit_landed` and `change_pct` compare, and what a curve plots."
+      },
       "SkuDetailResponse": {
         "properties": {
           "base_currency": {
@@ -12539,6 +12623,13 @@
           },
           "summary": {
             "$ref": "#/components/schemas/SkuSummary"
+          },
+          "containers": {
+            "items": {
+              "$ref": "#/components/schemas/SkuBox"
+            },
+            "type": "array",
+            "title": "Containers"
           },
           "arrivals": {
             "items": {
@@ -12552,6 +12643,7 @@
         "required": [
           "base_currency",
           "summary",
+          "containers",
           "arrivals"
         ],
         "title": "SkuDetailResponse"

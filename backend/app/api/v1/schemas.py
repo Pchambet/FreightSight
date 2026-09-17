@@ -974,6 +974,25 @@ class SkuArrival(BaseModel):
     estimated: Money
 
 
+class SkuBox(BaseModel):
+    """The article in one container, whatever number of order lines carried it there. This is what
+    `last_unit_landed`, `previous_unit_landed` and `change_pct` compare, and what a curve plots."""
+
+    model_config = ConfigDict(from_attributes=True)
+    container_id: UUID
+    container_number: str
+    arrived_on: date | None
+    arrival_is_estimate: bool
+    quantity: Qty
+    fob: Money
+    landed: Money
+    unit_fob: Qty
+    unit_landed: Qty
+    by_cost_type: dict[str, Money]
+    unit_by_cost_type: dict[str, Qty]
+    estimated: Money
+
+
 class SkuListResponse(BaseModel):
     base_currency: str
     skus: list[SkuSummary]
@@ -982,7 +1001,10 @@ class SkuListResponse(BaseModel):
 class SkuDetailResponse(BaseModel):
     base_currency: str
     summary: SkuSummary
-    #: Oldest first, undated ones last.
+    #: One per container, oldest first, undated ones last. The last two that have landed
+    #: (`arrival_is_estimate` false) are the ones `change_pct` compares.
+    containers: list[SkuBox]
+    #: One per order line in a container (same order): the detail under a container's point.
     arrivals: list[SkuArrival]
 
 

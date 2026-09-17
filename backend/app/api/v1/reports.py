@@ -263,6 +263,7 @@ def sku_detail(
     return schemas.SkuDetailResponse(
         base_currency=t.org.base_currency,
         summary=schemas.SkuSummary.model_validate(summary),
+        containers=[schemas.SkuBox.model_validate(box) for box in summary.boxes],
         arrivals=[schemas.SkuArrival.model_validate(point) for point in summary.points],
     )
 

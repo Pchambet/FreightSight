@@ -100,3 +100,23 @@ def test_the_list_can_be_searched_and_narrowed_to_a_period(seeded: TestClient) -
 
 def test_an_unknown_sku_is_not_found_and_a_slash_is_no_trouble(seeded: TestClient) -> None:
     assert seeded.get("/api/v1/reports/skus/detail", params={"sku": "NOPE/42"}).status_code == 404
+
+
+def test_two_order_lines_of_one_article_in_one_box_are_one_arrival(client: TestClient) -> None:
+    """The change compares containers. An article on two order lines of the last box must not be
+    compared with itself."""
+    lines = [
+        {"line_no": n, "sku": "A", "quantity": "10", "unit_price": price}
+        for n, price in ((1, "10"), (2, "12"))
+    ]
+    po = client.post("/api/v1/purchase-orders", json={"po_number": "PO-1", "currency": "EUR", "lines": lines})
+    assert po.status_code == 201, po.text
+    box = client.post("/api/v1/containers", json={"container_number": "MSCU4821990"}).json()
+    loads = [{"po_line_id": line["id"], "quantity": "10"} for line in po.json()["lines"]]
+    assert client.put(f"/api/v1/containers/{box['id']}/loads", json=loads).status_code == 200
+
+    body = detail(client, "A")
+    assert len(body["arrivals"]) == 2  # type: ignore[arg-type]
+    (only,) = body["containers"]  # type: ignore[misc]
+    assert (only["quantity"], only["fob"], only["unit_fob"]) == ("20.0000", "220.00", "11.0000")
+    assert body["summary"]["arrivals"] == 1  # type: ignore[index]
