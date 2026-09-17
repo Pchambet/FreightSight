@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
-import { AlertTriangle, Box, Info, LockKeyhole } from "lucide-react";
-import { PageHeader } from "@/components/layout/AppShell";
+import { AlertTriangle, Box, FileText, Info, LockKeyhole } from "lucide-react";
+import { PageHeader, btnSecondary } from "@/components/layout/AppShell";
 import Breadcrumb from "@/components/shared/Breadcrumb";
 import MetricLabel from "@/components/shared/MetricLabel";
 import CollapsibleSection from "@/components/shared/CollapsibleSection";
@@ -78,7 +78,7 @@ export default async function ContainerPage({ params }: Params) {
   const data = await load(containerId);
   if (!data) notFound();
   const { container, report, loads, pos, shipmentRef, events, etaHistory, subscription, erpConnected, invoicesToReview } = data;
-  const [t, errorCode, tg, tp, locale] = await Promise.all([getTranslations("container"), getTranslations("errors"), getTranslations("glossary"), getTranslations("periods.container"), getLocale()]);
+  const [t, errorCode, tg, tp, ts, locale] = await Promise.all([getTranslations("container"), getTranslations("errors"), getTranslations("glossary"), getTranslations("periods.container"), getTranslations("sheet"), getLocale()]);
   const cur = report.base_currency;
   const revalidate = `/container/${container.id}`;
   const step = containerWorkflowStep(container, loads, report, invoicesToReview);
@@ -98,6 +98,7 @@ export default async function ContainerPage({ params }: Params) {
             {shipmentRef ? <span>{t("shipment", { reference: shipmentRef })}</span> : null}
           </span>
         }
+        actions={report.lines.length > 0 ? <Link href={`/container/${container.id}/report`} className={btnSecondary}><FileText className="w-4 h-4 mr-1.5" aria-hidden />{ts("actions.open")}</Link> : null}
       />
 
       {/* A closed month keeps this container's landed cost as it went to the books: say so, and say

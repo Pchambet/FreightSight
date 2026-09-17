@@ -1869,5 +1869,59 @@
       "noDrift": "Rien n'a bougé depuis.",
       "see": "Voir la clôture"
     }
+  },
+  "sheet": {
+    "title": "Coût de revient rendu",
+    "container": "Conteneur",
+    "order": "Commande",
+    "shipment": "Expédition {reference}",
+    "computedOn": "Calculé le {date}",
+    "validUntil": "Lien valable jusqu'au {date}",
+    "sample": "Données d'exemple : ce rapport provient d'une société de démonstration, ses chiffres sont ceux d'un importateur fictif.",
+    "landed": "Coût rendu",
+    "fob": "Prix d'achat (FOB)",
+    "fees": "Frais d'approche",
+    "coef": "Coefficient d'approche",
+    "ofFob": "du FOB",
+    "breakdown": "Du prix d'achat au coût rendu",
+    "perSku": "Coût unitaire par référence",
+    "costs": "Coûts retenus",
+    "noCosts": "Aucun coût n'est encore enregistré : le coût rendu est égal au prix d'achat.",
+    "estimate": "estimé",
+    "fx": "taux {rate} du {date}",
+    "th": {
+      "order": "Commande",
+      "sku": "Référence",
+      "quantity": "Qté",
+      "unitFob": "Achat unitaire",
+      "unitLanded": "Rendu unitaire",
+      "lineLanded": "Rendu de la ligne",
+      "coef": "Coef.",
+      "cost": "Coût",
+      "source": "Prestataire · facture",
+      "method": "Ventilation",
+      "amount": "Montant",
+      "amountBase": "En {currency}"
+    },
+    "caveats": "À savoir",
+    "caveat": {
+      "estimated": "{amount} de ce coût rendu reposent encore sur des estimés, en attendant la facture : le chiffre sera recalé à réception.",
+      "allInvoiced": "Tous les coûts retenus proviennent de factures : aucun estimé.",
+      "unallocated": "{amount} de frais n'ont pas pu être ventilés (donnée manquante sur une ligne) et ne sont pas dans les coûts unitaires ci-dessus.",
+      "vat": "La TVA à l'importation ({amount}) est récupérable : elle est suivie pour la trésorerie et exclue du coût de revient.",
+      "vatNone": "La TVA à l'importation, récupérable, est exclue du coût de revient.",
+      "fx": "Les montants en devise sont convertis au taux de la Banque centrale européenne du jour de la facture."
+    },
+    "footer": "Document établi à partir des commandes et des factures de frais de l'émetteur.",
+    "actions": {
+      "print": "Imprimer ou enregistrer en PDF",
+      "back": "Retour",
+      "preview": "Aperçu du rapport",
+      "open": "Rapport à envoyer"
+    },
+    "gone": {
+      "title": "Ce lien n'est plus valable",
+      "body": "Le rapport a expiré ou son émetteur l'a retiré. Demandez-lui un nouveau lien."
+    }
   }
 }

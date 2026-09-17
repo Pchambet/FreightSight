@@ -1869,5 +1869,59 @@
       "noDrift": "Nothing has moved since.",
       "see": "See the close"
     }
+  },
+  "sheet": {
+    "title": "Landed cost",
+    "container": "Container",
+    "order": "Order",
+    "shipment": "Shipment {reference}",
+    "computedOn": "Computed on {date}",
+    "validUntil": "Link valid until {date}",
+    "sample": "Sample data: this report comes from a demonstration company, its figures are those of a fictional importer.",
+    "landed": "Landed cost",
+    "fob": "Purchase price (FOB)",
+    "fees": "Landing charges",
+    "coef": "Landed cost ratio",
+    "ofFob": "of FOB",
+    "breakdown": "From purchase price to landed cost",
+    "perSku": "Unit cost per SKU",
+    "costs": "Costs included",
+    "noCosts": "No cost has been recorded yet: the landed cost equals the purchase price.",
+    "estimate": "estimate",
+    "fx": "rate {rate} of {date}",
+    "th": {
+      "order": "Order",
+      "sku": "SKU",
+      "quantity": "Qty",
+      "unitFob": "Unit purchase",
+      "unitLanded": "Unit landed",
+      "lineLanded": "Line landed",
+      "coef": "Ratio",
+      "cost": "Cost",
+      "source": "Vendor · invoice",
+      "method": "Allocation",
+      "amount": "Amount",
+      "amountBase": "In {currency}"
+    },
+    "caveats": "Good to know",
+    "caveat": {
+      "estimated": "{amount} of this landed cost still rest on estimates, pending the invoice: the figure will be trued up on receipt.",
+      "allInvoiced": "Every cost included comes from an invoice: no estimate.",
+      "unallocated": "{amount} of charges could not be allocated (a missing value on a line) and are not in the unit costs above.",
+      "vat": "Import VAT ({amount}) is recoverable: it is tracked for cash and excluded from the landed cost.",
+      "vatNone": "Import VAT, recoverable, is excluded from the landed cost.",
+      "fx": "Foreign-currency amounts are converted at the European Central Bank rate of the invoice date."
+    },
+    "footer": "Document drawn up from the issuer's orders and charge invoices.",
+    "actions": {
+      "print": "Print or save as PDF",
+      "back": "Back",
+      "preview": "Report preview",
+      "open": "Report to send"
+    },
+    "gone": {
+      "title": "This link is no longer valid",
+      "body": "The report has expired or its issuer withdrew it. Ask them for a new link."
+    }
   }
 }
