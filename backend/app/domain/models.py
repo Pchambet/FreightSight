@@ -957,6 +957,56 @@ class Product(Timestamped, OrgScoped, Base):
     sale_currency: Mapped[str | None] = mapped_column(CHAR(3))
 
 
+class PeriodClose(OrgScoped, Base):
+    """A month, closed: the landed cost of the containers that arrived in it, as it stood that day.
+
+    This is the figure that went into the accounts, and it never changes again. What happens to
+    those containers afterwards — the forwarder's invoice six weeks late — still happens in the live
+    numbers; the difference between the two is reported as such, to be booked in the open month.
+    """
+
+    __tablename__ = "period_closes"
+    __table_args__ = (UniqueConstraint("org_id", "period", name="uq_period_closes_org_period"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    period: Mapped[str] = mapped_column(CHAR(7), nullable=False)  # YYYY-MM
+    closed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+    closed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    base_currency: Mapped[str] = mapped_column(CHAR(3), nullable=False)
+    containers: Mapped[int] = mapped_column(Integer, nullable=False)
+    fob: Mapped[Decimal] = mapped_column(Numeric(16, 2), nullable=False)
+    landed: Mapped[Decimal] = mapped_column(Numeric(16, 2), nullable=False)
+    by_cost_type: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
+
+    lines: Mapped[list[PeriodCloseLine]] = relationship(
+        back_populates="close", cascade="all, delete-orphan", order_by="PeriodCloseLine.container_number"
+    )
+
+
+class PeriodCloseLine(OrgScoped, Base):
+    """One order line in one container, as frozen. It names what it froze (container number, order
+    number, SKU) as well as pointing at it: a container archived next year is still in the close."""
+
+    __tablename__ = "period_close_lines"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    close_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("period_closes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    container_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    container_number: Mapped[str] = mapped_column(String, nullable=False)
+    load_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    po_number: Mapped[str] = mapped_column(String, nullable=False)
+    sku: Mapped[str | None] = mapped_column(String)
+    description: Mapped[str | None] = mapped_column(String)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+    fob: Mapped[Decimal] = mapped_column(Numeric(16, 2), nullable=False)
+    landed: Mapped[Decimal] = mapped_column(Numeric(16, 2), nullable=False)
+    by_cost_type: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
+
+    close: Mapped[PeriodClose] = relationship(back_populates="lines")
+
+
 class SampleObject(OrgScoped, Base):
     """One row per object the demo dataset created, so that it can be taken away again.
 

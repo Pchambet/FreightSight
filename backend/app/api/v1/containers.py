@@ -25,6 +25,7 @@ from app.domain.models import (
     PurchaseOrderLine,
     Shipment,
 )
+from app.domain.periods import service as periods
 from app.domain.tracking.state import derive_dnd
 
 router = APIRouter(prefix="/containers", tags=["containers"])
@@ -94,10 +95,12 @@ def list_containers(
             for cont in containers:
                 if cont.shipment_id == cst.shipment_id:
                     cost_types.setdefault(cont.id, set()).add(cst.cost_type.value)
+    frozen_in = periods.frozen_periods(t.db, t.org_id)
     out = []
     for c in containers:
         fob = sum((ld.fob for ld in comp.loads if ld.container_id == c.id), Decimal(0))
         s = schemas.ContainerSummary.model_validate(c)
+        s.closed_period = frozen_in.get(c.id)
         s.shipment_reference = c.shipment.reference if c.shipment else None
         s.po_numbers = sorted({ld.po_line.purchase_order.po_number for ld in c.loads})
         s.load_count = len(c.loads)
@@ -124,9 +127,18 @@ def create_container(payload: schemas.ContainerCreate, t: TenantDep, _: WriterDe
     return c
 
 
-@router.get("/{container_id}", response_model=schemas.ContainerResponse)
-def get_container(container_id: UUID, t: TenantDep) -> Container:
-    return _get(t, container_id)
+@router.get("/{container_id}", response_model=schemas.ContainerDetail)
+def get_container(container_id: UUID, t: TenantDep) -> schemas.ContainerDetail:
+    detail = schemas.ContainerDetail.model_validate(_get(t, container_id))
+    # What the accounts hold of this container, if a month was closed with it in.
+    frozen = periods.frozen_container(t.db, t.org, container_id, lambda: compute(t.db, t.org))
+    if frozen is not None:
+        detail.closed_period, detail.frozen_landed, detail.drift = (
+            frozen.period,
+            frozen.frozen_landed,
+            frozen.drift,
+        )
+    return detail
 
 
 @router.patch("/{container_id}", response_model=schemas.ContainerResponse)

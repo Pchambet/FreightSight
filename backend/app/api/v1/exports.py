@@ -19,10 +19,11 @@ from decimal import Decimal
 from typing import Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import selectinload
 
+from app.core.errors import NotFound
 from app.core.tenancy import TenantDep
 from app.domain.costing import report as rpt
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
@@ -33,10 +34,12 @@ from app.domain.models import (
     ContainerLoad,
     Cost,
     CostScope,
+    PeriodClose,
     PurchaseOrder,
     PurchaseOrderLine,
     Shipment,
 )
+from app.domain.periods import service as periods
 from app.domain.reporting.service import arrival_date
 
 router = APIRouter(prefix="/exports", tags=["exports"])
@@ -450,3 +453,72 @@ def containers_csv(
             ]
 
     return csv_response(rows(), header, locale, "containers.csv")
+
+
+PeriodParam = Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$", description="YYYY-MM")
+
+
+@router.get("/period-close.csv")
+def period_close_csv(t: TenantDep, period: str = PeriodParam, locale: Locale = "fr") -> StreamingResponse:
+    """The stock valuation a closed month froze: one row per article, with the quantity, the purchase
+    price, the landed cost and the unit cost as they went into the accounts. 404 for an open month —
+    the point of this file is that it never changes."""
+    closed = t.db.scalar(
+        t.q(PeriodClose).where(PeriodClose.period == period).options(selectinload(PeriodClose.lines))
+    )
+    if closed is None:
+        raise NotFound("Closed period", code="PERIOD_NOT_CLOSED")
+    _, mark = dialect(locale)
+    header = ["period", "closed_at", "sku", "description", "quantity", "fob", "allocated", "landed",
+              "unit_landed_cost", "containers"]  # fmt: skip
+
+    def rows() -> Iterator[list[Any]]:
+        articles: dict[str, list[Any]] = {}
+        for line in closed.lines:
+            key = line.sku or line.description or ""
+            nothing = Decimal(0)
+            entry = articles.setdefault(key, [line.sku, line.description, nothing, nothing, nothing, set()])
+            entry[2] += line.quantity
+            entry[3] += line.fob
+            entry[4] += line.landed
+            entry[5].add(line.container_number)
+        for _, (sku, description, quantity, fob, landed, boxes) in sorted(articles.items()):
+            unit = landed / quantity if quantity else Decimal(0)
+            yield [
+                period,
+                closed.closed_at.date(),
+                sku,
+                description,
+                number(quantity, mark, 4),
+                number(fob, mark),
+                number(landed - fob, mark),
+                number(landed, mark),
+                number(unit, mark, 4),
+                " ".join(sorted(boxes)),
+            ]
+
+    return csv_response(rows(), header, locale, f"freightsight-cloture-{period}.csv")
+
+
+@router.get("/period-drift.csv")
+def period_drift_csv(t: TenantDep, period: str = PeriodParam, locale: Locale = "fr") -> StreamingResponse:
+    """What has moved since a month was closed, container by container: the adjustment to book in the
+    open month, with the costs behind it."""
+    found = periods.detail(t.db, compute(t.db, t.org), t.org, period)
+    if found.summary.status != "closed":
+        raise NotFound("Closed period", code="PERIOD_NOT_CLOSED")
+    _, mark = dialect(locale)
+    header = ["period", "container_number", "drift_reason", "frozen_landed", "live_landed", "difference",
+              "cost_type", "vendor", "invoice_number", "amount_base", "changed_at"]  # fmt: skip
+
+    def rows() -> Iterator[list[Any]]:
+        for line in found.drift_lines:
+            head = [period, line.container_number, line.reason, number(line.frozen_landed, mark),
+                    number(line.live_landed, mark), number(line.difference, mark)]  # fmt: skip
+            if not line.costs_changed:
+                yield [*head, None, None, None, None, None]
+            for cost in line.costs_changed:
+                yield [*head, cost.cost_type, cost.vendor, cost.invoice_number,
+                       number(cost.amount_base, mark), cost.changed_at.date()]  # fmt: skip
+
+    return csv_response(rows(), header, locale, f"freightsight-ecarts-{period}.csv")

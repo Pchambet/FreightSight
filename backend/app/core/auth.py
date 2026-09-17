@@ -137,7 +137,7 @@ PrincipalDep = Annotated[Principal, Depends(get_principal)]
 def require_role(*roles: MemberRole):  # type: ignore[no-untyped-def]
     def dep(p: PrincipalDep) -> Principal:
         if p.role not in roles:
-            raise Forbidden(f"Requires one of: {', '.join(r.value for r in roles)}")
+            raise Forbidden(f"Requires one of: {', '.join(r.value for r in roles)}", code="FORBIDDEN_ROLE")
         return p
 
     return dep

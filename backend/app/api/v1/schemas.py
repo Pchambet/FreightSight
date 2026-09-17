@@ -334,7 +334,18 @@ class ContainerResponse(BaseModel):
     dnd_risk: DndRisk
 
 
+class ContainerDetail(ContainerResponse):
+    """GET /containers/{id}: the container, and what the accounts hold of it."""
+
+    #: The month it was frozen in, at how much, and what has moved since. Null while no close holds it.
+    closed_period: str | None = None
+    frozen_landed: Money | None = None
+    drift: Money | None = None
+
+
 class ContainerSummary(ContainerResponse):
+    #: The month this container was frozen in, if any: a padlock in a list.
+    closed_period: str | None = None
     shipment_reference: str | None = None
     po_numbers: list[str] = Field(default_factory=list)
     load_count: int = 0
@@ -819,6 +830,84 @@ class InvoiceConfirmResponse(BaseModel):
     superseded_estimate_ids: list[UUID] = Field(default_factory=list)
     #: What the confirmation deliberately did not decide, in plain words.
     notes: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------- period close
+
+
+class PeriodSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    period: str  # YYYY-MM: the month the containers arrived in
+    status: Literal["open", "closed"]
+    #: Closed: the frozen figures, which never move again. Open: today's.
+    containers: int
+    fob: Money
+    landed: Money
+    coefficient: Qty | None
+    by_cost_type: dict[str, Money]
+    closed_at: datetime | None = None
+    closed_by_name: str | None = None
+    #: Closed months only: today's landed cost minus the frozen one ("0.00" when nothing moved), and
+    #: how many containers it comes from. It is the sum of `drift_lines` of the detail.
+    drift: Money | None = None
+    drift_containers: int | None = None
+
+
+class PeriodEstimatedBox(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    container_id: UUID
+    container_number: str
+    estimated: Money
+
+
+class PeriodReadiness(BaseModel):
+    """What is better settled before closing. Never a refusal."""
+
+    model_config = ConfigDict(from_attributes=True)
+    containers_with_estimates: list[PeriodEstimatedBox]
+    estimated_total: Money
+    invoices_to_review: int
+    unallocated_costs: int
+    containers_without_cost: int
+
+
+class PeriodChangedCost(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    cost_id: UUID
+    cost_type: CostType
+    vendor: str | None
+    invoice_number: str | None
+    amount_base: Money
+    changed_at: datetime
+
+
+class PeriodDrift(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    container_id: UUID
+    container_number: str
+    frozen_landed: Money
+    live_landed: Money
+    difference: Money
+    #: costs: its costs or loads changed since the close. left_period: its arrival date changed and it
+    #: lands in another month now (live is 0). joined_period: the reverse (frozen is 0).
+    reason: Literal["costs", "left_period", "joined_period"]
+    #: Costs created or changed since the close whose allocation lands on this container.
+    costs_changed: list[PeriodChangedCost]
+    costs_deleted: int
+
+
+class PeriodDetail(BaseModel):
+    base_currency: str
+    summary: PeriodSummary
+    #: Open months only.
+    readiness: PeriodReadiness | None
+    #: Closed months only: one entry per container whose landed cost is no longer the frozen one.
+    drift_lines: list[PeriodDrift]
+
+
+class PeriodList(BaseModel):
+    base_currency: str
+    periods: list[PeriodSummary]
 
 
 # ---------------------------------------------------------------------------- service status

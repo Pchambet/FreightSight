@@ -2191,6 +2191,236 @@
         }
       }
     },
+    "/api/v1/periods": {
+      "get": {
+        "tags": [
+          "periods"
+        ],
+        "summary": "List Periods",
+        "description": "Every month a container arrived in, newest first: open months with today's figures, closed\nmonths with the frozen ones and how far today's have moved from them.",
+        "operationId": "list_periods_api_v1_periods_get",
+        "parameters": [
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/periods/{period}": {
+      "get": {
+        "tags": [
+          "periods"
+        ],
+        "summary": "Get Period",
+        "operationId": "get_period_api_v1_periods__period__get",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "description": "YYYY-MM",
+              "title": "Period"
+            },
+            "description": "YYYY-MM"
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/periods/{period}/close": {
+      "post": {
+        "tags": [
+          "periods"
+        ],
+        "summary": "Close",
+        "description": "Freeze the landed cost of the containers that arrived this month, line by line. Nothing is\nlocked afterwards; the figure frozen here simply never moves again.",
+        "operationId": "close_api_v1_periods__period__close_post",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "description": "YYYY-MM",
+              "title": "Period"
+            },
+            "description": "YYYY-MM"
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "periods"
+        ],
+        "summary": "Reopen",
+        "description": "Undo a close. The frozen figures are deleted; the audit log keeps what they were.",
+        "operationId": "reopen_api_v1_periods__period__close_delete",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "description": "YYYY-MM",
+              "title": "Period"
+            },
+            "description": "YYYY-MM"
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/shipments": {
       "get": {
         "tags": [
@@ -2685,7 +2915,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContainerResponse"
+                  "$ref": "#/components/schemas/ContainerDetail"
                 }
               }
             }
@@ -3859,6 +4089,156 @@
                 }
               ],
               "title": "Period To"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/period-close.csv": {
+      "get": {
+        "tags": [
+          "exports"
+        ],
+        "summary": "Period Close Csv",
+        "description": "The stock valuation a closed month froze: one row per article, with the quantity, the purchase\nprice, the landed cost and the unit cost as they went into the accounts. 404 for an open month \u2014\nthe point of this file is that it never changes.",
+        "operationId": "period_close_csv_api_v1_exports_period_close_csv_get",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "description": "YYYY-MM",
+              "title": "Period"
+            },
+            "description": "YYYY-MM"
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "fr",
+                "en"
+              ],
+              "type": "string",
+              "default": "fr",
+              "title": "Locale"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/period-drift.csv": {
+      "get": {
+        "tags": [
+          "exports"
+        ],
+        "summary": "Period Drift Csv",
+        "description": "What has moved since a month was closed, container by container: the adjustment to book in the\nopen month, with the costs behind it.",
+        "operationId": "period_drift_csv_api_v1_exports_period_drift_csv_get",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "description": "YYYY-MM",
+              "title": "Period"
+            },
+            "description": "YYYY-MM"
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "fr",
+                "en"
+              ],
+              "type": "string",
+              "default": "fr",
+              "title": "Locale"
             }
           },
           {
@@ -6917,6 +7297,223 @@
         ],
         "title": "ContainerCreate"
       },
+      "ContainerDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "container_number": {
+            "type": "string",
+            "title": "Container Number"
+          },
+          "shipment_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shipment Id"
+          },
+          "carrier_scac": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carrier Scac"
+          },
+          "iso_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iso Type"
+          },
+          "milestone": {
+            "$ref": "#/components/schemas/ContainerMilestone"
+          },
+          "tracking_state": {
+            "$ref": "#/components/schemas/TrackingState"
+          },
+          "eta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta"
+          },
+          "ata": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ata"
+          },
+          "discharged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discharged At"
+          },
+          "gate_out_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate Out At"
+          },
+          "empty_returned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Empty Returned At"
+          },
+          "free_days_demurrage": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Free Days Demurrage"
+          },
+          "free_days_detention": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Free Days Detention"
+          },
+          "last_free_day": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Free Day"
+          },
+          "detention_deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detention Deadline"
+          },
+          "dnd_risk": {
+            "$ref": "#/components/schemas/DndRisk"
+          },
+          "closed_period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed Period"
+          },
+          "frozen_landed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frozen Landed"
+          },
+          "drift": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drift"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "container_number",
+          "shipment_id",
+          "carrier_scac",
+          "iso_type",
+          "milestone",
+          "tracking_state",
+          "eta",
+          "ata",
+          "discharged_at",
+          "gate_out_at",
+          "empty_returned_at",
+          "free_days_demurrage",
+          "free_days_detention",
+          "last_free_day",
+          "detention_deadline",
+          "dnd_risk"
+        ],
+        "title": "ContainerDetail",
+        "description": "GET /containers/{id}: the container, and what the accounts hold of it."
+      },
       "ContainerMilestone": {
         "type": "string",
         "enum": [
@@ -7275,6 +7872,17 @@
           },
           "dnd_risk": {
             "$ref": "#/components/schemas/DndRisk"
+          },
+          "closed_period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed Period"
           },
           "shipment_reference": {
             "anyOf": [
@@ -10589,6 +11197,336 @@
           "amount_at_risk"
         ],
         "title": "OverviewTodo"
+      },
+      "PeriodChangedCost": {
+        "properties": {
+          "cost_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Cost Id"
+          },
+          "cost_type": {
+            "$ref": "#/components/schemas/CostType"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor"
+          },
+          "invoice_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Number"
+          },
+          "amount_base": {
+            "type": "string",
+            "title": "Amount Base"
+          },
+          "changed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Changed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cost_id",
+          "cost_type",
+          "vendor",
+          "invoice_number",
+          "amount_base",
+          "changed_at"
+        ],
+        "title": "PeriodChangedCost"
+      },
+      "PeriodDetail": {
+        "properties": {
+          "base_currency": {
+            "type": "string",
+            "title": "Base Currency"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/PeriodSummary"
+          },
+          "readiness": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PeriodReadiness"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "drift_lines": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodDrift"
+            },
+            "type": "array",
+            "title": "Drift Lines"
+          }
+        },
+        "type": "object",
+        "required": [
+          "base_currency",
+          "summary",
+          "readiness",
+          "drift_lines"
+        ],
+        "title": "PeriodDetail"
+      },
+      "PeriodDrift": {
+        "properties": {
+          "container_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Container Id"
+          },
+          "container_number": {
+            "type": "string",
+            "title": "Container Number"
+          },
+          "frozen_landed": {
+            "type": "string",
+            "title": "Frozen Landed"
+          },
+          "live_landed": {
+            "type": "string",
+            "title": "Live Landed"
+          },
+          "difference": {
+            "type": "string",
+            "title": "Difference"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "costs",
+              "left_period",
+              "joined_period"
+            ],
+            "title": "Reason"
+          },
+          "costs_changed": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodChangedCost"
+            },
+            "type": "array",
+            "title": "Costs Changed"
+          },
+          "costs_deleted": {
+            "type": "integer",
+            "title": "Costs Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "container_id",
+          "container_number",
+          "frozen_landed",
+          "live_landed",
+          "difference",
+          "reason",
+          "costs_changed",
+          "costs_deleted"
+        ],
+        "title": "PeriodDrift"
+      },
+      "PeriodEstimatedBox": {
+        "properties": {
+          "container_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Container Id"
+          },
+          "container_number": {
+            "type": "string",
+            "title": "Container Number"
+          },
+          "estimated": {
+            "type": "string",
+            "title": "Estimated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "container_id",
+          "container_number",
+          "estimated"
+        ],
+        "title": "PeriodEstimatedBox"
+      },
+      "PeriodList": {
+        "properties": {
+          "base_currency": {
+            "type": "string",
+            "title": "Base Currency"
+          },
+          "periods": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodSummary"
+            },
+            "type": "array",
+            "title": "Periods"
+          }
+        },
+        "type": "object",
+        "required": [
+          "base_currency",
+          "periods"
+        ],
+        "title": "PeriodList"
+      },
+      "PeriodReadiness": {
+        "properties": {
+          "containers_with_estimates": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodEstimatedBox"
+            },
+            "type": "array",
+            "title": "Containers With Estimates"
+          },
+          "estimated_total": {
+            "type": "string",
+            "title": "Estimated Total"
+          },
+          "invoices_to_review": {
+            "type": "integer",
+            "title": "Invoices To Review"
+          },
+          "unallocated_costs": {
+            "type": "integer",
+            "title": "Unallocated Costs"
+          },
+          "containers_without_cost": {
+            "type": "integer",
+            "title": "Containers Without Cost"
+          }
+        },
+        "type": "object",
+        "required": [
+          "containers_with_estimates",
+          "estimated_total",
+          "invoices_to_review",
+          "unallocated_costs",
+          "containers_without_cost"
+        ],
+        "title": "PeriodReadiness",
+        "description": "What is better settled before closing. Never a refusal."
+      },
+      "PeriodSummary": {
+        "properties": {
+          "period": {
+            "type": "string",
+            "title": "Period"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "title": "Status"
+          },
+          "containers": {
+            "type": "integer",
+            "title": "Containers"
+          },
+          "fob": {
+            "type": "string",
+            "title": "Fob"
+          },
+          "landed": {
+            "type": "string",
+            "title": "Landed"
+          },
+          "coefficient": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coefficient"
+          },
+          "by_cost_type": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "By Cost Type"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "closed_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed By Name"
+          },
+          "drift": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drift"
+          },
+          "drift_containers": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drift Containers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "period",
+          "status",
+          "containers",
+          "fob",
+          "landed",
+          "coefficient",
+          "by_cost_type"
+        ],
+        "title": "PeriodSummary"
       },
       "PoLineIn": {
         "properties": {

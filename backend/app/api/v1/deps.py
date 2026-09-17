@@ -10,10 +10,14 @@ from app.adapters.fx_ecb import make_fetcher, make_range_fetcher
 from app.core.auth import WRITE_ROLES, Principal, require_role
 from app.core.settings import get_settings
 from app.domain.fx.service import FxService
+from app.domain.models import MemberRole
 from app.domain.tracking.ports import TrackingProvider
 from app.domain.tracking.registry import get_provider
 
 WriterDep = Annotated[Principal, Depends(require_role(*WRITE_ROLES))]
+#: Closing a month is an accounting act: the people who answer for the accounts.
+AdminDep = Annotated[Principal, Depends(require_role(MemberRole.OWNER, MemberRole.ADMIN))]
+OwnerDep = Annotated[Principal, Depends(require_role(MemberRole.OWNER))]
 
 
 @lru_cache(maxsize=1)

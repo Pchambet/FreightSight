@@ -14,6 +14,14 @@ cannot quietly diverge on the other.
 from __future__ import annotations
 
 HEADERS_FR: dict[str, str] = {
+    "period": "Période",
+    "closed_at": "Clôturé le",
+    "containers": "Conteneurs",
+    "drift_reason": "Origine de l'écart",
+    "frozen_landed": "Coût de revient clôturé",
+    "live_landed": "Coût de revient à ce jour",
+    "difference": "Écart depuis la clôture",
+    "changed_at": "Modifié le",
     "row_type": "Type de ligne",
     "container_number": "N° conteneur",
     "arrival_date": "Date d'arrivée",
@@ -147,7 +155,15 @@ PERIOD_BASIS_FR: dict[str, str] = {"arrival_date": "date d'arrivée", "cost_date
 
 #: Which column holds which vocabulary. Translating by column, never by value: a supplier called
 #: "MANUAL" or a part number "OTHER" is somebody's data and stays as typed.
+#: Why a container's landed cost is no longer the one its month was closed at.
+DRIFT_REASON_FR = {
+    "costs": "Coûts ou chargements modifiés",
+    "left_period": "Date d'arrivée modifiée : sorti du mois",
+    "joined_period": "Date d'arrivée modifiée : entré dans le mois",
+}
+
 VALUES_FR: dict[str, dict[str, str]] = {
+    "drift_reason": DRIFT_REASON_FR,
     "cost_type": COST_TYPE_FR,
     "scope": SCOPE_FR,
     "allocation_method": METHOD_FR,
