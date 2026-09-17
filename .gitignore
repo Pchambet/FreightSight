@@ -38,3 +38,6 @@ coverage.xml
 Thumbs.db
 .vercel
 .env*
+
+# Real invoices a customer shared for the reading bench: scored locally, never committed.
+backend/tests/fixtures/invoices_real/
