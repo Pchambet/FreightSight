@@ -205,6 +205,25 @@ export async function updateInvoiceLine(
   return { ok: true, data: null };
 }
 
+/**
+ * One forwarder invoice is nearly always about one container or one shipment, and most of its lines
+ * are read right: attaching and accepting them one by one is the slowest part of a review. The patches run side by side on the server and the
+ * page is revalidated once; a line that fails does not undo the others, the count says how many held.
+ */
+export async function patchInvoiceLines(invoiceId: string, lineIds: string[], patch: { scope: CostScope; target_id: string } | { accepted: boolean }): Promise<ActionResult<{ updated: number }>> {
+  await protectAction();
+  const results = await Promise.all(
+    lineIds.slice(0, 200).map((lineId) =>
+      api.PATCH("/api/v1/invoices/{invoice_id}/lines/{line_id}", { params: { path: { invoice_id: invoiceId, line_id: lineId } }, body: patch }),
+    ),
+  );
+  revalidatePath(`/invoices/${invoiceId}`);
+  const failed = results.find((r) => r.error);
+  const updated = results.filter((r) => !r.error).length;
+  if (failed && updated === 0) return await fail(failed.error, "invoices.line.failed");
+  return { ok: true, data: { updated } };
+}
+
 export type ConfirmInvoiceResult =
   | { ok: true; data: { costsCreated: number; containers: { id: string; container_number: string }[]; notes: string[] } }
   | { ok: false; error: string; code?: string };

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { btnPrimary, btnSecondary, input } from "@/components/layout/AppShell";
 import ConfidenceBadge from "@/components/shared/ConfidenceBadge";
-import { addInvoiceLine, confirmInvoice, rejectInvoice, reopenInvoice, retryInvoice, updateInvoiceLine } from "@/features/actions";
+import { addInvoiceLine, patchInvoiceLines, confirmInvoice, rejectInvoice, reopenInvoice, retryInvoice, updateInvoiceLine } from "@/features/actions";
 import InvoiceContinueLinks, { type ContainerLink } from "@/features/invoices/InvoiceContinueLinks";
 import { formatInvoiceNote, isDuplicateCostNote, splitInvoiceNotes } from "@/features/invoices/lineNotes";
 import type { InvoiceLineResponse, InvoiceResponse } from "@/lib/api/client";
@@ -48,37 +48,47 @@ function LineRow({ invoiceId, line, targets, editable, confirmed }: { invoiceId:
         ...patch,
       });
       if (!r.ok) return void toast.error(r.error);
-      toast.success(t("saved"));
+      // No toast for a saved choice: the amber marker going away is the confirmation, and ten
+      // toasts for ten lines is noise.
+      if (!patch) toast.success(t("saved"));
       router.refresh();
     });
 
   const options = scope ? targets[scope] : [];
+  // What still stands between this line and a cost. Read from the saved line, not from the fields
+  // being edited: the marker moves when the save has held, not while a list is open.
+  const missing = editable && line.accepted ? [!line.cost_type ? t("missingType") : null, !line.scope || !line.target_id ? t("missingTarget") : null].filter(Boolean) : [];
+  const amountDirty = amount !== decimalDisplay(line.amount, locale) || currency !== line.currency;
   return (
-    <li className={`px-5 py-4 ${hasDuplicate ? "bg-red-50/80 ring-1 ring-inset ring-red-200" : accepted ? "" : "bg-slate-50/60"}`}>
+    <li data-incomplete={missing.length > 0 ? "true" : undefined} className={`px-5 py-4 border-l-2 ${missing.length > 0 ? "border-l-amber-400" : "border-l-transparent"} ${hasDuplicate ? "bg-red-50/80 ring-1 ring-inset ring-red-200" : accepted ? "" : "bg-slate-50/60"}`}>
       <div className="flex items-start gap-3">
         <input type="checkbox" className="mt-1" checked={accepted} disabled={!editable || pending} aria-label={t("accepted")} onChange={(e) => { setAccepted(e.target.checked); start(async () => { const r = await updateInvoiceLine(invoiceId, line.id, { accepted: e.target.checked }); if (!r.ok) toast.error(r.error); router.refresh(); }); }} />
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline justify-between gap-3">
             <div className="text-sm font-medium text-slate-900 truncate">{line.line_no}. {line.description}</div>
-            <ConfidenceBadge value={line.confidence} band={(line as { confidence_band?: "HIGH" | "MEDIUM" | "LOW" }).confidence_band} confirmed={confirmed} className="shrink-0" />
+            <span className="flex items-center gap-2 shrink-0">
+              {missing.length > 0 ? <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-inset ring-amber-600/20">{t("toComplete", { what: missing.join(", ") })}</span> : null}
+              <ConfidenceBadge value={line.confidence} band={(line as { confidence_band?: "HIGH" | "MEDIUM" | "LOW" }).confidence_band} confirmed={confirmed} />
+            </span>
           </div>
           {editable ? (
-            <div className="mt-2 grid grid-cols-2 md:grid-cols-6 gap-2">
+            <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-[6.5rem_4.5rem_minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.3fr)]">
               <input aria-label={t("amount")} value={amount} onChange={(e) => setAmount(e.target.value)} className={`${input} text-right tabular-nums`} />
               <input aria-label={t("currency")} value={currency} maxLength={3} onChange={(e) => setCurrency(e.target.value.toUpperCase())} className={`${input} font-mono uppercase`} />
-              <select aria-label={t("costType")} value={costType} onChange={(e) => setCostType(e.target.value as CostType)} className={input}>
-                <option value="">—</option>
+              {/* A choice in a list is a decision: it is saved at once. Only a typed amount waits for the button. */}
+              <select data-field="cost-type" aria-label={t("costType")} value={costType} disabled={pending} onChange={(e) => { const v = e.target.value as CostType | ""; setCostType(v); save({ cost_type: v || null }); }} className={`${input} ${editable && accepted && !costType ? "border-amber-400 bg-amber-50/50" : ""}`}>
+                <option value="">{t("chooseType")}</option>
                 {COST_TYPES.map((c) => <option key={c} value={c}>{typeLabel(c)}</option>)}
               </select>
-              <select aria-label={t("scope")} value={scope} onChange={(e) => { setScope(e.target.value as CostScope); setTarget(""); }} className={input}>
+              <select aria-label={t("scope")} value={scope} disabled={pending} onChange={(e) => { const v = e.target.value as CostScope | ""; setScope(v); setTarget(""); if (!v) save({ scope: null, target_id: null }); }} className={input}>
                 <option value="">—</option>
                 {COST_SCOPES.map((s) => <option key={s} value={s}>{scopeLabel(s)}</option>)}
               </select>
-              <select aria-label={t("target")} value={target} onChange={(e) => setTarget(e.target.value)} className={input} disabled={!scope}>
+              <select aria-label={t("target")} value={target} onChange={(e) => { setTarget(e.target.value); if (e.target.value && scope) save({ scope, target_id: e.target.value }); }} className={input} disabled={!scope || pending}>
                 <option value="">{scope ? t("chooseTarget") : t("noTarget")}</option>
                 {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
-              <button type="button" onClick={() => save()} disabled={!dirty || pending} className={btnSecondary}>{pending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("save")}</button>
+              {amountDirty ? <button type="button" onClick={() => save()} disabled={!dirty || pending} className={btnSecondary}>{pending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("save")}</button> : null}
             </div>
           ) : (
             <div className="mt-1 text-xs text-slate-500">
@@ -92,10 +102,53 @@ function LineRow({ invoiceId, line, targets, editable, confirmed }: { invoiceId:
               ))}
             </div>
           ) : null}
-          {accepted && !target && editable ? <div className="mt-1 text-xs text-red-600">{t("needsTarget")}</div> : null}
+
         </div>
       </div>
     </li>
+  );
+}
+
+/** Attach every line that has no target yet to one container, shipment or order, in one go. */
+function BulkAttach({ invoiceId, lineIds, targets }: { invoiceId: string; lineIds: string[]; targets: Targets }) {
+  const t = useTranslations("invoices.bulk");
+  const tl = useTranslations("invoices.line");
+  const scopeLabel = useTranslations("domain.costScope");
+  const [scope, setScope] = useState<CostScope | "">(targets.CONTAINER.length > 0 ? "CONTAINER" : "");
+  const [target, setTarget] = useState("");
+  const [pending, start] = useTransition();
+  const router = useRouter();
+  if (lineIds.length < 2) return null;
+  const options = scope ? targets[scope] : [];
+  return (
+    <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex flex-wrap items-center gap-2 text-sm">
+      <span className="text-slate-700">{t("label", { count: lineIds.length })}</span>
+      <select aria-label={tl("scope")} value={scope} onChange={(e) => { setScope(e.target.value as CostScope); setTarget(""); }} className={`${input} !w-auto`}>
+        <option value="">—</option>
+        {COST_SCOPES.map((s) => <option key={s} value={s}>{scopeLabel(s)}</option>)}
+      </select>
+      <select aria-label={tl("target")} value={target} onChange={(e) => setTarget(e.target.value)} disabled={!scope} className={`${input} !w-auto max-w-64`}>
+        <option value="">{scope ? tl("chooseTarget") : tl("noTarget")}</option>
+        {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+      </select>
+      <button
+        type="button"
+        disabled={!scope || !target || pending}
+        className={btnSecondary}
+        onClick={() =>
+          start(async () => {
+            if (!scope) return;
+            const r = await patchInvoiceLines(invoiceId, lineIds, { scope, target_id: target });
+            if (!r.ok) return void toast.error(r.error);
+            toast.success(t("done", { count: r.data.updated }));
+            router.refresh();
+          })
+        }
+      >
+        {pending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+        {t("apply")}
+      </button>
+    </div>
   );
 }
 
@@ -180,7 +233,13 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
   const editable = invoice.status === "NEEDS_REVIEW";
   const lines = invoice.lines ?? [];
   const acceptedCount = lines.filter((l) => l.accepted).length;
-  const ready = acceptedCount > 0 && lines.filter((l) => l.accepted).every((l) => l.target_id && l.cost_type && l.scope);
+  const incomplete = lines.filter((l) => l.accepted && !(l.target_id && l.cost_type && l.scope)).length;
+  const ready = acceptedCount > 0 && incomplete === 0;
+  // Lines without a target, accepted or not: a line is attached first and judged after.
+  const unattached = lines.filter((l) => !l.target_id).map((l) => l.id);
+  // A line flagged as a duplicate of an existing cost is never swept up by "accept all".
+  const notAccepted = lines.filter((l) => !l.accepted && !splitInvoiceNotes(l.notes).some(isDuplicateCostNote)).map((l) => l.id);
+  const listRef = useRef<HTMLUListElement>(null);
 
   const run = (fn: () => Promise<{ ok: boolean; error?: string; data?: unknown }>, okMsg: (d: unknown) => string) =>
     start(async () => {
@@ -207,8 +266,46 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
         </div>
       ) : null}
       {lines.length === 0 ? <p className="px-5 py-6 text-sm text-slate-500">{t("noLines")}</p> : null}
-      <ul className="divide-y divide-slate-200">
-        {lines.map((l) => <LineRow key={l.id} invoiceId={invoice.id} line={l} targets={targets} editable={editable} confirmed={invoice.status === "CONFIRMED"} />)}
+      {editable ? <BulkAttach key={unattached.join(",")} invoiceId={invoice.id} lineIds={unattached} targets={targets} /> : null}
+      {editable && lines.length > 0 ? (
+        <div className="px-5 py-2.5 border-b border-slate-200 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" aria-live="polite">
+          <span className={`inline-flex items-center gap-1.5 font-medium ${acceptedCount === 0 ? "text-slate-600" : incomplete === 0 ? "text-emerald-800" : "text-amber-800"}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${acceptedCount === 0 ? "bg-slate-400" : incomplete === 0 ? "bg-emerald-500" : "bg-amber-500"}`} aria-hidden />
+            {acceptedCount === 0 ? t("progressNone", { count: lines.length }) : incomplete === 0 ? t("progressReady", { count: acceptedCount }) : t("progress", { ready: acceptedCount - incomplete, accepted: acceptedCount, incomplete })}
+          </span>
+          {notAccepted.length > 0 ? (
+            <button
+              type="button"
+              disabled={pending}
+              className="text-blue-700 hover:underline disabled:opacity-50"
+              onClick={() =>
+                start(async () => {
+                  const r = await patchInvoiceLines(invoice.id, notAccepted, { accepted: true });
+                  if (!r.ok) return void toast.error(r.error ?? t("failed"));
+                  router.refresh();
+                })
+              }
+            >
+              {t("acceptAll", { count: notAccepted.length })}
+            </button>
+          ) : null}
+          {incomplete > 0 ? (
+            <button
+              type="button"
+              className="text-blue-700 hover:underline"
+              onClick={() => {
+                const row = listRef.current?.querySelector<HTMLElement>('[data-incomplete="true"]');
+                row?.scrollIntoView({ block: "center", behavior: "smooth" });
+                (row?.querySelector<HTMLElement>('select[data-field="cost-type"]') ?? row?.querySelector<HTMLElement>("select"))?.focus({ preventScroll: true });
+              }}
+            >
+              {t("nextIncomplete")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      <ul ref={listRef} className="divide-y divide-slate-200">
+        {lines.map((l) => <LineRow key={`${l.id}:${l.accepted}:${l.cost_type ?? ""}:${l.scope ?? ""}:${l.target_id ?? ""}:${l.amount}:${l.currency}`} invoiceId={invoice.id} line={l} targets={targets} editable={editable} confirmed={invoice.status === "CONFIRMED"} />)}
       </ul>
       {editable ? (
         <>

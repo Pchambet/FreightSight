@@ -876,7 +876,12 @@
       "addLineSubmit": "Add",
       "addLineAdded": "Line added",
       "addLineFailed": "Could not add the line",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "progress": "{ready} of {accepted} kept lines are ready · {incomplete, plural, one {# to complete} other {# to complete}}",
+      "progressReady": "{count, plural, one {The kept line is ready to become a cost} other {The # kept lines are ready to become costs}}",
+      "nextIncomplete": "Go to the next line to complete",
+      "progressNone": "{count, plural, one {# line read, to keep or not} other {# lines read, none kept yet}}",
+      "acceptAll": "{count, plural, one {Keep the line} other {Keep all # lines}}"
     },
     "lineNotes": {
       "singleContainer": "Charged to {container}, the only container named on the invoice.",
@@ -908,7 +913,16 @@
       "saved": "Line updated",
       "failed": "Could not update the line",
       "needsTarget": "An accepted line needs a target",
-      "notes": "Notes"
+      "notes": "Notes",
+      "chooseType": "Choose the type…",
+      "missingType": "type",
+      "missingTarget": "target",
+      "toComplete": "to complete: {what}"
+    },
+    "bulk": {
+      "label": "{count, plural, one {Attach the line without a target to} other {Attach the # lines without a target to}}",
+      "apply": "Apply",
+      "done": "{count, plural, one {# line attached} other {# lines attached}}"
     }
   },
   "audit": {

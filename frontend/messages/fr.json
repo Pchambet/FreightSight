@@ -876,7 +876,12 @@
       "addLineSubmit": "Ajouter",
       "addLineAdded": "Ligne ajoutée",
       "addLineFailed": "Impossible d'ajouter la ligne",
-      "cancel": "Annuler"
+      "cancel": "Annuler",
+      "progress": "{ready} sur {accepted} lignes retenues sont prêtes · {incomplete, plural, one {# à compléter} other {# à compléter}}",
+      "progressReady": "{count, plural, one {La ligne retenue est prête à devenir un coût} other {Les # lignes retenues sont prêtes à devenir des coûts}}",
+      "nextIncomplete": "Aller à la prochaine ligne à compléter",
+      "progressNone": "{count, plural, one {# ligne lue, à retenir ou non} other {# lignes lues, aucune retenue pour l'instant}}",
+      "acceptAll": "{count, plural, one {Retenir la ligne} other {Retenir les # lignes}}"
     },
     "lineNotes": {
       "singleContainer": "Facturé sur {container}, seul conteneur mentionné sur la facture.",
@@ -908,7 +913,16 @@
       "saved": "Ligne mise à jour",
       "failed": "Impossible de mettre à jour la ligne",
       "needsTarget": "Une ligne acceptée doit avoir une cible",
-      "notes": "Notes"
+      "notes": "Notes",
+      "chooseType": "Choisir le type…",
+      "missingType": "type",
+      "missingTarget": "cible",
+      "toComplete": "à compléter : {what}"
+    },
+    "bulk": {
+      "label": "{count, plural, one {Rattacher la ligne sans cible à} other {Rattacher les # lignes sans cible à}}",
+      "apply": "Appliquer",
+      "done": "{count, plural, one {# ligne rattachée} other {# lignes rattachées}}"
     }
   },
   "audit": {
