@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -16,9 +16,12 @@ from app.domain.costing.service import recompute_org
 from app.domain.imports.parsing import (
     CONTAINER_NUMBER_RE,
     REQUIRED,
+    ColumnNumbers,
     ImportError_,
     Table,
     header_signature,
+    infer_comma_conventions,
+    is_ambiguous_unit_column,
     parse_decimal,
     parse_table,
     suggest_mapping,
@@ -35,19 +38,45 @@ from app.domain.models import (
     Supplier,
 )
 
+#: Columns whose commas have to be read as a number, and whose convention is therefore inferred
+#: over the whole file before the first row is parsed.
+NUMERIC_FIELDS = (
+    "quantity",
+    "unit_price",
+    "unit_weight_kg",
+    "unit_volume_cbm",
+    "duty_rate",
+    "line_no",
+    "container_quantity",
+    "total_value",
+    "allocation_percentage",
+)
+#: Fields an export may state once, on the first row of an order, and leave blank underneath.
+FORWARD_FILLED_FIELDS = ("po_number", "supplier_name", "currency")
+
 
 @dataclass
 class RowIssue:
+    """One thing to say about one row. `message` is the English fallback; `code` + `params` are
+    what the front translates — a report that shows "CODE FX_RATE_DEFAULTED" to a CFO says
+    nothing, "taux 1,000000 au 17/09/2026, faute de taux connu" says everything."""
+
     row: int
     field: str
     code: str
     message: str
+    #: Not `field(default_factory=dict)`: the attribute named `field` above hides the dataclasses
+    #: helper in this class body. Every issue states its params, even when they are empty.
+    params: dict[str, Any]
 
 
 @dataclass
 class ImportReport:
     row_count: int = 0
     valid_rows: int = 0
+    header_row: int = 1
+    totals_row_ignored: bool = False
+    forward_filled_rows: int = 0
     errors: list[RowIssue] = field(default_factory=list)
     warnings: list[RowIssue] = field(default_factory=list)
     purchase_orders_created: int = 0
@@ -63,6 +92,9 @@ class ImportReport:
         return {
             "row_count": self.row_count,
             "valid_rows": self.valid_rows,
+            "header_row": self.header_row,
+            "totals_row_ignored": self.totals_row_ignored,
+            "forward_filled_rows": self.forward_filled_rows,
             "errors": [e.__dict__ for e in self.errors],
             "warnings": [w.__dict__ for w in self.warnings],
             "purchase_orders_created": self.purchase_orders_created,
@@ -122,14 +154,20 @@ def run_job(
     """Apply the import inside a SAVEPOINT. Dry run rolls it back; commit keeps it and marks the job DONE."""
     _check_mapping(job.kind, mapping, list(job.columns))
     table = parse_table(bytes(job.content), job.original_filename)
-    report = ImportReport(row_count=len(table.rows))
+    report = ImportReport(
+        row_count=len(table.rows),
+        header_row=table.header_row,
+        totals_row_ignored=table.totals_row_ignored,
+    )
+    conventions = infer_comma_conventions(table, {mapping[f] for f in NUMERIC_FIELDS if mapping.get(f)})
+    _report_file_notes(table, mapping, conventions, report)
 
     nested = t.db.begin_nested()
     try:
         if job.kind is ImportKind.PURCHASE_ORDERS:
-            _apply_purchase_orders(t, table, mapping, report)
+            _apply_purchase_orders(t, table, mapping, report, conventions)
         else:
-            _apply_legacy(t, table, mapping, report)
+            _apply_legacy(t, table, mapping, report, conventions)
         if report.errors and on_error == "abort":
             raise Unprocessable(
                 f"{len(report.errors)} row(s) have errors and on_error=abort", code="IMPORT_ABORTED"
@@ -168,12 +206,74 @@ def _remember_mapping(t: TenantSession, job: ImportJob, mapping: dict[str, str])
         row.mapping = mapping
 
 
+def _report_file_notes(
+    table: Table,
+    mapping: dict[str, str],
+    conventions: dict[str, ColumnNumbers],
+    report: ImportReport,
+) -> None:
+    """What the reader decided about the file itself, before any row: these belong in the preview,
+    because each one is a reading the user may have to contradict."""
+    line = table.header_row
+    if table.header_row > 1:
+        report.warnings.append(
+            RowIssue(
+                line,
+                "",
+                "HEADER_ROW_DETECTED",
+                f"Column names were read from line {table.header_row}; the lines above were skipped",
+                {"line": table.header_row},
+            )
+        )
+    if table.totals_row_ignored:
+        report.warnings.append(
+            RowIssue(line, "", "TOTALS_ROW_IGNORED", "The last row reads as a totals row and was ignored", {})
+        )
+    for target, column in sorted(mapping.items()):
+        convention = conventions.get(column)
+        if target in NUMERIC_FIELDS and convention is not None and convention.ambiguous:
+            read_as = "a decimal separator" if convention.comma == "decimal" else "a thousands separator"
+            report.warnings.append(
+                RowIssue(
+                    line,
+                    target,
+                    "DECIMAL_COMMA_ASSUMED",
+                    f"In column {column!r} every comma could be either; read as {read_as} "
+                    f"(e.g. {convention.example!r})",
+                    {
+                        "column": column,
+                        "example": convention.example or "",
+                        "comma": convention.comma,
+                    },
+                )
+            )
+        if target in ("unit_weight_kg", "unit_volume_cbm") and is_ambiguous_unit_column(column):
+            report.warnings.append(
+                RowIssue(
+                    line,
+                    target,
+                    "UNIT_COLUMN_AMBIGUOUS",
+                    f"Column {column!r} does not say whether it holds one unit or the whole line; "
+                    f"it is read as one unit",
+                    {"column": column},
+                )
+            )
+
+
 # ---------------------------------------------------------------------------- row helpers
 
 
 class _Row:
-    def __init__(self, row_no: int, raw: dict[str, str], mapping: dict[str, str], report: ImportReport):
+    def __init__(
+        self,
+        row_no: int,
+        raw: dict[str, str],
+        mapping: dict[str, str],
+        report: ImportReport,
+        conventions: dict[str, ColumnNumbers] | None = None,
+    ):
         self.row_no, self.raw, self.mapping, self.report = row_no, raw, mapping, report
+        self.conventions = conventions or {}
         self.failed = False
 
     def text(self, field: str) -> str | None:
@@ -195,13 +295,15 @@ class _Row:
             if required:
                 self.error(field, "REQUIRED", f"{field} is empty")
             return None
+        column = self.mapping.get(field) or ""
+        convention = self.conventions.get(column)
         try:
-            v = parse_decimal(raw)
+            v = parse_decimal(raw, comma=convention.comma if convention else "auto")
         except ImportError_ as e:
-            self.error(field, e.code, e.message)
+            self.error(field, e.code, e.message, value=raw)
             return None
         if v is not None and positive and v <= 0:
-            self.error(field, "NOT_POSITIVE", f"{field} must be > 0, got {v}")
+            self.error(field, "NOT_POSITIVE", f"{field} must be > 0, got {v}", value=str(v))
             return None
         return v
 
@@ -216,7 +318,7 @@ class _Row:
                 return datetime.strptime(raw[:10], fmt).date()  # noqa: DTZ007
             except ValueError:
                 continue
-        self.error(field, "NOT_A_DATE", f"{raw!r} is not a date")
+        self.error(field, "NOT_A_DATE", f"{raw!r} is not a date", value=raw)
         return None
 
     def container(self, field: str = "container_number") -> str | None:
@@ -225,16 +327,16 @@ class _Row:
             return None
         v = raw.upper().replace(" ", "")
         if not CONTAINER_NUMBER_RE.match(v):
-            self.error(field, "INVALID_CONTAINER_NUMBER", f"{raw!r} is not an ISO 6346 number")
+            self.error(field, "INVALID_CONTAINER_NUMBER", f"{raw!r} is not an ISO 6346 number", value=raw)
             return None
         return v
 
-    def error(self, field: str, code: str, message: str) -> None:
+    def error(self, field: str, code: str, message: str, **params: Any) -> None:
         self.failed = True
-        self.report.errors.append(RowIssue(self.row_no, field, code, message))
+        self.report.errors.append(RowIssue(self.row_no, field, code, message, params))
 
-    def warn(self, field: str, code: str, message: str) -> None:
-        self.report.warnings.append(RowIssue(self.row_no, field, code, message))
+    def warn(self, field: str, code: str, message: str, **params: Any) -> None:
+        self.report.warnings.append(RowIssue(self.row_no, field, code, message, params))
 
 
 def _get_or_create_supplier(t: TenantSession, name: str | None, report: ImportReport) -> Supplier | None:
@@ -268,10 +370,14 @@ def _upsert_load(
         )
     )
     if Decimal(str(other_qty)) + qty > line.quantity:
+        loaded = Decimal(str(other_qty)) + qty
         r.error(
             "container_quantity",
             "OVER_ALLOCATED",
-            f"{Decimal(str(other_qty)) + qty} loaded exceeds line quantity {line.quantity}",
+            f"{loaded} loaded exceeds line quantity {line.quantity}",
+            loaded=str(loaded),
+            line_quantity=str(line.quantity),
+            container_number=container.container_number,
         )
         return
     load = t.db.scalar(
@@ -289,41 +395,116 @@ def _upsert_load(
 
 
 def _find_line_without_number(
-    t: TenantSession, po: PurchaseOrder | None, sku: str | None, description: str | None
+    t: TenantSession,
+    po: PurchaseOrder | None,
+    sku: str | None,
+    description: str | None,
+    occurrence: int = 0,
 ) -> PurchaseOrderLine | None:
-    """Rows without line_no identify their line by SKU, else description, else the PO's single line."""
+    """Rows without line_no identify their line by SKU, else description, else the PO's single line.
+
+    `occurrence` is how many distinct lines of that SKU the file has already described: the second
+    one matches the second line of the order, so re-importing the same file twice keeps writing the
+    same two lines instead of piling up new ones.
+    """
     if po is None:
         return None
-    if sku:
+    if sku or description:
+        criterion = PurchaseOrderLine.sku == sku if sku else PurchaseOrderLine.description == description
         return t.db.scalar(
-            select(PurchaseOrderLine).where(PurchaseOrderLine.po_id == po.id, PurchaseOrderLine.sku == sku)
+            select(PurchaseOrderLine)
+            .where(PurchaseOrderLine.po_id == po.id, criterion)
+            .order_by(PurchaseOrderLine.line_no)
+            .offset(occurrence)
+            .limit(1)
         )
-    if description:
-        return t.db.scalar(
-            select(PurchaseOrderLine).where(
-                PurchaseOrderLine.po_id == po.id, PurchaseOrderLine.description == description
-            )
-        )
+    if occurrence:
+        return None
     lines = list(t.db.scalars(select(PurchaseOrderLine).where(PurchaseOrderLine.po_id == po.id)))
     return lines[0] if len(lines) == 1 else None
 
 
+def _forward_filled_rows(table: Table, mapping: dict[str, str], report: ImportReport) -> list[dict[str, str]]:
+    """An Odoo-style nested export states the order once and leaves the cell blank underneath.
+
+    Seven lines out of eight of such an order carry a SKU, a quantity and a price but no order
+    number, and were failing on REQUIRED — an import that silently kept one line per order. The
+    number (and the supplier and currency stated with it) is carried down, but only onto a row that
+    does carry a SKU: a genuinely empty row still has nothing to attach to an order.
+    """
+    po_column = mapping.get("po_number")
+    identity_column = mapping.get("sku") or mapping.get("description")
+    if not po_column or not identity_column:
+        return table.rows
+    carried: dict[str, str] = {}
+    rows: list[dict[str, str]] = []
+    for raw in table.rows:
+        row = raw
+        if not raw.get(po_column, "").strip() and raw.get(identity_column, "").strip() and carried:
+            row = {**raw, **{c: v for c, v in carried.items() if not raw.get(c, "").strip()}}
+            report.forward_filled_rows += 1
+        rows.append(row)
+        if row.get(po_column, "").strip():
+            carried = {
+                column: row[column].strip()
+                for column in (mapping.get(f) for f in FORWARD_FILLED_FIELDS)
+                if column and row.get(column, "").strip()
+            }
+    if report.forward_filled_rows:
+        report.warnings.append(
+            RowIssue(
+                table.header_row,
+                "po_number",
+                "PO_NUMBER_FORWARD_FILLED",
+                f"{report.forward_filled_rows} row(s) carry no order number and were attached to the "
+                f"order above them",
+                {"rows": report.forward_filled_rows, "column": po_column},
+            )
+        )
+    return rows
+
+
 def _apply_purchase_orders(
-    t: TenantSession, table: Table, mapping: dict[str, str], report: ImportReport
+    t: TenantSession,
+    table: Table,
+    mapping: dict[str, str],
+    report: ImportReport,
+    conventions: dict[str, ColumnNumbers] | None = None,
 ) -> None:
     seen_lines: set[tuple[str, int]] = set()
-    implicit_lines: dict[tuple[str, str], int] = {}  # (po, sku or row marker) -> line_no
+    # (po, sku or description, nth line with that identity) -> line_no, and what that line said.
+    # The "nth" is what tells a line repeated for a second container (same quantity and price) from
+    # a genuinely second line of the same article, which used to be absorbed into the first one.
+    implicit_lines: dict[tuple[str, str, int], int] = {}
+    line_values: dict[tuple[str, str, int], tuple[Decimal, Decimal]] = {}
+    occurrences: dict[tuple[str, str], int] = {}
     next_line_no: dict[str, int] = {}
-    for idx, raw in enumerate(table.rows, start=2):
-        r = _Row(idx, raw, mapping, report)
+    rows = _forward_filled_rows(table, mapping, report)
+    for idx, raw in enumerate(rows, start=table.header_row + 1):
+        r = _Row(idx, raw, mapping, report, conventions)
         po_number = r.required("po_number")
-        quantity = r.decimal("quantity", required=True, positive=True)
+        quantity = r.decimal("quantity", required=True)
+        if quantity is not None and quantity < 0:
+            # A return is a credit, not an order line: writing it as one would understate the
+            # landed cost of the goods that were actually shipped. Refusing it by name at least
+            # tells the user it is the product that cannot do this yet, not their file.
+            r.error(
+                "quantity",
+                "RETURN_NOT_SUPPORTED",
+                "a negative quantity is a return; returns and credit notes cannot be imported yet",
+                value=str(quantity),
+            )
+        elif quantity is not None and quantity == 0:
+            r.error("quantity", "NOT_POSITIVE", "quantity must be > 0, got 0", value="0")
         unit_price = r.decimal("unit_price", required=True)
         if unit_price is not None and unit_price < 0:
-            r.error("unit_price", "NEGATIVE", "unit_price must be >= 0")
-        currency = (r.text("currency") or t.org.base_currency).upper()
+            r.error("unit_price", "NEGATIVE", "unit_price must be >= 0", value=str(unit_price))
+        declared_currency = r.text("currency")
+        currency = (declared_currency or t.org.base_currency).upper()
         if len(currency) != 3 or not currency.isalpha():
-            r.error("currency", "INVALID_CURRENCY", f"{currency!r} is not a 3-letter ISO code")
+            r.error(
+                "currency", "INVALID_CURRENCY", f"{currency!r} is not a 3-letter ISO code", value=currency
+            )
         line_no_raw = r.decimal("line_no")
         weight = r.decimal("unit_weight_kg")
         volume = r.decimal("unit_volume_cbm")
@@ -337,21 +518,43 @@ def _apply_purchase_orders(
             continue
 
         po = t.db.scalar(t.q(PurchaseOrder).where(PurchaseOrder.po_number == po_number))
+        if po is not None and declared_currency and po.currency != currency:
+            # The price would be stored as it stands and read everywhere else in the currency of
+            # the order — USD read as CNY is a landed cost off by seven. One order, one currency.
+            r.error(
+                "currency",
+                "CURRENCY_MISMATCH",
+                f"{po_number} is in {po.currency}; this row says {currency}",
+                po_number=po_number,
+                po_currency=po.currency,
+                row_currency=currency,
+            )
+            continue
         sku = r.text("sku")
         repeated_line = False
         if line_no_raw is not None:
             line_no = int(line_no_raw)
             if (po_number, line_no) in seen_lines:
-                r.error("line_no", "DUPLICATE_IN_FILE", f"line {line_no} of {po_number} appears twice")
+                r.error(
+                    "line_no",
+                    "DUPLICATE_IN_FILE",
+                    f"line {line_no} of {po_number} appears twice",
+                    po_number=po_number,
+                    line_no=line_no,
+                )
                 continue
             seen_lines.add((po_number, line_no))
         else:
             identity = sku or r.text("description") or ""
             key = (po_number, identity)
-            if key in implicit_lines:
-                line_no, repeated_line = implicit_lines[key], True
+            seen = occurrences.get(key, 0)
+            previous = (po_number, identity, seen - 1)
+            if seen and line_values.get(previous) == (quantity, unit_price):
+                # The same line said twice: the shape of a file that repeats the order line once
+                # per container. Only the container part of the row has anything left to say.
+                line_no, repeated_line = implicit_lines[previous], True
             else:
-                existing_line = _find_line_without_number(t, po, sku, r.text("description"))
+                existing_line = _find_line_without_number(t, po, sku, r.text("description"), seen)
                 if existing_line is not None:
                     line_no = existing_line.line_no
                 else:
@@ -368,7 +571,19 @@ def _apply_purchase_orders(
                         next_line_no[po_number] = int(current_max or 0)
                     next_line_no[po_number] += 1
                     line_no = next_line_no[po_number]
-                implicit_lines[key] = line_no
+                if seen:
+                    r.warn(
+                        "sku",
+                        "DUPLICATE_SKU_NEW_LINE",
+                        f"{identity!r} appears again on {po_number} with another quantity or price; "
+                        f"imported as line {line_no}",
+                        po_number=po_number,
+                        sku=identity,
+                        line_no=line_no,
+                    )
+                implicit_lines[(po_number, identity, seen)] = line_no
+                line_values[(po_number, identity, seen)] = (quantity, unit_price)
+                occurrences[key] = seen + 1
 
         supplier = _get_or_create_supplier(t, r.text("supplier_name"), report)
         if po is None:
@@ -384,10 +599,17 @@ def _apply_purchase_orders(
             t.db.flush()
             report.purchase_orders_created += 1
             if currency != t.org.base_currency:
+                # Which rate, of which day, from where: a CFO reading "default rate applied" with
+                # none of the three has to open the order to find out what was actually used.
                 r.warn(
                     "currency",
                     "FX_RATE_DEFAULTED",
-                    f"PO in {currency}: fx_rate set to 1, adjust it on the PO",
+                    f"PO in {currency}: no rate known, fx_rate set to 1; adjust it on the PO",
+                    currency=currency,
+                    base_currency=t.org.base_currency,
+                    rate="1",
+                    rate_date=(order_date or datetime.now(UTC).date()).isoformat(),
+                    source="DEFAULT",
                 )
         else:
             changed = False
@@ -439,11 +661,17 @@ def _apply_purchase_orders(
         report.valid_rows += 1
 
 
-def _apply_legacy(t: TenantSession, table: Table, mapping: dict[str, str], report: ImportReport) -> None:
+def _apply_legacy(
+    t: TenantSession,
+    table: Table,
+    mapping: dict[str, str],
+    report: ImportReport,
+    conventions: dict[str, ColumnNumbers] | None = None,
+) -> None:
     """Phase 0 format: one row per PO with total_value and an optional container. One line per PO."""
     pct_seen = False
-    for idx, raw in enumerate(table.rows, start=2):
-        r = _Row(idx, raw, mapping, report)
+    for idx, raw in enumerate(table.rows, start=table.header_row + 1):
+        r = _Row(idx, raw, mapping, report, conventions)
         po_number = r.required("po_number")
         total = r.decimal("total_value") or Decimal("0")
         container_number = r.container()
@@ -454,6 +682,7 @@ def _apply_legacy(t: TenantSession, table: Table, mapping: dict[str, str], repor
                 "allocation_percentage",
                 "DEPRECATED_COLUMN",
                 "allocation_percentage is ignored; costs are allocated by the organization's default method",
+                column=mapping.get("allocation_percentage", ""),
             )
         if r.failed or po_number is None:
             continue

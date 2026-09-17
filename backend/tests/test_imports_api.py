@@ -171,3 +171,182 @@ def test_a_comma_after_a_lone_zero_is_a_decimal_point() -> None:
     assert parse_decimal("12 500,50") == Decimal("12500.50")
     assert parse_decimal("12.500,50") == Decimal("12500.50")
     assert parse_decimal("4,5 %") == Decimal("4.5")
+
+
+IMPORTS_FIXTURES = FIXTURES / "imports"
+
+
+def validate(client: TestClient, job: dict[str, Any], **mapping: str) -> dict[str, Any]:
+    payload = {**job["mapping"], **mapping}
+    res = client.post(f"/api/v1/imports/{job['id']}/validate", json={"mapping": payload})
+    assert res.status_code == 200, res.text
+    return dict(res.json()["report"])
+
+
+def codes(issues: list[dict[str, Any]]) -> list[str]:
+    return [i["code"] for i in issues]
+
+
+def test_a_sage_export_is_read_whole_title_block_totals_row_and_french_decimals(
+    client: TestClient,
+) -> None:
+    """The Sage 100 shape of the brief: a title and a date stamp above the header, a totals row
+    below the last line, cp1252, and weights written "7,250". Each of those used to cost either
+    the whole file (no po_number mapped, no header found) or a factor of a thousand on a weight."""
+    job = upload(
+        client, (IMPORTS_FIXTURES / "sage100_commandes.csv").read_bytes(), "PURCHASE_ORDERS", "sage.csv"
+    )
+    assert job["encoding"] == "cp1252" and job["mapping"]["po_number"] == "N° commande"
+
+    report = validate(client, job)
+    assert report["header_row"] == 3 and report["totals_row_ignored"] is True
+    assert report["row_count"] == 3 and report["valid_rows"] == 3 and report["errors"] == []
+    # the totals row is not counted as a line, and its "1 250" is not a quantity
+    assert report["purchase_orders_created"] == 2 and report["lines_created"] == 3
+
+    warnings = {w["code"]: w for w in report["warnings"]}
+    assert warnings["HEADER_ROW_DETECTED"]["params"] == {"line": 3}
+    assert "TOTALS_ROW_IGNORED" in warnings
+    assert warnings["DECIMAL_COMMA_ASSUMED"]["params"] == {
+        "column": "Poids (kg)",
+        "example": "7,250",
+        "comma": "decimal",
+    }
+    assert warnings["UNIT_COLUMN_AMBIGUOUS"]["field"] in ("unit_weight_kg", "unit_volume_cbm")
+
+    res = client.post(f"/api/v1/imports/{job['id']}/commit", json={"on_error": "abort"})
+    assert res.status_code == 200, res.text
+    (po,) = [p for p in client.get("/api/v1/purchase-orders").json() if p["po_number"] == "CF-2026-0147"]
+    lines = {ln["sku"]: ln for ln in client.get(f"/api/v1/purchase-orders/{po['id']}").json()["lines"]}
+    assert lines["PNE-205-55"]["unit_weight_kg"] == "7.2500"  # not 7 250 kg
+    assert lines["PNE-205-55"]["unit_price"] == "42.9000"
+    assert lines["PNE-205-55"]["unit_volume_cbm"] == "0.0420"
+
+
+def test_an_odoo_nested_export_keeps_the_lines_under_each_order(client: TestClient) -> None:
+    """Odoo writes the order number once, on the first line of the order. Seven lines out of eight
+    of a real export carry only a SKU, and every one of them was failing on REQUIRED."""
+    job = upload(
+        client, (IMPORTS_FIXTURES / "odoo_lignes_commande.csv").read_bytes(), "PURCHASE_ORDERS", "odoo.csv"
+    )
+    report = validate(client, job)
+    assert report["valid_rows"] == 5 and report["errors"] == []
+    assert report["forward_filled_rows"] == 3
+    assert report["purchase_orders_created"] == 2 and report["lines_created"] == 5
+    filled = next(w for w in report["warnings"] if w["code"] == "PO_NUMBER_FORWARD_FILLED")
+    assert filled["params"] == {"rows": 3, "column": "Commande"}
+
+    res = client.post(f"/api/v1/imports/{job['id']}/commit", json={"on_error": "abort"})
+    assert res.status_code == 200, res.text
+    pos = {p["po_number"]: p for p in client.get("/api/v1/purchase-orders").json()}
+    assert pos["P00042"]["supplier_name"] == "Shenzhen Feng Trading"
+    assert pos["P00042"]["currency"] == "USD"  # carried down with the order number
+    lines = client.get(f"/api/v1/purchase-orders/{pos['P00042']['id']}").json()["lines"]
+    assert [ln["sku"] for ln in lines] == ["SKU-A", "SKU-B", "SKU-C"]
+
+
+def test_a_row_with_neither_order_number_nor_article_is_still_an_error(client: TestClient) -> None:
+    content = b"po_number;sku;quantity;unit_price\nPO-1;A;10;1,00\n;;5;2,00\n"
+    job = upload(client, content, "PURCHASE_ORDERS")
+    report = validate(client, job)
+    assert report["valid_rows"] == 1 and report["forward_filled_rows"] == 0
+    assert [(e["row"], e["code"]) for e in report["errors"]] == [(3, "REQUIRED")]
+
+
+def test_the_same_sku_twice_on_one_order_keeps_both_quantities(client: TestClient) -> None:
+    """Two receipts of the same article at two prices. The second row used to be absorbed by the
+    first — its quantity and price never written, and the row still counted as valid."""
+    content = b"po_number;sku;quantity;unit_price\nPO-D;A;100;10,00\nPO-D;A;50;12,00\n"
+    job = upload(client, content, "PURCHASE_ORDERS", "twice.csv")
+    report = validate(client, job)
+    assert report["valid_rows"] == 2 and report["lines_created"] == 2
+    warning = next(w for w in report["warnings"] if w["code"] == "DUPLICATE_SKU_NEW_LINE")
+    assert warning["params"] == {"po_number": "PO-D", "sku": "A", "line_no": 2}
+
+    res = client.post(f"/api/v1/imports/{job['id']}/commit", json={"on_error": "abort"})
+    assert res.status_code == 200, res.text
+    (po,) = [p for p in client.get("/api/v1/purchase-orders").json() if p["po_number"] == "PO-D"]
+    lines = client.get(f"/api/v1/purchase-orders/{po['id']}").json()["lines"]
+    assert [(ln["line_no"], ln["quantity"], ln["unit_price"]) for ln in lines] == [
+        (1, "100.0000", "10.0000"),
+        (2, "50.0000", "12.0000"),
+    ]
+
+    # and the same file again writes the same two lines rather than piling up new ones
+    again = upload(client, content, "PURCHASE_ORDERS", "twice.csv")
+    res = client.post(f"/api/v1/imports/{again['id']}/commit", json={"on_error": "abort"})
+    assert res.json()["report"]["lines_created"] == 0
+    assert len(client.get(f"/api/v1/purchase-orders/{po['id']}").json()["lines"]) == 2
+
+
+def test_a_currency_that_changes_inside_one_order_is_refused(client: TestClient) -> None:
+    content = b"po_number;currency;sku;quantity;unit_price\nPO-X;USD;A;10;1,00\nPO-X;CNY;B;20;2,00\n"
+    job = upload(client, content, "PURCHASE_ORDERS")
+    report = validate(client, job)
+    assert report["valid_rows"] == 1
+    (error,) = report["errors"]
+    assert error["code"] == "CURRENCY_MISMATCH" and error["row"] == 3
+    assert error["params"] == {"po_number": "PO-X", "po_currency": "USD", "row_currency": "CNY"}
+
+
+def test_a_negative_quantity_says_returns_are_not_supported(client: TestClient) -> None:
+    content = b"po_number;sku;quantity;unit_price\nPO-R;A;-5;10,00\nPO-R;B;5;10,00\n"
+    job = upload(client, content, "PURCHASE_ORDERS")
+    report = validate(client, job)
+    assert report["valid_rows"] == 1
+    (error,) = report["errors"]
+    assert error["code"] == "RETURN_NOT_SUPPORTED" and error["field"] == "quantity"
+    assert error["params"] == {"value": "-5"}
+
+
+def test_a_defaulted_exchange_rate_says_which_rate_of_which_date_and_from_where(
+    client: TestClient,
+) -> None:
+    """ "Default rate applied" with neither the rate nor the date is the most worrying line of the
+    report for a CFO, and the one they cannot check."""
+    job = upload(client, (IMPORTS_FIXTURES / "ebp_commandes.csv").read_bytes(), "PURCHASE_ORDERS", "ebp.csv")
+    assert job["mapping"]["po_number"] == "N° cde" and job["mapping"]["unit_weight_kg"] == "Poids net"
+    report = validate(client, job)
+    assert report["valid_rows"] == 3
+    fx = next(w for w in report["warnings"] if w["code"] == "FX_RATE_DEFAULTED")
+    assert fx["field"] == "currency" and fx["params"]["currency"] == "USD"
+    assert fx["params"]["base_currency"] == "EUR" and fx["params"]["rate"] == "1"
+    assert fx["params"]["source"] == "DEFAULT" and len(fx["params"]["rate_date"]) == 10
+
+
+def test_an_erp_sync_is_labelled_as_a_sync_not_as_a_dropped_file(
+    client: TestClient, db: Any, org_id: Any
+) -> None:
+    """The nightly Odoo sync writes a CSV of its own; in the imports list it looked exactly like a
+    file someone had dropped by hand."""
+    from uuid import UUID
+
+    from app.domain.models import ErpConnection, ErpKind, ErpSyncRun, ErpSyncStatus
+
+    synced = upload(client, PO_LINES_CSV, "PURCHASE_ORDERS", "odoo-sync.csv")
+    dropped = upload(client, PO_LINES_CSV, "PURCHASE_ORDERS", "export_excel.csv")
+    connection = ErpConnection(
+        org_id=org_id,
+        kind=ErpKind.ODOO,
+        url="https://erp.example.test",
+        database="fstest",
+        login="admin",
+        api_key_sealed=b"sealed",
+    )
+    db.add(connection)
+    db.flush()
+    db.add(
+        ErpSyncRun(
+            org_id=org_id,
+            connection_id=connection.id,
+            status=ErpSyncStatus.SUCCEEDED,
+            import_job_id=UUID(synced["id"]),
+            detail={},
+        )
+    )
+    db.flush()
+
+    sources = {i["id"]: i["source"] for i in client.get("/api/v1/imports").json()}
+    assert sources[synced["id"]] == "erp_sync"
+    assert sources[dropped["id"]] == "upload"
+    assert client.get(f"/api/v1/imports/{synced['id']}").json()["source"] == "erp_sync"
