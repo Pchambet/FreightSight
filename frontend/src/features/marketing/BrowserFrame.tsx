@@ -8,7 +8,7 @@ export default function BrowserFrame({ path, children, className }: { path: stri
           <span className="w-2.5 h-2.5 rounded-full bg-slate-200" />
           <span className="w-2.5 h-2.5 rounded-full bg-slate-200" />
         </span>
-        <span className="mx-auto max-w-[70%] truncate rounded-md bg-slate-100 px-3 py-0.5 text-[11px] text-slate-500">freightsight · {path}</span>
+        <span className="mx-auto max-w-[70%] truncate rounded-md bg-slate-100 px-3 py-0.5 text-[11px] text-slate-600">freightsight · {path}</span>
       </div>
       <div className="p-4 sm:p-5">{children}</div>
     </div>

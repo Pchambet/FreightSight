@@ -152,7 +152,7 @@ export default async function SkuPage({ params }: Params) {
                   <tr key={a.load_id} className="hover:bg-slate-50">
                     <td className="px-5 py-2.5 whitespace-nowrap text-slate-600">
                       {a.arrived_on ? dateShort(a.arrived_on, locale) : "—"}
-                      {a.arrival_is_estimate ? <span className="ml-1.5 text-xs text-slate-400">{t("trend.eta")}</span> : null}
+                      {a.arrival_is_estimate ? <span className="ml-1.5 text-xs text-slate-500">{t("trend.eta")}</span> : null}
                     </td>
                     <td className="px-3 py-2.5 whitespace-nowrap"><Link href={`/container/${a.container_id}`} className="font-mono text-blue-700 hover:underline">{a.container_number}</Link></td>
                     <td className="px-3 py-2.5 whitespace-nowrap">

@@ -80,7 +80,7 @@ export default function BreakdownBar({
             <span className={`w-2.5 h-2.5 rounded-[3px] shrink-0 ${FAMILY_BG[f]}`} aria-hidden />
             <span className="text-slate-600 flex-1 truncate">{familyLabels[f]}</span>
             {fob > 0 ? (
-              <span className="text-xs text-slate-400 tabular-nums whitespace-nowrap">
+              <span className="text-xs text-slate-500 tabular-nums whitespace-nowrap">
                 {pct((families[f] / fob) * 100, locale)} {ofFobLabel}
               </span>
             ) : null}

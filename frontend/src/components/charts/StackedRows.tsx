@@ -51,7 +51,7 @@ export default function StackedRows({
                 <span className="flex items-baseline justify-between gap-3 text-sm">
                   <span className="min-w-0 truncate text-slate-800">{r.label}</span>
                   <span className="shrink-0 tabular-nums">
-                    <span className="text-xs text-slate-400 mr-2">{pct(share * 100, locale)} {ofFobLabel}</span>
+                    <span className="text-xs text-slate-500 mr-2">{pct(share * 100, locale)} {ofFobLabel}</span>
                     <span className="font-medium text-slate-900">{r.display}</span>
                   </span>
                 </span>
@@ -67,7 +67,7 @@ export default function StackedRows({
                     <li key={f} className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-[2px] shrink-0 ${FAMILY_BG[f]}`} aria-hidden />
                       <span className="flex-1 truncate">{familyLabels[f]}</span>
-                      <span className="tabular-nums text-slate-400">{pct((r.families[f] / r.fob) * 100, locale)}</span>
+                      <span className="tabular-nums text-slate-500">{pct((r.families[f] / r.fob) * 100, locale)}</span>
                       <span className="tabular-nums font-medium text-slate-900">{money(r.families[f], currency, locale)}</span>
                     </li>
                   ))}

@@ -23,7 +23,7 @@ export default function RankBars({ rows, empty }: { rows: RankRow[]; empty: stri
             <div className="flex items-baseline justify-between gap-3 text-sm">
               <span className="min-w-0 flex flex-wrap items-baseline gap-x-2">
                 {name}
-                {r.sub ? <span className="text-xs text-slate-400 tabular-nums">{r.sub}</span> : null}
+                {r.sub ? <span className="text-xs text-slate-500 tabular-nums">{r.sub}</span> : null}
               </span>
               <span className="shrink-0 font-medium text-slate-900 tabular-nums">{r.display}</span>
             </div>
