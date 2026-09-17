@@ -73,7 +73,9 @@ export default async function PeriodsPage() {
                       <td className="px-3 py-3 text-right tabular-nums font-medium text-slate-900">{money(p.landed, currency, locale)}</td>
                       <td className="px-3 py-3 text-right tabular-nums text-slate-600">{ratio(p.coefficient)}</td>
                       <td className="px-5 py-3 text-right tabular-nums whitespace-nowrap">
-                        {!closed ? <span className="text-slate-400">—</span> : drift === 0 ? <span className="text-slate-500">{t("noDrift")}</span> : (
+                        {!closed ? <span className="text-slate-400">—</span> : drift === 0 ? <span className="text-slate-500">{t("noDrift")}</span> : Number(p.drift_outstanding ?? p.drift ?? 0) === 0 ? (
+                          <span className="text-slate-600">{signedMoney(p.drift!, fmt)} <span className="text-xs text-emerald-800">· {t("posted")}</span></span>
+                        ) : (
                           <span className="font-medium text-amber-800">{signedMoney(p.drift!, fmt)} <span className="font-normal text-xs text-slate-500">· {t("driftContainers", { count: p.drift_containers ?? 0 })}</span></span>
                         )}
                       </td>

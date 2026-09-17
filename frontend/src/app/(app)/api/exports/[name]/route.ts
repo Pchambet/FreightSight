@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { env } from "@/lib/env";
 import { protectAction } from "@/lib/auth";
 
-const NAMES = new Set(["landed-costs", "costs", "purchase-orders", "containers", "period-close", "period-drift"]);
+const NAMES = new Set(["landed-costs", "costs", "purchase-orders", "containers", "period-close", "period-drift", "period-accruals", "sku-costs"]);
 
 /** Streams a CSV export from the API with the caller's session; the browser never talks to the API directly. */
 export async function GET(request: Request, { params }: { params: Promise<{ name: string }> }) {
@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ name
   if (!upstream.ok || !upstream.body) return new Response(null, { status: upstream.status === 404 ? 404 : 502 });
   // A period export is named after its month (it never changes once closed); the others after today.
   const period = q.get("period");
-  const day = name.startsWith("period-") && period && /^\d{4}-\d{2}$/.test(period) ? period : new Date().toISOString().slice(0, 10);
+  const day = (name.startsWith("period-") || name === "sku-costs") && period && /^\d{4}-\d{2}$/.test(period) ? period : new Date().toISOString().slice(0, 10);
   return new Response(upstream.body, {
     status: 200,
     headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="freightsight-${name}-${day}.csv"`, "Cache-Control": "private, no-store" },

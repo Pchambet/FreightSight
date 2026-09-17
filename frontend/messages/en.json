@@ -654,7 +654,8 @@
       "period_reopened": "Month reopened",
       "container_shared": "Container report shared",
       "purchase_order_shared": "Order report shared",
-      "share_revoked": "Share link withdrawn"
+      "share_revoked": "Share link withdrawn",
+      "period_drift_acknowledged": "Closing gap posted"
     }
   },
   "errors": {
@@ -1822,7 +1823,7 @@
       "driftHint": "Today's landed cost minus the frozen one: late invoices, corrected costs, changed arrival dates. To be posted as an adjustment in the current month.",
       "driftNone": "Nothing has moved since closing.",
       "liveNow": "Landed cost today",
-      "liveNowSub": "frozen + gap",
+      "liveNowSub": "live figure, for reference",
       "estimated": "Still estimated",
       "estimatedHint": "Share of this month's landed cost that rests on your rate cards, pending the invoice. The figure that says whether to close or to wait.",
       "estimatedSub": "{count, plural, one {on # container} other {on # containers}}",
@@ -1833,7 +1834,9 @@
       "breakdownFrozen": "From purchase price to landed cost, at closing",
       "breakdownLive": "From purchase price to landed cost, to date",
       "fob": "Purchase price (FOB)",
-      "ofFob": "of FOB"
+      "ofFob": "of FOB",
+      "driftPosted": "The whole gap is posted.",
+      "driftPartly": "of which {outstanding} still to post"
     },
     "ready": {
       "title": "Before closing",
@@ -1852,7 +1855,11 @@
       "title": "For your books",
       "subtitle": "CSV files Excel can read.",
       "close": "Frozen valuation per SKU",
-      "drift": "Gaps since closing"
+      "drift": "Gaps since closing",
+      "skuLast": "Cost price per SKU · last arrival",
+      "skuAverage": "Cost price per SKU · weighted average",
+      "accruals": "Invoices not yet received",
+      "skuHint": "The cost price file is meant to update item purchase costs in your business software. Generic CSV: map its columns in your software's import."
     },
     "driftTable": {
       "title": "What has moved since closing",
@@ -1872,6 +1879,32 @@
       "drift": "{drift} since closing.",
       "noDrift": "Nothing has moved since.",
       "see": "See the close"
+    },
+    "posted": "posted",
+    "ackFailed": "Could not record that the gap was posted",
+    "ack": {
+      "note": "Journal entry reference (optional)",
+      "notePlaceholder": "JE 2026-10-014, stock adjustment",
+      "action": "Mark {amount} as posted",
+      "working": "Saving…",
+      "done": "Gap marked as posted.",
+      "state": "{amount} marked as posted on {date}",
+      "needsRole": "Only an administrator of the company can mark a gap as posted.",
+      "quiet": "The whole gap is posted: this month asks for nothing more. It will ask again if a cost lands."
+    },
+    "accruals": {
+      "title": "Invoices not yet received",
+      "subtitleClosed": "Estimated costs, not invoiced yet, on goods received by the last day of the month — frozen at closing. This is the amount to accrue.",
+      "subtitleOpen": "Estimated costs, not invoiced yet, on goods already received: what you would accrue if you closed today.",
+      "none": "No invoice expected: every cost on the goods received is invoiced.",
+      "earlier": "earlier month",
+      "rules": "A container that arrived in an earlier month and is still not invoiced is listed here too. A container still at sea is not: nothing has been received. Import VAT excluded.",
+      "th": {
+        "container": "Container",
+        "arrived": "Arrived on",
+        "cost": "Expected cost",
+        "amount": "Estimated amount"
+      }
     }
   },
   "sheet": {

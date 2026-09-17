@@ -654,7 +654,8 @@
       "period_reopened": "Mois rouvert",
       "container_shared": "Rapport du conteneur partagé",
       "purchase_order_shared": "Rapport de la commande partagé",
-      "share_revoked": "Lien de partage retiré"
+      "share_revoked": "Lien de partage retiré",
+      "period_drift_acknowledged": "Écart de clôture comptabilisé"
     }
   },
   "errors": {
@@ -1822,7 +1823,7 @@
       "driftHint": "Coût rendu d'aujourd'hui moins coût rendu figé : factures tardives, coûts corrigés, dates d'arrivée modifiées. À passer en ajustement sur le mois en cours.",
       "driftNone": "Rien n'a bougé depuis la clôture.",
       "liveNow": "Coût rendu aujourd'hui",
-      "liveNowSub": "figé + écart",
+      "liveNowSub": "chiffre vivant, pour mémoire",
       "estimated": "Encore estimé",
       "estimatedHint": "Part du coût rendu de ce mois qui repose sur vos barèmes, en attendant la facture. C'est le chiffre qui dit s'il vaut mieux clôturer ou attendre.",
       "estimatedSub": "{count, plural, one {sur # conteneur} other {sur # conteneurs}}",
@@ -1833,7 +1834,9 @@
       "breakdownFrozen": "Du prix d'achat au coût rendu, à la clôture",
       "breakdownLive": "Du prix d'achat au coût rendu, à ce jour",
       "fob": "Prix d'achat (FOB)",
-      "ofFob": "du FOB"
+      "ofFob": "du FOB",
+      "driftPosted": "Tout l'écart est comptabilisé.",
+      "driftPartly": "dont {outstanding} restent à comptabiliser"
     },
     "ready": {
       "title": "Avant de clôturer",
@@ -1852,7 +1855,11 @@
       "title": "Pour la comptabilité",
       "subtitle": "Des fichiers CSV en français, lisibles par Excel.",
       "close": "Valorisation figée par référence",
-      "drift": "Écarts depuis la clôture"
+      "drift": "Écarts depuis la clôture",
+      "skuLast": "Prix de revient par référence · dernier arrivage",
+      "skuAverage": "Prix de revient par référence · moyenne pondérée",
+      "accruals": "Factures non parvenues",
+      "skuHint": "Le fichier des prix de revient sert à mettre à jour le coût d'achat des articles dans votre logiciel de gestion. CSV générique : les colonnes sont à faire correspondre à l'import de votre logiciel."
     },
     "driftTable": {
       "title": "Ce qui a bougé depuis la clôture",
@@ -1872,6 +1879,32 @@
       "drift": "{drift} depuis la clôture.",
       "noDrift": "Rien n'a bougé depuis.",
       "see": "Voir la clôture"
+    },
+    "posted": "comptabilisé",
+    "ackFailed": "Impossible d'enregistrer la comptabilisation de l'écart",
+    "ack": {
+      "note": "Référence de l'écriture (facultatif)",
+      "notePlaceholder": "OD 2026-10-014, ajustement de stock",
+      "action": "Marquer {amount} comme comptabilisé",
+      "working": "Enregistrement…",
+      "done": "Écart marqué comme comptabilisé.",
+      "state": "{amount} marqués comme comptabilisés le {date}",
+      "needsRole": "Seul un administrateur de la société peut marquer un écart comme comptabilisé.",
+      "quiet": "Tout l'écart est comptabilisé : ce mois ne réclame plus rien. Il réclamera de nouveau si un coût arrive."
+    },
+    "accruals": {
+      "title": "Factures non parvenues",
+      "subtitleClosed": "Coûts estimés, non encore facturés, sur de la marchandise reçue au plus tard le dernier jour du mois — figés à la clôture. C'est le montant à provisionner.",
+      "subtitleOpen": "Coûts estimés, non encore facturés, sur de la marchandise déjà reçue : ce qu'il faudrait provisionner si vous clôturiez aujourd'hui.",
+      "none": "Aucune facture attendue : tous les coûts de la marchandise reçue sont facturés.",
+      "earlier": "mois antérieur",
+      "rules": "Un conteneur arrivé un mois précédent et toujours pas facturé figure ici aussi. Un conteneur encore en mer n'y figure pas : rien n'a été reçu. TVA à l'importation exclue.",
+      "th": {
+        "container": "Conteneur",
+        "arrived": "Arrivé le",
+        "cost": "Coût attendu",
+        "amount": "Montant estimé"
+      }
     }
   },
   "sheet": {

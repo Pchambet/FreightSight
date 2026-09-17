@@ -595,6 +595,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/periods/{period}/acknowledge-drift": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Acknowledge
+         * @description The drift as it stands today has been booked as an adjustment in the open month: the closed
+         *     month stops asking for it. A cost that arrives later makes it ask again, for the difference.
+         */
+        post: operations["acknowledge_api_v1_periods__period__acknowledge_drift_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shipments": {
         parameters: {
             query?: never;
@@ -986,6 +1007,53 @@ export interface paths {
          *     open month, with the costs behind it.
          */
         get: operations["period_drift_csv_api_v1_exports_period_drift_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/period-accruals.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Period Accruals Csv
+         * @description The invoices not yet received at the end of the month, per container and cost type: frozen at
+         *     the close for a closed month, today's view of that date for an open one (`period_status` says
+         *     which). It is the cut-off statement; it proposes no accounting entry.
+         */
+        get: operations["period_accruals_csv_api_v1_exports_period_accruals_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/sku-costs.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sku Costs Csv
+         * @description The landed unit cost of every article, to update the cost price in the ERP or the stock sheet:
+         *     the quantity-weighted average of the month, or that of the last container that landed. A closed
+         *     month gives its frozen figures. Without `period`, everything that has landed so far.
+         *
+         *     A plain, well-titled CSV on purpose: article imports are configured on the software's side
+         *     (Sage, EBP, Odoo all map columns), and no vendor format is invented here.
+         */
+        get: operations["sku_costs_csv_api_v1_exports_sku_costs_csv_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3114,6 +3182,30 @@ export interface components {
             /** Amount At Risk */
             amount_at_risk: string | null;
         };
+        /**
+         * PeriodAccrual
+         * @description Received and not yet invoiced at the end of the month: an estimate no invoice has replaced, on a
+         *     container that had landed by the last day of the month. *Factures non parvenues*, per cost type.
+         */
+        PeriodAccrual: {
+            /**
+             * Container Id
+             * Format: uuid
+             */
+            container_id: string;
+            /** Container Number */
+            container_number: string;
+            /** Arrived On */
+            arrived_on: string | null;
+            cost_type: components["schemas"]["CostType"];
+            /** Amount Base */
+            amount_base: string;
+        };
+        /** PeriodAcknowledge */
+        PeriodAcknowledge: {
+            /** Note */
+            note?: string | null;
+        };
         /** PeriodChangedCost */
         PeriodChangedCost: {
             /**
@@ -3142,6 +3234,13 @@ export interface components {
             readiness: components["schemas"]["PeriodReadiness"] | null;
             /** Drift Lines */
             drift_lines: components["schemas"]["PeriodDrift"][];
+            /** Accruals */
+            accruals?: components["schemas"]["PeriodAccrual"][];
+            /**
+             * Accruals Total
+             * @default 0.00
+             */
+            accruals_total: string;
         };
         /** PeriodDrift */
         PeriodDrift: {
@@ -3228,10 +3327,23 @@ export interface components {
             closed_at?: string | null;
             /** Closed By Name */
             closed_by_name?: string | null;
+            /**
+             * Live Landed
+             * @default 0.00
+             */
+            live_landed: string;
             /** Drift */
             drift?: string | null;
             /** Drift Containers */
             drift_containers?: number | null;
+            /** Drift Acknowledged */
+            drift_acknowledged?: string | null;
+            /** Drift Outstanding */
+            drift_outstanding?: string | null;
+            /** Acknowledged At */
+            acknowledged_at?: string | null;
+            /** Acknowledged Note */
+            acknowledged_note?: string | null;
         };
         /** PoLineIn */
         PoLineIn: {
@@ -5580,6 +5692,44 @@ export interface operations {
             };
         };
     };
+    acknowledge_api_v1_periods__period__acknowledge_drift_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                /** @description YYYY-MM */
+                period: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PeriodAcknowledge"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_shipments_api_v1_shipments_get: {
         parameters: {
             query?: never;
@@ -6464,6 +6614,76 @@ export interface operations {
             query: {
                 /** @description YYYY-MM */
                 period: string;
+                locale?: "fr" | "en";
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    period_accruals_csv_api_v1_exports_period_accruals_csv_get: {
+        parameters: {
+            query: {
+                /** @description YYYY-MM */
+                period: string;
+                locale?: "fr" | "en";
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sku_costs_csv_api_v1_exports_sku_costs_csv_get: {
+        parameters: {
+            query?: {
+                period?: string | null;
+                basis?: "last" | "average";
                 locale?: "fr" | "en";
             };
             header?: {

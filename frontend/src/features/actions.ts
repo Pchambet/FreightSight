@@ -606,7 +606,19 @@ export async function closePeriod(period: string): Promise<ActionResult<null>> {
   return { ok: true, data: null };
 }
 
-/** Owner only: the frozen figures are discarded (the audit trail keeps them). */
+/**
+ * The gap since closing has been posted to the books (as an adjustment in the current month): the
+ * month stops asking. It asks again if a cost lands after this — the API keeps the two apart.
+ */
+export async function acknowledgePeriodDrift(period: string, note: string): Promise<ActionResult<null>> {
+  await protectAction();
+  const { error } = await api.POST("/api/v1/periods/{period}/acknowledge-drift", { params: { path: { period } }, body: { note: note.trim().slice(0, 500) || null } });
+  if (error) return await fail(error, "periods.ackFailed");
+  for (const path of ["/periods", `/periods/${period}`]) revalidatePath(path);
+  return { ok: true, data: null };
+}
+
+/** The frozen figures are discarded (the audit trail keeps them). */
 export async function reopenPeriod(period: string): Promise<ActionResult<null>> {
   await protectAction();
   const { error } = await api.DELETE("/api/v1/periods/{period}/close", { params: { path: { period } } });
