@@ -7083,25 +7083,24 @@
         }
       }
     },
-    "/api/v1/public/shared-reports/{token}": {
-      "get": {
+    "/api/v1/public/shared-reports/open": {
+      "post": {
         "tags": [
           "shares"
         ],
         "summary": "Open Shared Report",
-        "description": "No account, no organization: the token is the whole of the right, and what it opens is the\nsnapshot taken when the link was made. Unknown, expired and revoked are the same 404 \u2014 an answer\nthat told them apart would tell a stranger which tokens once existed.",
-        "operationId": "open_shared_report_api_v1_public_shared_reports__token__get",
-        "parameters": [
-          {
-            "name": "token",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Token"
+        "description": "No account, no organization: the token is the whole of the right, and what it opens is the\nsnapshot taken when the link was made. Unknown, expired and revoked are the same 404 \u2014 an answer\nthat told them apart would tell a stranger which tokens once existed.\n\nThe token travels in the body, never in the URL: a URL is what access logs, error reports and\nproxies keep, and this one is a bearer credential.",
+        "operationId": "open_shared_report_api_v1_public_shared_reports_open_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareOpen"
+              }
             }
-          }
-        ],
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -14002,6 +14001,11 @@
             "minimum": 1.0,
             "title": "Expires In Days",
             "default": 30
+          },
+          "redact_vendors": {
+            "type": "boolean",
+            "title": "Redact Vendors",
+            "default": false
           }
         },
         "type": "object",
@@ -14026,6 +14030,15 @@
             "type": "string",
             "format": "date-time",
             "title": "Expires At"
+          },
+          "landed": {
+            "type": "string",
+            "title": "Landed"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
           }
         },
         "type": "object",
@@ -14033,7 +14046,9 @@
           "id",
           "token",
           "path",
-          "expires_at"
+          "expires_at",
+          "landed",
+          "generated_at"
         ],
         "title": "ShareCreated"
       },
@@ -14049,6 +14064,21 @@
           "name"
         ],
         "title": "ShareIssuer"
+      },
+      "ShareOpen": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "ShareOpen"
       },
       "ShareSummary": {
         "properties": {
@@ -14104,7 +14134,8 @@
           },
           "view_count": {
             "type": "integer",
-            "title": "View Count"
+            "title": "View Count",
+            "default": 0
           },
           "last_viewed_at": {
             "anyOf": [
@@ -14136,9 +14167,7 @@
           "subject_label",
           "created_at",
           "expires_at",
-          "revoked_at",
-          "view_count",
-          "last_viewed_at"
+          "revoked_at"
         ],
         "title": "ShareSummary"
       },
@@ -14187,6 +14216,11 @@
           "sample_data": {
             "type": "boolean",
             "title": "Sample Data",
+            "default": false
+          },
+          "redacted": {
+            "type": "boolean",
+            "title": "Redacted",
             "default": false
           },
           "report": {

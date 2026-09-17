@@ -34,6 +34,11 @@ class Conflict(DomainError):
     code = "CONFLICT"
 
 
+class TooManyRequests(DomainError):
+    status = 429
+    code = "RATE_LIMITED"
+
+
 class Unprocessable(DomainError):
     status = 422
     code = "UNPROCESSABLE"

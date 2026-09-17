@@ -127,6 +127,22 @@ def init_sentry(settings: Settings) -> bool:
     return True
 
 
+#: Public routes are reached by people with no account, holding a bearer token. The token travels in
+#: the body; should a path under this prefix ever carry anything after the route's own name, it is a
+#: credential until proven otherwise, and the log line does not get it.
+PUBLIC_PREFIX = "/api/v1/public/"
+
+
+def loggable_path(path: str) -> str:
+    if not path.startswith(PUBLIC_PREFIX):
+        return path
+    head, _, rest = path[len(PUBLIC_PREFIX) :].partition("/")
+    known = {"shared-reports": ("open",)}
+    if not rest or rest in known.get(head, ()):
+        return path
+    return f"{PUBLIC_PREFIX}{head}/[redacted]"
+
+
 class RequestContextMiddleware(BaseHTTPMiddleware):
     """One log line per request, carrying the request id, the tenant and how long it took."""
 
@@ -139,7 +155,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         correlation = incoming or uuid.uuid4().hex
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(
-            request_id=correlation, method=request.method, path=request.url.path
+            request_id=correlation, method=request.method, path=loggable_path(request.url.path)
         )
         logger = structlog.get_logger("freightsight.request")
         started = time.perf_counter()

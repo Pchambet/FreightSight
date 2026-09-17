@@ -1056,8 +1056,19 @@ class SharedReport(Timestamped, OrgScoped, Base):
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    last_viewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SharedReportView(OrgScoped, Base):
+    """One opening of a shared report. Its own table because counting must not be an UPDATE of the
+    share: the token that opens a link may add a line here, and may change nothing anywhere."""
+
+    __tablename__ = "shared_report_views"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    share_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("shared_reports.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    viewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
 
 
 class SampleObject(OrgScoped, Base):

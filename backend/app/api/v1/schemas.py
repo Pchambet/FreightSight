@@ -837,6 +837,13 @@ class InvoiceConfirmResponse(BaseModel):
 
 class ShareCreate(BaseModel):
     expires_in_days: int = Field(default=30, ge=1, le=365)
+    #: Leave the forwarders' names, their invoice numbers and the notes out of the snapshot itself.
+    #: Hiding them on a screen would leave them readable in the response by anyone holding the link.
+    redact_vendors: bool = False
+
+
+class ShareOpen(BaseModel):
+    token: str = Field(min_length=1, max_length=256)
 
 
 class ShareCreated(BaseModel):
@@ -846,6 +853,9 @@ class ShareCreated(BaseModel):
     #: Where the front end serves it: "/r/<token>".
     path: str
     expires_at: datetime
+    #: The landed cost that was frozen, so the sender sees the figure that really left.
+    landed: Money
+    generated_at: datetime
 
 
 class ShareSummary(BaseModel):
@@ -858,8 +868,8 @@ class ShareSummary(BaseModel):
     expires_at: datetime
     revoked_at: datetime | None
     #: How many times the public page was opened, and when last: "the prospect has read it".
-    view_count: int
-    last_viewed_at: datetime | None
+    view_count: int = 0
+    last_viewed_at: datetime | None = None
     status: Literal["active", "expired", "revoked"] = "active"
 
 
@@ -880,6 +890,8 @@ class SharedReportPublic(BaseModel):
     expires_at: datetime
     #: The sending company held the demo dataset: the document must say "sample data".
     sample_data: bool = False
+    #: Vendors, invoice numbers and notes were left out of this snapshot (they are null in `report`).
+    redacted: bool = False
     report: LandedCostReport
 
 

@@ -25,7 +25,7 @@ from app.core.observability import (
     request_id,
 )
 from app.core.settings import Settings, get_settings
-from app.core.tenancy import ORG_GUC
+from app.core.tenancy import ORG_GUC, SHARE_TOKEN_GUC
 from app.jobs.handlers import WORKER_HEARTBEAT  # one name for the row both sides read
 
 logger = logging.getLogger("freightsight")
@@ -43,6 +43,7 @@ def install_guc_reset(engine: Engine) -> None:
         try:
             cur = dbapi_connection.cursor()
             cur.execute(f"RESET {ORG_GUC}")
+            cur.execute(f"RESET {SHARE_TOKEN_GUC}")
             cur.close()
             # RESET opens a transaction on a non-autocommit DBAPI connection; close it, or the
             # next checkout fails with "can't change autocommit now: connection in transaction".

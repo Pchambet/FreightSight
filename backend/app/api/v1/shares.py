@@ -5,15 +5,16 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, Request, Response, status
 
 from app.api.v1 import schemas
 from app.api.v1.deps import WriterDep
 from app.api.v1.landed_costs import _serialize
 from app.core.auth import DbDep
-from app.core.errors import NotFound
+from app.core.errors import NotFound, TooManyRequests
+from app.core.ratelimit import SlidingWindow, client_address
 from app.core.tenancy import TenantDep, TenantSession
-from app.domain.audit.service import record
+from app.domain.audit.service import CONTAINER_SHARED, PURCHASE_ORDER_SHARED, SHARE_REVOKED, record
 from app.domain.costing import report as rpt
 from app.domain.costing.service import compute
 from app.domain.models import Container, PurchaseOrder, SharedReport
@@ -25,12 +26,14 @@ router = APIRouter(tags=["shares"])
 
 def _summaries(t: TenantSession, found: list[SharedReport]) -> list[schemas.ShareSummary]:
     names = shares.creator_names(t.db, found)
+    opened = shares.views_of(t.db, t.org_id, [share.id for share in found])
     now = datetime.now(UTC)
     out = []
     for share in found:
         summary = schemas.ShareSummary.model_validate(share)
         summary.created_by_name = names.get(share.created_by) if share.created_by else None
         summary.status = shares.status_of(share, now)  # type: ignore[assignment]
+        summary.view_count, summary.last_viewed_at = opened.get(share.id, (0, None))
         out.append(summary)
     return out
 
@@ -47,6 +50,13 @@ def _share(
     report: rpt.Report,
 ) -> schemas.ShareCreated:
     now = datetime.now(UTC)
+    frozen = _serialize(report).model_dump(mode="json")
+    for cost in frozen["costs"]:
+        # Free text written for colleagues never leaves, whatever the sender chose.
+        cost["notes"] = cost["close_reason"] = None
+        if payload.redact_vendors:
+            # Taken out of the snapshot, not hidden by the page: what is not stored cannot be read.
+            cost["vendor"] = cost["invoice_number"] = None
     snapshot = {
         "issuer": {"name": t.org.name},
         "subject_type": subject_type,
@@ -56,7 +66,8 @@ def _share(
         "generated_at": now.isoformat(),
         # Said on the document itself: a report sent from a demo company must not pass for a real file.
         "sample_data": has_sample_data(t.db, t.org_id),
-        "report": _serialize(report).model_dump(mode="json"),
+        "redacted": payload.redact_vendors,
+        "report": frozen,
     }
     created = shares.create(
         t.db,
@@ -72,10 +83,15 @@ def _share(
         t.db,
         t.org_id,
         actor_user_id=actor,
-        action=f"{subject_type}.shared",
+        action=CONTAINER_SHARED if subject_type == "container" else PURCHASE_ORDER_SHARED,
         entity_type=subject_type,
         entity_id=subject_id,
-        after={"share_id": created.share.id, "expires_at": created.share.expires_at, "label": label},
+        after={
+            "share_id": created.share.id,
+            "expires_at": created.share.expires_at,
+            "label": label,
+            "redacted": payload.redact_vendors,
+        },
     )
     t.db.commit()
     return schemas.ShareCreated(
@@ -83,6 +99,8 @@ def _share(
         token=created.token,
         path=f"/r/{created.token}",
         expires_at=created.share.expires_at,
+        landed=report.landed,
+        generated_at=now,
     )
 
 
@@ -152,20 +170,33 @@ def revoke_share(share_id: UUID, t: TenantDep, p: WriterDep) -> None:
             t.db,
             t.org_id,
             actor_user_id=p.user_id,
-            action="share.revoked",
+            action=SHARE_REVOKED,
             entity_type=share.subject_type,
             entity_id=share.subject_id,
-            before={"share_id": share.id, "label": share.subject_label, "view_count": share.view_count},
+            before={"share_id": share.id, "label": share.subject_label},
         )
     t.db.commit()
 
 
-@router.get("/public/shared-reports/{token}", response_model=schemas.SharedReportPublic)
-def open_shared_report(token: str, db: DbDep, response: Response) -> schemas.SharedReportPublic:
+#: The only unauthenticated route that touches the tenants' database. Nobody can guess a token, so
+#: this is not about secrecy: it keeps a flood from turning into a stream of transactions.
+_public_limit = SlidingWindow(limit=120, seconds=60)
+
+
+@router.post("/public/shared-reports/open", response_model=schemas.SharedReportPublic)
+def open_shared_report(
+    payload: schemas.ShareOpen, request: Request, db: DbDep, response: Response
+) -> schemas.SharedReportPublic:
     """No account, no organization: the token is the whole of the right, and what it opens is the
     snapshot taken when the link was made. Unknown, expired and revoked are the same 404 — an answer
-    that told them apart would tell a stranger which tokens once existed."""
-    found = shares.open_by_token(db, token) if 20 <= len(token) <= 128 else None
+    that told them apart would tell a stranger which tokens once existed.
+
+    The token travels in the body, never in the URL: a URL is what access logs, error reports and
+    proxies keep, and this one is a bearer credential.
+    """
+    if not _public_limit.allow(client_address(request)):
+        raise TooManyRequests("Too many requests", code="RATE_LIMITED")
+    found = shares.open_by_token(db, payload.token)
     if found is None:
         db.rollback()
         raise NotFound("Shared report", code="SHARE_NOT_FOUND")
@@ -173,4 +204,5 @@ def open_shared_report(token: str, db: DbDep, response: Response) -> schemas.Sha
     db.commit()
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    response.headers["Referrer-Policy"] = "no-referrer"
     return schemas.SharedReportPublic(**snapshot, expires_at=expires_at)

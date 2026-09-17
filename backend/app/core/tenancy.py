@@ -22,6 +22,9 @@ T = TypeVar("T")
 # the checkin hook resets the variable), so the value is remembered on the Session and re-applied at
 # the start of every transaction, transaction-scoped (`is_local = true`), by the listener below.
 ORG_GUC = "app.org_id"
+#: The other transaction-local setting: the hash of a share token, which the read-only token policy
+#: of `shared_reports` compares with (migration 0025). Reset at checkin like the first.
+SHARE_TOKEN_GUC = "app.share_token_hash"
 _SESSION_KEY = "org_id"
 
 

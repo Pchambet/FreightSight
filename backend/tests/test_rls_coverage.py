@@ -19,6 +19,43 @@ EXEMPT: dict[str, str] = {
 }
 
 
+#: Policies other than `tenant_isolation` on an org-scoped table. A permissive policy WIDENS access
+#: (it is OR-ed with the tenant one), so each is named here with its reason, and nothing else passes.
+EXTRA_POLICIES: dict[tuple[str, str], str] = {
+    ("shared_reports", "share_token_read"): (
+        "SELECT only: the public page has no tenant; it reads the one row whose token hash it set"
+    ),
+    ("shared_report_views", "share_token_view"): (
+        "INSERT only: recording that a share was opened, for the share whose token is set"
+    ),
+}
+
+
+def test_no_org_scoped_table_carries_a_policy_nobody_vouched_for(db: Session) -> None:
+    """The test above asks whether the tenant policy exists. This one asks what else does: a second
+    permissive policy on `costs` or `invoices` would open them wider and pass every other test."""
+    rows = db.execute(
+        text(
+            """
+            SELECT p.tablename, p.policyname, p.cmd
+            FROM pg_policies p
+            WHERE p.schemaname = 'public' AND p.policyname <> 'tenant_isolation'
+              AND EXISTS (
+                  SELECT 1 FROM information_schema.columns c
+                  WHERE c.table_schema = 'public' AND c.table_name = p.tablename AND c.column_name = 'org_id'
+              )
+            ORDER BY p.tablename, p.policyname
+            """
+        )
+    ).all()
+    unknown = [(t, p) for t, p, _ in rows if (t, p) not in EXTRA_POLICIES]
+    assert not unknown, f"policies nobody vouched for: {unknown}"
+    # and the two doors are exactly as narrow as their reason says
+    commands = {(t, p): cmd for t, p, cmd in rows}
+    assert commands[("shared_reports", "share_token_read")] == "SELECT"
+    assert commands[("shared_report_views", "share_token_view")] == "INSERT"
+
+
 def test_every_org_scoped_table_is_under_forced_rls_with_the_tenant_policy(db: Session) -> None:
     tables = [
         row[0]
