@@ -32,6 +32,17 @@ export function amountPlaceholder(locale: string = DEFAULT_LOCALE): string {
   return locale === "fr" ? "0,00" : "0.00";
 }
 
+/**
+ * A raw dot-decimal amount from the API ("3915.40"), shown with the locale's own separator in an
+ * editable field — a comma in French (audit N11: the field sat mid-screen among French text but
+ * showed the American dot). Display only: what the field sends back to the server action still goes
+ * through `normalizeAmount` (features/actions.ts), which already accepts either separator.
+ */
+export function decimalDisplay(value: string | null | undefined, locale: string = DEFAULT_LOCALE): string {
+  if (value === null || value === undefined) return "";
+  return locale === "fr" ? value.replace(".", ",") : value;
+}
+
 /** An FX rate as recorded (up to 8 decimals, trailing zeros trimmed), locale-aware separator only — no currency symbol, it is a ratio. */
 export function rate(value: string | number | null | undefined, locale: string = DEFAULT_LOCALE): string {
   if (value === null || value === undefined) return "—";

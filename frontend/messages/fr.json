@@ -92,7 +92,7 @@
       "open": "Ouvrir"
     },
     "steps": {
-      "title": "Trois étapes pour un premier coût rendu",
+      "title": "Comment obtenir un premier coût rendu",
       "one": "Importez vos commandes",
       "oneHint": "CSV ou Excel, export Sage, EBP ou Odoo : les colonnes sont détectées, rien n'est écrit avant votre validation.",
       "two": "Ajoutez un conteneur et chargez-y des lignes",
@@ -390,7 +390,7 @@
       "noError": "Aucune erreur de ligne.",
       "headerRow": "En-têtes lus à la ligne {line}.",
       "totalsRowIgnored": "Ligne de totaux ignorée.",
-      "forwardFilled": "{count} ligne(s) rattachées à la commande de la ligne précédente.",
+      "forwardFilled": "{count, plural, one {# ligne rattachée à la commande de la ligne précédente.} other {# lignes rattachées à la commande de la ligne précédente.}}",
       "backToMapping": "Retour aux colonnes",
       "importValid": "Importer les lignes valides",
       "import": "Importer",
@@ -531,7 +531,7 @@
       "allocation_percentage": "% de ventilation (ignoré)"
     },
     "alertKind": {
-      "DND_RISK": "Risque de surestaries",
+      "DND_RISK": "Surestaries et détention",
       "ETA_CHANGED": "ETA modifiée",
       "TRACKING_DATA_MISSING": "Donnée de suivi manquante",
       "TRACKING_DELIVERY_FAILED": "Livraison de suivi en échec",
@@ -601,6 +601,7 @@
     "FX_RATE_INVALID": "Le taux de change doit être supérieur à zéro.",
     "FX_DATE_REQUIRED": "Une date est nécessaire pour retrouver le taux de change.",
     "MISSING_BASIS": "Base de ventilation manquante sur certaines lignes (poids, volume ou valeur).",
+    "MISSING_DUTY_RATE": "Taux de droits manquant sur certaines lignes : la méthode « aux droits théoriques » en a besoin. Renseignez le taux sur les lignes de commande, ou choisissez une autre méthode.",
     "NO_TARGET": "Ce coût ne vise aucun chargement : le conteneur est vide.",
     "ALL_WEIGHTS_ZERO": "Toutes les bases de ventilation valent zéro.",
     "ALLOCATION_ERROR": "La ventilation n'a pas pu être calculée.",
@@ -628,6 +629,7 @@
     "INVALID_CONTAINER_NUMBER": "« {value} » n'est pas un numéro de conteneur ISO 6346 (4 lettres puis 7 chiffres).",
     "DUPLICATE_IN_FILE": "La ligne {line_no} de la commande {po_number} apparaît deux fois dans le fichier.",
     "DEPRECATED_COLUMN": "La colonne « {column} » (pourcentage de répartition) est ignorée : la répartition suit la méthode par défaut de l'organisation.",
+    "FX_RATE_APPLIED": "Commande en {currency} : taux {rate} ({currency}→{base_currency}) appliqué, {source, select, ecb {taux BCE du {rate_date}} other {dernier taux BCE publié, celui du {rate_date}}}. Vous pouvez le remplacer sur la commande par le taux de votre banque.",
     "FX_RATE_DEFAULTED": "Commande en {currency} : aucun taux de change connu au {rate_date}, le taux {rate} ({currency}→{base_currency}, source : taux par défaut) a été appliqué. Corrigez-le sur la commande.",
     "NOT_AN_ACTUAL": "Seul un coût réel peut remplacer un estimé.",
     "SELF_SUPERSEDE": "Un coût ne peut pas se remplacer lui-même.",
@@ -663,7 +665,7 @@
     "TOTALS_ROW_IGNORED": "La dernière ligne du fichier est une ligne de totaux : elle n'a pas été importée.",
     "DECIMAL_COMMA_ASSUMED": "Dans la colonne « {column} », la virgule de « {example} » peut se lire de deux façons ; elle a été lue comme {comma, select, thousands {un séparateur de milliers (1,250 = 1 250)} other {une virgule décimale (1,250 = 1,25)}}. Si ce n'est pas le cas, corrigez le fichier avant de valider.",
     "UNIT_COLUMN_AMBIGUOUS": "La colonne « {column} » ne précise pas s'il s'agit d'une valeur par unité ou pour la ligne entière : elle est lue comme une valeur unitaire. Si c'est un total de ligne, divisez-la par la quantité avant l'import.",
-    "PO_NUMBER_FORWARD_FILLED": "{rows} ligne(s) sans numéro de commande ont été rattachées à la commande indiquée au-dessus (colonne « {column} »).",
+    "PO_NUMBER_FORWARD_FILLED": "{rows, plural, one {# ligne sans numéro de commande a été rattachée à la commande indiquée au-dessus (colonne « {column} »).} other {# lignes sans numéro de commande ont été rattachées à la commande indiquée au-dessus (colonne « {column} »).}}",
     "DUPLICATE_SKU_NEW_LINE": "L'article {sku} apparaît une seconde fois sur la commande {po_number} avec une quantité ou un prix différents : il a été importé comme ligne {line_no} distincte.",
     "page": {
       "title": "Une erreur est survenue",
@@ -814,7 +816,7 @@
       "rejected": "Facture rejetée",
       "retried": "Lecture relancée",
       "failed": "Action impossible",
-      "confirmedBanner": "Facture confirmée : {count} coûts créés le {date}. Pour revenir en arrière, supprimez les coûts dans le conteneur ou la commande.",
+      "confirmedBanner": "Facture confirmée : {count} coûts créés le {date}.",
       "continueTitle": "Étape suivante",
       "continueHint": "Les coûts sont ventilés. Ouvrez le conteneur pour voir le coût unitaire par référence.",
       "continueToContainer": "Voir le conteneur {container}",
@@ -841,7 +843,7 @@
       "reopenConfirmedBody": "Les {count} coûts créés par cette confirmation seront supprimés. La facture repasse à relire ; rien d'autre n'est touché.",
       "reopenConfirmedConfirm": "Rouvrir et supprimer les coûts",
       "reopenConfirmedCancel": "Annuler",
-      "reopenedConfirmed": "Facture rouverte, {count} coût(s) supprimé(s).",
+      "reopenedConfirmed": "Facture rouverte, {count, plural, one {# coût supprimé} other {# coûts supprimés}}.",
       "addLine": "Ajouter une ligne",
       "addLineTitle": "Ajouter une ligne à la main",
       "addLineSubmit": "Ajouter",
@@ -970,6 +972,8 @@
     "high": "Lecture fiable",
     "medium": "Lecture automatique · à relire",
     "low": "Lecture incertaine · à relire",
+    "reviewFlag": "à relire",
+    "confirmedFlag": "validée",
     "scoreTitle": "Confiance de lecture : {value}"
   },
   "estimates": {
@@ -982,7 +986,7 @@
     "allocatedHint": "Encore estimé + facturé.",
     "variance": "Écart",
     "varianceHint": "Facturé moins estimé, sur les seuls postes où une facture a remplacé un estimé.",
-    "varianceBasis": "{count} poste(s) recalé(s)",
+    "varianceBasis": "{count, plural, one {# poste recalé} other {# postes recalés}}",
     "varianceNone": "aucun estimé remplacé par une facture",
     "completeness": "Postes facturés",
     "completenessDetail": "{actual} sur {expected} types de coûts facturés",

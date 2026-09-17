@@ -16,7 +16,7 @@ export const site = {
   name: "FreightSight",
   tagline: "Le coût de revient rendu de vos importations, par commande et par SKU.",
   // Absolute origin, used for Open Graph URLs and the sitemap. Set NEXT_PUBLIC_SITE_URL on Vercel
-  // once a custom domain replaces the *.vercel.app preview URL (see MEMORY.md: domain is open).
+  // once a custom domain replaces the *.vercel.app address.
   url: process.env.NEXT_PUBLIC_SITE_URL || "https://freight-sight-two.vercel.app",
   contactEmail: CONTACT_EMAIL,
   // Where the "Réserver 20 minutes" buttons go. Set NEXT_PUBLIC_BOOKING_URL (Cal.com, Calendly…)

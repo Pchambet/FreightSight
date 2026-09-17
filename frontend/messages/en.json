@@ -92,7 +92,7 @@
       "open": "Open"
     },
     "steps": {
-      "title": "Three steps to a first landed cost",
+      "title": "How to get a first landed cost",
       "one": "Import your purchase orders",
       "oneHint": "CSV or Excel, Sage, EBP or Odoo export: columns are detected, nothing is written before you confirm.",
       "two": "Add a container and load lines into it",
@@ -390,7 +390,7 @@
       "noError": "No row error.",
       "headerRow": "Column names read from line {line}.",
       "totalsRowIgnored": "Totals row ignored.",
-      "forwardFilled": "{count} row(s) attached to the order on the row above.",
+      "forwardFilled": "{count, plural, one {# row attached to the order on the row above.} other {# rows attached to the order on the row above.}}",
       "backToMapping": "Back to mapping",
       "importValid": "Import valid rows",
       "import": "Import",
@@ -531,7 +531,7 @@
       "allocation_percentage": "Allocation % (ignored)"
     },
     "alertKind": {
-      "DND_RISK": "Demurrage risk",
+      "DND_RISK": "Demurrage and detention",
       "ETA_CHANGED": "ETA changed",
       "TRACKING_DATA_MISSING": "Tracking data missing",
       "TRACKING_DELIVERY_FAILED": "Tracking delivery failed",
@@ -601,6 +601,7 @@
     "FX_RATE_INVALID": "The exchange rate must be greater than zero.",
     "FX_DATE_REQUIRED": "A date is needed to look the exchange rate up.",
     "MISSING_BASIS": "Some lines have no allocation basis (weight, volume or value).",
+    "MISSING_DUTY_RATE": "Some lines have no duty rate, which the \"by theoretical duty\" method needs. Enter the rate on the order lines, or pick another method.",
     "NO_TARGET": "This cost reaches no load: the container is empty.",
     "ALL_WEIGHTS_ZERO": "Every allocation basis is zero.",
     "ALLOCATION_ERROR": "The allocation could not be computed.",
@@ -628,6 +629,7 @@
     "INVALID_CONTAINER_NUMBER": "\"{value}\" is not an ISO 6346 container number (4 letters then 7 digits).",
     "DUPLICATE_IN_FILE": "Line {line_no} of order {po_number} appears twice in the file.",
     "DEPRECATED_COLUMN": "Column \"{column}\" (allocation percentage) is ignored: costs follow the organization's default allocation method.",
+    "FX_RATE_APPLIED": "Order in {currency}: rate {rate} ({currency}→{base_currency}) applied, {source, select, ecb {the ECB rate of {rate_date}} other {the latest ECB rate published, that of {rate_date}}}. You can replace it on the order with your bank's rate.",
     "FX_RATE_DEFAULTED": "Order in {currency}: no exchange rate known as of {rate_date}, rate {rate} ({currency}→{base_currency}, source: default) was applied. Correct it on the order.",
     "NOT_AN_ACTUAL": "Only an actual cost can replace an estimate.",
     "SELF_SUPERSEDE": "A cost cannot replace itself.",
@@ -663,7 +665,7 @@
     "TOTALS_ROW_IGNORED": "The last row of the file is a totals row: it was not imported.",
     "DECIMAL_COMMA_ASSUMED": "In column \"{column}\", the comma in \"{example}\" can be read two ways; it was read as {comma, select, thousands {a thousands separator (1,250 = 1250)} other {a decimal separator (1,250 = 1.25)}}. If that is wrong, fix the file before validating.",
     "UNIT_COLUMN_AMBIGUOUS": "Column \"{column}\" does not say whether it holds a per-unit value or a line total: it is read as per unit. If it is a line total, divide it by the quantity before importing.",
-    "PO_NUMBER_FORWARD_FILLED": "{rows} row(s) with no order number were attached to the order stated above them (column \"{column}\").",
+    "PO_NUMBER_FORWARD_FILLED": "{rows, plural, one {# row with no order number was attached to the order stated above it (column \"{column}\").} other {# rows with no order number were attached to the order stated above them (column \"{column}\").}}",
     "DUPLICATE_SKU_NEW_LINE": "Article {sku} appears again on order {po_number} with a different quantity or price: it was imported as a separate line {line_no}.",
     "page": {
       "title": "Something went wrong",
@@ -814,7 +816,7 @@
       "rejected": "Invoice rejected",
       "retried": "Reading restarted",
       "failed": "Action failed",
-      "confirmedBanner": "Invoice confirmed: {count} costs created on {date}. To undo, delete the costs on the container or the purchase order.",
+      "confirmedBanner": "Invoice confirmed: {count} costs created on {date}.",
       "continueTitle": "Next step",
       "continueHint": "Costs are allocated. Open the container to see the unit cost per SKU.",
       "continueToContainer": "View container {container}",
@@ -841,7 +843,7 @@
       "reopenConfirmedBody": "The {count} costs this confirmation created will be deleted. The invoice goes back to review; nothing else is touched.",
       "reopenConfirmedConfirm": "Reopen and delete the costs",
       "reopenConfirmedCancel": "Cancel",
-      "reopenedConfirmed": "Invoice reopened, {count} cost(s) deleted.",
+      "reopenedConfirmed": "Invoice reopened, {count, plural, one {# cost deleted} other {# costs deleted}}.",
       "addLine": "Add a line",
       "addLineTitle": "Add a line by hand",
       "addLineSubmit": "Add",
@@ -970,6 +972,8 @@
     "high": "Reliable read",
     "medium": "Automatic read · needs review",
     "low": "Uncertain read · needs review",
+    "reviewFlag": "needs review",
+    "confirmedFlag": "confirmed",
     "scoreTitle": "Extraction confidence: {value}"
   },
   "estimates": {
@@ -982,7 +986,7 @@
     "allocatedHint": "Still estimated + invoiced.",
     "variance": "Variance",
     "varianceHint": "Invoiced minus estimated, on the charges where an invoice has replaced an estimate — and only those.",
-    "varianceBasis": "{count} charge(s) matched",
+    "varianceBasis": "{count, plural, one {# charge matched} other {# charges matched}}",
     "varianceNone": "no estimate replaced by an invoice yet",
     "completeness": "Invoiced cost types",
     "completenessDetail": "{actual} of {expected} cost types invoiced",

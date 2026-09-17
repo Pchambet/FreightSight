@@ -34,8 +34,12 @@ async function load(id: string) {
   ]);
   if (rep.error || !rep.data) throw new Error(API_ERROR);
   const summary = summaries.data?.find((p) => p.id === id);
-  const firstNum = summary?.container_numbers?.[0];
-  const firstContainer = firstNum ? containers.data?.find((c) => c.container_number === firstNum) : undefined;
+  // The container to send the reader to next: of those carrying this order, the one that already
+  // has costs — a unit cost is what the link promises, and an empty container has none to show.
+  const carrying = (summary?.container_numbers ?? [])
+    .map((n) => containers.data?.find((c) => c.container_number === n))
+    .filter((c) => c !== undefined);
+  const firstContainer = carrying.find((c) => Number(c.allocated_base) > 0) ?? carrying[0];
   return {
     po: po.data,
     report: rep.data,

@@ -9,22 +9,25 @@ import { btnPrimary, btnSecondary, input } from "@/components/layout/AppShell";
 import ConfidenceBadge from "@/components/shared/ConfidenceBadge";
 import { addInvoiceLine, confirmInvoice, rejectInvoice, reopenInvoice, retryInvoice, updateInvoiceLine } from "@/features/actions";
 import InvoiceContinueLinks, { type ContainerLink } from "@/features/invoices/InvoiceContinueLinks";
-import { containerLinksFromLines } from "@/features/invoices/containerLinks";
 import { formatInvoiceNote, isDuplicateCostNote, splitInvoiceNotes } from "@/features/invoices/lineNotes";
 import type { InvoiceLineResponse, InvoiceResponse } from "@/lib/api/client";
 import { COST_SCOPES, COST_TYPES, type CostScope, type CostType } from "@/lib/domain";
-import { amountPlaceholder, money } from "@/lib/format";
+import { amountPlaceholder, decimalDisplay, money } from "@/lib/format";
 
 export type Target = { id: string; label: string };
 export type Targets = Record<CostScope, Target[]>;
 
-function LineRow({ invoiceId, line, targets, editable }: { invoiceId: string; line: InvoiceLineResponse; targets: Targets; editable: boolean }) {
+function LineRow({ invoiceId, line, targets, editable, confirmed }: { invoiceId: string; line: InvoiceLineResponse; targets: Targets; editable: boolean; confirmed: boolean }) {
   const t = useTranslations("invoices.line");
   const noteT = useTranslations("invoices.lineNotes");
   const typeLabel = useTranslations("domain.costType");
   const scopeLabel = useTranslations("domain.costScope");
   const locale = useLocale();
-  const [amount, setAmount] = useState(line.amount);
+  // Displayed with a comma in French (audit N11 — the API's dot-decimal "3915.40" sat next to
+  // otherwise-French text); `normalizeAmount` on the server action accepts either separator back,
+  // so typing a dot still works too. The dirty check below compares against this same display value,
+  // not the raw API string, or switching locale would show the line as edited when nothing changed.
+  const [amount, setAmount] = useState(decimalDisplay(line.amount, locale));
   const [currency, setCurrency] = useState(line.currency);
   const [costType, setCostType] = useState<CostType | "">(line.cost_type ?? "");
   const [scope, setScope] = useState<CostScope | "">(line.scope ?? "");
@@ -32,7 +35,7 @@ function LineRow({ invoiceId, line, targets, editable }: { invoiceId: string; li
   const [accepted, setAccepted] = useState(line.accepted);
   const [pending, start] = useTransition();
   const router = useRouter();
-  const dirty = amount !== line.amount || currency !== line.currency || costType !== (line.cost_type ?? "") || scope !== (line.scope ?? "") || target !== (line.target_id ?? "") || accepted !== line.accepted;
+  const dirty = amount !== decimalDisplay(line.amount, locale) || currency !== line.currency || costType !== (line.cost_type ?? "") || scope !== (line.scope ?? "") || target !== (line.target_id ?? "") || accepted !== line.accepted;
   const lineNotes = splitInvoiceNotes(line.notes);
   const hasDuplicate = lineNotes.some(isDuplicateCostNote);
   const formattedNotes = lineNotes.map((n) => formatInvoiceNote(n, noteT, (k) => typeLabel(k as CostType), locale, line.currency));
@@ -57,7 +60,7 @@ function LineRow({ invoiceId, line, targets, editable }: { invoiceId: string; li
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline justify-between gap-3">
             <div className="text-sm font-medium text-slate-900 truncate">{line.line_no}. {line.description}</div>
-            <ConfidenceBadge value={line.confidence} band={(line as { confidence_band?: "HIGH" | "MEDIUM" | "LOW" }).confidence_band} className="shrink-0" />
+            <ConfidenceBadge value={line.confidence} band={(line as { confidence_band?: "HIGH" | "MEDIUM" | "LOW" }).confidence_band} confirmed={confirmed} className="shrink-0" />
           </div>
           {editable ? (
             <div className="mt-2 grid grid-cols-2 md:grid-cols-6 gap-2">
@@ -187,7 +190,9 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
       router.refresh();
     });
 
-  const continueLinks = continueTo ?? (invoice.status === "CONFIRMED" ? containerLinksFromLines(lines, targets) : []);
+  // Only the fresh, just-confirmed feedback — not a standing fallback recomputed from `lines` on every
+  // load, which used to duplicate the page's own "Prochaine étape" card word for word (audit B21/B36).
+  const continueLinks = continueTo ?? [];
 
   return (
     <div>
@@ -203,7 +208,7 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
       ) : null}
       {lines.length === 0 ? <p className="px-5 py-6 text-sm text-slate-500">{t("noLines")}</p> : null}
       <ul className="divide-y divide-slate-200">
-        {lines.map((l) => <LineRow key={l.id} invoiceId={invoice.id} line={l} targets={targets} editable={editable} />)}
+        {lines.map((l) => <LineRow key={l.id} invoiceId={invoice.id} line={l} targets={targets} editable={editable} confirmed={invoice.status === "CONFIRMED"} />)}
       </ul>
       {editable ? (
         <>

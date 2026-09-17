@@ -85,8 +85,11 @@ export default async function InvoicePage({ params }: Params) {
             {invoice.extractor ? (
               <>
                 {" · "}
-                {t("extractedBy", { extractor: extractorKind.has(extractorKindValue as never) ? extractorKind(extractorKindValue as never) : invoice.extractor })}{" "}
-                <ConfidenceBadge value={invoice.confidence} band={confidenceBandValue} className="align-middle" />
+                {extractorKind.has(extractorKindValue as never) ? extractorKind(extractorKindValue as never) : t("extractedBy", { extractor: invoice.extractor })}{" "}
+                {/* `flagOnly`: the extractor kind just above already says how it was read ("Lecture
+                    automatique par règles") — repeating "Lecture automatique" from the confidence
+                    tier said the same thing twice (audit N3). */}
+                <ConfidenceBadge value={invoice.confidence} band={confidenceBandValue} confirmed={invoice.status === "CONFIRMED"} flagOnly className="align-middle" />
               </>
             ) : null}
           </p>
