@@ -12,7 +12,9 @@
     "total": "Total",
     "apiError": "L'API a renvoyé une erreur.",
     "apiUnreachable": "L'API est injoignable. Le backend tourne-t-il ?",
-    "skipToContent": "Aller au contenu principal"
+    "skipToContent": "Aller au contenu principal",
+    "dataUnavailable": "Vos données n'ont pas pu être lues",
+    "retry": "Réessayer"
   },
   "nav": {
     "main": "Navigation principale",
@@ -27,7 +29,15 @@
     "audit": "Historique",
     "variance": "Écarts",
     "reports": "Rapports",
-    "help": "Aide"
+    "help": "Aide",
+    "overview": "Vue d'ensemble",
+    "skus": "Références",
+    "groupSteer": "Piloter",
+    "groupFiles": "Dossiers",
+    "groupData": "Données",
+    "search": "Rechercher",
+    "collapse": "Réduire le menu",
+    "expand": "Déplier le menu"
   },
   "help": {
     "subject": "Aide FreightSight — {org}",
@@ -52,13 +62,14 @@
       "title": "Aucun conteneur pour l'instant",
       "hint": "Importez des commandes ou ajoutez un conteneur ci-dessus.",
       "importLink": "Importer des commandes",
-      "sampleHint": "Une expédition, deux conteneurs et trois factures de frais, pour essayer la ventilation."
+      "sampleHint": "Un dossier : une expédition et deux conteneurs, pour apprendre les écrans. Six mois : vingt conteneurs, trois fournisseurs, des factures et des surestaries, pour voir les tendances. Des données fictives, calculées par le produit."
     },
     "sample": {
-      "load": "Charger un jeu d'exemple",
+      "load": "Charger un dossier d'exemple",
       "loading": "Chargement…",
       "loaded": "Jeu d'exemple chargé",
-      "failed": "Impossible de charger le jeu d'exemple"
+      "failed": "Impossible de charger le jeu d'exemple",
+      "loadHistory": "Charger six mois d'exemple"
     },
     "new": {
       "label": "Numéro de conteneur",
@@ -239,7 +250,8 @@
     "subtitle": "Ce que vous vendez vraiment",
     "fobUnit": "FOB unitaire",
     "landedUnit": "Coût rendu unitaire",
-    "quantity": "{qty} chargées"
+    "quantity": "{qty} chargées",
+    "skuHistory": "Voir l'historique du coût unitaire de cette référence"
   },
   "allocation": {
     "title": "Coût rendu par ligne de commande",
@@ -680,7 +692,10 @@
       "body": "Cette page n'existe pas ou vous n'y avez pas accès.",
       "back": "Retour aux conteneurs"
     },
-    "ORG_LOCALE_UNKNOWN": "Langue inconnue : seuls le français et l'anglais sont écrits."
+    "ORG_LOCALE_UNKNOWN": "Langue inconnue : seuls le français et l'anglais sont écrits.",
+    "PRODUCT_DEFAULTS_APPLIED": "{sku} : {fields} repris de la fiche produit.",
+    "PRODUCT_SKU_TAKEN": "Une fiche produit existe déjà pour cette référence.",
+    "PRODUCT_SKU_BLANK": "La référence ne peut pas être vide."
   },
   "timeline": {
     "title": "Chronologie",
@@ -1351,6 +1366,246 @@
       "costs": "Saisir des coûts (facture ou manuel)",
       "invoice": "Confirmer une facture transitaire",
       "unitCosts": "Voir le coût unitaire par référence"
+    }
+  },
+  "costFamily": {
+    "freight": "Fret et assurance",
+    "port": "Frais portuaires",
+    "customs": "Douane",
+    "delivery": "Livraison et entreposage",
+    "dnd": "Surestaries et détention",
+    "other": "Autres frais"
+  },
+  "overview": {
+    "title": "Vue d'ensemble",
+    "subtitle": "Marchandises arrivées du {from} au {to}. Ce que vos importations coûtent vraiment, et ce qui demande une décision aujourd'hui.",
+    "window": "Période affichée",
+    "windowMonths": "{months} mois",
+    "versus": "vs {months} mois précédents",
+    "seeTable": "Voir le tableau",
+    "unknownSupplier": "Fournisseur non renseigné",
+    "monthNote": "{loads, plural, one {# ligne chargée} other {# lignes chargées}} · coefficient {coef}",
+    "monthEmpty": "Aucune arrivée ce mois-ci",
+    "supplierSub": "{fees} de frais pour {fob} achetés",
+    "todo": {
+      "title": "À traiter",
+      "none": "Rien d'urgent : aucun conteneur exposé, aucune facture en attente de relecture.",
+      "open": "Ouvrir",
+      "exposedLate": "a dépassé son dernier jour franc ({date}) de {days, plural, one {# jour} other {# jours}} : les surestaries courent.",
+      "exposedLeft": "{days, plural, =0 {sort de franchise aujourd'hui ({date}).} one {sort de franchise dans # jour ({date}).} other {sort de franchise dans # jours ({date}).}}",
+      "exposedNoDate": "est exposé aux surestaries, sans dernier jour franc renseigné.",
+      "review": "{count, plural, one {# facture lue attend votre relecture avant d'entrer dans les coûts.} other {# factures lues attendent votre relecture avant d'entrer dans les coûts.}}",
+      "reviewAction": "Relire",
+      "uncosted": "est chargé mais n'a encore aucun coût : son coût rendu est égal au prix d'achat."
+    },
+    "empty": {
+      "title": "Pas encore de chiffres à montrer",
+      "noContainers": "La vue d'ensemble se remplit dès qu'un conteneur porte des lignes de commande et des coûts. Commencez par un conteneur, ou chargez le jeu d'exemple.",
+      "noArrivals": "Aucune marchandise n'est arrivée sur les {months} derniers mois. Élargissez la période, ou renseignez la date d'arrivée de vos conteneurs.",
+      "goContainers": "Aller aux conteneurs",
+      "widen": "Voir 12 mois"
+    },
+    "kpi": {
+      "coef": "Coefficient d'approche",
+      "coefHint": "Coût rendu divisé par le prix d'achat (FOB). 1,27 : chaque euro acheté vous revient à 1,27 € une fois la marchandise chez vous. TVA import exclue.",
+      "coefSub": "soit {pct} de frais sur le prix d'achat",
+      "fees": "Frais d'approche",
+      "feesHint": "Tout ce qui s'ajoute au prix d'achat pour amener la marchandise chez vous : fret, assurance, frais portuaires, douane, livraison, surestaries. TVA import exclue.",
+      "fob": "Achats arrivés (FOB)",
+      "fobHint": "Valeur d'achat des lignes de commande arrivées sur la période, convertie dans votre devise.",
+      "fobSub": "{loads, plural, one {# ligne chargée} other {# lignes chargées}}",
+      "dnd": "Surestaries payées",
+      "dndHint": "Surestaries et détention réellement facturées sur la période. « Évité » : ce que les conteneurs sortis à temps après une alerte auraient coûté au tarif de vos barèmes.",
+      "dndAvoided": "{amount} évités"
+    },
+    "structure": {
+      "title": "Frais d'approche par mois",
+      "subtitle": "Par mois d'arrivée de la marchandise, hors prix d'achat et hors TVA import.",
+      "total": "Total des frais",
+      "undated": "{amount} de frais portent sur des conteneurs sans date d'arrivée : ils ne sont dans aucun mois."
+    },
+    "breakdown": {
+      "title": "Du prix d'achat au coût rendu",
+      "subtitle": "Coût rendu de la période : {landed}",
+      "fob": "Prix d'achat (FOB)",
+      "ofFob": "du FOB"
+    },
+    "suppliers": {
+      "title": "Coefficient par fournisseur",
+      "subtitle": "Le plus lourd en frais d'abord. La barre mesure les frais rapportés au prix d'achat.",
+      "empty": "Aucun fournisseur sur la période."
+    },
+    "skus": {
+      "title": "Références qui pèsent le plus",
+      "subtitle": "Par coût rendu sur la période. Coût unitaire moyen pondéré.",
+      "all": "Toutes les références",
+      "empty": "Aucune référence sur la période.",
+      "th": {
+        "sku": "Référence",
+        "quantity": "Qté",
+        "unitFob": "Achat unitaire",
+        "unitLanded": "Rendu unitaire",
+        "coef": "Coef."
+      }
+    }
+  },
+  "palette": {
+    "trigger": "Rechercher un conteneur, une commande, une référence…",
+    "title": "Recherche et commandes",
+    "placeholder": "N° de conteneur, commande, référence, facture, fournisseur…",
+    "close": "Fermer la recherche",
+    "searching": "Recherche…",
+    "nothing": "Rien ne correspond à « {q} ».",
+    "count": "{count, plural, =0 {aucun résultat} one {# résultat} other {# résultats}}",
+    "hintMove": "parcourir",
+    "hintOpen": "ouvrir",
+    "hintType": "2 caractères pour chercher dans vos données",
+    "group": {
+      "results": "Dans vos données",
+      "actions": "Actions",
+      "pages": "Aller à"
+    },
+    "kind": {
+      "container": "Conteneur",
+      "purchase_order": "Commande",
+      "sku": "Référence",
+      "invoice": "Facture",
+      "supplier": "Fournisseur",
+      "shipment": "Expédition"
+    },
+    "action": {
+      "addContainer": "Ajouter un conteneur",
+      "uploadInvoice": "Déposer une facture transitaire",
+      "importOrders": "Importer des commandes (CSV, Excel)"
+    }
+  },
+  "costBreakdown": {
+    "title": "Du prix d'achat au coût rendu",
+    "subtitle": "Coût rendu : {landed}, TVA import exclue.",
+    "coef": "Coefficient d'approche",
+    "fob": "Prix d'achat (FOB)",
+    "ofFob": "du FOB"
+  },
+  "skus": {
+    "title": "Références",
+    "subtitle": "Le coût de revient rendu de chaque référence, arrivage après arrivage, et la marge qu'il vous laisse vraiment.",
+    "searchPlaceholder": "Référence ou désignation…",
+    "sortBy": "Trier par",
+    "sort": {
+      "landed": "poids",
+      "change": "hausse",
+      "margin": "marge",
+      "sku": "référence"
+    },
+    "estimated": "estimé",
+    "lastArrival": "dernière arrivée le {date}",
+    "setPrice": "Renseigner",
+    "th": {
+      "sku": "Référence",
+      "arrivals": "Arrivages",
+      "quantity": "Qté",
+      "unitFob": "Achat unitaire",
+      "unitLanded": "Rendu unitaire",
+      "last": "Dernier arrivage",
+      "change": "Évolution",
+      "salePrice": "Prix de vente HT",
+      "margin": "Marge"
+    },
+    "kpi": {
+      "count": "Références suivies",
+      "countSub": "{priced, plural, =0 {aucune avec un prix de vente} one {# avec un prix de vente} other {# avec un prix de vente}}",
+      "rising": "Plus forte hausse",
+      "falling": "Plus forte baisse",
+      "changeHint": "Coût unitaire rendu du dernier conteneur arrivé, comparé à celui d'avant. Un conteneur encore en mer ne compte pas.",
+      "noChange": "Il faut deux arrivages pour mesurer une évolution.",
+      "thinnest": "Marge la plus fine",
+      "thinnestSub": "{margin} de marge au coût rendu",
+      "marginHint": "Marge sur le prix de vente HT, calculée au coût rendu moyen : (prix − coût rendu) ÷ prix.",
+      "noPrice": "Renseignez un prix de vente pour la voir."
+    },
+    "empty": {
+      "title": "Aucune référence pour l'instant",
+      "body": "Une référence apparaît ici dès qu'une ligne de commande portant ce SKU est chargée dans un conteneur.",
+      "import": "Importer des commandes",
+      "noMatchTitle": "Rien ne correspond à « {q} »",
+      "noMatch": "La recherche porte sur la référence et la désignation.",
+      "clear": "Voir toutes les références"
+    },
+    "sheets": {
+      "create": "Créer les fiches produit",
+      "pending": "Création…",
+      "hint": "Une fiche par référence déjà vue sur une commande, remplie avec la dernière désignation, le code SH, le taux de droits, le poids et le volume connus.",
+      "created": "{count, plural, one {# fiche produit créée} other {# fiches produit créées}}",
+      "none": "Toutes les références ont déjà leur fiche."
+    },
+    "detail": {
+      "arrivals": "{count, plural, one {# arrivage} other {# arrivages}}",
+      "unitLanded": "Rendu unitaire moyen",
+      "unitLandedHint": "Coût rendu total de la référence divisé par la quantité reçue, tous arrivages confondus. TVA import exclue.",
+      "coef": "coefficient d'approche {coef}",
+      "last": "Dernier arrivage",
+      "vsPrevious": "vs arrivage précédent",
+      "oneArrival": "Un seul arrivage pour l'instant.",
+      "unitFob": "Achat unitaire moyen",
+      "quantity": "{qty} unités reçues",
+      "margin": "Marge au coût rendu",
+      "marginSub": "{unit} par unité, vendu {price} HT",
+      "marginOtherCurrency": "Prix de vente dans une autre devise : pas de marge calculée."
+    },
+    "trend": {
+      "title": "Coût unitaire, arrivage après arrivage",
+      "subtitle": "Un point par conteneur ayant porté la référence. L'écart entre les deux courbes, ce sont vos frais d'approche par unité.",
+      "landed": "Rendu unitaire",
+      "fob": "Achat unitaire (FOB)",
+      "approach": "Frais d'approche par unité",
+      "qty": "{qty} unités",
+      "eta": "arrivée prévue",
+      "empty": "Aucun arrivage daté pour cette référence."
+    },
+    "shift": {
+      "title": "Pourquoi le dernier arrivage a bougé",
+      "subtitle": "Par unité, de {from} à {to}.",
+      "fob": "Prix d'achat",
+      "total": "Écart sur le rendu unitaire",
+      "empty": "Il faut deux conteneurs arrivés pour expliquer un écart."
+    },
+    "arrivalsTable": {
+      "title": "Arrivages",
+      "arrived": "Arrivée",
+      "container": "Conteneur",
+      "order": "Commande",
+      "coef": "Coef."
+    },
+    "margin": {
+      "title": "Votre marge, au vrai coût",
+      "subtitle": "Calculée sur le dernier arrivage.",
+      "onFob": "Marge lue sur le prix d'achat",
+      "onFobHint": "celle d'un tarif fixé sur le FOB",
+      "onLanded": "Marge réelle, au coût rendu",
+      "onLandedHint": "{points} points de moins qu'au FOB",
+      "noPrice": "Renseignez le prix de vente HT dans la fiche produit ci-dessous pour comparer la marge lue sur le prix d'achat à la marge réelle.",
+      "target": "Marge visée",
+      "needed": "Prix de vente HT à tenir",
+      "priceHolds": "Votre prix actuel ({price}) tient cette marge.",
+      "priceShort": "Votre prix actuel ({price}) est {gap} en dessous."
+    },
+    "product": {
+      "title": "Fiche produit",
+      "subtitleExisting": "Ce que vos prochaines lignes de commande reprendront par défaut, et le prix de vente qui sert au calcul de marge.",
+      "subtitleNew": "Pas encore de fiche pour cette référence : enregistrez-la pour suivre sa marge et ne plus ressaisir son taux de droits.",
+      "description": "Désignation",
+      "salePrice": "Prix de vente HT ({currency})",
+      "salePriceHint": "Par unité, dans la devise de votre société.",
+      "hsCode": "Code SH (nomenclature douanière)",
+      "dutyRate": "Taux de droits de douane (%)",
+      "unitWeight": "Poids unitaire (kg)",
+      "unitVolume": "Volume unitaire (m³)",
+      "save": "Enregistrer la fiche",
+      "saving": "Enregistrement…",
+      "saved": "Fiche produit enregistrée",
+      "failed": "Impossible d'enregistrer la fiche produit",
+      "numberInvalid": "Un des nombres n'est pas lisible. Utilisez des chiffres, avec une virgule pour les décimales.",
+      "scopeHint": "Modifier la fiche ne change aucun coût de revient déjà calculé : les valeurs sont reprises sur les nouvelles lignes de commande uniquement."
     }
   }
 }

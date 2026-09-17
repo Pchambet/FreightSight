@@ -132,7 +132,10 @@ export interface paths {
         put?: never;
         /**
          * Load Sample Data
-         * @description Fill an empty organization with the reference demo dataset. Refuses once it holds any data.
+         * @description Fill an empty organization with a demo dataset. Refuses once it holds any data.
+         *
+         *     `reference` is one shipment, two containers and the invoice of the sales demo; `history` is
+         *     twenty containers over the last six months, for the screens that draw a trend.
          */
         post: operations["load_sample_data_api_v1_organization_sample_data_post"];
         delete?: never;
@@ -212,6 +215,73 @@ export interface paths {
         head?: never;
         /** Update Purchase Order */
         patch: operations["update_purchase_order_api_v1_purchase_orders__po_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Products
+         * @description The catalogue in SKU order. `q` matches the SKU or the description, accents and case ignored.
+         */
+        get: operations["list_products_api_v1_products_get"];
+        put?: never;
+        /**
+         * Upsert Product
+         * @description Create the entry, or update the one that already has this SKU (then 200, not 201): a catalogue
+         *     is filled from files and from screens alike, and neither should have to ask first.
+         */
+        post: operations["upsert_product_api_v1_products_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/products/from-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Products From Orders
+         * @description One entry per article already ordered, carrying the latest description, tariff heading, duty
+         *     rate, weight and volume any order gave it. Entries that exist are left exactly as they are.
+         */
+        post: operations["products_from_orders_api_v1_products_from_orders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/products/{product_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Product
+         * @description Order lines keep what they copied: deleting an entry moves no landed cost.
+         */
+        delete: operations["delete_product_api_v1_products__product_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Product */
+        patch: operations["update_product_api_v1_products__product_id__patch"];
         trace?: never;
     };
     "/api/v1/organization/rate-cards": {
@@ -339,6 +409,49 @@ export interface paths {
          *     destroys trust in every other number on the page.
          */
         get: operations["demurrage_and_detention_api_v1_reports_dnd_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/skus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Skus
+         * @description Every article that travelled in the period: quantity, FOB, landed cost, the weighted unit
+         *     cost, how the last arrival compares with the one before, and the margin when the catalogue holds
+         *     a selling price.
+         */
+        get: operations["skus_api_v1_reports_skus_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/skus/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sku Detail
+         * @description One article, one point per container that carried it, oldest first, each with the cost types
+         *     that made up its landed cost. The SKU is a parameter because a SKU may contain a slash.
+         */
+        get: operations["sku_detail_api_v1_reports_skus_detail_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1256,6 +1369,30 @@ export interface paths {
          *     entry written between two pages shifts everything and something is silently skipped.
          */
         get: operations["list_audit_log_api_v1_audit_log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Everything
+         * @description Containers, orders, articles, invoices, suppliers and shipments whose name or number matches.
+         *
+         *     Case, accents, spaces and punctuation are ignored ("mscu 482" finds MSCU4821990). The whole
+         *     reference comes before its beginning, which comes before a match in the middle. Fewer than two
+         *     characters is not a question yet: the answer is an empty list, not an error.
+         */
+        get: operations["search_everything_api_v1_search_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2641,6 +2778,92 @@ export interface components {
                 [key: string]: components["schemas"]["AllocationMethod"];
             };
         };
+        /** ProductIn */
+        ProductIn: {
+            /** Sku */
+            sku: string;
+            /** Description */
+            description?: string | null;
+            /** Hs Code */
+            hs_code?: string | null;
+            /** Duty Rate */
+            duty_rate?: number | string | null;
+            /** Unit Weight Kg */
+            unit_weight_kg?: number | string | null;
+            /** Unit Volume Cbm */
+            unit_volume_cbm?: number | string | null;
+            /** Sale Price */
+            sale_price?: number | string | null;
+            /** Sale Currency */
+            sale_currency?: string | null;
+        };
+        /** ProductPage */
+        ProductPage: {
+            /** Products */
+            products: components["schemas"]["ProductResponse"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
+        /** ProductResponse */
+        ProductResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Sku */
+            sku: string;
+            /** Description */
+            description: string | null;
+            /** Hs Code */
+            hs_code: string | null;
+            /** Duty Rate */
+            duty_rate: string | null;
+            /** Unit Weight Kg */
+            unit_weight_kg: string | null;
+            /** Unit Volume Cbm */
+            unit_volume_cbm: string | null;
+            /** Sale Price */
+            sale_price: string | null;
+            /** Sale Currency */
+            sale_currency: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ProductUpdate */
+        ProductUpdate: {
+            /** Sku */
+            sku?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Hs Code */
+            hs_code?: string | null;
+            /** Duty Rate */
+            duty_rate?: number | string | null;
+            /** Unit Weight Kg */
+            unit_weight_kg?: number | string | null;
+            /** Unit Volume Cbm */
+            unit_volume_cbm?: number | string | null;
+            /** Sale Price */
+            sale_price?: number | string | null;
+            /** Sale Currency */
+            sale_currency?: string | null;
+        };
+        /** ProductsFromOrders */
+        ProductsFromOrders: {
+            /** Created */
+            created: number;
+            /** Skipped */
+            skipped: number;
+        };
         /** PurchaseOrderCreate */
         PurchaseOrderCreate: {
             /** Po Number */
@@ -2937,6 +3160,29 @@ export interface components {
             /** Container Ids */
             container_ids: string[];
         };
+        /** SearchHit */
+        SearchHit: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "container" | "purchase_order" | "sku" | "invoice" | "supplier" | "shipment";
+            /** Id */
+            id: string | null;
+            /** Label */
+            label: string;
+            /** Sublabel */
+            sublabel?: string | null;
+            /** Sku */
+            sku?: string | null;
+        };
+        /** SearchResponse */
+        SearchResponse: {
+            /** Query */
+            query: string;
+            /** Results */
+            results: components["schemas"]["SearchHit"][];
+        };
         /** ShipmentCreate */
         ShipmentCreate: {
             /** Reference */
@@ -2990,6 +3236,62 @@ export interface components {
             /** Eta */
             eta?: string | null;
         };
+        /** SkuArrival */
+        SkuArrival: {
+            /**
+             * Load Id
+             * Format: uuid
+             */
+            load_id: string;
+            /**
+             * Container Id
+             * Format: uuid
+             */
+            container_id: string;
+            /** Container Number */
+            container_number: string;
+            /**
+             * Po Id
+             * Format: uuid
+             */
+            po_id: string;
+            /** Po Number */
+            po_number: string;
+            /** Supplier Name */
+            supplier_name: string | null;
+            /** Arrived On */
+            arrived_on: string | null;
+            /** Arrival Is Estimate */
+            arrival_is_estimate: boolean;
+            /** Quantity */
+            quantity: string;
+            /** Fob */
+            fob: string;
+            /** Landed */
+            landed: string;
+            /** Unit Fob */
+            unit_fob: string;
+            /** Unit Landed */
+            unit_landed: string;
+            /** By Cost Type */
+            by_cost_type: {
+                [key: string]: string;
+            };
+            /** Unit By Cost Type */
+            unit_by_cost_type: {
+                [key: string]: string;
+            };
+            /** Estimated */
+            estimated: string;
+        };
+        /** SkuDetailResponse */
+        SkuDetailResponse: {
+            /** Base Currency */
+            base_currency: string;
+            summary: components["schemas"]["SkuSummary"];
+            /** Arrivals */
+            arrivals: components["schemas"]["SkuArrival"][];
+        };
         /** SkuHistoryPoint */
         SkuHistoryPoint: {
             /**
@@ -3016,6 +3318,50 @@ export interface components {
             base_currency: string;
             /** Points */
             points: components["schemas"]["SkuHistoryPoint"][];
+        };
+        /** SkuListResponse */
+        SkuListResponse: {
+            /** Base Currency */
+            base_currency: string;
+            /** Skus */
+            skus: components["schemas"]["SkuSummary"][];
+        };
+        /** SkuSummary */
+        SkuSummary: {
+            /** Sku */
+            sku: string;
+            /** Description */
+            description: string | null;
+            /** Quantity */
+            quantity: string;
+            /** Fob */
+            fob: string;
+            /** Landed */
+            landed: string;
+            /** Unit Fob */
+            unit_fob: string;
+            /** Unit Landed */
+            unit_landed: string;
+            /** Last Unit Landed */
+            last_unit_landed: string | null;
+            /** Previous Unit Landed */
+            previous_unit_landed: string | null;
+            /** Change Pct */
+            change_pct: string | null;
+            /** Arrivals */
+            arrivals: number;
+            /** Last Arrival On */
+            last_arrival_on: string | null;
+            /** Has Estimates */
+            has_estimates: boolean;
+            /** Product Id */
+            product_id: string | null;
+            /** Sale Price */
+            sale_price: string | null;
+            /** Margin Unit */
+            margin_unit: string | null;
+            /** Margin Pct */
+            margin_pct: string | null;
         };
         /** SupplierCreate */
         SupplierCreate: {
@@ -3432,7 +3778,9 @@ export interface operations {
     };
     load_sample_data_api_v1_organization_sample_data_post: {
         parameters: {
-            query?: never;
+            query?: {
+                profile?: "reference" | "history";
+            };
             header?: {
                 "X-Org-Id"?: string | null;
             };
@@ -3765,6 +4113,175 @@ export interface operations {
             };
         };
     };
+    list_products_api_v1_products_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upsert_product_api_v1_products_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    products_from_orders_api_v1_products_from_orders_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductsFromOrders"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_product_api_v1_products__product_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_product_api_v1_products__product_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_rate_cards_api_v1_organization_rate_cards_get: {
         parameters: {
             query?: never;
@@ -4022,6 +4539,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DndAnalysis"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    skus_api_v1_reports_skus_get: {
+        parameters: {
+            query?: {
+                period_from?: string | null;
+                period_to?: string | null;
+                q?: string | null;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkuListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sku_detail_api_v1_reports_skus_detail_get: {
+        parameters: {
+            query: {
+                sku: string;
+                period_from?: string | null;
+                period_to?: string | null;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkuDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -5993,6 +6580,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_everything_api_v1_search_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                limit?: number;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResponse"];
                 };
             };
             /** @description Validation Error */

@@ -12,7 +12,9 @@
     "total": "Total",
     "apiError": "The API returned an error.",
     "apiUnreachable": "Cannot reach the API. Is the backend running?",
-    "skipToContent": "Skip to main content"
+    "skipToContent": "Skip to main content",
+    "dataUnavailable": "Your data could not be read",
+    "retry": "Try again"
   },
   "nav": {
     "main": "Main navigation",
@@ -27,7 +29,15 @@
     "audit": "History",
     "variance": "Variance",
     "reports": "Reports",
-    "help": "Help"
+    "help": "Help",
+    "overview": "Overview",
+    "skus": "SKUs",
+    "groupSteer": "Steer",
+    "groupFiles": "Files",
+    "groupData": "Data",
+    "search": "Search",
+    "collapse": "Collapse menu",
+    "expand": "Expand menu"
   },
   "help": {
     "subject": "FreightSight help — {org}",
@@ -52,13 +62,14 @@
       "title": "No containers yet",
       "hint": "Import purchase orders or add a container above.",
       "importLink": "Import purchase orders",
-      "sampleHint": "One shipment, two containers and three cost invoices, to try the allocation."
+      "sampleHint": "One file: a shipment and two containers, to learn the screens. Six months: twenty containers, three suppliers, invoices and demurrage, to see the trends. Fictional data, computed by the product."
     },
     "sample": {
-      "load": "Load sample data",
+      "load": "Load one sample file",
       "loading": "Loading…",
       "loaded": "Sample data loaded",
-      "failed": "Could not load the sample data"
+      "failed": "Could not load the sample data",
+      "loadHistory": "Load six months of sample data"
     },
     "new": {
       "label": "Container number",
@@ -239,7 +250,8 @@
     "subtitle": "What you really sell at",
     "fobUnit": "FOB unit",
     "landedUnit": "Landed unit cost",
-    "quantity": "{qty} loaded"
+    "quantity": "{qty} loaded",
+    "skuHistory": "See this SKU's unit cost history"
   },
   "allocation": {
     "title": "Landed cost per purchase-order line",
@@ -680,7 +692,10 @@
       "body": "This page does not exist or you do not have access to it.",
       "back": "Back to containers"
     },
-    "ORG_LOCALE_UNKNOWN": "Unknown language: only French and English are written."
+    "ORG_LOCALE_UNKNOWN": "Unknown language: only French and English are written.",
+    "PRODUCT_DEFAULTS_APPLIED": "{sku}: {fields} taken from the product sheet.",
+    "PRODUCT_SKU_TAKEN": "A product sheet already exists for this SKU.",
+    "PRODUCT_SKU_BLANK": "The SKU cannot be blank."
   },
   "timeline": {
     "title": "Timeline",
@@ -1351,6 +1366,246 @@
       "costs": "Enter costs (invoice or manual)",
       "invoice": "Confirm a forwarder invoice",
       "unitCosts": "View unit cost per SKU"
+    }
+  },
+  "costFamily": {
+    "freight": "Freight and insurance",
+    "port": "Port charges",
+    "customs": "Customs",
+    "delivery": "Delivery and storage",
+    "dnd": "Demurrage and detention",
+    "other": "Other charges"
+  },
+  "overview": {
+    "title": "Overview",
+    "subtitle": "Goods landed from {from} to {to}. What your imports really cost, and what needs a decision today.",
+    "window": "Period shown",
+    "windowMonths": "{months} months",
+    "versus": "vs previous {months} months",
+    "seeTable": "See the table",
+    "unknownSupplier": "Supplier not set",
+    "monthNote": "{loads, plural, one {# loaded line} other {# loaded lines}} · ratio {coef}",
+    "monthEmpty": "No arrival this month",
+    "supplierSub": "{fees} of charges on {fob} purchased",
+    "todo": {
+      "title": "To do",
+      "none": "Nothing urgent: no container exposed, no invoice waiting for review.",
+      "open": "Open",
+      "exposedLate": "is {days, plural, one {# day} other {# days}} past its last free day ({date}): demurrage is running.",
+      "exposedLeft": "{days, plural, =0 {runs out of free time today ({date}).} one {runs out of free time in # day ({date}).} other {runs out of free time in # days ({date}).}}",
+      "exposedNoDate": "is exposed to demurrage, with no last free day on file.",
+      "review": "{count, plural, one {# read invoice is waiting for your review before it becomes a cost.} other {# read invoices are waiting for your review before they become costs.}}",
+      "reviewAction": "Review",
+      "uncosted": "is loaded but has no cost yet: its landed cost equals its purchase price."
+    },
+    "empty": {
+      "title": "No figures to show yet",
+      "noContainers": "The overview fills in as soon as a container carries order lines and costs. Start with a container, or load the sample data.",
+      "noArrivals": "No goods landed in the last {months} months. Widen the period, or fill in your containers' arrival dates.",
+      "goContainers": "Go to containers",
+      "widen": "Show 12 months"
+    },
+    "kpi": {
+      "coef": "Landed cost ratio",
+      "coefHint": "Landed cost divided by purchase price (FOB). 1.27: every euro purchased costs you €1.27 once the goods are at your door. Import VAT excluded.",
+      "coefSub": "i.e. {pct} of charges on the purchase price",
+      "fees": "Landing charges",
+      "feesHint": "Everything added to the purchase price to bring the goods to you: freight, insurance, port charges, customs, delivery, demurrage. Import VAT excluded.",
+      "fob": "Purchases landed (FOB)",
+      "fobHint": "Purchase value of the order lines landed in the period, converted to your currency.",
+      "fobSub": "{loads, plural, one {# loaded line} other {# loaded lines}}",
+      "dnd": "Demurrage paid",
+      "dndHint": "Demurrage and detention actually invoiced in the period. “Avoided”: what containers picked up in time after an alert would have cost at your rate cards' tariff.",
+      "dndAvoided": "{amount} avoided"
+    },
+    "structure": {
+      "title": "Landing charges per month",
+      "subtitle": "By month of arrival of the goods, excluding purchase price and import VAT.",
+      "total": "Total charges",
+      "undated": "{amount} of charges sit on containers with no arrival date: they belong to no month."
+    },
+    "breakdown": {
+      "title": "From purchase price to landed cost",
+      "subtitle": "Landed cost of the period: {landed}",
+      "fob": "Purchase price (FOB)",
+      "ofFob": "of FOB"
+    },
+    "suppliers": {
+      "title": "Ratio by supplier",
+      "subtitle": "Heaviest in charges first. The bar measures charges against purchase price.",
+      "empty": "No supplier in the period."
+    },
+    "skus": {
+      "title": "SKUs that weigh the most",
+      "subtitle": "By landed cost in the period. Weighted average unit cost.",
+      "all": "All SKUs",
+      "empty": "No SKU in the period.",
+      "th": {
+        "sku": "SKU",
+        "quantity": "Qty",
+        "unitFob": "Unit purchase",
+        "unitLanded": "Unit landed",
+        "coef": "Ratio"
+      }
+    }
+  },
+  "palette": {
+    "trigger": "Search a container, an order, a SKU…",
+    "title": "Search and commands",
+    "placeholder": "Container no., order, SKU, invoice, supplier…",
+    "close": "Close search",
+    "searching": "Searching…",
+    "nothing": "Nothing matches “{q}”.",
+    "count": "{count, plural, =0 {no result} one {# result} other {# results}}",
+    "hintMove": "move",
+    "hintOpen": "open",
+    "hintType": "2 characters to search your data",
+    "group": {
+      "results": "In your data",
+      "actions": "Actions",
+      "pages": "Go to"
+    },
+    "kind": {
+      "container": "Container",
+      "purchase_order": "Order",
+      "sku": "SKU",
+      "invoice": "Invoice",
+      "supplier": "Supplier",
+      "shipment": "Shipment"
+    },
+    "action": {
+      "addContainer": "Add a container",
+      "uploadInvoice": "Upload a forwarder invoice",
+      "importOrders": "Import orders (CSV, Excel)"
+    }
+  },
+  "costBreakdown": {
+    "title": "From purchase price to landed cost",
+    "subtitle": "Landed cost: {landed}, import VAT excluded.",
+    "coef": "Landed cost ratio",
+    "fob": "Purchase price (FOB)",
+    "ofFob": "of FOB"
+  },
+  "skus": {
+    "title": "SKUs",
+    "subtitle": "The landed cost of each SKU, arrival after arrival, and the margin it really leaves you.",
+    "searchPlaceholder": "SKU or description…",
+    "sortBy": "Sort by",
+    "sort": {
+      "landed": "weight",
+      "change": "increase",
+      "margin": "margin",
+      "sku": "SKU"
+    },
+    "estimated": "estimated",
+    "lastArrival": "last arrival on {date}",
+    "setPrice": "Set",
+    "th": {
+      "sku": "SKU",
+      "arrivals": "Arrivals",
+      "quantity": "Qty",
+      "unitFob": "Unit purchase",
+      "unitLanded": "Unit landed",
+      "last": "Last arrival",
+      "change": "Change",
+      "salePrice": "Selling price excl. VAT",
+      "margin": "Margin"
+    },
+    "kpi": {
+      "count": "SKUs tracked",
+      "countSub": "{priced, plural, =0 {none with a selling price} one {# with a selling price} other {# with a selling price}}",
+      "rising": "Largest increase",
+      "falling": "Largest decrease",
+      "changeHint": "Unit landed cost of the last container to arrive, compared with the one before. A container still at sea does not count.",
+      "noChange": "Two arrivals are needed to measure a change.",
+      "thinnest": "Thinnest margin",
+      "thinnestSub": "{margin} margin at landed cost",
+      "marginHint": "Margin on the selling price excl. VAT, at the average landed cost: (price − landed cost) ÷ price.",
+      "noPrice": "Set a selling price to see it."
+    },
+    "empty": {
+      "title": "No SKU yet",
+      "body": "A SKU shows up here as soon as an order line carrying it is loaded into a container.",
+      "import": "Import orders",
+      "noMatchTitle": "Nothing matches “{q}”",
+      "noMatch": "The search covers the SKU and its description.",
+      "clear": "See all SKUs"
+    },
+    "sheets": {
+      "create": "Create product sheets",
+      "pending": "Creating…",
+      "hint": "One sheet per SKU already seen on an order, filled with the last known description, HS code, duty rate, weight and volume.",
+      "created": "{count, plural, one {# product sheet created} other {# product sheets created}}",
+      "none": "Every SKU already has its sheet."
+    },
+    "detail": {
+      "arrivals": "{count, plural, one {# arrival} other {# arrivals}}",
+      "unitLanded": "Average unit landed cost",
+      "unitLandedHint": "Total landed cost of the SKU divided by the quantity received, all arrivals together. Import VAT excluded.",
+      "coef": "landed cost ratio {coef}",
+      "last": "Last arrival",
+      "vsPrevious": "vs previous arrival",
+      "oneArrival": "Only one arrival so far.",
+      "unitFob": "Average unit purchase",
+      "quantity": "{qty} units received",
+      "margin": "Margin at landed cost",
+      "marginSub": "{unit} per unit, sold {price} excl. VAT",
+      "marginOtherCurrency": "Selling price in another currency: no margin computed."
+    },
+    "trend": {
+      "title": "Unit cost, arrival after arrival",
+      "subtitle": "One point per container that carried the SKU. The gap between the two lines is your landing charges per unit.",
+      "landed": "Unit landed",
+      "fob": "Unit purchase (FOB)",
+      "approach": "Landing charges per unit",
+      "qty": "{qty} units",
+      "eta": "expected arrival",
+      "empty": "No dated arrival for this SKU."
+    },
+    "shift": {
+      "title": "Why the last arrival moved",
+      "subtitle": "Per unit, from {from} to {to}.",
+      "fob": "Purchase price",
+      "total": "Change in unit landed cost",
+      "empty": "Two landed containers are needed to explain a change."
+    },
+    "arrivalsTable": {
+      "title": "Arrivals",
+      "arrived": "Arrived",
+      "container": "Container",
+      "order": "Order",
+      "coef": "Ratio"
+    },
+    "margin": {
+      "title": "Your margin, at the true cost",
+      "subtitle": "Computed on the last arrival.",
+      "onFob": "Margin read on purchase price",
+      "onFobHint": "what a price list set on FOB assumes",
+      "onLanded": "Real margin, at landed cost",
+      "onLandedHint": "{points} points less than on FOB",
+      "noPrice": "Set the selling price excl. VAT in the product sheet below to compare the margin read on the purchase price with the real one.",
+      "target": "Target margin",
+      "needed": "Selling price excl. VAT to hold",
+      "priceHolds": "Your current price ({price}) holds this margin.",
+      "priceShort": "Your current price ({price}) is {gap} short."
+    },
+    "product": {
+      "title": "Product sheet",
+      "subtitleExisting": "What your next order lines will take by default, and the selling price the margin is read against.",
+      "subtitleNew": "No sheet for this SKU yet: save one to track its margin and stop re-typing its duty rate.",
+      "description": "Description",
+      "salePrice": "Selling price excl. VAT ({currency})",
+      "salePriceHint": "Per unit, in your company's currency.",
+      "hsCode": "HS code (customs nomenclature)",
+      "dutyRate": "Customs duty rate (%)",
+      "unitWeight": "Unit weight (kg)",
+      "unitVolume": "Unit volume (m³)",
+      "save": "Save the sheet",
+      "saving": "Saving…",
+      "saved": "Product sheet saved",
+      "failed": "Could not save the product sheet",
+      "numberInvalid": "One of the numbers cannot be read. Use digits, with a dot for decimals.",
+      "scopeHint": "Editing the sheet changes no landed cost already computed: values are copied onto new order lines only."
     }
   }
 }
