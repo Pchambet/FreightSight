@@ -11,6 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query
 
 from app.api.v1 import schemas
+from app.core.errors import NotFound
 from app.core.money import q2
 from app.core.tenancy import TenantDep
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
@@ -18,6 +19,7 @@ from app.domain.costing.report import estimate_allocations
 from app.domain.costing.service import compute
 from app.domain.models import CostType, RateBasis, RateCard
 from app.domain.reporting import service as reporting
+from app.domain.reporting.skus import sku_report
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -213,6 +215,47 @@ def demurrage_and_detention(
             )
             for line in report.at_risk
         ],
+    )
+
+
+@router.get("/skus", response_model=schemas.SkuListResponse)
+def skus(
+    t: TenantDep,
+    period_from: date | None = None,
+    period_to: date | None = None,
+    q: str | None = Query(default=None, max_length=80),
+) -> schemas.SkuListResponse:
+    """Every article that travelled in the period: quantity, FOB, landed cost, the weighted unit
+    cost, how the last arrival compares with the one before, and the margin when the catalogue holds
+    a selling price."""
+    found = sku_report(
+        t.db, compute(t.db, t.org), t.org, period_from=period_from, period_to=period_to, query=q
+    )
+    return schemas.SkuListResponse(
+        base_currency=t.org.base_currency,
+        skus=[schemas.SkuSummary.model_validate(s) for s in found],
+    )
+
+
+@router.get("/skus/detail", response_model=schemas.SkuDetailResponse)
+def sku_detail(
+    t: TenantDep,
+    sku: str = Query(min_length=1, max_length=120),
+    period_from: date | None = None,
+    period_to: date | None = None,
+) -> schemas.SkuDetailResponse:
+    """One article, one point per container that carried it, oldest first, each with the cost types
+    that made up its landed cost. The SKU is a parameter because a SKU may contain a slash."""
+    found = sku_report(
+        t.db, compute(t.db, t.org), t.org, period_from=period_from, period_to=period_to, only_sku=sku
+    )
+    if not found:
+        raise NotFound("SKU")
+    (summary,) = found
+    return schemas.SkuDetailResponse(
+        base_currency=t.org.base_currency,
+        summary=schemas.SkuSummary.model_validate(summary),
+        arrivals=[schemas.SkuArrival.model_validate(point) for point in summary.points],
     )
 
 
