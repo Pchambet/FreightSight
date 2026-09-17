@@ -898,10 +898,19 @@ class PeriodSummary(BaseModel):
     by_cost_type: dict[str, Money]
     closed_at: datetime | None = None
     closed_by_name: str | None = None
+    #: Today's landed cost of the month (equal to `landed` while it is open): never add `landed` and
+    #: `drift` on a screen.
+    live_landed: Money = Decimal("0.00")
     #: Closed months only: today's landed cost minus the frozen one ("0.00" when nothing moved), and
     #: how many containers it comes from. It is the sum of `drift_lines` of the detail.
     drift: Money | None = None
     drift_containers: int | None = None
+    #: What of the drift has been booked as an adjustment in a later month, and what still asks to be.
+    #: A cost that arrives after the acknowledgement makes `drift_outstanding` non-zero again.
+    drift_acknowledged: Money | None = None
+    drift_outstanding: Money | None = None
+    acknowledged_at: datetime | None = None
+    acknowledged_note: str | None = None
 
 
 class PeriodEstimatedBox(BaseModel):
@@ -947,6 +956,22 @@ class PeriodDrift(BaseModel):
     costs_deleted: int
 
 
+class PeriodAccrual(BaseModel):
+    """Received and not yet invoiced at the end of the month: an estimate no invoice has replaced, on a
+    container that had landed by the last day of the month. *Factures non parvenues*, per cost type."""
+
+    model_config = ConfigDict(from_attributes=True)
+    container_id: UUID
+    container_number: str
+    arrived_on: date | None
+    cost_type: CostType
+    amount_base: Money
+
+
+class PeriodAcknowledge(BaseModel):
+    note: str | None = Field(default=None, max_length=500)
+
+
 class PeriodDetail(BaseModel):
     base_currency: str
     summary: PeriodSummary
@@ -954,6 +979,10 @@ class PeriodDetail(BaseModel):
     readiness: PeriodReadiness | None
     #: Closed months only: one entry per container whose landed cost is no longer the frozen one.
     drift_lines: list[PeriodDrift]
+    #: Frozen at the close for a closed month; today's view of the month's last day for an open one.
+    #: Containers that landed in EARLIER months and are still not invoiced are in it too.
+    accruals: list[PeriodAccrual] = Field(default_factory=list)
+    accruals_total: Money = Decimal("0.00")
 
 
 class PeriodList(BaseModel):

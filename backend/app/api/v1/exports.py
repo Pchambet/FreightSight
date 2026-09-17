@@ -41,6 +41,7 @@ from app.domain.models import (
 )
 from app.domain.periods import service as periods
 from app.domain.reporting.service import arrival_date
+from app.domain.reporting.skus import sku_report
 
 router = APIRouter(prefix="/exports", tags=["exports"])
 
@@ -522,3 +523,101 @@ def period_drift_csv(t: TenantDep, period: str = PeriodParam, locale: Locale = "
                        number(cost.amount_base, mark), cost.changed_at.date()]  # fmt: skip
 
     return csv_response(rows(), header, locale, f"freightsight-ecarts-{period}.csv")
+
+
+@router.get("/period-accruals.csv")
+def period_accruals_csv(t: TenantDep, period: str = PeriodParam, locale: Locale = "fr") -> StreamingResponse:
+    """The invoices not yet received at the end of the month, per container and cost type: frozen at
+    the close for a closed month, today's view of that date for an open one (`period_status` says
+    which). It is the cut-off statement; it proposes no accounting entry."""
+    found = periods.detail(t.db, compute(t.db, t.org), t.org, period)
+    _, mark = dialect(locale)
+    header = ["period", "period_status", "container_number", "arrival_date", "cost_type", "amount_base"]
+
+    def rows() -> Iterator[list[Any]]:
+        for accrual in found.accruals:
+            yield [period, found.summary.status, accrual.container_number, accrual.arrived_on,
+                   accrual.cost_type, number(accrual.amount_base, mark)]  # fmt: skip
+
+    return csv_response(rows(), header, locale, f"freightsight-factures-non-parvenues-{period}.csv")
+
+
+@router.get("/sku-costs.csv")
+def sku_costs_csv(
+    t: TenantDep,
+    period: str | None = Query(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),
+    basis: Literal["last", "average"] = "average",
+    locale: Locale = "fr",
+) -> StreamingResponse:
+    """The landed unit cost of every article, to update the cost price in the ERP or the stock sheet:
+    the quantity-weighted average of the month, or that of the last container that landed. A closed
+    month gives its frozen figures. Without `period`, everything that has landed so far.
+
+    A plain, well-titled CSV on purpose: article imports are configured on the software's side
+    (Sage, EBP, Odoo all map columns), and no vendor format is invented here."""
+    _, mark = dialect(locale)
+    header = ["sku", "description", "unit_landed_cost", "cost_basis", "quantity", "currency",
+              "arrival_date", "containers", "period", "period_status"]  # fmt: skip
+    closed = (
+        t.db.scalar(
+            t.q(PeriodClose).where(PeriodClose.period == period).options(selectinload(PeriodClose.lines))
+        )
+        if period
+        else None
+    )
+
+    def from_close() -> Iterator[list[Any]]:
+        assert closed is not None
+        articles: dict[str, list[Any]] = {}
+        for line in closed.lines:
+            if line.sku:
+                articles.setdefault(line.sku, []).append(line)
+        for sku, lines in sorted(articles.items()):
+            last_day = max((ln.arrived_on for ln in lines if ln.arrived_on), default=None)
+            kept = (
+                [ln for ln in lines if ln.arrived_on == last_day] if basis == "last" and last_day else lines
+            )
+            quantity = sum((ln.quantity for ln in kept), Decimal(0))
+            landed = sum((ln.landed for ln in kept), Decimal(0))
+            yield [
+                sku,
+                next((ln.description for ln in lines if ln.description), None),
+                number(landed / quantity if quantity else Decimal(0), mark, 4),
+                basis,
+                number(quantity, mark, 4),
+                closed.base_currency,
+                last_day,
+                " ".join(sorted({ln.container_number for ln in kept})),
+                period,
+                "closed",
+            ]
+
+    def live() -> Iterator[list[Any]]:
+        start, end = (month_start(period), periods.month_end(period)) if period else (None, None)
+        found = sku_report(t.db, compute(t.db, t.org), t.org, period_from=start, period_to=end)
+        for article in found:
+            boxes = [b for b in article.boxes if not b.arrival_is_estimate]
+            if not boxes:
+                continue  # nothing has landed: a cost price is not updated from a plan
+            kept = boxes[-1:] if basis == "last" else boxes
+            quantity = sum((b.quantity for b in kept), Decimal(0))
+            landed = sum((b.landed for b in kept), Decimal(0))
+            yield [
+                article.sku,
+                article.description,
+                number(landed / quantity if quantity else Decimal(0), mark, 4),
+                basis,
+                number(quantity, mark, 4),
+                t.org.base_currency,
+                boxes[-1].arrived_on,
+                " ".join(sorted({b.container_number for b in kept})),
+                period,
+                "open" if period else None,
+            ]
+
+    name = f"freightsight-prix-de-revient-{period or 'tout'}.csv"
+    return csv_response(from_close() if closed is not None else live(), header, locale, name)
+
+
+def month_start(period: str) -> date:
+    return date(int(period[:4]), int(period[5:7]), 1)

@@ -977,9 +977,18 @@ class PeriodClose(OrgScoped, Base):
     fob: Mapped[Decimal] = mapped_column(Numeric(16, 2), nullable=False)
     landed: Mapped[Decimal] = mapped_column(Numeric(16, 2), nullable=False)
     by_cost_type: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
+    #: How much of the drift since the close has been booked as an adjustment in a later month. The
+    #: month stops asking for it — and asks again if another late cost moves the figure further.
+    acknowledged_drift: Mapped[Decimal] = mapped_column(Numeric(16, 2), nullable=False, default=Decimal("0"))
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    acknowledged_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    acknowledged_note: Mapped[str | None] = mapped_column(String)
 
     lines: Mapped[list[PeriodCloseLine]] = relationship(
         back_populates="close", cascade="all, delete-orphan", order_by="PeriodCloseLine.container_number"
+    )
+    accruals: Mapped[list[PeriodCloseAccrual]] = relationship(
+        back_populates="close", cascade="all, delete-orphan", order_by="PeriodCloseAccrual.container_number"
     )
 
 
@@ -995,6 +1004,7 @@ class PeriodCloseLine(OrgScoped, Base):
     )
     container_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     container_number: Mapped[str] = mapped_column(String, nullable=False)
+    arrived_on: Mapped[date | None] = mapped_column(Date)
     load_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     po_number: Mapped[str] = mapped_column(String, nullable=False)
     sku: Mapped[str | None] = mapped_column(String)
@@ -1005,6 +1015,26 @@ class PeriodCloseLine(OrgScoped, Base):
     by_cost_type: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
 
     close: Mapped[PeriodClose] = relationship(back_populates="lines")
+
+
+class PeriodCloseAccrual(OrgScoped, Base):
+    """What had been received and not yet invoiced when the month was closed: the estimates no invoice
+    had replaced, on containers that had landed by the last day of the month. The accountant calls it
+    *factures non parvenues*; it is the one cut-off figure FreightSight knows and the books do not."""
+
+    __tablename__ = "period_close_accruals"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    close_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("period_closes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    container_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    container_number: Mapped[str] = mapped_column(String, nullable=False)
+    arrived_on: Mapped[date | None] = mapped_column(Date)
+    cost_type: Mapped[str] = mapped_column(String, nullable=False)
+    amount_base: Mapped[Decimal] = mapped_column(Numeric(16, 2), nullable=False)
+
+    close: Mapped[PeriodClose] = relationship(back_populates="accruals")
 
 
 class SharedReport(Timestamped, OrgScoped, Base):

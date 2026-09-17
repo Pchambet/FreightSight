@@ -7,7 +7,12 @@ from fastapi import APIRouter, Path, status
 from app.api.v1 import schemas
 from app.api.v1.deps import AdminDep
 from app.core.tenancy import TenantDep
-from app.domain.audit.service import PERIOD_CLOSED, PERIOD_REOPENED, record
+from app.domain.audit.service import (
+    PERIOD_CLOSED,
+    PERIOD_DRIFT_ACKNOWLEDGED,
+    PERIOD_REOPENED,
+    record,
+)
 from app.domain.costing.service import compute
 from app.domain.periods import service as periods
 
@@ -35,6 +40,8 @@ def get_period(t: TenantDep, period: str = Period) -> schemas.PeriodDetail:
         summary=schemas.PeriodSummary.model_validate(found.summary),
         readiness=schemas.PeriodReadiness.model_validate(found.readiness) if found.readiness else None,
         drift_lines=[schemas.PeriodDrift.model_validate(line) for line in found.drift_lines],
+        accruals=[schemas.PeriodAccrual.model_validate(a) for a in found.accruals],
+        accruals_total=found.accruals_total,
     )
 
 
@@ -77,3 +84,28 @@ def reopen(t: TenantDep, p: AdminDep, period: str = Period) -> None:
         },
     )
     t.db.commit()
+
+
+@router.post("/{period}/acknowledge-drift", response_model=schemas.PeriodSummary)
+def acknowledge(
+    payload: schemas.PeriodAcknowledge, t: TenantDep, p: AdminDep, period: str = Period
+) -> schemas.PeriodSummary:
+    """The drift as it stands today has been booked as an adjustment in the open month: the closed
+    month stops asking for it. A cost that arrives later makes it ask again, for the difference."""
+    comp = compute(t.db, t.org)
+    closed = periods.acknowledge_drift(t.db, comp, t.org, period, p.user_id, payload.note)
+    record(
+        t.db,
+        t.org_id,
+        actor_user_id=p.user_id,
+        action=PERIOD_DRIFT_ACKNOWLEDGED,
+        entity_type="period",
+        entity_id=closed.id,
+        after={
+            "period": period,
+            "acknowledged_drift": closed.acknowledged_drift,
+            "note": closed.acknowledged_note,
+        },
+    )
+    t.db.commit()
+    return schemas.PeriodSummary.model_validate(periods.detail(t.db, comp, t.org, period).summary)

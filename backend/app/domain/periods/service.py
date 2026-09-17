@@ -16,7 +16,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -35,6 +35,7 @@ from app.domain.models import (
     InvoiceStatus,
     Organization,
     PeriodClose,
+    PeriodCloseAccrual,
     User,
 )
 from app.domain.models import PeriodCloseLine as FrozenLine
@@ -48,6 +49,7 @@ class LiveLine:
     load_id: UUID
     container_id: UUID
     container_number: str
+    arrived_on: date
     po_number: str
     sku: str | None
     description: str | None
@@ -69,9 +71,16 @@ class Summary:
     by_cost_type: dict[str, Decimal]
     closed_at: datetime | None = None
     closed_by_name: str | None = None
+    #: Today's landed cost of the month. Equal to `landed` while the month is open.
+    live_landed: Decimal = ZERO
     #: Live landed cost minus the frozen one, and how many containers it comes from. None while open.
     drift: Decimal | None = None
     drift_containers: int | None = None
+    #: What of the drift has been booked as an adjustment, and what is still asking to be.
+    drift_acknowledged: Decimal | None = None
+    drift_outstanding: Decimal | None = None
+    acknowledged_at: datetime | None = None
+    acknowledged_note: str | None = None
 
 
 @dataclass
@@ -119,10 +128,24 @@ class Drift:
 
 
 @dataclass
+class Accrual:
+    """Received, not yet invoiced: what an estimate still stands for on a container that has landed."""
+
+    container_id: UUID
+    container_number: str
+    arrived_on: date | None
+    cost_type: str
+    amount_base: Decimal
+
+
+@dataclass
 class Detail:
     summary: Summary
     readiness: Readiness | None
     drift_lines: list[Drift]
+    #: Frozen for a closed month, today's for an open one.
+    accruals: list[Accrual] = field(default_factory=list)
+    accruals_total: Decimal = ZERO
 
 
 def period_of(day: date) -> str:
@@ -153,6 +176,7 @@ def live_lines(comp: Computation) -> dict[str, list[LiveLine]]:
                 load_id=load.id,
                 container_id=row.container_id,
                 container_number=row.container.container_number,
+                arrived_on=landed_on,
                 po_number=row.po_line.purchase_order.po_number,
                 sku=row.po_line.sku,
                 description=row.po_line.description,
@@ -178,7 +202,9 @@ def _totals(lines: list[LiveLine] | list[FrozenLine]) -> tuple[int, Decimal, Dec
 
 def _closes(db: Session, org: Organization) -> dict[str, PeriodClose]:
     rows = db.scalars(
-        select(PeriodClose).where(PeriodClose.org_id == org.id).options(selectinload(PeriodClose.lines))
+        select(PeriodClose)
+        .where(PeriodClose.org_id == org.id)
+        .options(selectinload(PeriodClose.lines), selectinload(PeriodClose.accruals))
     )
     return {close.period: close for close in rows}
 
@@ -200,9 +226,11 @@ def _summary(
 ) -> Summary:
     if close is None:
         containers, fob, landed, by_type = _totals(live)
-        return Summary(period, "open", containers, fob, landed, q4(landed / fob) if fob else None, by_type)
+        coefficient = q4(landed / fob) if fob else None
+        return Summary(period, "open", containers, fob, landed, coefficient, by_type, live_landed=landed)
     # The drift of the list is the sum of the drift lines of the detail: the two cannot disagree.
     moved = _drift(db, comp, org, close, live)
+    drift = q2(sum((line.difference for line in moved), ZERO))
     return Summary(
         period,
         "closed",
@@ -213,8 +241,13 @@ def _summary(
         {k: Decimal(str(v)) for k, v in close.by_cost_type.items()},
         closed_at=close.closed_at,
         closed_by_name=_name(db, close.closed_by),
-        drift=q2(sum((line.difference for line in moved), ZERO)),
+        live_landed=_totals(live)[2],
+        drift=drift,
         drift_containers=len(moved),
+        drift_acknowledged=close.acknowledged_drift,
+        drift_outstanding=q2(drift - close.acknowledged_drift),
+        acknowledged_at=close.acknowledged_at,
+        acknowledged_note=close.acknowledged_note,
     )
 
 
@@ -231,8 +264,51 @@ def detail(db: Session, comp: Computation, org: Organization, period: str) -> De
         raise NotFound("Period", code="PERIOD_EMPTY")
     summary = _summary(db, comp, org, period, live, close)
     if close is None:
-        return Detail(summary, _readiness(db, comp, org, live), [])
-    return Detail(summary, None, _drift(db, comp, org, close, live))
+        pending = accruals_at(comp, period)
+        return Detail(summary, _readiness(db, comp, org, live), [], pending, _sum(pending))
+    frozen = [
+        Accrual(a.container_id, a.container_number, a.arrived_on, a.cost_type, a.amount_base)
+        for a in close.accruals
+    ]
+    return Detail(summary, None, _drift(db, comp, org, close, live), frozen, _sum(frozen))
+
+
+def _sum(accruals: list[Accrual]) -> Decimal:
+    return q2(sum((a.amount_base for a in accruals), ZERO))
+
+
+def month_end(period: str) -> date:
+    year, month = int(period[:4]), int(period[5:7])
+    return date(year + (month == 12), month % 12 + 1, 1) - timedelta(days=1)
+
+
+def accruals_at(comp: Computation, period: str) -> list[Accrual]:
+    """The invoices not yet received at the end of `period`: every estimate no invoice has replaced,
+    on a container that had landed by the last day of the month — this month or an earlier one, since
+    a forwarder six weeks late is late across two closings. Import VAT is not a charge, and is left out.
+
+    It is today's view of that date: an estimate invoiced since is no longer in it. The close freezes it.
+    """
+    last_day = month_end(period)
+    found: dict[tuple[UUID, str], Accrual] = {}
+    for allocation in comp.result.allocations:
+        cost = comp.cost_rows[allocation.cost_id]
+        if cost.status is not CostStatus.ESTIMATE or cost.cost_type.value in EXCLUDED_FROM_LANDED:
+            continue
+        container = comp.load_rows[allocation.load_id].container
+        landed_on = arrival_date(container)
+        if landed_on is None or landed_on > last_day:
+            continue
+        if container.discharged_at is None and container.ata is None:
+            continue  # an ETA is a plan: nothing has been received yet
+        key = (container.id, cost.cost_type.value)
+        entry = found.setdefault(
+            key, Accrual(container.id, container.container_number, landed_on, cost.cost_type.value, ZERO)
+        )
+        entry.amount_base += allocation.amount_base
+    for entry in found.values():
+        entry.amount_base = q2(entry.amount_base)
+    return sorted(found.values(), key=lambda a: (a.container_number, a.cost_type))
 
 
 def _readiness(db: Session, comp: Computation, org: Organization, live: list[LiveLine]) -> Readiness:
@@ -353,6 +429,7 @@ def close_period(
                 org_id=org.id,
                 container_id=line.container_id,
                 container_number=line.container_number,
+                arrived_on=line.arrived_on,
                 load_id=line.load_id,
                 po_number=line.po_number,
                 sku=line.sku,
@@ -363,7 +440,35 @@ def close_period(
                 by_cost_type={k: f"{v:.2f}" for k, v in line.by_cost_type.items()},
             )
         )
+    for pending in accruals_at(comp, period):
+        close.accruals.append(
+            PeriodCloseAccrual(
+                org_id=org.id,
+                container_id=pending.container_id,
+                container_number=pending.container_number,
+                arrived_on=pending.arrived_on,
+                cost_type=pending.cost_type,
+                amount_base=pending.amount_base,
+            )
+        )
     db.add(close)
+    db.flush()
+    return close
+
+
+def acknowledge_drift(
+    db: Session, comp: Computation, org: Organization, period: str, by: UUID | None, note: str | None
+) -> PeriodClose:
+    """The drift as it stands has been booked as an adjustment in the open month. The closed month
+    stops asking for it; a cost that arrives later moves the drift again, and it asks for the rest."""
+    close = _closes(db, org).get(period)
+    if close is None:
+        raise NotFound("Closed period", code="PERIOD_NOT_CLOSED")
+    moved = _drift(db, comp, org, close, live_lines(comp).get(period, []))
+    close.acknowledged_drift = q2(sum((line.difference for line in moved), ZERO))
+    close.acknowledged_at = datetime.now(UTC)
+    close.acknowledged_by = by
+    close.acknowledged_note = (note or "").strip() or None
     db.flush()
     return close
 

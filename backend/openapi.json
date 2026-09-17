@@ -2421,6 +2421,79 @@
         }
       }
     },
+    "/api/v1/periods/{period}/acknowledge-drift": {
+      "post": {
+        "tags": [
+          "periods"
+        ],
+        "summary": "Acknowledge",
+        "description": "The drift as it stands today has been booked as an adjustment in the open month: the closed\nmonth stops asking for it. A cost that arrives later makes it ask again, for the difference.",
+        "operationId": "acknowledge_api_v1_periods__period__acknowledge_drift_post",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "description": "YYYY-MM",
+              "title": "Period"
+            },
+            "description": "YYYY-MM"
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PeriodAcknowledge"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/shipments": {
       "get": {
         "tags": [
@@ -4226,6 +4299,175 @@
               "title": "Period"
             },
             "description": "YYYY-MM"
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "fr",
+                "en"
+              ],
+              "type": "string",
+              "default": "fr",
+              "title": "Locale"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/period-accruals.csv": {
+      "get": {
+        "tags": [
+          "exports"
+        ],
+        "summary": "Period Accruals Csv",
+        "description": "The invoices not yet received at the end of the month, per container and cost type: frozen at\nthe close for a closed month, today's view of that date for an open one (`period_status` says\nwhich). It is the cut-off statement; it proposes no accounting entry.",
+        "operationId": "period_accruals_csv_api_v1_exports_period_accruals_csv_get",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "description": "YYYY-MM",
+              "title": "Period"
+            },
+            "description": "YYYY-MM"
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "fr",
+                "en"
+              ],
+              "type": "string",
+              "default": "fr",
+              "title": "Locale"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/sku-costs.csv": {
+      "get": {
+        "tags": [
+          "exports"
+        ],
+        "summary": "Sku Costs Csv",
+        "description": "The landed unit cost of every article, to update the cost price in the ERP or the stock sheet:\nthe quantity-weighted average of the month, or that of the last container that landed. A closed\nmonth gives its frozen figures. Without `period`, everything that has landed so far.\n\nA plain, well-titled CSV on purpose: article imports are configured on the software's side\n(Sage, EBP, Odoo all map columns), and no vendor format is invented here.",
+        "operationId": "sku_costs_csv_api_v1_exports_sku_costs_csv_get",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period"
+            }
+          },
+          {
+            "name": "basis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "last",
+                "average"
+              ],
+              "type": "string",
+              "default": "average",
+              "title": "Basis"
+            }
           },
           {
             "name": "locale",
@@ -11564,6 +11806,66 @@
         ],
         "title": "OverviewTodo"
       },
+      "PeriodAccrual": {
+        "properties": {
+          "container_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Container Id"
+          },
+          "container_number": {
+            "type": "string",
+            "title": "Container Number"
+          },
+          "arrived_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrived On"
+          },
+          "cost_type": {
+            "$ref": "#/components/schemas/CostType"
+          },
+          "amount_base": {
+            "type": "string",
+            "title": "Amount Base"
+          }
+        },
+        "type": "object",
+        "required": [
+          "container_id",
+          "container_number",
+          "arrived_on",
+          "cost_type",
+          "amount_base"
+        ],
+        "title": "PeriodAccrual",
+        "description": "Received and not yet invoiced at the end of the month: an estimate no invoice has replaced, on a\ncontainer that had landed by the last day of the month. *Factures non parvenues*, per cost type."
+      },
+      "PeriodAcknowledge": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "title": "PeriodAcknowledge"
+      },
       "PeriodChangedCost": {
         "properties": {
           "cost_id": {
@@ -11642,6 +11944,18 @@
             },
             "type": "array",
             "title": "Drift Lines"
+          },
+          "accruals": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodAccrual"
+            },
+            "type": "array",
+            "title": "Accruals"
+          },
+          "accruals_total": {
+            "type": "string",
+            "title": "Accruals Total",
+            "default": "0.00"
           }
         },
         "type": "object",
@@ -11859,6 +12173,11 @@
             ],
             "title": "Closed By Name"
           },
+          "live_landed": {
+            "type": "string",
+            "title": "Live Landed",
+            "default": "0.00"
+          },
           "drift": {
             "anyOf": [
               {
@@ -11880,6 +12199,51 @@
               }
             ],
             "title": "Drift Containers"
+          },
+          "drift_acknowledged": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drift Acknowledged"
+          },
+          "drift_outstanding": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drift Outstanding"
+          },
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          },
+          "acknowledged_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged Note"
           }
         },
         "type": "object",

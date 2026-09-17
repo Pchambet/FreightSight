@@ -246,3 +246,121 @@ def test_another_organization_sees_none_of_our_months(client: TestClient, two_mo
     client.post(f"/api/v1/periods/{MARCH}/close")
     theirs = client.get("/api/v1/periods", headers={"X-Org-Id": str(uuid.uuid4())}).json()
     assert theirs["periods"] == []
+
+
+def estimate(client: TestClient, container_id: str, amount: str) -> dict[str, Any]:
+    res = client.post(
+        "/api/v1/costs",
+        json={"scope": "CONTAINER", "target_id": container_id, "cost_type": "THC", "amount": amount,
+              "currency": "EUR", "cost_date": "2026-03-12", "status": "ESTIMATE"},
+    )  # fmt: skip
+    assert res.status_code == 201, res.text
+    body: dict[str, Any] = res.json()
+    return body
+
+
+def test_a_booked_drift_stops_asking_until_another_late_cost_arrives(
+    client: TestClient, two_months: dict[str, str], as_role: Any
+) -> None:
+    box = two_months["MSCU4821990"]
+    not_closed = client.post(f"/api/v1/periods/{MARCH}/acknowledge-drift", json={})
+    assert not_closed.json()["code"] == "PERIOD_NOT_CLOSED"
+    client.post(f"/api/v1/periods/{MARCH}/close")
+    cost(client, box, "DRAYAGE", "120.00", "2026-05-02")
+    march = periods(client)[MARCH]
+    assert (march["landed"], march["live_landed"], march["drift"]) == ("700.00", "820.00", "120.00")
+    assert (march["drift_acknowledged"], march["drift_outstanding"]) == ("0.00", "120.00")
+
+    booked = client.post(f"/api/v1/periods/{MARCH}/acknowledge-drift", json={"note": "OD du 05/05"})
+    assert booked.status_code == 200, booked.text
+    assert (booked.json()["drift_acknowledged"], booked.json()["drift_outstanding"]) == ("120.00", "0.00")
+    assert booked.json()["acknowledged_note"] == "OD du 05/05" and booked.json()["acknowledged_at"]
+
+    cost(client, box, "INSPECTION", "30.00", "2026-05-20")
+    march = periods(client)[MARCH]
+    assert (march["drift"], march["drift_acknowledged"], march["drift_outstanding"]) == (
+        "150.00",
+        "120.00",
+        "30.00",
+    )
+    assert march["landed"] == "700.00"  # the closed figure itself never moved
+
+    as_role(MemberRole.MEMBER)
+    refused = client.post(f"/api/v1/periods/{MARCH}/acknowledge-drift", json={})
+    assert refused.json()["code"] == "FORBIDDEN_ROLE"
+
+
+def test_the_invoices_not_yet_received_are_frozen_at_the_close_and_span_earlier_months(
+    client: TestClient, two_months: dict[str, str]
+) -> None:
+    pending = estimate(client, two_months["MSCU4821990"], "250.00")
+    march = client.get(f"/api/v1/periods/{MARCH}").json()
+    assert [(a["container_number"], a["cost_type"], a["amount_base"]) for a in march["accruals"]] == [
+        ("MSCU4821990", "THC", "250.00")
+    ]
+    assert march["accruals_total"] == "250.00"
+    # still not invoiced at the end of April: the March box is in April's cut-off too
+    april = client.get(f"/api/v1/periods/{APRIL}").json()
+    assert [(a["container_number"], a["arrived_on"]) for a in april["accruals"]] == [
+        ("MSCU4821990", "2026-03-10")
+    ]
+
+    assert client.post(f"/api/v1/periods/{MARCH}/close").status_code == 201
+    invoiced = client.post(
+        "/api/v1/costs",
+        json={"scope": "CONTAINER", "target_id": two_months["MSCU4821990"], "cost_type": "THC",
+              "amount": "268.00", "currency": "EUR", "cost_date": "2026-04-20"},
+    )  # fmt: skip
+    assert invoiced.status_code == 201, invoiced.text
+    replaced = client.patch(
+        f"/api/v1/costs/{invoiced.json()['id']}", json={"supersedes_cost_id": pending["id"]}
+    )
+    assert replaced.status_code == 200, replaced.text
+    assert client.get(f"/api/v1/periods/{APRIL}").json()["accruals"] == []  # the invoice has come
+    frozen = client.get(f"/api/v1/periods/{MARCH}").json()
+    assert frozen["accruals_total"] == "250.00"  # and March says what was true the day it was closed
+
+    (row,) = read_csv(client.get("/api/v1/exports/period-accruals.csv", params={"period": MARCH}))
+    assert (row["N° conteneur"], row["Montant en devise de base"]) == ("MSCU4821990", "250,00")
+    assert row["Type de coût"] == "Manutention portuaire (THC)"
+    assert row["État de la période"] == "Clôturée"
+
+
+def test_a_box_still_at_sea_owes_nothing_yet(client: TestClient, two_months: dict[str, str]) -> None:
+    """An ETA in April is a plan: nothing has been received, so nothing is a *facture non parvenue*.
+    The same box, once discharged, is."""
+    po = client.post(
+        "/api/v1/purchase-orders",
+        json={"po_number": "PO-2", "currency": "EUR", "lines": [ORDER_LINE]},
+    ).json()
+    voyage = client.post("/api/v1/shipments", json={"reference": "BL-APRIL", "eta": "2026-04-20"}).json()
+    sailing = client.post("/api/v1/containers", json={"container_number": "TCLU1234565"}).json()
+    client.patch(f"/api/v1/containers/{sailing['id']}", json={"shipment_id": voyage["id"]})
+    loads = [{"po_line_id": po["lines"][0]["id"], "quantity": "10"}]
+    assert client.put(f"/api/v1/containers/{sailing['id']}/loads", json=loads).status_code == 200
+    estimate(client, sailing["id"], "99.00")
+
+    assert periods(client)[APRIL]["containers"] == 2  # it is planned for April…
+    assert client.get(f"/api/v1/periods/{APRIL}").json()["accruals"] == []  # …and owes nothing yet
+    landed = {"discharged_at": "2026-04-21T08:00:00Z", "milestone": "DISCHARGED"}
+    assert client.patch(f"/api/v1/containers/{sailing['id']}", json=landed).status_code == 200
+    (owed,) = client.get(f"/api/v1/periods/{APRIL}").json()["accruals"]
+    assert (owed["container_number"], owed["amount_base"]) == ("TCLU1234565", "99.00")
+
+
+def test_the_cost_price_file_gives_the_average_or_the_last_arrival(
+    client: TestClient, two_months: dict[str, str]
+) -> None:
+    def unit(**params: str) -> tuple[str, str, str]:
+        (row,) = read_csv(client.get("/api/v1/exports/sku-costs.csv", params=params))
+        return row["Coût de revient unitaire"], row["Base du coût"], row["Conteneurs"]
+
+    assert unit(basis="average") == ("15,0000", "Moyenne pondérée", "MSCU4821990 TGHU7245081")
+    assert unit(basis="last") == ("16,0000", "Dernier arrivage", "TGHU7245081")
+    assert unit(period=MARCH) == ("14,0000", "Moyenne pondérée", "MSCU4821990")
+
+    client.post(f"/api/v1/periods/{MARCH}/close")
+    cost(client, two_months["MSCU4821990"], "DRAYAGE", "120.00", "2026-05-02")
+    assert unit(period=MARCH)[0] == "14,0000"  # a closed month gives its frozen cost price
+    (row,) = read_csv(client.get("/api/v1/exports/sku-costs.csv", params={"period": MARCH}))
+    assert (row["État de la période"], row["Référence"], row["Quantité"]) == ("Clôturée", "A", "50,0000")

@@ -15,6 +15,8 @@ from __future__ import annotations
 
 HEADERS_FR: dict[str, str] = {
     "period": "Période",
+    "period_status": "État de la période",
+    "cost_basis": "Base du coût",
     "closed_at": "Clôturé le",
     "containers": "Conteneurs",
     "drift_reason": "Origine de l'écart",
@@ -163,6 +165,8 @@ DRIFT_REASON_FR = {
 }
 
 VALUES_FR: dict[str, dict[str, str]] = {
+    "period_status": {"open": "Ouverte", "closed": "Clôturée"},
+    "cost_basis": {"last": "Dernier arrivage", "average": "Moyenne pondérée"},
     "drift_reason": DRIFT_REASON_FR,
     "cost_type": COST_TYPE_FR,
     "scope": SCOPE_FR,
