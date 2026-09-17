@@ -1,8 +1,10 @@
 """Bridge between the ORM and the pure engine.
 
 `compute()` builds the engine inputs for one organization and runs it. `recompute_org()` does the same and
-materialises the result into `cost_allocations`, in the caller's transaction. At SMB volume (thousands of
-loads) a full-organization recompute is a few milliseconds, which is simpler and safer than scope tracking.
+materialises the result into `cost_allocations`, in the caller's transaction. A full-organization
+recompute is simpler and safer than scope tracking, and it is measured rather than assumed: about
+0.4 s at 3 000 loads and 1 500 costs, five years of a sixty-containers-a-year importer
+(`tests/test_scale.py` holds the budget).
 """
 
 from __future__ import annotations
