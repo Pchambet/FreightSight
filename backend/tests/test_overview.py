@@ -94,3 +94,17 @@ def test_an_empty_organization_gets_zeros_and_no_coefficient(client: TestClient)
     body = client.get("/api/v1/reports/overview").json()
     assert body["current"]["coefficient"] is None
     assert body["current"]["landed"] == "0.00" and body["current"]["containers"] == 0
+
+
+def test_the_first_screen_is_one_call_and_says_what_the_detailed_reports_say(seeded: TestClient) -> None:
+    body = seeded.get("/api/v1/reports/overview").json()
+    dates = {"period_from": body["current"]["period_from"], "period_to": body["current"]["period_to"]}
+    for group, key in (("month", "by_month"), ("supplier", "by_supplier")):
+        report = seeded.get("/api/v1/reports/landed-cost", params={"group_by": group, **dates}).json()
+        assert body[key] == report["buckets"]
+    monthly = seeded.get("/api/v1/reports/landed-cost", params={"group_by": "month", **dates}).json()
+    assert body["by_cost_type"] == monthly["totals"]["by_cost_type"]
+    assert len(body["skus"]) == 6
+    heaviest = sorted(monthly["skus"], key=lambda s: Decimal(s["landed"]), reverse=True)[:6]
+    assert [s["sku"] for s in body["skus"]] == [s["sku"] for s in heaviest]
+    assert body["at_risk"] == seeded.get("/api/v1/reports/dnd").json()["at_risk"]

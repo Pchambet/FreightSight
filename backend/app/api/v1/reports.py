@@ -223,6 +223,21 @@ def overview(
         current=schemas.OverviewFigures.model_validate(found.current),
         previous=schemas.OverviewFigures.model_validate(found.previous),
         todo=schemas.OverviewTodo.model_validate(found.todo),
+        by_month=[_bucket(b) for b in found.by_month],
+        by_supplier=[_bucket(b) for b in found.by_supplier],
+        by_cost_type=found.by_cost_type,
+        skus=[
+            schemas.ReportSkuLine(
+                sku=line.sku,
+                quantity=line.quantity,
+                fob=line.fob,
+                landed=line.landed,
+                unit_landed_cost=line.unit_landed_cost,
+                load_count=line.load_count,
+            )
+            for line in found.skus
+        ],
+        at_risk=[schemas.DndAtRiskLine.model_validate(line) for line in found.at_risk],
     )
 
 

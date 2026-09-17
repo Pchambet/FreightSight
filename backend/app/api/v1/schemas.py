@@ -1068,6 +1068,14 @@ class OverviewResponse(BaseModel):
     #: The same number of days, immediately before.
     previous: OverviewFigures
     todo: OverviewTodo
+    #: The current period by month and by supplier, exactly as `/reports/landed-cost` gives them for
+    #: the same dates, its cost types, its six heaviest articles, and today's demurrage exposure as
+    #: `/reports/dnd` lists it: one computation for the whole first screen.
+    by_month: list[ReportBucket] = Field(default_factory=list)
+    by_supplier: list[ReportBucket] = Field(default_factory=list)
+    by_cost_type: dict[str, Money] = Field(default_factory=dict)
+    skus: list[ReportSkuLine] = Field(default_factory=list)
+    at_risk: list[DndAtRiskLine] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------- products

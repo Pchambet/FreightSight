@@ -11739,6 +11739,41 @@
           },
           "todo": {
             "$ref": "#/components/schemas/OverviewTodo"
+          },
+          "by_month": {
+            "items": {
+              "$ref": "#/components/schemas/ReportBucket"
+            },
+            "type": "array",
+            "title": "By Month"
+          },
+          "by_supplier": {
+            "items": {
+              "$ref": "#/components/schemas/ReportBucket"
+            },
+            "type": "array",
+            "title": "By Supplier"
+          },
+          "by_cost_type": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "By Cost Type"
+          },
+          "skus": {
+            "items": {
+              "$ref": "#/components/schemas/ReportSkuLine"
+            },
+            "type": "array",
+            "title": "Skus"
+          },
+          "at_risk": {
+            "items": {
+              "$ref": "#/components/schemas/DndAtRiskLine"
+            },
+            "type": "array",
+            "title": "At Risk"
           }
         },
         "type": "object",

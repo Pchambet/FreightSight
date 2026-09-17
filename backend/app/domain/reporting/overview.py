@@ -29,10 +29,18 @@ from app.domain.models import (
     RateBasis,
     RateCard,
 )
-from app.domain.reporting.service import arrival_date, dnd_report, landed_cost_report
+from app.domain.reporting.service import (
+    Bucket,
+    DndAtRiskLine,
+    SkuLine,
+    arrival_date,
+    dnd_report,
+    landed_cost_report,
+)
 
 ZERO = Decimal("0.00")
 DEFAULT_DAYS = 90
+TOP_SKUS = 6
 
 
 @dataclass
@@ -69,6 +77,13 @@ class Overview:
     current: Figures
     previous: Figures
     todo: Todo
+    #: The period seen three ways, from the one computation that produced the figures above: the
+    #: first screen used to pay the engine four times to say the same thing.
+    by_month: list[Bucket]
+    by_supplier: list[Bucket]
+    by_cost_type: dict[str, Decimal]
+    skus: list[SkuLine]
+    at_risk: list[DndAtRiskLine]
 
 
 def periods(period_from: date | None, period_to: date | None, today: date) -> tuple[date, date, date, date]:
@@ -99,11 +114,20 @@ def overview(
         )
     )
     rate = card.amount if card is not None else None
+    monthly = landed_cost_report(comp, org, group_by="month", period_from=start, period_to=end)
+    suppliers = landed_cost_report(comp, org, group_by="supplier", period_from=start, period_to=end)
+    exposure = dnd_report(db, org, daily_rate=rate).at_risk
     return Overview(
         base_currency=org.base_currency,
         current=_figures(db, comp, org, start, end, rate),
         previous=_figures(db, comp, org, before_start, before_end, rate),
-        todo=_todo(db, comp, org, rate),
+        todo=_todo(db, comp, org, rate, exposure),
+        by_month=monthly.buckets,
+        by_supplier=suppliers.buckets,
+        by_cost_type={k: q2(v) for k, v in sorted(monthly.totals.by_cost_type.items())},
+        # The articles that weigh the most in the period: what a first screen has room for.
+        skus=sorted(monthly.skus, key=lambda s: s.landed, reverse=True)[:TOP_SKUS],
+        at_risk=exposure,
     )
 
 
@@ -142,7 +166,9 @@ def _figures(
     )
 
 
-def _todo(db: Session, comp: Computation, org: Organization, rate: Decimal | None) -> Todo:
+def _todo(
+    db: Session, comp: Computation, org: Organization, rate: Decimal | None, exposure: list[DndAtRiskLine]
+) -> Todo:
     def invoices(status: InvoiceStatus) -> int:
         return (
             db.scalar(
@@ -164,7 +190,6 @@ def _todo(db: Session, comp: Computation, org: Organization, rate: Decimal | Non
         if cost.status is CostStatus.ESTIMATE and cost.container_id in landed
     )
 
-    exposure = dnd_report(db, org, daily_rate=rate).at_risk
     overdue = [line for line in exposure if line.dnd_risk is DndRisk.INCURRING]
     amounts = [line.amount_at_risk for line in exposure if line.amount_at_risk is not None]
     return Todo(
