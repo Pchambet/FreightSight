@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { btnSecondary, input, td, tdRight, th, thRight } from "@/components/layout/AppShell";
 import ScrollRegion from "@/components/shared/ScrollRegion";
 import type { Schemas } from "@/lib/api/client";
+import { unsigned } from "@/features/imports/IssueGroups";
 import { COST_TYPES, type CostType } from "@/lib/domain";
 import { dateShort, money } from "@/lib/format";
 
@@ -126,12 +127,12 @@ export default function CostsPreview({
 
       {credits.length ? (
         <div>
-          <h3 className="text-sm font-semibold text-slate-900">{t("creditsTitle", { count: credits.length, amount: eur(report.credit_notes_skipped_base) })}</h3>
+          <h3 className="text-sm font-semibold text-slate-900">{t("creditsTitle", { count: credits.length, amount: eur(unsigned(report.credit_notes_skipped_base ?? "0")) })}</h3>
           <p className="mt-1 text-xs text-slate-600 max-w-2xl">{t("creditsHint")}</p>
           <ul className="mt-2 text-xs text-slate-700 space-y-0.5">
             {credits.slice(0, 12).map((c) => (
               <li key={c.row} className="tabular-nums">
-                {t("creditLine", { row: c.row, date: c.cost_date ? dateShort(c.cost_date, locale) : "—", vendor: c.vendor || "—", invoice: c.invoice_number || "—", amount: money(c.amount, c.currency, locale) })}
+                {t("creditLine", { row: c.row, date: c.cost_date ? dateShort(c.cost_date, locale) : "—", vendor: c.vendor || "—", invoice: c.invoice_number || "—", amount: money(unsigned(c.amount), c.currency, locale) })}
               </li>
             ))}
             {credits.length > 12 ? <li>{t("creditsMore", { count: credits.length - 12 })}</li> : null}

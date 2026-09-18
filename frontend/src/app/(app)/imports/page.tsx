@@ -85,7 +85,7 @@ export default async function ImportsPage() {
                           ? <Link href={`/imports/new?job=${j.id}`} className="text-blue-600 hover:underline">{t("continue")}</Link>
                           : tc("empty")}
                     </td>
-                    <td className={td}>{j.can_undo ? <UndoImportButton importId={j.id} costCount={j.report.costs_created ?? 0} /> : null}</td>
+                    <td className={td}>{j.can_undo ? <UndoImportButton importId={j.id} costCount={j.report.costs_created ?? 0} estimatesReplaced={j.report.estimates_replaced ?? 0} /> : null}</td>
                   </tr>
                 ))
               )}

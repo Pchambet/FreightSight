@@ -142,6 +142,8 @@ async function recordedSentence(p: Problem): Promise<string> {
  * neutral sentence instead, with the request id when there is one so a support ticket can find the
  * exact log line.
  */
+const ENVELOPE = new Set(["type", "title", "status", "detail", "instance", "code", "request_id", "errors", "params"]);
+
 export async function problemMessage(error: unknown, fallback?: string): Promise<string> {
   const t = await getTranslations("errors");
   const has = (code: string | null | undefined): code is string => !!code && t.has(code);
@@ -155,7 +157,12 @@ export async function problemMessage(error: unknown, fallback?: string): Promise
         .map((e) => t("fieldPrefix", { field: e.field, message: has(e.code) ? t(e.code) : t("unknownField") }))
         .join(", ");
     }
-    if (has(p.code)) return t(p.code, p.params ?? undefined);
+    // A refusal's moving parts arrive in `params`, or as top-level members of the problem (the column
+    // a costs file refuses, an import's id): both reach the sentence, the envelope's own fields do not.
+    const extras = Object.fromEntries(
+      Object.entries(p).filter(([k, v]) => !ENVELOPE.has(k) && (typeof v === "string" || typeof v === "number")),
+    ) as Record<string, string | number>;
+    if (has(p.code)) return t(p.code, { ...extras, ...(p.params ?? {}) });
     return withRef(fallbackMessage);
   }
   return fallbackMessage;

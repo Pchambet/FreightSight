@@ -402,7 +402,7 @@
     "undo": {
       "action": "Annuler cet import",
       "title": "Annuler cet import de frais ?",
-      "body": "{count, plural, one {Le coût créé par cet import sera supprimé} other {Les # coûts créés par cet import seront supprimés}}, et les estimés qu'ils avaient remplacés seront de nouveau ouverts. Le fichier reste dans l'historique.",
+      "body": "{count, plural, one {Le coût créé par cet import sera supprimé} other {Les # coûts créés par cet import seront supprimés}}{estimates, plural, =0 {} one {, et l'estimé qu'il avait remplacé sera de nouveau ouvert} other {, et les # estimés qu'ils avaient remplacés seront de nouveau ouverts}}. Le fichier reste dans l'historique.",
       "confirm": "Annuler l'import",
       "cancel": "Garder l'import",
       "done": "Import annulé : {costs, plural, one {# coût supprimé} other {# coûts supprimés}}, {estimates, plural, one {# estimé rouvert} other {# estimés rouverts}}.",
@@ -482,7 +482,7 @@
       "dated": "Conteneurs datés",
       "shipmentsLoads": "Expéditions / chargements",
       "costs": "Coûts à créer",
-      "costsSkipped": "Déjà présents, ignorés",
+      "costsSkipped": "Déjà importés, ignorés",
       "estimatesReplaced": "Estimés remplacés",
       "newUpdatedMasculine": "{created, plural, one {# nouveau} other {# nouveaux}}, {updated, plural, one {# mis à jour} other {# mis à jour}}",
       "changed": "Les chiffres ont changé depuis l'aperçu ({before} → {after}) : rien n'a été écrit. Relisez l'aperçu mis à jour ci-dessous, puis importez.",
@@ -501,7 +501,7 @@
       "invoicesMatched": "{count, plural, one {# facture en attente a trouvé son conteneur.} other {# factures en attente ont trouvé leur conteneur.}}",
       "poSplit": "{count, plural, one {# commande est répartie sur plusieurs conteneurs : ses chargements sont à vérifier.} other {# commandes sont réparties sur plusieurs conteneurs : leurs chargements sont à vérifier.}}",
       "costs": "{created, plural, one {# coût créé} other {# coûts créés}} pour {amount}.",
-      "costsSkipped": "{count, plural, one {# ligne déjà présente ignorée.} other {# lignes déjà présentes ignorées.}}",
+      "costsSkipped": "{count, plural, one {# ligne déjà importée ignorée.} other {# lignes déjà importées ignorées.}}",
       "estimatesReplaced": "{count, plural, one {# estimé remplacé par son réel.} other {# estimés remplacés par leur réel.}}",
       "creditNotes": "{count, plural, one {# avoir écarté : vérifiez qu'il ne rembourse pas un constat.} other {# avoirs écartés : vérifiez qu'aucun ne rembourse un constat.}}",
       "next": "Importer ensuite : {kind}",
@@ -546,24 +546,32 @@
         "importContainers": "Importez d'abord le suivi des conteneurs : un fichier de frais ne crée aucun conteneur.",
         "importOrders": "Importez d'abord les commandes.",
         "typeLabels": "Choisissez un type pour ces libellés dans le tableau ci-dessus, ou un type par défaut à l'étape des colonnes.",
-        "splitLine": "Scindez la ligne dans le fichier : droits de douane d'un côté, TVA à l'importation de l'autre (le détail est sur la facture du transitaire ou la déclaration en douane).",
+        "splitLine": "Scindez la ligne dans le fichier, un frais par ligne. La TVA à l'importation va à part : elle n'entre jamais dans un coût de revient.",
         "arrival": "Ajoutez la date d'arrivée réelle ou prévue : sans elle, ce conteneur n'entre dans aucune période.",
         "alreadyInBooks": "Ces lignes sont déjà dans les coûts : elles sont écartées, rien ne sera compté deux fois.",
-        "inInbox": "Une facture PDF de ce numéro attend sa relecture : confirmez-la ou rejetez-la d'abord.",
-        "ordersThenAgain": "Importez les commandes, puis ce fichier à nouveau : les conteneurs seront chargés."
+        "inInbox": "Confirmez-la ou rejetez-la d'abord : l'importer ici la compterait deux fois.",
+        "ordersThenAgain": "Importez les commandes, puis ce fichier à nouveau : les conteneurs seront chargés.",
+        "noTarget": "Ajoutez au fichier une colonne conteneur, B/L ou commande, ou importez d'abord le suivi des conteneurs.",
+        "maybeSecondInvoice": "Un frais du même type est déjà sur ce transport : ces lignes sont écartées comme doublons possibles. Si ce sont bien d'autres factures (un second passage, un complément), importez-les quand même."
       },
       "remedyLink": {
         "importContainers": "Importer le suivi des conteneurs",
         "importOrders": "Importer les commandes",
         "inInbox": "Voir les factures à relire",
-        "ordersThenAgain": "Importer les commandes"
+        "ordersThenAgain": "Importer les commandes",
+        "noTarget": "Importer le suivi des conteneurs",
+        "inInboxOne": "Relire cette facture"
       },
-      "example": "Par exemple, ligne {row} : {sentence}"
+      "example": "Par exemple, ligne {row} : {sentence}",
+      "forceDuplicates": "Ce sont d'autres factures : les importer",
+      "forced": "Vous importez les lignes qu'un frais du même type déjà enregistré aurait écartées. Cette dérogation est écrite au journal avec l'import.",
+      "unforce": "Les écarter de nouveau",
+      "detailOf": "Détail des lignes {list}"
     },
     "costs": {
       "total": "de frais à importer, en devise de base",
       "estimatesReplaced": "{count, plural, one {# estimé remplacé} other {# estimés remplacés}} ({amount})",
-      "duplicates": "{count, plural, one {# ligne écartée car déjà dans les livres} other {# lignes écartées car déjà dans les livres}} ({amount})",
+      "duplicates": "{count, plural, one {# ligne écartée comme doublon possible ({amount}), détaillée ci-dessous} other {# lignes écartées comme doublons possibles ({amount}), détaillées ci-dessous}}",
       "reversed": "{count, plural, one {# paire d'écritures qui s'annulent dans le fichier, écartée} other {# paires d'écritures qui s'annulent dans le fichier, écartées}}",
       "byType": "Par type de frais",
       "byCurrency": "Par devise",
@@ -584,6 +592,56 @@
       "creditsHint": "Un coût ne porte pas de montant négatif : ces lignes ne sont pas importées. Vérifiez qu'aucune ne rembourse un constat de l'audit, sinon il réclamerait une somme déjà remboursée.",
       "creditLine": "Ligne {row} · {date} · {vendor} · facture {invoice} · {amount}",
       "creditsMore": "et {count} autres"
+    },
+    "row": {
+      "invoiceNo": "facture {number}",
+      "ALL": {
+        "REQUIRED": "{field} : valeur obligatoire.",
+        "UNKNOWN_CONTAINER": "Conteneur inconnu : « {value} ».",
+        "UNKNOWN_SHIPMENT": "B/L inconnu : « {value} ».",
+        "UNKNOWN_ORDER": "Commande inconnue : « {value} ».",
+        "AMOUNT_CURRENCY_MISMATCH": "Le montant est en {amount}, la colonne devise dit {currency} : corrigez l'une des deux.",
+        "TARGET_FROM_LABEL": "Rattaché à {value}, lu dans le libellé : vérifiez que c'est bien lui.",
+        "ZERO_AMOUNT": "Montant nul : ce n'est pas un coût, la ligne est ignorée.",
+        "CREDIT_NOTE_SKIPPED": "Avoir de {amount} écarté : un coût n'est jamais négatif. Vérifiez qu'il ne rembourse pas un constat.",
+        "REVERSED_IN_FILE": "Annulée par la ligne {row} ({amount} dans l'autre sens) : les deux lignes sont écartées.",
+        "INVOICE_IN_INBOX": "La facture {invoice_number} attend sa relecture parmi les factures déposées.",
+        "SEVERAL_ESTIMATES": "{estimates} estimés « {type} » sont ouverts sur ce transport : on ne sait pas lequel cette ligne remplace. Saisissez ce frais à la main sur la fiche.",
+        "ESTIMATE_OTHER_SCOPE": "Un estimé « {type} » est ouvert ailleurs sur ce transport (sur le B/L ou un autre de ses conteneurs) : on ne sait pas si cette ligne le remplace. Saisissez ce frais à la main sur la fiche.",
+        "SALE_CURRENCY_ASSUMED": "Les prix de vente sans devise sont lus en {currency}, la devise de base.",
+        "COST_TYPE_UNKNOWN": "{from, select, column {« {value} » n'est pas un type de frais connu.} other {Aucun type ne se lit dans « {value} ».}}",
+        "COST_TYPE_AMBIGUOUS": "{named, select, types {« {value} » nomme plusieurs frais ({types}) : une ligne ne peut en porter qu'un.} other {« {value} » mêle des frais et la TVA à l'importation, qui n'entre jamais dans un coût de revient.}}",
+        "CONTAINER_CHECK_DIGIT": "« {value} » : le chiffre de contrôle ne correspond pas, le numéro est sans doute mal saisi.",
+        "CONFLICT_IN_FILE": "{on, select, bill {B/L {shipment_reference} : {field} diffère d'un conteneur à l'autre ({values}). Aucun conteneur de ce B/L n'est importé.} other {{container_number} : {field} vaut {first} sur une autre ligne et {second} sur celle-ci. Ce conteneur n'est pas importé.}}",
+        "DATES_OUT_OF_ORDER": "« {second} » tombe avant « {first} » : l'une des deux dates est fausse, le fichier ne dit pas laquelle.",
+        "FIELD_TOO_LONG": "{field} : valeur trop longue (« {value}… »).",
+        "DATE_ORDER_ASSUMED": "Colonne « {column} » : toutes les dates s'y lisent dans les deux sens, {order, select, mdy {le mois a été lu avant le jour} other {le jour a été lu avant le mois}} (par exemple « {example} »). Si c'est l'inverse, corrigez le fichier avant d'importer.",
+        "ISO_TYPE_UNKNOWN": "« {value} » n'est pas un type de conteneur reconnu (20GP, 40HC, 45G1…) : la taille reste vide.",
+        "CARRIER_UNKNOWN": "« {value} » n'est pas une compagnie maritime reconnue : la compagnie reste vide.",
+        "PORT_UNKNOWN": "« {value} » n'est pas un port reconnu (nom ou code UN/LOCODE) : le port reste vide.",
+        "SHIPMENT_CHANGED": "{container_number} passe sur le B/L {shipment_reference}.",
+        "TRACKED_CONTAINER": "{container_number} est suivi en direct : ses dates restent celles du suivi, pas celles du fichier.",
+        "CLOCK_LEFT_RUNNING": "{container_number} a été déchargé et n'est pas sorti du terminal : ses surestaries courent jusqu'à ce qu'une date de sortie soit donnée.",
+        "NO_DISCHARGE_DATE": "{container_number} est arrivé sans date de déchargement : ses jours francs ne peuvent pas être comptés.",
+        "ARRIVAL_UNKNOWN": "{container_number} n'a ni date d'arrivée ni arrivée prévue : aucune période ne le compte.",
+        "PO_UNKNOWN": "La commande {po_number} est inconnue : elle n'est chargée dans aucun conteneur.",
+        "PO_SPLIT": "La commande {po_number} est dans plusieurs conteneurs ({container_numbers}) ou déjà chargée ailleurs : indiquez sur la commande la quantité de chaque conteneur."
+      },
+      "CONTAINERS": {
+        "DATE_IN_FUTURE": "{field} : « {value} » est une date à venir. Cette date se note une fois l'événement passé ; une arrivée attendue va dans l'ETA."
+      },
+      "COSTS": {
+        "DATE_IN_FUTURE": "Date du frais à venir (« {value} ») : un frais s'importe une fois facturé.",
+        "NO_TARGET": "Cette ligne ne désigne aucun conteneur, B/L ou commande connu, ou en désigne plusieurs{hasLabel, select, yes { (libellé : « {value} »)} other {}}.",
+        "FX_RATE_UNAVAILABLE": "Aucun taux {currency} connu au {date} : la ligne ne peut pas être convertie. Saisissez ce frais à la main avec son taux.",
+        "INVOICE_ALREADY_RECORDED": "Cette facture est déjà dans les livres ({recorded}) : la ligne est écartée.",
+        "DUPLICATE_COST": "Un frais « {type} » est déjà enregistré sur ce transport ({recorded}) : la ligne est écartée."
+      },
+      "PRODUCTS": {
+        "NEGATIVE": "{field} : valeur négative ({value}), la ligne est écartée.",
+        "DUPLICATE_IN_FILE": "La référence {sku} figure déjà plus haut dans le fichier : cette ligne est écartée, la première est importée.",
+        "UNIT_COLUMN_AMBIGUOUS": "La colonne « {column} » ne dit pas si elle porte la valeur d'une unité ou d'un colis : elle est lue comme celle d'une unité."
+      }
     }
   },
   "settings": {
@@ -799,7 +857,9 @@
       "audit_shared": "Audit partagé",
       "invoice_corrected": "En-tête de facture corrigé",
       "import_committed": "Import validé",
-      "import_undone": "Import annulé"
+      "import_undone": "Import annulé",
+      "cost_closed": "Estimé clos sans facture",
+      "cost_superseded": "Estimé remplacé par le réel"
     },
     "finding": {
       "DUPLICATE_CHARGE": "Prestation facturée deux fois",
@@ -947,22 +1007,8 @@
     "PREVIEW_CHANGED": "Les chiffres ont changé depuis l'aperçu : relisez-le, puis importez.",
     "PREVIEW_REQUIRED": "Faites d'abord l'aperçu de ce fichier.",
     "IMPORT_KIND_NOT_READY": "Ce type de fichier ne s'importe pas encore.",
-    "CONTAINER_CHECK_DIGIT": "« {value} » : le chiffre de contrôle ne correspond pas, le numéro est sans doute mal saisi.",
-    "CONFLICT_IN_FILE": "{on, select, bill {B/L {shipment_reference} : {field} diffère d'un conteneur à l'autre ({values}). Aucun conteneur de ce B/L n'est importé.} other {{container_number} : {field} vaut {first} sur une autre ligne et {second} sur celle-ci. Ce conteneur n'est pas importé.}}",
-    "DATE_IN_FUTURE": "{field} : « {value} » est une date à venir. Cette date se note une fois l'événement passé ; une arrivée attendue va dans l'ETA.",
-    "DATES_OUT_OF_ORDER": "« {second} » tombe avant « {first} » : l'une des deux dates est fausse, le fichier ne dit pas laquelle.",
-    "FIELD_TOO_LONG": "{field} : valeur trop longue (« {value}… »).",
-    "DATE_ORDER_ASSUMED": "Colonne « {column} » : toutes les dates s'y lisent dans les deux sens, {order, select, mdy {le mois a été lu avant le jour} other {le jour a été lu avant le mois}} (par exemple « {example} »). Si c'est l'inverse, corrigez le fichier avant d'importer.",
-    "ISO_TYPE_UNKNOWN": "« {value} » n'est pas un type de conteneur reconnu (20GP, 40HC, 45G1…) : la taille reste vide.",
-    "CARRIER_UNKNOWN": "« {value} » n'est pas une compagnie maritime reconnue : la compagnie reste vide.",
-    "PORT_UNKNOWN": "« {value} » n'est pas un port reconnu (nom ou code UN/LOCODE) : le port reste vide.",
-    "SHIPMENT_CHANGED": "{container_number} passe sur le B/L {shipment_reference}.",
-    "TRACKED_CONTAINER": "{container_number} est suivi en direct : ses dates restent celles du suivi, pas celles du fichier.",
-    "CLOCK_LEFT_RUNNING": "{container_number} a été déchargé et n'est pas sorti du terminal : ses surestaries courent jusqu'à ce qu'une date de sortie soit donnée.",
-    "NO_DISCHARGE_DATE": "{container_number} est arrivé sans date de déchargement : ses jours francs ne peuvent pas être comptés.",
-    "ARRIVAL_UNKNOWN": "{container_number} n'a ni date d'arrivée ni arrivée prévue : aucune période ne le compte.",
-    "PO_UNKNOWN": "La commande {po_number} est inconnue : elle n'est chargée dans aucun conteneur.",
-    "PO_SPLIT": "La commande {po_number} est dans plusieurs conteneurs ({container_numbers}) ou déjà chargée ailleurs : indiquez sur la commande la quantité de chaque conteneur."
+    "DATE_IN_FUTURE": "« {value} » est une date à venir.",
+    "AMOUNT_INCLUDES_VAT": "La colonne « {column} » est toutes taxes comprises : un coût de revient se lit hors taxes. Faites correspondre la colonne du montant HT."
   },
   "timeline": {
     "title": "Chronologie",
@@ -1239,7 +1285,10 @@
       "container": "Conteneur",
       "invoice": "Facture",
       "organization": "Société",
-      "period": "Mois"
+      "period": "Mois",
+      "import": "Import",
+      "purchase_order": "Commande",
+      "audit": "Audit"
     },
     "fields": {
       "status": "Statut",
@@ -1291,7 +1340,11 @@
       "forgotten_at": "Oublié le",
       "forgotten_reason": "Motif d'oubli",
       "document_state": "État du document dans l'ERP",
-      "invoice_date": "Date de facture"
+      "invoice_date": "Date de facture",
+      "costs_deleted": "Coûts supprimés",
+      "kind": "Type de fichier",
+      "force_duplicates": "Doublons possibles acceptés",
+      "estimates_reopened": "Estimés rouverts"
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "À relire",
@@ -1300,7 +1353,14 @@
       "PROCESSING": "En traitement",
       "FAILED": "Échec extraction"
     },
-    "costCount": "{count, plural, one {# coût créé} other {# coûts créés}}"
+    "costCount": "{count, plural, one {# coût} other {# coûts}}",
+    "fieldsByAction": {
+      "import_undone": {
+        "cost_ids": "Coûts supprimés"
+      }
+    },
+    "filterLabel": "Action",
+    "filterApply": "Afficher"
   },
   "confidence": {
     "high": "Lecture fiable",

@@ -517,14 +517,15 @@ export async function createImport(formData: FormData): Promise<ImportUploadResu
 
 /**
  * The preview: the file read with this mapping, written nowhere. For a costs file, `defaultCostType`
- * types every line whose type cannot be read, and `labelTypes` types the lines of one wording at a
- * time (the labels exactly as the last preview's `unknown_labels` gave them); both are kept on the
+ * types every line whose type cannot be read, `labelTypes` types the lines of one wording at a time
+ * (the labels exactly as the last preview's `unknown_labels` gave them), and `forceDuplicates` is a
+ * person's word that lines refused as a possible double entry are other invoices; all are kept on the
  * job, so the commit replays exactly what was previewed.
  */
 export async function validateImport(
   importId: string,
   mapping: Record<string, string>,
-  options: { defaultCostType?: CostType | null; labelTypes?: Record<string, CostType> } = {},
+  options: { defaultCostType?: CostType | null; labelTypes?: Record<string, CostType>; forceDuplicates?: boolean } = {},
 ): Promise<ActionResult<ImportJobResponse>> {
   await protectAction();
   const { data, error } = await api.POST("/api/v1/imports/{import_id}/validate", {
@@ -533,6 +534,7 @@ export async function validateImport(
       mapping,
       ...(options.defaultCostType ? { default_cost_type: options.defaultCostType } : {}),
       ...(options.labelTypes && Object.keys(options.labelTypes).length ? { label_types: options.labelTypes } : {}),
+      force_duplicates: options.forceDuplicates ?? false,
     },
   });
   if (error || !data) return await fail(error, "importWizard.mapping.failed");

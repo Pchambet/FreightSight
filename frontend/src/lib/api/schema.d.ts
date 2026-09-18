@@ -1365,7 +1365,9 @@ export interface paths {
          * Validate Import
          * @description Dry run: the commit code path under a SAVEPOINT that is rolled back.
          *
-         *     The report is exactly what commit would do.
+         *     The report is exactly what commit would do. For containers, costs and products the job keeps what
+         *     the preview ran with — the mapping, and for costs the type of the rows no label types and the
+         *     types a person gave the labels it could not read — and the commit runs with exactly that.
          */
         post: operations["validate_import_api_v1_imports__import_id__validate_post"];
         delete?: never;
@@ -1383,7 +1385,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Commit Import */
+        /**
+         * Commit Import
+         * @description Write the file. Containers, costs and products write exactly what their preview showed:
+         *     without a preview, 409 PREVIEW_REQUIRED; when the books have moved since and the same file would
+         *     now do something else, nothing is written and 409 PREVIEW_CHANGED carries the new `report`.
+         */
         post: operations["commit_import_api_v1_imports__import_id__commit_post"];
         delete?: never;
         options?: never;
@@ -3373,6 +3380,11 @@ export interface components {
             label_types?: {
                 [key: string]: components["schemas"]["CostType"];
             };
+            /**
+             * Force Duplicates
+             * @default false
+             */
+            force_duplicates: boolean;
         };
         /**
          * Incoterm

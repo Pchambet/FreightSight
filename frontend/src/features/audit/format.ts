@@ -14,6 +14,7 @@ export type Formatters = {
   lineRef: (id: string) => string;
   documentState: (code: string) => string;
   fxSource: (code: string) => string;
+  importKind: (code: string) => string;
   date: (iso: string) => string;
   dateTime: (iso: string) => string;
   /** What an id is called on the other screens (container number, order number, "order · SKU"), when the API knows. */
@@ -55,7 +56,9 @@ function formatValue(key: string, v: unknown, f: Formatters): string {
   if (val === null || val === undefined || val === "") return "—";
   if (typeof val === "boolean") return f.bool(val);
   if (key === "status" && typeof val === "string") return f.invoiceStatus(val);
-  if (key === "cost_ids" && Array.isArray(val)) return f.costCount(val.length);
+  // The costs a confirmation or an import wrote, a reopening or an undo deleted: counted, never listed.
+  if ((key === "cost_ids" || key === "costs_deleted") && Array.isArray(val)) return f.costCount(val.length);
+  if (key === "kind" && typeof val === "string") return f.importKind(val);
   if ((key === "total_amount" || key === "amount" || key === "amount_base") && (typeof val === "string" || typeof val === "number")) return f.money(String(val));
   if (key === "fx_rate" && (typeof val === "string" || typeof val === "number")) return f.rate(String(val));
   if (key === "cost_type" && typeof val === "string") return f.costType(val);

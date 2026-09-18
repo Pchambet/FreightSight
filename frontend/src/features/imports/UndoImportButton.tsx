@@ -14,7 +14,7 @@ import { undoImport } from "@/features/actions";
  * the way back. A refusal names what stands in the way (an ERP document, a closed month) and stays on
  * screen long enough to be read.
  */
-export default function UndoImportButton({ importId, costCount, onUndone }: { importId: string; costCount: number; onUndone?: () => void }) {
+export default function UndoImportButton({ importId, costCount, estimatesReplaced, onUndone }: { importId: string; costCount: number; estimatesReplaced: number; onUndone?: () => void }) {
   const t = useTranslations("imports.undo");
   const router = useRouter();
   const trigger = useRef<HTMLButtonElement>(null);
@@ -26,7 +26,7 @@ export default function UndoImportButton({ importId, costCount, onUndone }: { im
       <ConfirmDialog
         open={open}
         title={t("title")}
-        body={t("body", { count: costCount })}
+        body={t("body", { count: costCount, estimates: estimatesReplaced })}
         confirmLabel={t("confirm")}
         cancelLabel={t("cancel")}
         pending={pending}

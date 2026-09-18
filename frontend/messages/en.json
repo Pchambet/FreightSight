@@ -402,7 +402,7 @@
     "undo": {
       "action": "Undo this import",
       "title": "Undo this costs import?",
-      "body": "{count, plural, one {The cost this import created will be deleted} other {The # costs this import created will be deleted}}, and the estimates they had replaced will be open again. The file stays in the history.",
+      "body": "{count, plural, one {The cost this import created will be deleted} other {The # costs this import created will be deleted}}{estimates, plural, =0 {} one {, and the estimate it had replaced will be open again} other {, and the # estimates they had replaced will be open again}}. The file stays in the history.",
       "confirm": "Undo the import",
       "cancel": "Keep the import",
       "done": "Import undone: {costs, plural, one {# cost deleted} other {# costs deleted}}, {estimates, plural, one {# estimate reopened} other {# estimates reopened}}.",
@@ -482,7 +482,7 @@
       "dated": "Containers dated",
       "shipmentsLoads": "Shipments / loads",
       "costs": "Costs to create",
-      "costsSkipped": "Already there, skipped",
+      "costsSkipped": "Already imported, skipped",
       "estimatesReplaced": "Estimates replaced",
       "newUpdatedMasculine": "{created} new, {updated} updated",
       "changed": "The figures changed since the preview ({before} → {after}): nothing was written. Read the updated preview below, then import.",
@@ -501,7 +501,7 @@
       "invoicesMatched": "{count, plural, one {# waiting invoice found its container.} other {# waiting invoices found their container.}}",
       "poSplit": "{count, plural, one {# order is spread over several containers: its loads need checking.} other {# orders are spread over several containers: their loads need checking.}}",
       "costs": "{created, plural, one {# cost created} other {# costs created}} for {amount}.",
-      "costsSkipped": "{count, plural, one {# row already there skipped.} other {# rows already there skipped.}}",
+      "costsSkipped": "{count, plural, one {# row already imported skipped.} other {# rows already imported skipped.}}",
       "estimatesReplaced": "{count, plural, one {# estimate replaced by its actual.} other {# estimates replaced by their actual.}}",
       "creditNotes": "{count, plural, one {# credit note left out: check it does not refund a finding.} other {# credit notes left out: check none refunds a finding.}}",
       "next": "Import next: {kind}",
@@ -546,24 +546,32 @@
         "importContainers": "Import the container tracking first: a costs file creates no container.",
         "importOrders": "Import the orders first.",
         "typeLabels": "Choose a type for these labels in the table above, or a default type at the columns step.",
-        "splitLine": "Split the line in the file: customs duty on one side, import VAT on the other (the detail is on the forwarder's invoice or the customs declaration).",
+        "splitLine": "Split the line in the file, one charge per row. Import VAT goes apart: it never enters a landed cost.",
         "arrival": "Add the actual or expected arrival date: without it, this container falls in no period.",
         "alreadyInBooks": "These rows are already in the costs: they are left out, nothing will be counted twice.",
-        "inInbox": "A PDF invoice with this number is waiting for review: confirm or reject it first.",
-        "ordersThenAgain": "Import the orders, then this file again: the containers will be loaded."
+        "inInbox": "Confirm or reject it first: importing it here would count it twice.",
+        "ordersThenAgain": "Import the orders, then this file again: the containers will be loaded.",
+        "noTarget": "Add a container, B/L or order column to the file, or import the container tracking first.",
+        "maybeSecondInvoice": "A cost of the same type is already on this freight: these rows are left out as possible double entries. If they really are other invoices (a second call, a supplement), import them anyway."
       },
       "remedyLink": {
         "importContainers": "Import the container tracking",
         "importOrders": "Import the orders",
         "inInbox": "See the invoices to review",
-        "ordersThenAgain": "Import the orders"
+        "ordersThenAgain": "Import the orders",
+        "noTarget": "Import the container tracking",
+        "inInboxOne": "Review this invoice"
       },
-      "example": "For example, row {row}: {sentence}"
+      "example": "For example, row {row}: {sentence}",
+      "forceDuplicates": "They are other invoices: import them",
+      "forced": "You are importing the rows a cost of the same type already recorded would have left out. This override is written to the log with the import.",
+      "unforce": "Leave them out again",
+      "detailOf": "Detail of rows {list}"
     },
     "costs": {
       "total": "of costs to import, in the base currency",
       "estimatesReplaced": "{count, plural, one {# estimate replaced} other {# estimates replaced}} ({amount})",
-      "duplicates": "{count, plural, one {# row left out as already in the books} other {# rows left out as already in the books}} ({amount})",
+      "duplicates": "{count, plural, one {# row left out as a possible double entry ({amount}), detailed below} other {# rows left out as possible double entries ({amount}), detailed below}}",
       "reversed": "{count, plural, one {# pair of entries cancelling out in the file, left out} other {# pairs of entries cancelling out in the file, left out}}",
       "byType": "By cost type",
       "byCurrency": "By currency",
@@ -584,6 +592,56 @@
       "creditsHint": "A cost carries no negative amount: these rows are not imported. Check that none refunds a finding of the audit, or it would claim a sum already refunded.",
       "creditLine": "Row {row} · {date} · {vendor} · invoice {invoice} · {amount}",
       "creditsMore": "and {count} more"
+    },
+    "row": {
+      "invoiceNo": "invoice {number}",
+      "ALL": {
+        "REQUIRED": "{field}: a value is required.",
+        "UNKNOWN_CONTAINER": "Unknown container: \"{value}\".",
+        "UNKNOWN_SHIPMENT": "Unknown B/L: \"{value}\".",
+        "UNKNOWN_ORDER": "Unknown order: \"{value}\".",
+        "AMOUNT_CURRENCY_MISMATCH": "The amount is in {amount}, the currency column says {currency}: fix one of the two.",
+        "TARGET_FROM_LABEL": "Attached to {value}, read in the label: check it is the right one.",
+        "ZERO_AMOUNT": "Zero amount: not a cost, the row is ignored.",
+        "CREDIT_NOTE_SKIPPED": "Credit note of {amount} left out: a cost is never negative. Check it does not refund a finding.",
+        "REVERSED_IN_FILE": "Cancelled by row {row} ({amount} the other way): both rows are left out.",
+        "INVOICE_IN_INBOX": "Invoice {invoice_number} is waiting for review among the uploaded invoices.",
+        "SEVERAL_ESTIMATES": "{estimates} \"{type}\" estimates are open on this freight: which one this row replaces is unknown. Enter this cost by hand on the sheet.",
+        "ESTIMATE_OTHER_SCOPE": "A \"{type}\" estimate is open elsewhere on this freight (on the B/L or another of its containers): whether this row replaces it is unknown. Enter this cost by hand on the sheet.",
+        "SALE_CURRENCY_ASSUMED": "Sale prices without a currency are read in {currency}, the base currency.",
+        "COST_TYPE_UNKNOWN": "{from, select, column {\"{value}\" is not a known cost type.} other {No type can be read in \"{value}\".}}",
+        "COST_TYPE_AMBIGUOUS": "{named, select, types {\"{value}\" names several charges ({types}): a row can carry only one.} other {\"{value}\" mixes charges with import VAT, which never enters a landed cost.}}",
+        "CONTAINER_CHECK_DIGIT": "\"{value}\": the check digit does not match, the number is probably mistyped.",
+        "CONFLICT_IN_FILE": "{on, select, bill {B/L {shipment_reference}: {field} differs from one container to another ({values}). No container of this B/L is imported.} other {{container_number}: {field} is {first} on another row and {second} on this one. This container is not imported.}}",
+        "DATES_OUT_OF_ORDER": "\"{second}\" falls before \"{first}\": one of the two dates is wrong, the file does not say which.",
+        "FIELD_TOO_LONG": "{field}: value too long (\"{value}…\").",
+        "DATE_ORDER_ASSUMED": "Column \"{column}\": every date in it reads both ways, {order, select, mdy {the month was read before the day} other {the day was read before the month}} (for example \"{example}\"). If it is the other way round, fix the file before importing.",
+        "ISO_TYPE_UNKNOWN": "\"{value}\" is not a container type we recognise (20GP, 40HC, 45G1…): the size stays empty.",
+        "CARRIER_UNKNOWN": "\"{value}\" is not a shipping line we recognise: the line stays empty.",
+        "PORT_UNKNOWN": "\"{value}\" is not a port we recognise (name or UN/LOCODE): the port stays empty.",
+        "SHIPMENT_CHANGED": "{container_number} moves to B/L {shipment_reference}.",
+        "TRACKED_CONTAINER": "{container_number} is tracked live: its dates stay the tracking's, not the file's.",
+        "CLOCK_LEFT_RUNNING": "{container_number} was discharged and has not left the terminal: its demurrage runs until an exit date is given.",
+        "NO_DISCHARGE_DATE": "{container_number} arrived without a discharge date: its free days cannot be counted.",
+        "ARRIVAL_UNKNOWN": "{container_number} has neither an arrival date nor an expected arrival: no period counts it.",
+        "PO_UNKNOWN": "Order {po_number} is not known: it is loaded in no container.",
+        "PO_SPLIT": "Order {po_number} is in several containers ({container_numbers}) or already loaded elsewhere: say on the order how much went in each container."
+      },
+      "CONTAINERS": {
+        "DATE_IN_FUTURE": "{field}: \"{value}\" is still to come. This date is recorded once the event has happened; an expected arrival goes in the ETA."
+      },
+      "COSTS": {
+        "DATE_IN_FUTURE": "Cost date still to come (\"{value}\"): a cost is imported once invoiced.",
+        "NO_TARGET": "This row names no known container, B/L or order, or names several{hasLabel, select, yes { (label: \"{value}\")} other {}}.",
+        "FX_RATE_UNAVAILABLE": "No {currency} rate known on {date}: the row cannot be converted. Enter this cost by hand with its rate.",
+        "INVOICE_ALREADY_RECORDED": "This invoice is already in the books ({recorded}): the row is left out.",
+        "DUPLICATE_COST": "A \"{type}\" cost is already recorded on this freight ({recorded}): the row is left out."
+      },
+      "PRODUCTS": {
+        "NEGATIVE": "{field}: negative value ({value}), the row is left out.",
+        "DUPLICATE_IN_FILE": "SKU {sku} already appears higher in the file: this row is left out, the first one is imported.",
+        "UNIT_COLUMN_AMBIGUOUS": "Column \"{column}\" does not say whether it holds the value of one unit or of a carton: it is read as one unit's."
+      }
     }
   },
   "settings": {
@@ -799,7 +857,9 @@
       "audit_shared": "Audit shared",
       "invoice_corrected": "Invoice header corrected",
       "import_committed": "Import committed",
-      "import_undone": "Import undone"
+      "import_undone": "Import undone",
+      "cost_closed": "Estimate closed without invoice",
+      "cost_superseded": "Estimate replaced by the actual"
     },
     "finding": {
       "DUPLICATE_CHARGE": "Service invoiced twice",
@@ -947,22 +1007,8 @@
     "PREVIEW_CHANGED": "The figures changed since the preview: read it again, then import.",
     "PREVIEW_REQUIRED": "Preview this file first.",
     "IMPORT_KIND_NOT_READY": "This kind of file cannot be imported yet.",
-    "CONTAINER_CHECK_DIGIT": "\"{value}\": the check digit does not match, the number is probably mistyped.",
-    "CONFLICT_IN_FILE": "{on, select, bill {B/L {shipment_reference}: {field} differs from one container to another ({values}). No container of this B/L is imported.} other {{container_number}: {field} is {first} on another row and {second} on this one. This container is not imported.}}",
-    "DATE_IN_FUTURE": "{field}: \"{value}\" is still to come. This date is recorded once the event has happened; an expected arrival goes in the ETA.",
-    "DATES_OUT_OF_ORDER": "\"{second}\" falls before \"{first}\": one of the two dates is wrong, the file does not say which.",
-    "FIELD_TOO_LONG": "{field}: value too long (\"{value}…\").",
-    "DATE_ORDER_ASSUMED": "Column \"{column}\": every date in it reads both ways, {order, select, mdy {the month was read before the day} other {the day was read before the month}} (for example \"{example}\"). If it is the other way round, fix the file before importing.",
-    "ISO_TYPE_UNKNOWN": "\"{value}\" is not a container type we recognise (20GP, 40HC, 45G1…): the size stays empty.",
-    "CARRIER_UNKNOWN": "\"{value}\" is not a shipping line we recognise: the line stays empty.",
-    "PORT_UNKNOWN": "\"{value}\" is not a port we recognise (name or UN/LOCODE): the port stays empty.",
-    "SHIPMENT_CHANGED": "{container_number} moves to B/L {shipment_reference}.",
-    "TRACKED_CONTAINER": "{container_number} is tracked live: its dates stay the tracking's, not the file's.",
-    "CLOCK_LEFT_RUNNING": "{container_number} was discharged and has not left the terminal: its demurrage runs until an exit date is given.",
-    "NO_DISCHARGE_DATE": "{container_number} arrived without a discharge date: its free days cannot be counted.",
-    "ARRIVAL_UNKNOWN": "{container_number} has neither an arrival date nor an expected arrival: no period counts it.",
-    "PO_UNKNOWN": "Order {po_number} is not known: it is loaded in no container.",
-    "PO_SPLIT": "Order {po_number} is in several containers ({container_numbers}) or already loaded elsewhere: say on the order how much went in each container."
+    "DATE_IN_FUTURE": "\"{value}\" is still to come.",
+    "AMOUNT_INCLUDES_VAT": "Column \"{column}\" includes tax: a landed cost is read before tax. Match the amount-before-tax column."
   },
   "timeline": {
     "title": "Timeline",
@@ -1239,7 +1285,10 @@
       "container": "Container",
       "invoice": "Invoice",
       "organization": "Organization",
-      "period": "Month"
+      "period": "Month",
+      "import": "Import",
+      "purchase_order": "Order",
+      "audit": "Audit"
     },
     "fields": {
       "status": "Status",
@@ -1291,7 +1340,11 @@
       "forgotten_at": "Forgotten on",
       "forgotten_reason": "Forget reason",
       "document_state": "ERP document state",
-      "invoice_date": "Invoice date"
+      "invoice_date": "Invoice date",
+      "costs_deleted": "Costs deleted",
+      "kind": "Kind of file",
+      "force_duplicates": "Possible duplicates accepted",
+      "estimates_reopened": "Estimates reopened"
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "Needs review",
@@ -1300,7 +1353,14 @@
       "PROCESSING": "Processing",
       "FAILED": "Extraction failed"
     },
-    "costCount": "{count, plural, one {# cost created} other {# costs created}}"
+    "costCount": "{count, plural, one {# cost} other {# costs}}",
+    "fieldsByAction": {
+      "import_undone": {
+        "cost_ids": "Costs deleted"
+      }
+    },
+    "filterLabel": "Action",
+    "filterApply": "Show"
   },
   "confidence": {
     "high": "Reliable read",

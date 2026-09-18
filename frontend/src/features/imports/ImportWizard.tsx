@@ -12,7 +12,7 @@ import NextStepCard from "@/components/shared/NextStepCard";
 import { commitImport, createImport, validateImport } from "@/features/actions";
 import CostsPreview from "@/features/imports/CostsPreview";
 import ImportDone from "@/features/imports/ImportDone";
-import IssueGroups from "@/features/imports/IssueGroups";
+import IssueGroups, { useIssueSentence } from "@/features/imports/IssueGroups";
 import KindPicker from "@/features/imports/KindPicker";
 import { importWizardStep } from "@/features/workflow/steps";
 import type { ImportJobResponse, Schemas } from "@/lib/api/client";
@@ -47,12 +47,11 @@ export default function ImportWizard({
 }) {
   const t = useTranslations("importWizard");
   const costTypeLabel = useTranslations("domain.costType");
-  const errorCode = useTranslations("errors");
   const wt = useTranslations("workflow");
   const wLabel = (key: string, params?: Record<string, string | number>) => wt(key as never, params as never);
   const router = useRouter();
   const locale = useLocale();
-  const options = (initialJob?.options ?? {}) as { default_cost_type?: CostType | null; label_types?: Record<string, CostType> };
+  const options = (initialJob?.options ?? {}) as { default_cost_type?: CostType | null; label_types?: Record<string, CostType>; force_duplicates?: boolean };
   const [job, setJob] = useState<ImportJobResponse | null>(initialJob);
   const [step, setStep] = useState<Step>(initialJob ? "mapping" : "upload");
   const [kind, setKind] = useState<ImportKind>(initialJob?.kind ?? initialKind ?? "PURCHASE_ORDERS");
@@ -60,6 +59,12 @@ export default function ImportWizard({
   const [mapping, setMapping] = useState<Record<string, string>>(initialJob?.mapping ?? {});
   const [defaultCostType, setDefaultCostType] = useState<CostType | "">(options.default_cost_type ?? "");
   const [labelTypes, setLabelTypes] = useState<Record<string, CostType>>(options.label_types ?? {});
+  // A person's word that lines refused as a possible double entry are other invoices: kept on the job,
+  // so the commit writes them too, and logged with the import.
+  const [forceDuplicates, setForceDuplicates] = useState(options.force_duplicates ?? false);
+  // A refusal of the whole file at the preview (a tax-included amount column…) is about the mapping:
+  // said where the mapping is, until it changes.
+  const [mappingError, setMappingError] = useState<string | null>(null);
   const [changed, setChanged] = useState<{ before: Report; after: Report } | null>(null);
   const [existingId, setExistingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -75,6 +80,7 @@ export default function ImportWizard({
     const f = fields.find((x) => x.field === field) ?? kinds.flatMap((k) => k.fields).find((x) => x.field === field);
     return f ? (locale === "fr" ? f.header_fr : f.header_en) : field;
   };
+  const issueSentence = useIssueSentence(activeKind, fieldName, baseCurrency);
   const report = job?.report;
   const errors = report?.errors ?? [];
   const warnings = report?.warnings ?? [];
@@ -91,6 +97,8 @@ export default function ImportWizard({
     setMapping({});
     setDefaultCostType("");
     setLabelTypes({});
+    setForceDuplicates(false);
+    setMappingError(null);
     setChanged(null);
     setExistingId(null);
     if (next) setKind(next);
@@ -117,20 +125,24 @@ export default function ImportWizard({
     });
   };
 
-  const validate = (types: Record<string, CostType> = labelTypes) => {
+  const validate = (next: { labelTypes?: Record<string, CostType>; forceDuplicates?: boolean } = {}) => {
     if (!job) return;
+    const types = next.labelTypes ?? labelTypes;
+    const force = next.forceDuplicates ?? forceDuplicates;
     startTransition(async () => {
-      const result = await validateImport(job.id, mapping, { defaultCostType: defaultCostType || null, labelTypes: types });
-      if (!result.ok) return void toast.error(result.error);
+      const result = await validateImport(job.id, mapping, { defaultCostType: defaultCostType || null, labelTypes: types, forceDuplicates: force });
+      if (!result.ok) {
+        if (step !== "mapping") toast.error(result.error);
+        setMappingError(result.error);
+        return;
+      }
+      setMappingError(null);
+      setLabelTypes(types);
+      setForceDuplicates(force);
       setJob(result.data);
       setChanged(null);
       setStep("review");
     });
-  };
-
-  const retype = (next: Record<string, CostType>) => {
-    setLabelTypes(next);
-    validate(next);
   };
 
   const commit = (onError: "skip_rows" | "abort") => {
@@ -248,12 +260,12 @@ export default function ImportWizard({
                   <div key={f.field} className="flex flex-col gap-1">
                     <div className="flex items-center gap-3">
                       <label htmlFor={`map-${f.field}`} className="w-44 text-sm text-slate-700 shrink-0">{fieldName(f.field)}{f.required ? <span className="text-red-600" aria-hidden> *</span> : null}{f.required ? <span className="sr-only"> {t("mapping.requiredMark")}</span> : null}</label>
-                      <select id={`map-${f.field}`} value={mapping[f.field] ?? ""} onChange={(e) => setMapping((m) => { const n = { ...m }; if (e.target.value) n[f.field] = e.target.value; else delete n[f.field]; return n; })} className={input}>
+                      <select id={`map-${f.field}`} value={mapping[f.field] ?? ""} onChange={(e) => { setMappingError(null); setMapping((m) => { const n = { ...m }; if (e.target.value) n[f.field] = e.target.value; else delete n[f.field]; return n; }); }} className={input}>
                         <option value="">{t("mapping.notInFile")}</option>
                         {job.columns.map((c) => <option key={c} value={c}>{c}</option>)}
                       </select>
                     </div>
-                    {warning ? <p className="text-xs text-amber-700 pl-[calc(11rem+0.75rem)]">{errorCode(warning.code, (warning.params ?? undefined) as Record<string, string> | undefined)}</p> : null}
+                    {warning ? <p className="text-xs text-amber-700 pl-[calc(11rem+0.75rem)]">{issueSentence(warning)}</p> : null}
                   </div>
                 );
               })}
@@ -272,6 +284,7 @@ export default function ImportWizard({
             {missingOneOf.map((group) => (
               <p key={group.join()} className="text-sm text-amber-700">{t("mapping.oneOf", { fields: group.join(", ") })}</p>
             ))}
+            {mappingError ? <p role="alert" className="text-sm text-red-700">{mappingError}</p> : null}
             <div className="flex gap-2">
               <button type="button" onClick={() => setStep("upload")} className={btnSecondary}>{t("mapping.back")}</button>
               <button type="button" onClick={() => validate()} disabled={pending || missingRequired.length > 0 || missingOneOf.length > 0} className={btnPrimary}>
@@ -300,9 +313,31 @@ export default function ImportWizard({
             {report.header_row > 1 ? <p className="text-xs text-slate-500">{t("review.headerRow", { line: report.header_row })}</p> : null}
             {report.totals_row_ignored ? <p className="text-xs text-slate-500">{t("review.totalsRowIgnored")}</p> : null}
             {report.forward_filled_rows ? <p className="text-xs text-slate-500">{t("review.forwardFilled", { count: report.forward_filled_rows })}</p> : null}
-            {job.kind === "COSTS" ? <CostsPreview report={report} baseCurrency={baseCurrency} labelTypes={labelTypes} pending={pending} onRetype={retype} /> : null}
-            {errors.length ? <IssueGroups title={t("review.errorSummary", { rows: errorRows, errors: errors.length })} issues={errors} tone="red" fieldName={fieldName} /> : <p className="text-sm text-emerald-700">{t("review.noError")}</p>}
-            {warnings.length ? <IssueGroups title={t("review.warningCount", { count: warnings.length })} issues={warnings} tone="amber" fieldName={fieldName} /> : null}
+            {job.kind === "COSTS" ? <CostsPreview report={report} baseCurrency={baseCurrency} labelTypes={labelTypes} pending={pending} onRetype={(types) => validate({ labelTypes: types })} /> : null}
+            {job.kind === "COSTS" && forceDuplicates ? (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                <span>{t("issues.forced")}</span>
+                <button type="button" onClick={() => validate({ forceDuplicates: false })} disabled={pending} className="text-sm font-medium text-blue-700 underline underline-offset-2 hover:no-underline">{t("issues.unforce")}</button>
+              </div>
+            ) : null}
+            {errors.length ? (
+              <IssueGroups
+                title={t("review.errorSummary", { rows: errorRows, errors: errors.length })}
+                issues={errors}
+                tone="red"
+                kind={job.kind}
+                fieldName={fieldName}
+                baseCurrency={baseCurrency}
+                actions={{
+                  DUPLICATE_COST: (
+                    <button type="button" onClick={() => validate({ forceDuplicates: true })} disabled={pending} className={btnSecondary}>{t("issues.forceDuplicates")}</button>
+                  ),
+                }}
+              />
+            ) : (
+              <p className="text-sm text-emerald-700">{t("review.noError")}</p>
+            )}
+            {warnings.length ? <IssueGroups title={t("review.warningCount", { count: warnings.length })} issues={warnings} tone="amber" kind={job.kind} fieldName={fieldName} baseCurrency={baseCurrency} /> : null}
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => setStep("mapping")} className={btnSecondary}>{t("review.backToMapping")}</button>
               <button type="button" onClick={() => commit("skip_rows")} disabled={pending || report.valid_rows === 0} className={btnPrimary}>

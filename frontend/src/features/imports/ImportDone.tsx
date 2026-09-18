@@ -52,7 +52,7 @@ export default function ImportDone({ job, baseCurrency, onAnother }: { job: Impo
         ) : null}
         <Link href="/cost-audit" className={next ? btnSecondary : btnPrimary}>{t("prepareAudit")}</Link>
         <button type="button" onClick={() => onAnother()} className={btnSecondary}>{t("another")}</button>
-        {job.kind === "COSTS" && job.can_undo ? <UndoImportButton importId={job.id} costCount={r.costs_created ?? 0} onUndone={() => onAnother()} /> : null}
+        {job.kind === "COSTS" && job.can_undo ? <UndoImportButton importId={job.id} costCount={r.costs_created ?? 0} estimatesReplaced={r.estimates_replaced ?? 0} onUndone={() => onAnother()} /> : null}
       </div>
     </div>
   );
