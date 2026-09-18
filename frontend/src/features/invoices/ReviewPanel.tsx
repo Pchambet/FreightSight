@@ -233,7 +233,7 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
   // Set after INVOICE_ALREADY_RECORDED: the sentence naming what already carries this invoice. The
   // way past it is its own button, never the confirm button: saying "it is another invoice" is a
   // decision about money, made in front of what it would count twice.
-  const [recorded, setRecorded] = useState<string | null>(null);
+  const [recorded, setRecorded] = useState<{ sentence: string; forceable: boolean } | null>(null);
   const [notTheSame, setNotTheSame] = useState(false);
   const router = useRouter();
   const editable = invoice.status === "NEEDS_REVIEW";
@@ -247,7 +247,7 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
           toast.error(t("duplicateBlocked"), { duration: 10000 });
           return;
         }
-        if (r.code === "INVOICE_ALREADY_RECORDED") return void setRecorded(r.error);
+        if (r.code === "INVOICE_ALREADY_RECORDED") return void setRecorded({ sentence: r.error, forceable: r.forceable !== false });
         toast.error(r.error ?? t("failed"));
         return;
       }
@@ -357,19 +357,21 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
         <>
           {recorded ? (
             <div role="alert" className="mx-5 mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 space-y-3">
-              <p>{recorded}</p>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => {
-                  setNotTheSame(true);
-                  setRecorded(null);
-                  confirm(true);
-                }}
-                className={btnSecondary}
-              >
-                {t("notTheSame")}
-              </button>
+              <p>{recorded.sentence}</p>
+              {recorded.forceable ? (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    setNotTheSame(true);
+                    setRecorded(null);
+                    confirm(true);
+                  }}
+                  className={btnSecondary}
+                >
+                  {t("notTheSame")}
+                </button>
+              ) : null}
             </div>
           ) : null}
           <div className="px-5 py-4 border-t border-slate-200 flex flex-wrap items-center gap-3">

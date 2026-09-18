@@ -244,7 +244,10 @@ export async function patchInvoiceLines(invoiceId: string, lineIds: string[], pa
 
 export type ConfirmInvoiceResult =
   | { ok: true; data: { costsCreated: number; containers: { id: string; container_number: string }[]; notes: string[] } }
-  | { ok: false; error: string; code?: string };
+  // `forceable` answers INVOICE_ALREADY_RECORDED only: false when the API says the override cannot
+  // hold (the very same vendor, number, type, currency and target are already on file — a vendor
+  // does not reuse an invoice number), so the screen does not offer it.
+  | { ok: false; error: string; code?: string; forceable?: boolean };
 
 /**
  * `force` answers the DUPLICATE_COST refusal, and only that one: the caller has looked at the
@@ -272,7 +275,9 @@ export async function confirmInvoice(invoiceId: string, force = false, forceReco
     const t = await getTranslations();
     const code = error && typeof error === "object" ? (error as { code?: string | null }).code ?? undefined : undefined;
     const message = await problemMessage(error, t("invoices.detail.failed"));
-    return { ok: false, error: message, code: code ?? undefined };
+    // An API that does not say (params.forceable absent) keeps the override, as before it said.
+    const forceable = (error as Problem | null | undefined)?.params?.forceable !== "false";
+    return { ok: false, error: message, code: code ?? undefined, forceable };
   }
   revalidatePath(`/invoices/${invoiceId}`);
   revalidatePath("/invoices");
