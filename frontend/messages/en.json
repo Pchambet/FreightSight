@@ -800,7 +800,8 @@
     "RATE_LIMITED": "Too many requests in a short time. Try again in a moment.",
     "PERIOD_INVALID": "The period is not valid: the start date must come before the end date, between 2000 and 2100.",
     "ASSUMED_COEFFICIENT_INVALID": "The applied ratio is a ratio between 1 and 3, such as 1.15, not a percentage.",
-    "INVOICE_ALREADY_RECORDED": "This invoice is already recorded: reopen or delete what carries it before confirming it."
+    "INVOICE_ALREADY_RECORDED": "This invoice is already recorded: reopen or delete what carries it before confirming it.",
+    "UNKNOWN_TARGET": "A line points to a container, order or shipment that no longer exists: give it another target, then confirm."
   },
   "timeline": {
     "title": "Timeline",

@@ -800,7 +800,8 @@
     "RATE_LIMITED": "Trop de demandes en peu de temps. Réessayez dans un instant.",
     "PERIOD_INVALID": "La période n'est pas valide : la date de début doit précéder la date de fin, entre 2000 et 2100.",
     "ASSUMED_COEFFICIENT_INVALID": "Le coefficient appliqué est un rapport entre 1 et 3, comme 1,15, et non un pourcentage.",
-    "INVOICE_ALREADY_RECORDED": "Cette facture est déjà enregistrée : rouvrez ou supprimez ce qui la porte avant de la confirmer."
+    "INVOICE_ALREADY_RECORDED": "Cette facture est déjà enregistrée : rouvrez ou supprimez ce qui la porte avant de la confirmer.",
+    "UNKNOWN_TARGET": "Une ligne vise un conteneur, une commande ou une expédition qui n'existe plus : choisissez-lui une autre cible, puis confirmez."
   },
   "timeline": {
     "title": "Chronologie",
