@@ -27,6 +27,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.money import q2
+from app.domain.costing.engine import EXCLUDED_FROM_LANDED
 from app.domain.costing.entry import DUTY_GUARD, normalize_invoice_number, normalize_vendor
 from app.domain.costing.service import Computation
 from app.domain.models import (
@@ -278,16 +279,25 @@ class _Period:
         self.period_from, self.period_to = period_from, period_to
         self.every = {row.container_id: row.container for row in comp.load_rows.values()}
         self.boxes = _period_containers(comp, period_from, period_to)
-        self.costs_in = _costs_of(comp, self.boxes)
+        # The costs of a landed cost: import VAT is recovered, and never money the audit gets wrong. It
+        # is left out of every check and every amount here, as it is out of every landed cost.
+        self.landed = {
+            cost_id: cost
+            for cost_id, cost in comp.cost_rows.items()
+            if cost.cost_type.value not in EXCLUDED_FROM_LANDED
+        }
+        self.costs_in = {
+            cost_id: cost for cost_id, cost in _costs_of(comp, self.boxes).items() if cost_id in self.landed
+        }
         # What lands on each box of the period, by allocation or by being attached to it.
         self.on_box: dict[UUID, set[UUID]] = defaultdict(set)
         self.in_period: dict[UUID, Decimal] = defaultdict(Decimal)
         for allocation in comp.result.allocations:
             box = comp.load_rows[allocation.load_id].container_id
-            if box in self.boxes:
+            if box in self.boxes and allocation.cost_id in self.landed:
                 self.on_box[box].add(allocation.cost_id)
                 self.in_period[allocation.cost_id] += allocation.amount_base
-        for cost in comp.cost_rows.values():
+        for cost in self.landed.values():
             if cost.container_id in self.boxes:
                 self.on_box[cost.container_id].add(cost.id)
         self.loads_of: dict[UUID, list[UUID]] = defaultdict(list)
@@ -295,6 +305,7 @@ class _Period:
             if load.container_id in self.boxes:
                 self.loads_of[load.container_id].append(load.id)
         self._unloaded: list[Container] | None = None
+        self._empty: dict[UUID, Container] | None = None
         self._ledgers: list[ImportJob] | None = None
 
     # -------------------------------------------------------------------------------- helpers
@@ -326,6 +337,12 @@ class _Period:
             return Example("container", str(container_id), number)
         return self._order_of(cost)
 
+    def _where_even_empty(self, cost: Cost) -> Example | None:
+        """Where a cost is, a box of the period with nothing loaded yet included."""
+        if (box := self._arrived_empty().get(cost.container_id)) is not None:  # type: ignore[arg-type]
+            return _box(box)
+        return self._where(cost)
+
     def _recorded_on(self, cost: Cost) -> Example | None:
         """Where a cost is recorded, for the costs whose fault is where they are recorded: its order,
         or else the box its bill of lading carried."""
@@ -340,6 +357,16 @@ class _Period:
             if place is not None:
                 seen.setdefault(place.id, place)
         return list(seen.values())
+
+    def _arrived_empty(self) -> dict[UUID, Container]:
+        """The boxes that arrived in the period with nothing loaded, by id, in number order, read once."""
+        if self._empty is None:
+            self._empty = {
+                c.id: c
+                for c in self._unloaded_containers()
+                if (landed := arrival_date(c)) is not None and self.period_from <= landed <= self.period_to
+            }
+        return self._empty
 
     def _unloaded_containers(self) -> list[Container]:
         """The organization's boxes with no goods on them, read once."""
@@ -363,7 +390,7 @@ class _Period:
     def without_date(self) -> list[Item]:
         """Boxes that carry goods or costs and have no date at all: no period counts them, whichever
         one is audited. The same count as the audit's own `completeness.containers_without_date`."""
-        charged = {cost.container_id for cost in self.comp.cost_rows.values() if cost.container_id}
+        charged = {cost.container_id for cost in self.landed.values() if cost.container_id}
         undated = [c for c in self.comp.containers.values() if arrival_date(c) is None]
         undated += [c for c in self._unloaded_containers() if c.id in charged and arrival_date(c) is None]
         ids = {c.id for c in undated}
@@ -371,17 +398,13 @@ class _Period:
             (
                 a.amount_base
                 for a in self.comp.result.allocations
-                if self.comp.load_rows[a.load_id].container_id in ids
+                if self.comp.load_rows[a.load_id].container_id in ids and a.cost_id in self.landed
             ),
             Decimal(0),
         )
         allocated = {a.cost_id for a in self.comp.result.allocations}
         money += sum(
-            (
-                c.amount_base
-                for c in self.comp.cost_rows.values()
-                if c.container_id in ids and c.id not in allocated
-            ),
+            (c.amount_base for c in self.landed.values() if c.container_id in ids and c.id not in allocated),
             Decimal(0),
         )
         undated.sort(key=lambda c: c.container_number)
@@ -390,16 +413,9 @@ class _Period:
     def without_goods(self) -> list[Item]:
         """Boxes that arrived in the period with nothing loaded: their costs are spread on nothing, and
         the orders they carried are in no landed cost."""
-        empty = [
-            c
-            for c in self._unloaded_containers()
-            if (landed := arrival_date(c)) is not None and self.period_from <= landed <= self.period_to
-        ]
-        ids = {c.id for c in empty}
-        money = sum(
-            (c.amount_base for c in self.comp.cost_rows.values() if c.container_id in ids), Decimal(0)
-        )
-        return _item("CONTAINERS_WITHOUT_GOODS", len(empty), map(_box, empty), amount_base=money)
+        empty = self._arrived_empty()
+        money = sum((c.amount_base for c in self.landed.values() if c.container_id in empty), Decimal(0))
+        return _item("CONTAINERS_WITHOUT_GOODS", len(empty), map(_box, empty.values()), amount_base=money)
 
     def without_cost(self) -> list[Item]:
         bare = [c for c in self._sorted_boxes() if not self.on_box.get(c.id)]
@@ -550,9 +566,12 @@ class _Period:
         plain: list[tuple[dict[str, Any], ImportJob]] = []
         for note, job in notes.values():
             if reversed_id := note.get("reverses_cost_id"):
-                # Taken out or closed since: the refund is applied, and there is nothing left to say.
-                cost = self.comp.cost_rows.get(UUID(reversed_id))
-                if cost is not None and cost.id in self.costs_in:
+                # Taken out or closed since: the refund is applied, and there is nothing left to say. On
+                # a box of the period, goods loaded or not yet: the box's own item does not say this.
+                cost = self.landed.get(UUID(reversed_id))
+                if cost is not None and (
+                    cost.id in self.costs_in or cost.container_id in self._arrived_empty()
+                ):
                     reversing.append((note, cost))
             elif self.period_from <= date.fromisoformat(note["cost_date"]) <= self.period_to:
                 plain.append((note, job))
@@ -560,7 +579,7 @@ class _Period:
             *_item(
                 "CREDIT_NOTE_REVERSES_COST",
                 len(reversing),
-                self._places(cost for _, cost in reversing),
+                self._places((cost for _, cost in reversing), self._where_even_empty),
                 amount_base=sum((abs(Decimal(note["amount_base"])) for note, _ in reversing), Decimal(0)),
             ),
             *_item(

@@ -307,6 +307,35 @@ def test_a_refund_is_counted_once_and_one_reversing_a_standing_cost_blocks_until
     assert item(client, "CREDIT_NOTES_SKIPPED")["count"] == 1
 
 
+def test_a_refund_reversing_a_cost_on_a_box_not_loaded_yet_is_said_at_once(client: TestClient) -> None:
+    """The box arrived in the period and nothing is loaded in it yet: its own item says so, and the
+    refund of one of its charges is said now too, not once the goods are in."""
+    complete_quarter(client)
+    empty = box(client, "TGHU7245081", shipment=None, loaded=False)
+    ledger_file(client, "12/03/2026;TRANSITEX;F-5;THC;;285,00;EUR;TGHU7245081;;")
+    ledger_file(client, "12/03/2026;TRANSITEX;F-5;THC;;285,00;EUR;TGHU7245081;;",
+                "21/03/2026;TRANSITEX;AV-5;THC;;-285,00;EUR;TGHU7245081;;", name="avril.csv")  # fmt: skip
+    reversing = item(client, "CREDIT_NOTE_REVERSES_COST")
+    assert (reversing["count"], reversing["examples"]) == (
+        1,
+        [{"kind": "container", "id": empty, "label": "TGHU7245081"}],
+    )
+    assert "CONTAINERS_WITHOUT_GOODS" in codes(client)
+
+
+def test_import_vat_is_no_money_the_audit_gets_wrong_and_no_cost_of_a_box(client: TestClient) -> None:
+    """Recovered, never landed: the import VAT on a box is neither counted in the money an item
+    concerns nor a cost that makes a box « costed »."""
+    shipment, _ = complete_quarter(client)
+    empty = box(client, "TGHU7245081", shipment=None, loaded=False)
+    cost(client, empty, "THC", "285.00")
+    cost(client, empty, "IMPORT_VAT", "500.00")
+    assert item(client, "CONTAINERS_WITHOUT_GOODS")["amount_base"] == "285.00"
+    vat_only = box(client, "CSQU3054383", shipment=shipment)
+    cost(client, vat_only, "IMPORT_VAT", "500.00")
+    assert [e["label"] for e in item(client, "CONTAINERS_WITHOUT_COST")["examples"]] == ["CSQU3054383"]
+
+
 def test_two_lines_of_one_ledger_invoice_are_not_the_same_invoice_twice(client: TestClient) -> None:
     """The freight in dollars and its surcharge in euros, a handling on the box and one on its bill: one
     invoice of the ledger written as two costs is two lines of one document, never a double entry."""
