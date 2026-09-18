@@ -45,9 +45,7 @@ def apply_products(
     for idx, raw in enumerate(table.rows, start=table.header_row + 1):
         r = _Row(idx, raw, mapping, report, conventions)
         sku = r.required("sku")
-        duty = r.decimal("duty_rate")
-        if duty is not None and duty > 1:
-            duty = duty / 100  # « 4,5 » or « 4,5 % »: a per cent, as order files write it
+        duty = r.rate("duty_rate")
         if duty is not None and duty < 0:
             r.error("duty_rate", "NEGATIVE", "a duty rate cannot be negative", value=str(duty))
         numbers = {name: r.decimal(name) for name in ("unit_weight_kg", "unit_volume_cbm", "sale_price")}
@@ -68,7 +66,10 @@ def apply_products(
             continue
         seen.add(sku)
         if numbers["sale_price"] is not None and currency is None:
+            # Read in the organization's currency, as the warning says — and written so: a price
+            # without a currency does not take the one an older price of the article had.
             priced_without_currency = True
+            currency = t.org.base_currency
         values: dict[str, object] = {
             "description": r.text("description"),
             "hs_code": r.text("hs_code"),

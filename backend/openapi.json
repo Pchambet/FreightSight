@@ -5863,7 +5863,7 @@
           "imports"
         ],
         "summary": "Commit Import",
-        "description": "Write the file. Containers, costs and products write exactly what their preview showed:\nwithout a preview, 409 PREVIEW_REQUIRED; when the books have moved since and the same file would\nnow do something else, nothing is written and 409 PREVIEW_CHANGED carries the new `report`.",
+        "description": "Write the file. Containers, costs and products write exactly what the preview a person approved\nshowed, named by its `preview_key`: without one, 409 PREVIEW_REQUIRED; when another preview of the\nfile replaced it, or the books have moved since and the same file would now do something else,\nnothing is written and 409 PREVIEW_CHANGED carries the new `report` and its `preview_key`.",
         "operationId": "commit_import_api_v1_imports__import_id__commit_post",
         "parameters": [
           {
@@ -11581,6 +11581,17 @@
             ],
             "title": "On Error",
             "default": "skip_rows"
+          },
+          "preview_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Key"
           }
         },
         "type": "object",
@@ -11644,6 +11655,18 @@
               }
             ],
             "title": "Amount Base"
+          },
+          "reverses_cost_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reverses Cost Id"
           }
         },
         "type": "object",
@@ -11653,7 +11676,7 @@
           "currency"
         ],
         "title": "ImportCreditNote",
-        "description": "A negative line left out of the books \u2014 costs cannot be negative \u2014 and counted, never dropped in\nsilence: it may refund a charge the audit would otherwise claim."
+        "description": "A negative line left out of the books \u2014 costs cannot be negative \u2014 and counted, never dropped in\nsilence: it may refund a charge the audit would otherwise claim. Amounts as the file wrote them:\nnegative."
       },
       "ImportFieldInfo": {
         "properties": {
@@ -11802,6 +11825,17 @@
             ],
             "title": "Source",
             "default": "upload"
+          },
+          "preview_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Key"
           }
         },
         "type": "object",
@@ -14701,8 +14735,10 @@
               "CONTAINERS_WITHOUT_DUTY",
               "INVOICES_NOT_READ",
               "INVOICES_TO_REVIEW",
+              "COST_ROWS_REFUSED",
               "COSTS_UNALLOCATED",
               "SAME_INVOICE_TWICE",
+              "CREDIT_NOTE_REVERSES_COST",
               "CREDIT_NOTES_SKIPPED",
               "PO_SPLIT",
               "LINES_WITHOUT_DUTY_RATE",

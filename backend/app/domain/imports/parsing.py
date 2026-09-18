@@ -163,14 +163,16 @@ TARGET_ALIASES: dict[ImportKind, dict[str, list[str]]] = {
     },
     # A costs ledger — the purchase journal's lines for the forwarders, hauliers and customs brokers.
     ImportKind.COSTS: {
+        # The FEC's own names too (EcritureDate, CompAuxLib, PieceRef, EcritureLib, CompteNum, Debit,
+        # Credit): every French accounting program exports it, the purchase journal included.
         "cost_date": ["cost_date", "date_du_cout", "date", "date_piece", "date_facture", "date_de_facture",
-                      "date_ecriture", "invoice_date", "date_comptable"],
+                      "date_ecriture", "invoice_date", "date_comptable", "piecedate", "ecrituredate"],
         "vendor": ["vendor", "prestataire", "fournisseur", "tiers", "libelle_tiers", "raison_sociale",
-                   "supplier"],
+                   "supplier", "compauxlib"],
         "invoice_number": ["invoice_number", "n_facture", "no_facture", "numero_facture", "n_piece", "piece",
-                           "facture", "invoice_no", "invoice", "reference_piece"],
+                           "facture", "invoice_no", "invoice", "reference_piece", "pieceref"],
         "label": ["label", "libelle", "libelle_ecriture", "designation", "description", "intitule", "objet",
-                  "nature"],
+                  "nature", "ecriturelib"],
         "cost_type": ["cost_type", "type_de_cout", "type_cout", "type", "type_de_frais", "nature_de_frais",
                       "categorie"],
         "amount": ["amount", "montant_ht", "montant", "montant_hors_taxes", "ht", "debit", "amount_excl_vat",
@@ -181,6 +183,9 @@ TARGET_ALIASES: dict[ImportKind, dict[str, list[str]]] = {
         "shipment_reference": ["shipment_reference", "n_b_l", "n_bl", "bl", "b_l", "bl_number",
                                "connaissement", "booking", "n_dossier", "dossier", "expedition"],
         "po_number": ["po_number", "n_commande", "commande", "po", "n_cde", "order"],
+        "account": ["account", "compte", "n_compte", "no_compte", "numero_compte", "numero_de_compte",
+                    "compte_general", "comptenum", "compte_num", "gl_account", "account_number"],
+        "credit": ["credit", "montant_credit", "credit_amount"],
     },
     # The tariff: one row per article. « Prix » alone is a purchase price in an order file, never a
     # selling price: no alias.
@@ -520,6 +525,8 @@ def infer_comma_conventions(table: Table, columns: set[str]) -> dict[str, Column
 
 _SLASHED_DATE_RE = re.compile(r"^\s*(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4}|\d{2})(?!\d)")
 _ISO_DATE_RE = re.compile(r"^\s*(\d{4})[\-/](\d{1,2})[\-/](\d{1,2})(?!\d)")
+#: The FEC's own dates — every French accounting export — are eight digits, year first: « 20260312 ».
+_FEC_DATE_RE = re.compile(r"^\s*((?:19|20)\d{2})(\d{2})(\d{2})\s*$")
 
 
 def infer_date_orders(table: Table, columns: set[str]) -> dict[str, ColumnDates]:
@@ -558,10 +565,11 @@ def infer_date_orders(table: Table, columns: set[str]) -> dict[str, ColumnDates]
 
 def parse_date(raw: str | None, *, order: DateOrder = "dmy") -> date | None:
     """Accepts '2026-07-01', '2026-07-01 00:00:00' (a spreadsheet's date cell), '01/07/2026',
-    '01.07.2026', '01-07-26'. Blank -> None. Two-digit years are this century's."""
+    '01.07.2026', '01-07-26', '20260701' (an accounting export's). Blank -> None. Two-digit years are
+    this century's."""
     if raw is None or not raw.strip():
         return None
-    iso = _ISO_DATE_RE.match(raw)
+    iso = _ISO_DATE_RE.match(raw) or _FEC_DATE_RE.match(raw)
     slashed = _SLASHED_DATE_RE.match(raw)
     try:
         if iso:

@@ -20,14 +20,14 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.money import q2
-from app.domain.costing.entry import DUTY_GUARD
+from app.domain.costing.entry import DUTY_GUARD, normalize_invoice_number, normalize_vendor
 from app.domain.costing.service import Computation
 from app.domain.models import (
     AllocationMethod,
@@ -71,8 +71,10 @@ Code = Literal[
     "CONTAINERS_WITHOUT_DUTY",
     "INVOICES_NOT_READ",
     "INVOICES_TO_REVIEW",
+    "COST_ROWS_REFUSED",
     "COSTS_UNALLOCATED",
     "SAME_INVOICE_TWICE",
+    "CREDIT_NOTE_REVERSES_COST",
     "CREDIT_NOTES_SKIPPED",
     "PO_SPLIT",
     "LINES_WITHOUT_DUTY_RATE",
@@ -98,8 +100,10 @@ CHECKS: dict[Code, tuple[Severity, Section]] = {
     "CONTAINERS_WITHOUT_DUTY": ("blocking", "margins"),
     "INVOICES_NOT_READ": ("blocking", "findings"),
     "INVOICES_TO_REVIEW": ("blocking", "findings"),
+    "COST_ROWS_REFUSED": ("blocking", "margins"),
     "COSTS_UNALLOCATED": ("blocking", "margins"),
     "SAME_INVOICE_TWICE": ("blocking", "margins"),
+    "CREDIT_NOTE_REVERSES_COST": ("blocking", "margins"),
     "CREDIT_NOTES_SKIPPED": ("limits", "findings"),
     "PO_SPLIT": ("limits", "margins"),
     "LINES_WITHOUT_DUTY_RATE": ("limits", "margins"),
@@ -176,6 +180,7 @@ def audit_preparation(
         *period.without_duty(),
         *period.invoices("INVOICES_NOT_READ", NOT_READ),
         *period.invoices("INVOICES_TO_REVIEW", (InvoiceStatus.NEEDS_REVIEW,)),
+        *period.refused_rows(),
         *period.unallocated(),
         *period.double_entries(),
         *period.credit_notes(),
@@ -231,6 +236,38 @@ def _box(container: Container) -> Example:
     return Example("container", str(container.id), container.container_number)
 
 
+def _row_key(row: dict[str, Any]) -> tuple[object, ...]:
+    """A row of a ledger as two copies of the ledger both hold it."""
+    return (
+        normalize_vendor(row.get("vendor")),
+        normalize_invoice_number(row.get("invoice_number")),
+        row.get("cost_date"),
+        row.get("amount"),
+        row.get("currency"),
+    )
+
+
+def _is_held(row: dict[str, Any], held: dict[str, set[tuple[object, ...]]]) -> bool:
+    """A refused row some cost of the books now holds — typed by hand, read again from a corrected file
+    — by the same forwarder (or one of the two unnamed), for the same amount."""
+    if row.get("amount") is None:
+        return False
+    amount, currency, vendor = (
+        Decimal(row["amount"]),
+        row.get("currency"),
+        normalize_vendor(row.get("vendor")),
+    )
+    if number := normalize_invoice_number(row.get("invoice_number")):
+        return any(
+            a == amount and c == currency and (not vendor or not v or v == vendor)
+            for v, a, c in held.get(number, set())
+        )
+    return any(
+        d == row.get("cost_date") and a == amount and c == currency and (not vendor or not v or v == vendor)
+        for d, v, a, c in held.get("", set())
+    )
+
+
 class _Period:
     """One computation read once for every check; each method is one check."""
 
@@ -258,6 +295,7 @@ class _Period:
             if load.container_id in self.boxes:
                 self.loads_of[load.container_id].append(load.id)
         self._unloaded: list[Container] | None = None
+        self._ledgers: list[ImportJob] | None = None
 
     # -------------------------------------------------------------------------------- helpers
 
@@ -418,6 +456,46 @@ class _Period:
         )
         return _item(code, len(found), examples)
 
+    def refused_rows(self) -> list[Item]:
+        """Rows of a costs file the import refused — no box, a label no type reads, no rate for the
+        day — whose charge is therefore in no landed cost. Said until a cost holds each one (typed by
+        hand, or read from a corrected file) or the file is taken back; the same row in two copies of
+        the ledger is one row. In the period by its box's arrival when the row named a known box, by its
+        own date otherwise, and in every period when it has neither: nothing says where it belongs."""
+        held = self._held()
+        rows = [(job, row) for job in self._costs_files() for row in job.refused_rows or []]
+        named = {
+            UUID(row["target_id"])
+            for _, row in rows
+            if row.get("scope") == "CONTAINER" and row.get("target_id")
+        }
+        boxes = dict(self.every)
+        if missing := named - set(boxes):
+            boxes |= {
+                c.id: c
+                for c in self.db.scalars(
+                    select(Container).where(Container.org_id == self.org.id, Container.id.in_(missing))
+                )
+            }
+        seen: set[tuple[object, ...]] = set()
+        found: list[dict[str, Any]] = []
+        examples: dict[str, Example] = {}
+        for job, row in rows:
+            key = _row_key(row)
+            if key in seen or not self._row_in_period(row, boxes) or _is_held(row, held):
+                continue
+            seen.add(key)
+            found.append(row)
+            examples.setdefault(str(job.id), Example("import", str(job.id), job.original_filename or ""))
+        return _item(
+            "COST_ROWS_REFUSED",
+            len(found),
+            examples.values(),
+            amount_base=sum(
+                (abs(Decimal(row["amount_base"])) for row in found if row.get("amount_base")), Decimal(0)
+            ),
+        )
+
     def unallocated(self) -> list[Item]:
         """Costs the engine could not place, one item per reason: the remedy is not the same."""
         by_reason: dict[str, list[Cost]] = defaultdict(list)
@@ -455,35 +533,46 @@ class _Period:
     # -------------------------------------------------------------------------------- limits
 
     def credit_notes(self) -> list[Item]:
-        """Refunds a costs file set aside — a cost cannot be negative — dated in the period: each may
-        refund a charge the audit would otherwise claim. The amount is the refunds' total, positive."""
-        found: list[dict[str, str]] = []
-        examples: list[Example] = []
-        jobs = self.db.scalars(
-            select(ImportJob)
-            .where(
-                ImportJob.org_id == self.org.id,
-                ImportJob.kind == ImportKind.COSTS,
-                ImportJob.status == ImportStatus.DONE,
-                ImportJob.undone_at.is_(None),
-            )
-            .order_by(ImportJob.committed_at)
-        )
-        for job in jobs:
-            notes = [
-                note
-                for note in (job.report or {}).get("credit_notes_skipped") or []
-                if self.period_from <= date.fromisoformat(note["cost_date"]) <= self.period_to
-            ]
-            if notes:
-                found += notes
-                examples.append(Example("import", str(job.id), job.original_filename or ""))
-        return _item(
-            "CREDIT_NOTES_SKIPPED",
-            len(found),
-            examples,
-            amount_base=abs(sum((Decimal(note["amount_base"]) for note in found), Decimal(0))),
-        )
+        """Refunds costs files set aside — a cost cannot be negative — the same one in two copies of a
+        ledger counted once. A refund that reverses a cost still standing on a box of the period —
+        the file held the line and its reversal, the books the line — blocks: the audit would count a
+        charge the forwarder took back (CREDIT_NOTE_REVERSES_COST). Any other dated in the period may
+        refund a charge the audit would claim: said (CREDIT_NOTES_SKIPPED). Amounts by their size."""
+        notes: dict[tuple[object, ...], tuple[dict[str, Any], ImportJob]] = {}
+        for job in self._costs_files():
+            for note in (job.report or {}).get("credit_notes_skipped") or []:
+                key = _row_key(note)
+                if key not in notes or (
+                    note.get("reverses_cost_id") and not notes[key][0].get("reverses_cost_id")
+                ):
+                    notes[key] = (note, job)
+        reversing: list[tuple[dict[str, Any], Cost]] = []
+        plain: list[tuple[dict[str, Any], ImportJob]] = []
+        for note, job in notes.values():
+            if reversed_id := note.get("reverses_cost_id"):
+                # Taken out or closed since: the refund is applied, and there is nothing left to say.
+                cost = self.comp.cost_rows.get(UUID(reversed_id))
+                if cost is not None and cost.id in self.costs_in:
+                    reversing.append((note, cost))
+            elif self.period_from <= date.fromisoformat(note["cost_date"]) <= self.period_to:
+                plain.append((note, job))
+        return [
+            *_item(
+                "CREDIT_NOTE_REVERSES_COST",
+                len(reversing),
+                self._places(cost for _, cost in reversing),
+                amount_base=sum((abs(Decimal(note["amount_base"])) for note, _ in reversing), Decimal(0)),
+            ),
+            *_item(
+                "CREDIT_NOTES_SKIPPED",
+                len(plain),
+                {
+                    str(job.id): Example("import", str(job.id), job.original_filename or "")
+                    for _, job in plain
+                }.values(),
+                amount_base=sum((abs(Decimal(note["amount_base"])) for note, _ in plain), Decimal(0)),
+            ),
+        ]
 
     def po_split(self) -> list[Item]:
         """Orders of the period loaded only in part: the rest of the goods is in no box, or in a box a
@@ -641,6 +730,46 @@ class _Period:
         return _item("ESTIMATES_OPEN", len(costs), self._places(costs), amount_base=self._money(costs))
 
     # -------------------------------------------------------------------------------- reading
+
+    def _costs_files(self) -> list[ImportJob]:
+        """The costs files in the books — committed, not taken back — in the order they came, read once."""
+        if self._ledgers is None:
+            self._ledgers = list(
+                self.db.scalars(
+                    select(ImportJob)
+                    .where(
+                        ImportJob.org_id == self.org.id,
+                        ImportJob.kind == ImportKind.COSTS,
+                        ImportJob.status == ImportStatus.DONE,
+                        ImportJob.undone_at.is_(None),
+                    )
+                    .order_by(ImportJob.committed_at, ImportJob.id)
+                )
+            )
+        return self._ledgers
+
+    def _held(self) -> dict[str, set[tuple[object, ...]]]:
+        """The invoice lines the books hold, as a refused row is compared with them: by forwarder,
+        number, amount and currency; without a number, by day instead."""
+        held: dict[str, set[tuple[object, ...]]] = defaultdict(set)
+        for cost in self.comp.cost_rows.values():
+            if cost.status is not CostStatus.ACTUAL:
+                continue
+            if number := normalize_invoice_number(cost.invoice_number):
+                held[number].add((normalize_vendor(cost.vendor), cost.amount, cost.currency))
+            else:
+                held[""].add((cost.cost_date.isoformat(), normalize_vendor(cost.vendor), cost.amount,
+                              cost.currency))  # fmt: skip
+        return held
+
+    def _row_in_period(self, row: dict[str, Any], boxes: dict[UUID, Container]) -> bool:
+        if row.get("scope") == "CONTAINER" and row.get("target_id"):
+            box = boxes.get(UUID(row["target_id"]))
+            landed = arrival_date(box) if box is not None else None
+            if landed is not None:
+                return self.period_from <= landed <= self.period_to
+        day = row.get("cost_date")
+        return day is None or self.period_from <= date.fromisoformat(day) <= self.period_to
 
     def _sorted_boxes(self) -> list[Container]:
         return sorted(self.boxes.values(), key=lambda c: c.container_number)

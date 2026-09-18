@@ -15,6 +15,7 @@ from app.api.v1 import schemas
 from app.api.v1.deps import FxDep, WriterDep
 from app.core.errors import Conflict, NotFound
 from app.core.tenancy import TenantDep
+from app.domain.costing.entry import lock_books
 from app.domain.costing.service import recompute_org
 from app.domain.estimates.service import estimate_container
 from app.domain.models import Container, RateCard
@@ -79,6 +80,7 @@ def create_estimates(container_id: UUID, t: TenantDep, fx: FxDep, p: WriterDep) 
     )
     if container is None:
         raise NotFound("Container")
+    lock_books(t.db, t.org_id)
     result = estimate_container(t.db, fx, t.org, container, created_by=p.user_id)
     if result.created:
         recompute_org(t.db, t.org)

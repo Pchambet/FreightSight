@@ -361,3 +361,16 @@ def test_an_erp_sync_is_labelled_as_a_sync_not_as_a_dropped_file(
     assert sources[synced["id"]] == "erp_sync"
     assert sources[dropped["id"]] == "upload"
     assert client.get(f"/api/v1/imports/{synced['id']}").json()["source"] == "erp_sync"
+
+
+def test_an_order_file_s_rate_with_its_per_cent_sign_is_a_per_cent(client: TestClient) -> None:
+    content = "N° commande;Réf;Qté;Prix unitaire;Taux de droits\nPO-R;A;10;5;1 %\nPO-R;B;10;5;4,5\n".encode()
+    job = upload(client, content, "PURCHASE_ORDERS")
+    res = client.post(f"/api/v1/imports/{job['id']}/commit", json={"mapping": job["mapping"]})
+    assert res.status_code == 200, res.text
+    (order,) = client.get("/api/v1/purchase-orders").json()
+    lines = client.get(f"/api/v1/purchase-orders/{order['id']}").json()["lines"]
+    assert {line["sku"]: Decimal(line["duty_rate"]) for line in lines} == {
+        "A": Decimal("0.01"),  # « 1 % » — not a whole: a hundred per cent of duty on an article
+        "B": Decimal("0.045"),
+    }

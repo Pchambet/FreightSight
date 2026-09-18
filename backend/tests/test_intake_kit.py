@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from pdfs import make_pdf
+from previews import commit_previewed
 from sqlalchemy.orm import Session
 
 from app.domain.models import Organization
@@ -59,7 +60,7 @@ def load(client: TestClient, kind: str, name: str) -> dict[str, Any]:
     previewed = client.post(f"/api/v1/imports/{job['id']}/validate", json={"mapping": job["mapping"]})
     assert previewed.status_code == 200, previewed.text
     assert previewed.json()["report"]["errors"] == [], (name, previewed.json()["report"]["errors"])
-    committed = client.post(f"/api/v1/imports/{job['id']}/commit", json={})
+    committed = commit_previewed(client, job["id"])
     assert committed.status_code == 200, committed.text
     report: dict[str, Any] = committed.json()["report"]
     return report

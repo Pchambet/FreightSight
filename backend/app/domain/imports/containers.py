@@ -103,10 +103,14 @@ def apply_containers(t: TenantSession, table: Table, mapping: dict[str, str], re
     _say_assumed_orders(table, mapping, orders, report)
     today = datetime.now(UTC).date()
     boxes: dict[str, _Box] = {}
+    #: Orders named on rows that place no box: they travelled in a box this file does not load, so no
+    #: other box of the file holds them whole.
+    elsewhere: set[str] = set()
     for idx, raw in enumerate(table.rows, start=table.header_row + 1):
         r = _Row(idx, raw, mapping, report)
         read = _read_row(r, orders, today)
         if read is None:
+            elsewhere |= _orders_named(r)
             continue
         number, values, row_orders = read
         box = boxes.setdefault(number, _Box(number))
@@ -143,7 +147,7 @@ def apply_containers(t: TenantSession, table: Table, mapping: dict[str, str], re
             continue
         placed[box.number] = _write_box(t, box, counters, report)
         report.valid_rows += len(box.rows)
-    _load_orders(t, boxes, placed, counters, report)
+    _load_orders(t, boxes, placed, elsewhere, counters, report)
     counters["invoices_matched"] = _match_waiting_invoices(t, placed)
     report.extra |= counters
 
@@ -240,12 +244,14 @@ def _read_row(
         values[name] = day
     _check_order(r, values)
 
-    row_orders = set()
-    if (cell := r.text("po_numbers")) is not None:
-        row_orders = {part.strip().upper() for part in _ORDERS_SEPARATOR.split(cell) if part.strip()}
     if r.failed:
         return None
-    return number, values, row_orders
+    return number, values, _orders_named(r)
+
+
+def _orders_named(r: _Row) -> set[str]:
+    cell = r.text("po_numbers")
+    return {part.strip().upper() for part in _ORDERS_SEPARATOR.split(cell or "") if part.strip()}
 
 
 def _check_order(r: _Row, values: dict[str, object]) -> None:
@@ -418,16 +424,19 @@ def _load_orders(
     t: TenantSession,
     boxes: dict[str, _Box],
     placed: dict[str, Container],
+    elsewhere: set[str],
     counters: dict[str, int],
     report: ImportReport,
 ) -> None:
     """An order that travelled in one box of the file, and is loaded nowhere yet, is loaded whole in
-    it. Anything else is a quantity per box that only a person knows."""
+    it. Anything else is a quantity per box that only a person knows — an order also named on a row
+    refused, or on a box the file contradicts, travelled in another box too."""
     named: dict[str, list[_Box]] = defaultdict(list)
     for box in boxes.values():
-        if box.number in placed:
-            for number in box.orders:
-                named[number].append(box)
+        for number in box.orders:
+            named[number].append(box)
+    named = {number: carriers for number, carriers in named.items()
+             if any(box.number in placed for box in carriers)}  # fmt: skip
     if not named:
         return
     orders = {
@@ -459,8 +468,8 @@ def _load_orders(
                 select(ContainerLoad).where(ContainerLoad.po_line_id.in_([line.id for line in lines]))
             ):
                 loaded_on[load.container_id].add(load.po_line_id)
-        targets = {placed[box.number].id for box in carriers}
-        if len(targets) == 1 and not loaded_on:
+        targets = {placed[box.number].id for box in carriers if box.number in placed}
+        if len(carriers) == 1 and number not in elsewhere and not loaded_on:
             (container_id,) = targets
             for line in lines:
                 t.add(ContainerLoad(container_id=container_id, po_line_id=line.id, quantity=line.quantity))

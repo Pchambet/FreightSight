@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, File, Form, UploadFile, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.api.v1 import schemas
 from app.api.v1.deps import FxDep, WriterDep
 from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.tenancy import TenantDep, TenantSession
 from app.domain.audit.service import IMPORT_COMMITTED, IMPORT_UNDONE, record
+from app.domain.costing.entry import lock_books
 from app.domain.imports import service, undo
 from app.domain.imports.fields import FIELDS, KIND_ORDER, REQUIRED_ONE_OF
 from app.domain.models import Cost, ErpSyncRun, ImportJob, ImportKind, ImportStatus
@@ -42,6 +45,7 @@ def _responses(t: TenantSession, jobs: list[ImportJob]) -> list[schemas.ImportJo
             update={
                 "source": "erp_sync" if job.id in synced else "upload",
                 "can_undo": undo.undoable(job, synced=job.id in synced),
+                "preview_key": service.preview_key(job) if job.kind in BOUND else None,
             }
         )
         for job in jobs
@@ -116,6 +120,20 @@ def _locked(t: TenantSession, import_id: UUID) -> ImportJob:
     return job
 
 
+def _run(t: TenantSession, job: ImportJob, run: Callable[[], object]) -> None:
+    """Run the file; a line the database refuses as one already on file is said, not a 500. The
+    reading refuses those lines by name first — this is the case it could not see."""
+    try:
+        run()
+    except IntegrityError as e:
+        t.db.rollback()
+        if "uq_costs_invoice_line" not in str(e.orig):
+            raise
+        raise Conflict(
+            "A line of this file is already on file; preview it again", code="INVOICE_LINE_ALREADY_RECORDED"
+        ) from e
+
+
 @router.post("/{import_id}/validate", response_model=schemas.ImportJobResponse)
 def validate_import(
     import_id: UUID, payload: schemas.ImportValidateRequest, t: TenantDep, fx: FxDep, _: WriterDep
@@ -138,7 +156,7 @@ def validate_import(
         else {}
     )
     try:
-        service.run_job(t, job, payload.mapping, dry_run=True, fx=fx)
+        _run(t, job, lambda: service.run_job(t, job, payload.mapping, dry_run=True, fx=fx))
     except Unprocessable as e:
         job.mapping = payload.mapping
         job.status = ImportStatus.PARSED  # a preview that failed is no preview to commit
@@ -156,6 +174,7 @@ def undo_import(import_id: UUID, t: TenantDep, p: WriterDep) -> schemas.ImportUn
     stand again. Refused by name once a cost is in the ERP (COSTS_PUSHED_TO_ERP) or in a closed month
     (IMPORT_PERIOD_CLOSED, with its `months`); a file taken back once answers IMPORT_ALREADY_UNDONE."""
     job = _locked(t, import_id)
+    lock_books(t.db, t.org_id)
     deleted, reopened = undo.undo(t, job, synced=job.id in _synced(t, [job]))
     record(
         t.db,
@@ -174,25 +193,46 @@ def undo_import(import_id: UUID, t: TenantDep, p: WriterDep) -> schemas.ImportUn
 def commit_import(
     import_id: UUID, payload: schemas.ImportCommitRequest, t: TenantDep, fx: FxDep, p: WriterDep
 ) -> schemas.ImportJobResponse:
-    """Write the file. Containers, costs and products write exactly what their preview showed:
-    without a preview, 409 PREVIEW_REQUIRED; when the books have moved since and the same file would
-    now do something else, nothing is written and 409 PREVIEW_CHANGED carries the new `report`."""
+    """Write the file. Containers, costs and products write exactly what the preview a person approved
+    showed, named by its `preview_key`: without one, 409 PREVIEW_REQUIRED; when another preview of the
+    file replaced it, or the books have moved since and the same file would now do something else,
+    nothing is written and 409 PREVIEW_CHANGED carries the new `report` and its `preview_key`."""
     job = _locked(t, import_id)
     service.ensure_not_done(job)
     expected = None
     if job.kind in BOUND:
-        if job.status is not ImportStatus.VALIDATED:
+        if job.status is not ImportStatus.VALIDATED or payload.preview_key is None:
             raise Conflict("Preview the file before importing it", code="PREVIEW_REQUIRED")
+        if payload.preview_key != service.preview_key(job):
+            # Another preview of the same file — another tab, other options — replaced the one this
+            # person saw: they approve the figures it shows, not the file.
+            raise Conflict(
+                "The file was previewed again since: look at the figures again before importing",
+                code="PREVIEW_CHANGED",
+                report=dict(job.report),
+                preview_key=service.preview_key(job),
+            )
         mapping, expected = dict(job.mapping), dict(job.report)
     else:
         mapping = payload.mapping or dict(job.mapping)
+    if job.kind is ImportKind.COSTS:
+        lock_books(t.db, t.org_id)
     try:
-        service.run_job(t, job, mapping, dry_run=False, on_error=payload.on_error, fx=fx, expected=expected)
+        _run(
+            t,
+            job,
+            lambda: service.run_job(
+                t, job, mapping, dry_run=False, on_error=payload.on_error, fx=fx, expected=expected
+            ),
+        )
     except Conflict as e:
-        if e.code == "PREVIEW_CHANGED":
-            job.report = dict(e.extra["report"])  # type: ignore[call-overload]
-            t.db.commit()
-        raise
+        if e.code != "PREVIEW_CHANGED" or "report" not in e.extra:
+            raise
+        job.report = dict(e.extra["report"])  # type: ignore[call-overload]
+        t.db.commit()
+        raise Conflict(
+            e.message, code="PREVIEW_CHANGED", report=dict(job.report), preview_key=service.preview_key(job)
+        ) from e
     if job.kind is ImportKind.COSTS:
         record(
             t.db,

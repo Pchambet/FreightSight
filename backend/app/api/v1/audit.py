@@ -17,6 +17,7 @@ from app.core.tenancy import TenantDep, TenantSession
 from app.domain.models import (
     AuditLog,
     Container,
+    ImportJob,
     Invoice,
     PurchaseOrder,
     PurchaseOrderLine,
@@ -79,6 +80,14 @@ def _labels(t: TenantSession, ids: set[UUID]) -> dict[str, str]:
     for inv in t.db.scalars(t.q(Invoice).where(Invoice.id.in_(ids))):
         if inv.invoice_number:
             labels[str(inv.id)] = inv.invoice_number
+    # The file's name, and only that column: the job row also holds the file itself.
+    imports = t.db.execute(
+        t.q(ImportJob)
+        .where(ImportJob.id.in_(ids), ImportJob.original_filename.is_not(None))
+        .with_only_columns(ImportJob.id, ImportJob.original_filename)
+    )
+    for job_id, filename in imports:
+        labels[str(job_id)] = filename
     return labels
 
 

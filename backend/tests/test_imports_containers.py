@@ -12,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 from invoice_fixtures import FRENCH_ONE_CONTAINER
 from pdfs import make_pdf
+from previews import commit_previewed
 from sqlalchemy.orm import Session
 
 from app.domain.models import Container, Organization, TrackingState
@@ -64,7 +65,7 @@ def preview(client: TestClient, content: bytes) -> tuple[dict[str, Any], dict[st
 
 
 def commit(client: TestClient, job: dict[str, Any]) -> dict[str, Any]:
-    res = client.post(f"/api/v1/imports/{job['id']}/commit", json={})
+    res = commit_previewed(client, job["id"])
     assert res.status_code == 200, res.text
     report: dict[str, Any] = res.json()["report"]
     return report
@@ -199,6 +200,26 @@ def test_an_order_in_several_boxes_is_left_to_a_person_and_an_unknown_one_is_sai
         "MSCU4821994": [],
         "TGHU7245086": [],
     }
+
+
+def test_an_order_also_named_on_a_row_left_out_is_not_loaded_whole_in_the_other_box(
+    client: TestClient,
+) -> None:
+    """The order travelled in two boxes; one of the two rows is refused. Loading the whole order into
+    the box that remains would put the other box's goods in it."""
+    order(client, "PO-1")
+    order(client, "PO-2")
+    in_the_future = TGHU.replace("PO-2 / PO-3", "PO-1").replace(
+        ";08/03/2026;;;;", ";08/03/2026;10/03/2099;;;"
+    )
+    _, report = preview(client, sheet(MSCU, in_the_future))
+    assert codes(report["errors"]) == ["DATE_IN_FUTURE"]
+    assert (report["po_split"], report["loads_created"]) == (1, 0)
+    contradicted = MSCU.replace("MSCU4821994", "TGHU7245086").replace("PO-1", "PO-2")
+    _, report = preview(client, sheet(MSCU.replace("PO-1", "PO-2"), contradicted,
+                                      contradicted.replace("10/03/2026", "11/03/2026")))  # fmt: skip
+    assert "CONFLICT_IN_FILE" in codes(report["errors"])
+    assert (report["po_split"], report["loads_created"]) == (1, 0)
 
 
 def test_an_order_already_loaded_in_its_box_is_neither_loaded_again_nor_questioned(

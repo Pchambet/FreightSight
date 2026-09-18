@@ -9,6 +9,10 @@ The line is drawn where the confirmation of an invoice draws it: once a cost has
 customer's own books, through an ERP document, or into a closed month, deleting it here would leave
 their valuation or their close carrying a figure nothing on our side remembers. Those are refused, by
 name, and corrected the way a posted document is — with another one.
+
+And a later copy of the same ledger that recognised some of these lines, and left them alone because
+this file had written them, stands on them: taking this file back would take those lines out of the
+books while the later file says they are in. That later file is taken back first, by name.
 """
 
 from __future__ import annotations
@@ -55,6 +59,28 @@ def undo(t: TenantSession, job: ImportJob, *, synced: bool) -> tuple[list[UUID],
             status=job.status.value,
         )
     costs = list(t.db.scalars(t.q(Cost).where(Cost.import_job_id == job.id)))
+    mine = {str(cost.id) for cost in costs}
+    relying = [
+        later
+        for later in t.db.scalars(
+            t.q(ImportJob)
+            .where(
+                ImportJob.id != job.id,
+                ImportJob.kind == ImportKind.COSTS,
+                ImportJob.status == ImportStatus.DONE,
+                ImportJob.undone_at.is_(None),
+            )
+            .order_by(ImportJob.committed_at)
+        )
+        if mine & set(later.matched_cost_ids or [])
+    ]
+    if relying:
+        raise Unprocessable(
+            "A later costs file recognised some of these lines and left them to this one; take it back first",
+            code="IMPORT_RELIED_ON",
+            import_ids=[str(later.id) for later in relying],
+            files=[later.original_filename or "" for later in relying],
+        )
     pushed = _live_pushes_carrying(t.db, t.org, costs)
     if pushed:
         raise Unprocessable(

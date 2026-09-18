@@ -75,6 +75,10 @@ FIELDS: dict[ImportKind, tuple[Field, ...]] = {
         Field("container_number", "N° conteneur", "Container number"),
         Field("shipment_reference", "N° B/L", "B/L number"),
         Field("po_number", "N° commande", "PO number"),
+        # A purchase journal as the accounts export it: one line per account, the charge in the debit,
+        # the supplier's total and the refunds in the credit. The account says which line is a charge.
+        Field("account", "Compte", "Account"),
+        Field("credit", "Crédit", "Credit"),
     ),
     ImportKind.PRODUCTS: (
         Field("sku", "Référence", "SKU", required=True),

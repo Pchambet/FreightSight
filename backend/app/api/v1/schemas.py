@@ -12,7 +12,7 @@ from pydantic_core import PydanticCustomError
 
 from app.domain.alerts.text import LOCALES
 from app.domain.boxes import iso_size_type
-from app.domain.costing.entry import none_if_blank
+from app.domain.costing.entry import none_if_blank, number_or_none
 from app.domain.invoices.ports import ConfidenceBand, ExtractorKind, confidence_band, extractor_kind
 from app.domain.models import (
     AlertKind,
@@ -425,10 +425,15 @@ class CostCreate(BaseModel):
     def _cur(cls, v: str) -> str:
         return currency_code(v)
 
-    @field_validator("vendor", "invoice_number")
+    @field_validator("vendor")
     @classmethod
     def _blank(cls, v: str | None) -> str | None:
         return none_if_blank(v)
+
+    @field_validator("invoice_number")
+    @classmethod
+    def _number(cls, v: str | None) -> str | None:
+        return number_or_none(v)
 
     @model_validator(mode="after")
     def _manual(self) -> CostCreate:
@@ -460,10 +465,15 @@ class CostUpdate(BaseModel):
     def _cur(cls, v: str | None) -> str | None:
         return None if v is None else currency_code(v)
 
-    @field_validator("vendor", "invoice_number")
+    @field_validator("vendor")
     @classmethod
     def _blank(cls, v: str | None) -> str | None:
         return none_if_blank(v)
+
+    @field_validator("invoice_number")
+    @classmethod
+    def _number(cls, v: str | None) -> str | None:
+        return number_or_none(v)
 
 
 class CostResponse(BaseModel):
@@ -646,6 +656,8 @@ class ImportMoneyByCurrency(BaseModel):
 class ImportMoney(BaseModel):
     """What a costs file puts in the books, in the organization's currency: the money first."""
 
+    #: What the file adds to the landed costs: import VAT, written but never a landed cost, is left out
+    #: of it and shown by type alone.
     total_base: Money
     by_type: list[ImportMoneyByType] = Field(default_factory=list)
     by_currency: list[ImportMoneyByCurrency] = Field(default_factory=list)
@@ -661,7 +673,8 @@ class ImportUnknownLabel(BaseModel):
 
 class ImportCreditNote(BaseModel):
     """A negative line left out of the books — costs cannot be negative — and counted, never dropped in
-    silence: it may refund a charge the audit would otherwise claim."""
+    silence: it may refund a charge the audit would otherwise claim. Amounts as the file wrote them:
+    negative."""
 
     row: int
     cost_date: date | None = None
@@ -670,6 +683,9 @@ class ImportCreditNote(BaseModel):
     amount: Money
     currency: str
     amount_base: Money | None = None
+    #: The cost it exactly reverses, when the file holds that line too and the books have it already:
+    #: until a person takes that cost out, the audit's preparation blocks (CREDIT_NOTE_REVERSES_COST).
+    reverses_cost_id: UUID | None = None
 
 
 class ImportReport(BaseModel):
@@ -712,12 +728,13 @@ class ImportReport(BaseModel):
     estimates_replaced: int | None = None
     estimates_replaced_base: Money | None = None
     #: Rows refused because they are already in the books: DUPLICATE_COST, INVOICE_ALREADY_RECORDED,
-    #: INVOICE_IN_INBOX.
+    #: INVOICE_LINE_ALREADY_RECORDED, INVOICE_IN_INBOX.
     duplicates: int | None = None
     duplicates_base: Money | None = None
     money: ImportMoney | None = None
     unknown_labels: list[ImportUnknownLabel] | None = None
     credit_notes_skipped: list[ImportCreditNote] | None = None
+    #: Their total, negative as the file wrote them.
     credit_notes_skipped_base: Money | None = None
     #: Pairs of rows that cancel each other out in the file, both left out.
     reversed_in_file: int | None = None
@@ -751,6 +768,9 @@ class ImportJobResponse(BaseModel):
     #: How the file got here: a person dropped it, or an ERP sync produced it. Not stored on the
     #: job — the sync run that drove it says so (see api/v1/imports.py).
     source: Literal["upload", "erp_sync"] = "upload"
+    #: CONTAINERS, COSTS, PRODUCTS, once previewed: the preview this report is — its mapping, its
+    #: options and its figures. The commit names it, and writes only what that preview showed.
+    preview_key: str | None = None
 
 
 class ImportValidateRequest(BaseModel):
@@ -769,9 +789,13 @@ class ImportValidateRequest(BaseModel):
 class ImportCommitRequest(BaseModel):
     #: PURCHASE_ORDERS and LEGACY_PO_CONTAINER only. The other kinds commit exactly what their preview
     #: ran with, which the job keeps: 409 PREVIEW_REQUIRED without one, 409 PREVIEW_CHANGED — with the
-    #: new `report` — when the books moved since.
+    #: new `report` and its `preview_key` — when the books moved since, or when another preview of the
+    #: same file (another tab, other options) replaced the one this person saw.
     mapping: dict[str, str] | None = None
     on_error: Literal["skip_rows", "abort"] = "skip_rows"
+    #: CONTAINERS, COSTS, PRODUCTS: the `preview_key` of the preview the person approved. Required:
+    #: without it, 409 PREVIEW_REQUIRED.
+    preview_key: str | None = None
 
 
 class ImportUndoResponse(BaseModel):
@@ -984,10 +1008,15 @@ class InvoiceUpdate(BaseModel):
     invoice_number: str | None = Field(default=None, max_length=64)
     invoice_date: date | None = None
 
-    @field_validator("vendor", "invoice_number")
+    @field_validator("vendor")
     @classmethod
     def _blank(cls, v: str | None) -> str | None:
         return none_if_blank(v)
+
+    @field_validator("invoice_number")
+    @classmethod
+    def _number(cls, v: str | None) -> str | None:
+        return number_or_none(v)
 
 
 class InvoiceLineCreate(BaseModel):
@@ -1257,6 +1286,8 @@ class PreparationItem(BaseModel):
     severity: Literal["blocking", "limits"]
     section: Literal["period", "findings", "margins", "demurrage"]
     count: int
+    #: The money concerned, in the organization's currency — never negative, whatever the sign of what
+    #: it counts (CREDIT_NOTES_SKIPPED counts refunds by their size).
     amount_base: Money | None = None
     params: dict[str, str] = Field(default_factory=dict)
     #: At most five; `count` says how many there are in all.

@@ -174,6 +174,7 @@ def list_costs(
 
 @router.post("", response_model=schemas.CostResponse, status_code=status.HTTP_201_CREATED)
 def create_cost(payload: schemas.CostCreate, t: TenantDep, fx: FxDep, p: WriterDep) -> Cost:
+    entry.lock_books(t.db, t.org_id)
     model, fk, what = _SCOPE_MODEL[payload.scope]
     t.get_or_404(model, payload.target_id, what)
     splits = [s.model_dump(mode="json") for s in payload.manual_splits] if payload.manual_splits else None
@@ -226,6 +227,7 @@ def get_cost(cost_id: UUID, t: TenantDep) -> Cost:
 
 @router.patch("/{cost_id}", response_model=schemas.CostResponse)
 def update_cost(cost_id: UUID, payload: schemas.CostUpdate, t: TenantDep, fx: FxDep, p: WriterDep) -> Cost:
+    entry.lock_books(t.db, t.org_id)
     cost = t.get_or_404(Cost, cost_id, "Cost")
     before = snapshot(cost, COST_FIELDS)
     before_type = cost.cost_type
@@ -239,6 +241,8 @@ def update_cost(cost_id: UUID, payload: schemas.CostUpdate, t: TenantDep, fx: Fx
         if k == "amount":
             v = q2(v)
         setattr(cost, k, v)
+    if "cost_type" in changes:
+        cost.type_inferred = False  # a person said it: what the audit finds on it is a fact again
     # Before anything below may write the edited row — a rate fetched for a new currency or date is
     # saved at once, and any query outside `no_autoflush` sends what is pending — and so reach the
     # database's own refusal as a server error.
@@ -314,6 +318,7 @@ def close_cost(cost_id: UUID, payload: schemas.CostClose, t: TenantDep, p: Write
     The estimate stops being allocated but is not deleted: what was expected and never charged is
     part of the story of the shipment, and deleting it would quietly change past landed costs.
     """
+    entry.lock_books(t.db, t.org_id)
     cost = t.get_or_404(Cost, cost_id, "Cost")
     if cost.status is not CostStatus.ESTIMATE:
         raise Unprocessable("Only an estimate can be closed", code="NOT_AN_ESTIMATE")
@@ -341,6 +346,7 @@ def close_cost(cost_id: UUID, payload: schemas.CostClose, t: TenantDep, p: Write
 
 @router.delete("/{cost_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_cost(cost_id: UUID, t: TenantDep, p: WriterDep) -> None:
+    entry.lock_books(t.db, t.org_id)
     cost = t.get_or_404(Cost, cost_id, "Cost")
     # Recorded before the row is gone: this is the entry someone will look for when a landed cost
     # changes and nobody remembers why.

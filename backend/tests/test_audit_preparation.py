@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pdfs import make_pdf
 from sqlalchemy.orm import Session
+from test_imports_costs import commit, ledger, preview, upload
 
 from app.domain.models import Cost, Organization
 from app.jobs import handlers
@@ -238,6 +239,89 @@ def test_what_the_engine_could_not_place_is_said_by_reason_and_a_double_entry_by
     )
     audit = client.get("/api/v1/reports/audit", params=PERIOD).json()
     assert len([f for f in audit["findings"] if f["code"] == "DOUBLE_ENTRY"]) == twice["count"]
+
+
+# ---------------------------------------------------------------------------- what a costs file left out
+
+
+def ledger_file(client: TestClient, *rows: str, name: str = "grand-livre.csv") -> dict[str, Any]:
+    """A costs file, previewed and committed as the screen does it."""
+    job = upload(client, ledger(*rows), name=name)
+    preview(client, job, force_duplicates=True)
+    commit(client, job)
+    return job
+
+
+def test_rows_a_costs_file_refused_block_until_a_cost_holds_them(client: TestClient) -> None:
+    """The file's rows refused — no box to land on, a label no type reads — are charges no landed cost
+    holds: the audit would be short of them. Said until each is held — typed by hand, read from a
+    corrected file — or the file is taken back; the same row in the next copy of the ledger is one."""
+    _, box_id = complete_quarter(client)
+    rows = (
+        "12/03/2026;TRANSITEX;F-3;THC du mois;;285,00;EUR;;;",             # no target, dated in March
+        "12/03/2026;TRANSITEX;F-4;Prestation;;900,00;EUR;MSCU4821990;;",   # a box of March, no type
+        "12/03/2026;TRANSITEX;F-5;THC;;120,00;EUR;MSCU4821990;;",          # written
+        "12/05/2026;TRANSITEX;F-6;Prestation;;50,00;EUR;;;",               # no target, dated in May
+    )  # fmt: skip
+    job = ledger_file(client, *rows)
+    refused = item(client, "COST_ROWS_REFUSED")
+    assert (refused["severity"], refused["count"], refused["amount_base"]) == ("blocking", 2, "1185.00")
+    assert refused["examples"] == [{"kind": "import", "id": job["id"], "label": "grand-livre.csv"}]
+
+    cost(client, box_id, "INSPECTION", "900.00", vendor="TRANSITEX", invoice_number="F-4")  # typed by hand
+    assert (item(client, "COST_ROWS_REFUSED")["count"], item(client, "COST_ROWS_REFUSED")["amount_base"]) == (
+        1,
+        "285.00",
+    )
+    grown = ledger_file(client, *rows, "13/03/2026;TRANSITEX;F-7;Camionnage;;400,00;EUR;MSCU4821990;;",
+                        name="grand-livre-avril.csv")  # fmt: skip
+    assert item(client, "COST_ROWS_REFUSED")["count"] == 1  # the same row, in two copies of the ledger
+
+    assert client.delete(f"/api/v1/imports/{grown['id']}").is_success
+    assert client.delete(f"/api/v1/imports/{job['id']}").is_success
+    assert "COST_ROWS_REFUSED" not in codes(client)
+
+
+def test_a_refund_is_counted_once_and_one_reversing_a_standing_cost_blocks_until_it_is_out(
+    client: TestClient,
+) -> None:
+    complete_quarter(client)
+    ledger_file(client, "12/03/2026;TRANSITEX;F-5;THC;;285,00;EUR;MSCU4821990;;",
+                        "20/03/2026;TRANSITEX;AV-2;Remise;;-50,00;EUR;MSCU4821990;;")  # fmt: skip
+    ledger_file(
+        client,
+        "12/03/2026;TRANSITEX;F-5;THC;;285,00;EUR;MSCU4821990;;",
+        "20/03/2026;TRANSITEX;AV-2;Remise;;-50,00;EUR;MSCU4821990;;",
+        "21/03/2026;TRANSITEX;AV-5;THC;;-285,00;EUR;MSCU4821990;;",  # takes back F-5, in the books
+        name="grand-livre-avril.csv",
+    )
+    refunds = item(client, "CREDIT_NOTES_SKIPPED")
+    assert (refunds["severity"], refunds["count"], refunds["amount_base"]) == ("limits", 1, "50.00")
+    reversing = item(client, "CREDIT_NOTE_REVERSES_COST")
+    assert (reversing["severity"], reversing["count"], reversing["amount_base"]) == ("blocking", 1, "285.00")
+    assert [e["label"] for e in reversing["examples"]] == ["MSCU4821990"]
+
+    (thc,) = [c for c in client.get("/api/v1/costs").json() if c["invoice_number"] == "F-5"]
+    assert client.delete(f"/api/v1/costs/{thc['id']}").status_code == 204  # the charge taken out
+    assert "CREDIT_NOTE_REVERSES_COST" not in codes(client)
+    assert item(client, "CREDIT_NOTES_SKIPPED")["count"] == 1
+
+
+def test_two_lines_of_one_ledger_invoice_are_not_the_same_invoice_twice(client: TestClient) -> None:
+    """The freight in dollars and its surcharge in euros, a handling on the box and one on its bill: one
+    invoice of the ledger written as two costs is two lines of one document, never a double entry."""
+    shipment, _ = complete_quarter(client)
+    box(client, "TGHU7245081", shipment=shipment)
+    ledger_file(
+        client,
+        "12/03/2026;TRANSITEX;F-9;Fret maritime;;1 000,00;USD;MSCU4821990;;",
+        "12/03/2026;TRANSITEX;F-9;BAF;;200,00;EUR;MSCU4821990;;",
+        "12/03/2026;TRANSITEX;F-7;THC;;285,00;EUR;MSCU4821990;;",
+        "12/03/2026;TRANSITEX;F-7;THC;;100,00;EUR;;BL-1;",
+    )
+    assert "SAME_INVOICE_TWICE" not in codes(client)
+    findings = client.get("/api/v1/reports/audit", params=PERIOD).json()["findings"]
+    assert [f for f in findings if f["code"] == "DOUBLE_ENTRY"] == []
 
 
 # ---------------------------------------------------------------------------- what it will not say

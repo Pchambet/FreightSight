@@ -518,6 +518,9 @@ class Cost(Timestamped, OrgScoped, Base):
     type_inferred: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("false")
     )
+    #: The rows of the costs file this cost was written from, as their source said them: the next copy
+    #: of the same ledger recognises its line by them, whatever a person has changed on the cost since.
+    import_row_key: Mapped[str | None] = mapped_column(String(64))
 
     allocations: Mapped[list[CostAllocation]] = relationship(
         back_populates="cost", cascade="all, delete-orphan"
@@ -582,6 +585,16 @@ class ImportJob(Timestamped, OrgScoped, Base):
     #: person gave the labels it could not read. The commit runs with exactly that, never another.
     options: Mapped[dict[str, Any]] = mapped_column(
         nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
+    #: A costs file's lines that an earlier import had written already: left alone here, so that file
+    #: cannot be taken back while this one stands on them.
+    matched_cost_ids: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
+    #: A costs file's rows refused whose charge is therefore not in the books — the date, the amount,
+    #: the target when it was read — for the audit's preparation to say until a cost holds them.
+    refused_rows: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
     )
 
 

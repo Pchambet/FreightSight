@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -55,6 +56,7 @@ NUMERIC_FIELDS = (
     "total_value",
     "allocation_percentage",
     "amount",
+    "credit",
     "sale_price",
 )
 #: Fields an export may state once, on the first row of an order, and leave blank underneath.
@@ -97,6 +99,9 @@ class ImportReport:
     #: The counters and figures of the kinds read in their own module — containers, costs, products —
     #: as the report states them. A counter of another kind is absent, never zero.
     extra: dict[str, Any] = field(default_factory=dict)
+    #: What a commit keeps on the job and never shows: the costs a costs file recognised as written by
+    #: an earlier import, the rows it refused. Not part of the report a preview is compared by.
+    internal: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         common = {
@@ -246,6 +251,9 @@ def run_job(
     job.status = ImportStatus.DONE if not dry_run else ImportStatus.VALIDATED
     if not dry_run:
         job.committed_at = func.now()
+        if job.kind is ImportKind.COSTS:
+            job.matched_cost_ids = list(report.internal.get("matched_cost_ids", []))
+            job.refused_rows = list(report.internal.get("refused_rows", []))
         _remember_mapping(t, job, mapping)
     t.db.flush()
     return report
@@ -362,6 +370,15 @@ class _Row:
             self.error(field, "NOT_POSITIVE", f"{field} must be > 0, got {v}", value=str(v))
             return None
         return v
+
+    def rate(self, field: str) -> Decimal | None:
+        """A rate as order files and tariffs write it: « 4,5 % » and « 4,5 » are 0.045 — and so is
+        « 0,045 ». A cell with its per cent sign is a per cent whatever its size: « 1 % » is 0.01, where
+        a bare « 1 » could only be read as a whole."""
+        value = self.decimal(field)
+        if value is not None and ("%" in (self.text(field) or "") or value > 1):
+            return value / 100
+        return value
 
     def date(self, field: str) -> date | None:
         raw = self.text(field)
@@ -607,9 +624,7 @@ def _apply_purchase_orders(
         line_no_raw = r.decimal("line_no")
         weight = r.decimal("unit_weight_kg")
         volume = r.decimal("unit_volume_cbm")
-        duty = r.decimal("duty_rate")
-        if duty is not None and duty > 1:
-            duty = duty / 100  # "4,5" or "4,5 %" -> 0.045
+        duty = r.rate("duty_rate")
         order_date = r.date("order_date")
         container_number = r.container()
         container_qty = r.decimal("container_quantity", positive=True)
@@ -816,6 +831,15 @@ def _apply_legacy(
             if r.failed:
                 continue
         report.valid_rows += 1
+
+
+def preview_key(job: ImportJob) -> str | None:
+    """The preview a job holds — its mapping, its options, its figures — as one key: what a person
+    approved, which the commit names. Two previews that differ in anything a person saw differ in it."""
+    if job.status is not ImportStatus.VALIDATED:
+        return None
+    seen = {"mapping": job.mapping, "options": job.options or {}, "report": job.report}
+    return hashlib.sha256(json.dumps(seen, sort_keys=True, default=str).encode()).hexdigest()[:32]
 
 
 def find_duplicate(t: TenantSession, sha256: str, kind: ImportKind) -> ImportJob | None:

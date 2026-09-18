@@ -176,7 +176,7 @@ def extract(
     # A reader that found nothing may say so with "": the guards against counting an invoice twice
     # compare these two, and an empty number is no number.
     invoice.vendor = entry.none_if_blank(reading.vendor)
-    invoice.invoice_number = entry.none_if_blank(reading.invoice_number)
+    invoice.invoice_number = entry.number_or_none(reading.invoice_number)
     invoice.invoice_date = reading.invoice_date
     invoice.currency = (reading.currency or org.base_currency)[:3].upper()
     invoice.total_amount = q2(Decimal(reading.total)) if reading.total else None

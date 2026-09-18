@@ -26,6 +26,7 @@ from app.domain.audit.service import (
     INVOICE_REOPENED,
     record,
 )
+from app.domain.costing import entry
 from app.domain.documents.registry import get_store
 from app.domain.invoices.service import confirm as confirm_invoice
 from app.domain.invoices.service import create_invoice, reopen_confirmed
@@ -277,6 +278,7 @@ def confirm(
     together. A line pointing at something that is not ours stops the whole confirmation.
     """
     invoice = _get(t, invoice_id, lock=True)
+    entry.lock_books(t.db, t.org_id)
     try:
         result = confirm_invoice(
             t.db,
@@ -332,6 +334,7 @@ def reopen(invoice_id: UUID, t: TenantDep, p: WriterDep) -> schemas.InvoiceRespo
     reached the customer's ERP the confirmation stops being ours to undo, and the service refuses.
     """
     invoice = _get(t, invoice_id, lock=True)
+    entry.lock_books(t.db, t.org_id)
     if invoice.status not in (InvoiceStatus.REJECTED, InvoiceStatus.CONFIRMED):
         raise Unprocessable(
             f"Only a rejected or confirmed invoice can be reopened (this one is {invoice.status.value})",

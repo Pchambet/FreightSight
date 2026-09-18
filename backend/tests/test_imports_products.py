@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi.testclient import TestClient
+from previews import commit_previewed
 
 HEADER = (
     "Référence;Désignation;Code SH;Taux de droits;Poids unitaire (kg);Volume unitaire (m³);"
@@ -27,7 +28,7 @@ def imported(client: TestClient, content: bytes) -> dict[str, Any]:
         report: dict[str, Any] = previewed.json()["report"]
         return report
     assert previewed.status_code == 200, previewed.text
-    committed = client.post(f"/api/v1/imports/{job['id']}/commit", json={})
+    committed = commit_previewed(client, job["id"])
     assert committed.status_code == 200, committed.text
     report = committed.json()["report"]
     return report
@@ -60,6 +61,23 @@ def test_an_empty_cell_says_nothing_and_a_price_without_currency_says_so(client:
     assert [w["code"] for w in report["warnings"]] == ["SALE_CURRENCY_ASSUMED"]
     tyre = products(client)["TYRE"]
     assert (tyre["description"], tyre["duty_rate"], tyre["sale_price"]) == ("Pneu", "0.045", "62.0000")
+
+
+def test_a_rate_with_its_per_cent_sign_is_a_per_cent_whatever_its_size(client: TestClient) -> None:
+    imported(client, tariff("A;;;1 %;;;;", "B;;;0,5 %;;;;", "C;;;4,5 %;;;;", "D;;;4,5;;;;", "E;;;0,045;;;;"))
+    rates = {sku: Decimal(p["duty_rate"]) for sku, p in products(client).items()}
+    per_cent = {"A": "0.01", "B": "0.005", "C": "0.045", "D": "0.045", "E": "0.045"}
+    assert rates == {sku: Decimal(rate) for sku, rate in per_cent.items()}
+
+
+def test_a_price_without_currency_is_in_the_organization_s_not_in_an_older_price_s(
+    client: TestClient,
+) -> None:
+    imported(client, tariff("TYRE;Pneu;;;;;60,00;USD"))
+    report = imported(client, tariff("TYRE;;;;;;55,00;"))
+    assert [w["code"] for w in report["warnings"]] == ["SALE_CURRENCY_ASSUMED"]
+    tyre = products(client)["TYRE"]
+    assert (tyre["sale_price"], tyre["sale_currency"]) == ("55.0000", "EUR")  # as the warning says
 
 
 def test_order_lines_already_written_keep_what_they_said_and_new_ones_borrow_from_the_tariff(

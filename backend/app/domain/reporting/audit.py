@@ -529,16 +529,24 @@ def _close(a: Cost, b: Cost) -> bool:
 
 
 def documents_of(db: Session, cost_ids: Iterable[UUID]) -> dict[UUID, UUID]:
-    """The confirmed invoice each cost was written from. One confirmation writes one cost per type,
-    target and currency: the freight in dollars and its security surcharge in euros, a surcharge on the
-    bill of lading next to the box's freight, are two costs of one document — never a double entry."""
+    """The document each cost was written from: the confirmed invoice, or the costs file. One
+    confirmation writes one cost per type, target and currency — and so does one ledger for the lines
+    of one invoice: the freight in dollars and its security surcharge in euros, a surcharge on the bill
+    of lading next to the box's freight, are two costs of one document — never a double entry."""
     ids = list(cost_ids)
     if not ids:
         return {}
     rows = db.execute(
         select(InvoiceLine.cost_id, InvoiceLine.invoice_id).where(InvoiceLine.cost_id.in_(ids)).distinct()
     )
-    return {cost_id: invoice_id for cost_id, invoice_id in rows.tuples() if cost_id is not None}
+    found = {cost_id: invoice_id for cost_id, invoice_id in rows.tuples() if cost_id is not None}
+    imported = db.execute(
+        select(Cost.id, Cost.import_job_id).where(Cost.id.in_(ids), Cost.import_job_id.is_not(None))
+    )
+    for cost_id, job_id in imported.tuples():
+        if job_id is not None:
+            found.setdefault(cost_id, job_id)
+    return found
 
 
 def _target(cost: Cost) -> UUID | None:

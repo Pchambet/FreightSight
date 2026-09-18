@@ -13,9 +13,16 @@ import pytest
 from fastapi.testclient import TestClient
 from invoice_fixtures import FRENCH_ONE_CONTAINER, FRENCH_TWO_CONTAINERS
 from pdfs import make_pdf
+from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session
 
-from app.domain.costing.entry import normalize_invoice_number, normalize_vendor, same_invoice
+from app.domain.costing.entry import (
+    books_lock_key,
+    lock_books,
+    normalize_invoice_number,
+    normalize_vendor,
+    same_invoice,
+)
 from app.domain.models import Organization
 from app.jobs import handlers
 
@@ -491,3 +498,20 @@ def test_the_header_the_reader_took_is_corrected_before_confirming_and_not_after
     assert cost["vendor"] is None
     late = client.patch(f"/api/v1/invoices/{invoice_id}", json={"invoice_number": "FA-1"})
     assert (late.status_code, late.json()["code"]) == (422, "INVALID_STATUS")
+
+
+def test_the_doors_that_write_an_organization_s_costs_take_turns(
+    db: Session, engine: Engine, org_id: uuid.UUID
+) -> None:
+    """Every door reads the books to refuse a line already there, then writes: two at once would each
+    read without the other's line. While one holds an organization's books, another request waits for
+    them — and only for that organization's."""
+    lock_books(db, org_id)
+    with engine.connect() as other_request:
+        try_lock = text("SELECT pg_try_advisory_xact_lock(:space, :org)")
+        space, org = books_lock_key(org_id)
+        taken = other_request.execute(try_lock, {"space": space, "org": org}).scalar()
+        space, org = books_lock_key(uuid.uuid4())
+        free = other_request.execute(try_lock, {"space": space, "org": org}).scalar()
+        other_request.rollback()
+    assert (taken, free) == (False, True)

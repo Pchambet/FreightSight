@@ -14,7 +14,7 @@ import unicodedata
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.errors import Unprocessable
@@ -153,6 +153,41 @@ def none_if_blank(text: str | None) -> str | None:
     if text is None:
         return None
     return text.strip() or None
+
+
+_NO_NUMBER = frozenset({"n/a", "na", "nc", "n.c.", "s/o", "none", "neant", "néant"})
+
+
+def number_or_none(text: str | None) -> str | None:
+    """An invoice number, or none: « - », « / », « n/a » written where a ledger has no number are no
+    number. Kept, the database's uniqueness would hold every « - » of a forwarder on a box to be one
+    invoice line, while every rule comparing invoices reads them as no number at all."""
+    number = none_if_blank(text)
+    if number is None or not normalize_invoice_number(number) or number.casefold() in _NO_NUMBER:
+        return None
+    return number
+
+
+# ---------------------------------------------------------------------------- one writer at a time
+
+#: The first key of the advisory lock that makes the doors writing an organization's costs take turns.
+#: Two ints: the second is the organization, so that two organizations never wait for each other
+#: (unless their ids share 32 bits, and then they only wait).
+_BOOKS_LOCK = 0x46534243  # "FSBC"
+
+
+def lock_books(db: Session, org_id: UUID) -> None:
+    """Take the organization's books for this transaction: every door that writes or deletes costs —
+    a person's entry, an invoice confirmed or reopened, a ledger imported or taken back, estimates —
+    reads the books to refuse a line already there, then writes. Two doors at once each read the books
+    without the other's lines, and one charge is written twice. Released at commit or rollback."""
+    space, org = books_lock_key(org_id)
+    db.execute(text("SELECT pg_advisory_xact_lock(:space, :org)"), {"space": space, "org": org})
+
+
+def books_lock_key(org_id: UUID) -> tuple[int, int]:
+    """The two ints of an organization's books lock."""
+    return _BOOKS_LOCK, int.from_bytes(org_id.bytes[:4], "big", signed=True)
 
 
 def normalize_vendor(name: str | None) -> str:

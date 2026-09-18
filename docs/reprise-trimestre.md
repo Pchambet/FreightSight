@@ -15,7 +15,7 @@ exports se réimportent aussi tels quels.
 | **Tarif** : référence, désignation, code SH, taux de droits, poids et volume unitaires, prix de vente HT et sa devise | Fiche article de l'ERP, tarif de vente | Pas de marge par référence ; droits répartis à la valeur CIF quand les commandes n'ont pas de taux |
 | **Commandes** du trimestre, et celles dont un conteneur est arrivé dans le trimestre : n° de commande, fournisseur, devise, incoterm, date, lignes (référence, quantité, prix unitaire, taux de droits si connu) | Export des commandes fournisseurs de l'ERP | Rien à ventiler : pas d'audit |
 | **Suivi des conteneurs** : n° de conteneur, type (40HC…), n° de B/L, compagnie, ports, ETD/ETA, arrivée réelle, déchargement, **sortie du terminal**, **restitution du vide**, n° de commande(s) chargée(s) | Tableau de suivi des arrivages de l'appro, ou du transitaire | Les conteneurs n'ont pas de date : **l'audit ne les voit pas** |
-| **Frais** : date, prestataire, n° de facture, libellé, montant **HT**, devise, et si possible n° de conteneur, de B/L ou de commande | **Journal des achats** (factures des transitaires, transporteurs, commissionnaires en douane) — **pas** les journaux d'opérations diverses : une provision ou une extourne n'est pas une facture | Pas de coût rendu réel |
+| **Frais** : date, prestataire, n° de facture, libellé, montant **HT**, devise, et si possible n° de conteneur, de B/L ou de commande | **Journal des achats** (factures des transitaires, transporteurs, commissionnaires en douane), tel que la compta l'exporte — le **FEC** filtré sur le journal d'achats convient : ses colonnes se reconnaissent seules. **Pas** les journaux d'opérations diverses : une provision ou une extourne n'est pas une facture | Pas de coût rendu réel |
 | **Deux à cinq factures PDF** de transitaire du trimestre | Boîte mail de la compta | On ne vérifie pas que le journal correspond aux factures |
 
 Demander aussi : **« Quel coefficient d'approche appliquez-vous aujourd'hui ? »** (ex. 1,12). Saisi
@@ -37,11 +37,17 @@ C'est souvent la phrase qui vend.
 
 Chaque import passe par un **aperçu** obligatoire : l'argent d'abord (total en devise de base, par
 type, par devise), les estimés remplacés, les doublons, les libellés à typer, les avoirs écartés. Ce
-qui est validé est exactement ce que l'aperçu a montré ; si les livres ont bougé entre les deux,
-l'application le dit et montre les nouveaux chiffres.
+qui est validé est exactement l'aperçu que la personne a sous les yeux ; si les livres ont bougé entre
+les deux, ou si le même fichier a été revu ailleurs avec d'autres options, l'application le dit et
+montre les nouveaux chiffres avant d'écrire quoi que ce soit.
+
+Un journal exporté ligne par ligne (compte, débit, crédit) est lu par ses comptes : seules les lignes
+des **comptes de charges (classe 6)** deviennent des coûts ; la TVA (445…) et le total du fournisseur
+(401…) sont écartés et comptés ; un avoir au crédit d'un compte de charges est compté comme avoir.
 
 Un fichier de frais se **reprend** (« Annuler cet import ») tant que ses coûts ne sont ni partis dans
-l'ERP ni dans un mois clos.
+l'ERP ni dans un mois clos, et qu'aucun fichier plus récent du même journal ne s'appuie sur ses lignes :
+dans ce cas, reprendre d'abord le plus récent.
 
 ## 3. Avant de lancer l'audit : la préparation
 
@@ -56,8 +62,13 @@ Bloquants les plus fréquents à la reprise :
   journal, ou le fret est porté par un autre compte.
 - **Conteneurs sans droits** → la note de débours du commissionnaire en douane manque.
 - **Factures à relire ou non lues** → les relire, ou rejeter celles qui sont déjà dans les frais.
+- **Lignes de frais refusées à l'import** (sans conteneur connu, libellé sans type, pas de taux de
+  change…) → charger le conteneur manquant ou typer le libellé, puis reprendre le fichier et le
+  réimporter ; ou saisir la charge à la main. Chaque ligne disparaît dès qu'un coût la porte.
 - **Même facture saisie deux fois** → supprimer l'une des deux saisies, après vérification sur les
   deux documents.
+- **Avoir qui annule un coût enregistré** → le journal porte la ligne et son avoir, les livres la
+  ligne : supprimer le coût annulé.
 
 Limites qui ne bloquent pas mais se disent au client : avoirs écartés, lignes sans taux de droits,
 conteneurs sans route ou sans taille (non comparés), frais d'un type « Autre », pas de prix de vente,
@@ -71,8 +82,9 @@ pas de coefficient d'approche, horloges de surestaries encore ouvertes.
 | pas de n° de facture | seulement poser la question (« à vérifier ») d'un doublon |
 | un type de coût en colonne | établir un constat |
 | un type **déduit** du libellé ou choisi pour tout le fichier | seulement poser la question : le libellé peut désigner autre chose |
-| des montants **TTC** | rien : le fichier est refusé (la TVA import est récupérable, jamais un coût) |
-| des avoirs (montants négatifs) | les écarter et les compter : vérifier qu'aucun ne rembourse un constat |
+| une colonne de montants **TTC**, ou une ligne marquée TTC | rien : la colonne est refusée, la ligne aussi (sa part hors taxes n'est écrite nulle part) |
+| des lignes de **TVA** | rien : elles sont écartées, quel que soit leur libellé ou leur type ; la TVA import avancée par le transitaire est gardée comme telle, hors coût rendu. Une ligne « droits et TVA » est refusée : elle doit être séparée |
+| des avoirs (montants négatifs) | les écarter et les compter : vérifier qu'aucun ne rembourse un constat. Celui qui annule une ligne déjà en compte bloque l'audit jusqu'à ce que le coût annulé soit retiré |
 
 Une reprise **ne contient pas d'estimés** : la règle « facture au-dessus de l'estimé » reste
 silencieuse pour un trimestre repris. Ne jamais la promettre à un prospect qui n'a pas encore utilisé
