@@ -202,6 +202,27 @@ export async function uploadInvoice(formData: FormData): Promise<UploadResult> {
   return { ok: true, data: { id: data.id } };
 }
 
+/**
+ * The header the reader took, corrected by the person looking at the PDF — a date read as the number,
+ * a forwarder not recognised. The number and the forwarder are what every guard against counting one
+ * invoice twice compares, so this is the way out of a refusal that cannot be forced when the reading
+ * was wrong. Only the fields that changed are sent; an emptied field is cleared.
+ */
+export async function correctInvoiceHeader(
+  invoiceId: string,
+  patch: { vendor?: string; invoice_number?: string; invoice_date?: string },
+): Promise<ActionResult<null>> {
+  await protectAction();
+  const { error } = await api.PATCH("/api/v1/invoices/{invoice_id}", {
+    params: { path: { invoice_id: invoiceId } },
+    body: patch,
+  });
+  if (error) return await fail(error, "invoices.header.failed");
+  revalidatePath(`/invoices/${invoiceId}`);
+  revalidatePath("/invoices");
+  return { ok: true, data: null };
+}
+
 export async function updateInvoiceLine(
   invoiceId: string,
   lineId: string,

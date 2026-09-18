@@ -67,7 +67,9 @@ function formatValue(key: string, v: unknown, f: Formatters): string {
   if (DATE_KEYS.has(key) && typeof val === "string") return f.date(val);
   if (DATE_TIME_KEYS.has(key) && typeof val === "string") return f.dateTime(val);
   if (typeof val === "string" && UUID_RE.test(val)) return f.label(val) ?? shortId(val);
-  if (typeof val === "object") return JSON.stringify(val);
+  // An empty list or object is nothing to show, not "[]"; a list of plain values reads as one.
+  if (Array.isArray(val)) return val.length === 0 ? "—" : val.every((x) => x === null || typeof x !== "object") ? val.join(", ") : JSON.stringify(val);
+  if (typeof val === "object") return Object.keys(val as object).length === 0 ? "—" : JSON.stringify(val);
   return String(val);
 }
 
@@ -85,7 +87,9 @@ export function auditDiff(before: Json, after: Json, f: Formatters): { key: stri
       label: UUID_RE.test(k) ? f.lineRef(f.label(k) ?? shortId(k)) : f.field(k),
       from: formatValue(k, b[k], f),
       to: formatValue(k, a[k], f),
-    }));
+    }))
+    // Nothing to nothing (absent → empty list) is not a change a reader needs to see.
+    .filter((c) => c.from !== c.to);
 }
 
 export function auditEntityRef(

@@ -7,6 +7,7 @@ import Breadcrumb from "@/components/shared/Breadcrumb";
 import ConfidenceBadge from "@/components/shared/ConfidenceBadge";
 import AutoRefresh from "@/features/invoices/AutoRefresh";
 import { containerLinksFromLines } from "@/features/invoices/containerLinks";
+import InvoiceHeaderEditor from "@/features/invoices/InvoiceHeaderEditor";
 import { formatInvoiceNote } from "@/features/invoices/lineNotes";
 import RejectedInvoiceActions from "@/features/invoices/RejectedInvoiceActions";
 import ReopenConfirmedAction from "@/features/invoices/ReopenConfirmedAction";
@@ -104,6 +105,10 @@ export default async function InvoicePage({ params }: Params) {
               </>
             ) : null}
           </p>
+          {/* What the reader took from the header, put right from the PDF before confirming. */}
+          {invoice.status === "NEEDS_REVIEW" || invoice.status === "FAILED" ? (
+            <InvoiceHeaderEditor invoiceId={invoice.id} vendor={invoice.vendor} invoiceNumber={invoice.invoice_number} invoiceDate={invoice.invoice_date} />
+          ) : null}
         </div>
       </div>
 

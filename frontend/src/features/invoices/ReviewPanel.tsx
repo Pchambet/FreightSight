@@ -9,6 +9,7 @@ import { btnPrimary, btnSecondary, input } from "@/components/layout/AppShell";
 import ConfidenceBadge from "@/components/shared/ConfidenceBadge";
 import { addInvoiceLine, patchInvoiceLines, confirmInvoice, rejectInvoice, reopenInvoice, retryInvoice, updateInvoiceLine } from "@/features/actions";
 import InvoiceContinueLinks, { type ContainerLink } from "@/features/invoices/InvoiceContinueLinks";
+import { openHeaderEditor } from "@/features/invoices/InvoiceHeaderEditor";
 import { formatInvoiceNote, isDuplicateCostNote, isInformativeNote, splitInvoiceNotes } from "@/features/invoices/lineNotes";
 import type { InvoiceLineResponse, InvoiceResponse } from "@/lib/api/client";
 import { COST_SCOPES, COST_TYPES, type CostScope, type CostType } from "@/lib/domain";
@@ -358,6 +359,13 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
           {recorded ? (
             <div role="alert" className="mx-5 mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 space-y-3">
               <p>{recorded.sentence}</p>
+              {/* A number or forwarder the reader got wrong is the usual cause, and the way out when
+                  the refusal cannot be forced: correct the header from the PDF, then confirm again. */}
+              <div className="flex flex-wrap items-center gap-3">
+                <button type="button" onClick={() => openHeaderEditor(invoice.id)} className="text-sm text-blue-700 underline underline-offset-2 hover:no-underline">
+                  {t("fixHeader")}
+                </button>
+              </div>
               {recorded.forceable ? (
                 <button
                   type="button"

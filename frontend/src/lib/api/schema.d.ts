@@ -1381,7 +1381,16 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Correct Invoice
+         * @description Correct the header the reader took — the number, the forwarder, the date — before confirming.
+         *
+         *     Every guard against counting one invoice twice compares the number and the forwarder, and the
+         *     confirmation writes them on each cost: a date read as the number is a false « already recorded »
+         *     today and a missed double entry tomorrow. Only while the invoice is being reviewed; what a
+         *     confirmed invoice says is corrected by reopening it.
+         */
+        patch: operations["correct_invoice_api_v1_invoices__invoice_id__patch"];
         trace?: never;
     };
     "/api/v1/invoices/{invoice_id}/document": {
@@ -3294,6 +3303,22 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * InvoiceUpdate
+         * @description What the reader took from the invoice's header, corrected by the person looking at the PDF: a
+         *     date or a file reference read as the invoice's number, a forwarder not recognised. The number and
+         *     the forwarder are what every guard against counting an invoice twice compares, so a wrong one is
+         *     either a false refusal or a missed double entry. Only while the invoice is being reviewed; a field
+         *     left out is left as it is, and an empty one is cleared.
+         */
+        InvoiceUpdate: {
+            /** Vendor */
+            vendor?: string | null;
+            /** Invoice Number */
+            invoice_number?: string | null;
+            /** Invoice Date */
+            invoice_date?: string | null;
         };
         /** LandedCostAnalysis */
         LandedCostAnalysis: {
@@ -7819,6 +7844,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    correct_invoice_api_v1_invoices__invoice_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

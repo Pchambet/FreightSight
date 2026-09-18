@@ -668,7 +668,8 @@
       "purchase_order_shared": "Rapport de la commande partagé",
       "share_revoked": "Lien de partage retiré",
       "period_drift_acknowledged": "Écart de clôture comptabilisé",
-      "audit_shared": "Audit partagé"
+      "audit_shared": "Audit partagé",
+      "invoice_corrected": "En-tête de facture corrigé"
     },
     "finding": {
       "DUPLICATE_CHARGE": "Prestation facturée deux fois",
@@ -806,7 +807,9 @@
     "recordedInvoice": "Cette facture est déjà enregistrée ({items}) : rouvrez ou supprimez ce qui la porte avant de la confirmer.",
     "recordedLine": "Cette facture a déjà ce coût ({items}) : modifiez ou supprimez la saisie existante plutôt que d'en ajouter une seconde.",
     "recordedOn": "le {date}",
-    "INVOICE_LINE_ALREADY_RECORDED": "Cette facture a déjà ce coût : modifiez ou supprimez la saisie existante plutôt que d'en ajouter une seconde."
+    "INVOICE_LINE_ALREADY_RECORDED": "Cette facture a déjà ce coût : modifiez ou supprimez la saisie existante plutôt que d'en ajouter une seconde.",
+    "recordedInvoiceEstimate": "Un estimé porte déjà ce numéro de facture ({items}) : modifiez ou supprimez cet estimé avant de confirmer.",
+    "recordedLineEstimate": "Un estimé porte déjà ce numéro de facture pour ce coût ({items}) : modifiez ou supprimez cet estimé plutôt que d'enregistrer un second coût."
   },
   "timeline": {
     "title": "Chronologie",
@@ -1001,7 +1004,8 @@
       "acceptAll": "{count, plural, one {Retenir la ligne} other {Retenir les # lignes}}",
       "sumMatches": "Lignes retenues : {amount} = total HT de la facture",
       "sumGap": "Lignes retenues : {kept} · HT de la facture : {subtotal} · écart {gap}",
-      "notTheSame": "Ce n'est pas la même facture : confirmer quand même"
+      "notTheSame": "Ce n'est pas la même facture : confirmer quand même",
+      "fixHeader": "Le numéro ou le prestataire lu est faux ? Corriger l'en-tête"
     },
     "lineNotes": {
       "singleContainer": "Facturé sur {container}, seul conteneur mentionné sur la facture.",
@@ -1047,6 +1051,16 @@
       "label": "{count, plural, one {Rattacher la ligne sans cible à} other {Rattacher les # lignes sans cible à}}",
       "apply": "Appliquer",
       "done": "{count, plural, one {# ligne rattachée} other {# lignes rattachées}}"
+    },
+    "header": {
+      "open": "Corriger l'en-tête lu (prestataire, n°, date)",
+      "vendor": "Prestataire",
+      "number": "N° de facture",
+      "date": "Date de facture",
+      "save": "Enregistrer",
+      "saved": "En-tête corrigé",
+      "failed": "Impossible de corriger l'en-tête",
+      "hint": "Le numéro et le prestataire servent à reconnaître une facture déjà enregistrée : corrigez-les d'après le PDF avant de confirmer. Un champ vidé est effacé."
     }
   },
   "audit": {
@@ -1077,7 +1091,7 @@
     "fields": {
       "status": "Statut",
       "invoice_number": "N° facture",
-      "vendor": "Fournisseur",
+      "vendor": "Prestataire",
       "total_amount": "Montant",
       "cost_ids": "Coûts créés",
       "lineRef": "Ligne {id}",
@@ -1123,7 +1137,8 @@
       "adopted": "Repris automatiquement",
       "forgotten_at": "Oublié le",
       "forgotten_reason": "Motif d'oubli",
-      "document_state": "État du document dans l'ERP"
+      "document_state": "État du document dans l'ERP",
+      "invoice_date": "Date de facture"
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "À relire",
@@ -2283,7 +2298,9 @@
         "outlierSized": "{amount} contre une médiane de {median} pour la même prestation sur {basis} autres conteneurs de {size} pieds de la route {route} (× {ratio}). Peut s'expliquer : conteneur plus lourd, attente, second passage.",
         "aboveQuoteMixed": "Estimé et facture dans deux devises : comparés en euros au taux de chaque pièce, {quoted} contre {invoiced} (+{share} %). À vérifier : l'écart mêle prix et change.",
         "doubleEntry": "Déjà enregistrée : facture {invoice} de {vendor}, pour {amount}. Le coût de revient la compte deux fois : supprimez l'une des deux saisies.",
-        "doubleEntryRedacted": "La même facture est déjà enregistrée, pour {amount} : le coût de revient la compte deux fois."
+        "doubleEntryRedacted": "La même facture est déjà enregistrée, pour {amount} : le coût de revient la compte deux fois.",
+        "doubleEntryToCheck": "Peut-être la même facture qu'une autre saisie : facture {invoice} de {vendor}, pour {amount}. Vérifiez sur les deux documents avant de supprimer quoi que ce soit : deux lignes d'une même facture peuvent se ressembler.",
+        "doubleEntryToCheckRedacted": "Peut-être la même facture qu'une autre saisie, pour {amount}. Vérifiez sur les deux documents avant de supprimer quoi que ce soit."
       },
       "demurrage": {
         "title": "Surestaries et détention",
@@ -2340,7 +2357,7 @@
         "stale": "Estimé jamais facturé : encore estimé {days} jours après l'arrivée de la marchandise.",
         "once": "Un même euro n'est jamais compté par deux règles.",
         "allocationDuty": "Chaque coût est ventilé sur les lignes chargées selon la méthode choisie. Les droits de douane suivent les droits théoriques de chaque ligne (valeur CIF × taux) quand ceux-ci expliquent les droits payés à {pct} % près, la valeur CIF sinon. La TVA à l'importation, récupérable, est exclue du coût de revient. Les montants en devise sont convertis au taux de la Banque centrale européenne du jour de la facture.",
-        "sameInvoice": "Facture saisie deux fois : la même facture (numéro normalisé, même prestataire) enregistrée deux fois sur un même fret. Ce n'est jamais une prestation facturée deux fois ; établie si les deux copies nomment le prestataire, à vérifier sinon.",
+        "sameInvoice": "Facture saisie deux fois : la même facture (numéro normalisé, même prestataire) enregistrée deux fois sur un même fret. Ce n'est jamais une prestation facturée deux fois. Établie quand c'est la même ligne, nommée des deux côtés, dans la même devise et sur la même cible ; à vérifier sinon (un conteneur et son B/L, deux devises, un prestataire absent). Deux coûts d'une même facture confirmée ne sont jamais signalés.",
         "outlierUnknown": "Un conteneur sans route ou sans taille connue n'est pas comparé.",
         "demurrageByArrival": "Surestaries et détention : rattachées au conteneur arrivé dans la période, quelle que soit la date de leur facture."
       },

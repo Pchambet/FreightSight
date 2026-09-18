@@ -91,12 +91,16 @@ export default async function AuditSheet({ audit, header, locale }: { audit: Aud
         return p.first_invoice || p.first_vendor
           ? t(p.same_vendor === "true" ? "because.duplicateSameVendor" : "because.duplicate", { vendor: p.first_vendor || "—", invoice: p.first_invoice || "—", amount: eur(p.first_amount) })
           : t("because.duplicateRedacted", { amount: eur(p.first_amount) });
-      case "DOUBLE_ENTRY":
+      case "DOUBLE_ENTRY": {
         // Not a forwarder billing twice: the company's own books hold one invoice twice, under two
-        // spellings — the landed cost counts it twice until one entry goes.
+        // spellings. Only an established pair (the same line, named on both sides) is told to delete
+        // an entry; « à vérifier » — a box and its B/L, two currencies, a missing forwarder — may be two
+        // true lines of one invoice, and the sentence says to check before deleting anything.
+        const sure = f.confidence === "sure";
         return p.first_invoice || p.first_vendor
-          ? t("because.doubleEntry", { vendor: p.first_vendor || "—", invoice: p.first_invoice || "—", amount: eur(p.first_amount) })
-          : t("because.doubleEntryRedacted", { amount: eur(p.first_amount) });
+          ? t(sure ? "because.doubleEntry" : "because.doubleEntryToCheck", { vendor: p.first_vendor || "—", invoice: p.first_invoice || "—", amount: eur(p.first_amount) })
+          : t(sure ? "because.doubleEntryRedacted" : "because.doubleEntryToCheckRedacted", { amount: eur(p.first_amount) });
+      }
       case "ABOVE_QUOTE": {
         // An estimate and an invoice in two currencies are compared in euros at each document's own
         // rate: the gap mixes price and exchange, which is why the rule only says "to check".

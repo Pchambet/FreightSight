@@ -668,7 +668,8 @@
       "purchase_order_shared": "Order report shared",
       "share_revoked": "Share link withdrawn",
       "period_drift_acknowledged": "Closing gap posted",
-      "audit_shared": "Audit shared"
+      "audit_shared": "Audit shared",
+      "invoice_corrected": "Invoice header corrected"
     },
     "finding": {
       "DUPLICATE_CHARGE": "Service invoiced twice",
@@ -806,7 +807,9 @@
     "recordedInvoice": "This invoice is already recorded ({items}): reopen or delete what carries it before confirming it.",
     "recordedLine": "This invoice already has this cost ({items}): edit or delete the existing entry rather than add a second one.",
     "recordedOn": "on {date}",
-    "INVOICE_LINE_ALREADY_RECORDED": "This invoice already has this cost: edit or delete the existing entry rather than add a second one."
+    "INVOICE_LINE_ALREADY_RECORDED": "This invoice already has this cost: edit or delete the existing entry rather than add a second one.",
+    "recordedInvoiceEstimate": "An estimate already carries this invoice number ({items}): edit or delete that estimate before confirming.",
+    "recordedLineEstimate": "An estimate already carries this invoice number for this cost ({items}): edit or delete that estimate rather than record a second cost."
   },
   "timeline": {
     "title": "Timeline",
@@ -1001,7 +1004,8 @@
       "acceptAll": "{count, plural, one {Keep the line} other {Keep all # lines}}",
       "sumMatches": "Kept lines: {amount} = the invoice's total before tax",
       "sumGap": "Kept lines: {kept} · invoice before tax: {subtotal} · gap {gap}",
-      "notTheSame": "It is not the same invoice: confirm anyway"
+      "notTheSame": "It is not the same invoice: confirm anyway",
+      "fixHeader": "Number or provider misread? Correct the header"
     },
     "lineNotes": {
       "singleContainer": "Charged to {container}, the only container named on the invoice.",
@@ -1047,6 +1051,16 @@
       "label": "{count, plural, one {Attach the line without a target to} other {Attach the # lines without a target to}}",
       "apply": "Apply",
       "done": "{count, plural, one {# line attached} other {# lines attached}}"
+    },
+    "header": {
+      "open": "Correct the header read (provider, number, date)",
+      "vendor": "Provider",
+      "number": "Invoice number",
+      "date": "Invoice date",
+      "save": "Save",
+      "saved": "Header corrected",
+      "failed": "Could not correct the header",
+      "hint": "The number and the provider are how an invoice already recorded is recognised: correct them from the PDF before confirming. An emptied field is cleared."
     }
   },
   "audit": {
@@ -1077,7 +1091,7 @@
     "fields": {
       "status": "Status",
       "invoice_number": "Invoice no.",
-      "vendor": "Vendor",
+      "vendor": "Provider",
       "total_amount": "Amount",
       "cost_ids": "Costs created",
       "lineRef": "Line {id}",
@@ -1123,7 +1137,8 @@
       "adopted": "Auto-resumed",
       "forgotten_at": "Forgotten on",
       "forgotten_reason": "Forget reason",
-      "document_state": "ERP document state"
+      "document_state": "ERP document state",
+      "invoice_date": "Invoice date"
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "Needs review",
@@ -2283,7 +2298,9 @@
         "outlierSized": "{amount} against a median of {median} for the same service on {basis} other {size}-foot containers of the {route} route (× {ratio}). May have an explanation: a heavier box, waiting time, a second delivery attempt.",
         "aboveQuoteMixed": "Estimate and invoice in two currencies: compared in euros at each document's rate, {quoted} against {invoiced} (+{share}%). To check: the gap mixes price and exchange rate.",
         "doubleEntry": "Already recorded: invoice {invoice} from {vendor}, for {amount}. The landed cost counts it twice: delete one of the two entries.",
-        "doubleEntryRedacted": "The same invoice is already recorded, for {amount}: the landed cost counts it twice."
+        "doubleEntryRedacted": "The same invoice is already recorded, for {amount}: the landed cost counts it twice.",
+        "doubleEntryToCheck": "Perhaps the same invoice as another entry: invoice {invoice} from {vendor}, for {amount}. Check both documents before deleting anything: two lines of one invoice can look alike.",
+        "doubleEntryToCheckRedacted": "Perhaps the same invoice as another entry, for {amount}. Check both documents before deleting anything."
       },
       "demurrage": {
         "title": "Demurrage and detention",
@@ -2340,7 +2357,7 @@
         "stale": "Estimate never invoiced: still an estimate {days} days after the goods arrived.",
         "once": "One euro is never counted by two rules.",
         "allocationDuty": "Every cost is allocated to the loaded lines by the chosen method. Customs duty follows each line's theoretical duty (CIF value × rate) when that explains the duty paid within {pct}%, the CIF value otherwise. Import VAT, recoverable, is excluded from the landed cost. Foreign-currency amounts are converted at the European Central Bank rate of the invoice date.",
-        "sameInvoice": "Invoice entered twice: the same invoice (normalised number, same provider) recorded twice on one freight. Never a service invoiced twice; established when both copies name the provider, to check otherwise.",
+        "sameInvoice": "Invoice entered twice: the same invoice (normalised number, same provider) recorded twice on one freight. Never a service invoiced twice. Established when it is the same line, named on both sides, in the same currency and on the same target; to check otherwise (a container and its B/L, two currencies, a missing provider). Two costs of one confirmed invoice are never flagged.",
         "outlierUnknown": "A container without a known route or size is not compared.",
         "demurrageByArrival": "Demurrage and detention: attached to the container that arrived in the period, whatever the date of their invoice."
       },

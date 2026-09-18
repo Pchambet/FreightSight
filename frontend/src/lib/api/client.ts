@@ -93,12 +93,13 @@ export const api = createClient<paths>({
 api.use(authHeaders);
 
 /**
- * The two refusals that name what already carries an invoice: confirming it, or typing one of its
- * lines by hand, when the same normalized invoice already has a real cost there. Each entry of
- * `errors` describes one such cost as
- * `@recorded|type|vendor|number|amount in the base currency|scope|creation day`, and the sentence
- * names each one — « Cette facture est déjà enregistrée (TRANSITEX · FA 2026 0912 · Fret maritime ·
- * 3 830,00 € · le 18/09/2026) : … » — rather than repeat a field name per cost.
+ * The two refusals that name what already carries an invoice's number: confirming it, or typing one
+ * of its lines by hand, when the same normalized invoice already has a cost there — a real one, or an
+ * estimate that bears the number. Each entry of `errors` describes one such cost as
+ * `@recorded|type|vendor|number|amount in the base currency|scope|creation day|ACTUAL or ESTIMATE`
+ * (a « | » in a vendor's name arrives as « / », so the positions hold), and the sentence names each
+ * invoice once — « Cette facture est déjà enregistrée (TRANSITEX · FA 2026 0912, le 18/09/2026 —
+ * Fret maritime 3 830,00 €) : … » — rather than repeat a field name per cost.
  */
 const RECORDED = new Set(["INVOICE_ALREADY_RECORDED", "INVOICE_LINE_ALREADY_RECORDED"]);
 
@@ -111,17 +112,24 @@ async function recordedSentence(p: Problem): Promise<string> {
   ]);
   const base = org.data?.base_currency ?? "EUR";
   // One invoice usually carries several costs: its vendor, number and day are said once, then each
-  // cost — « TRANSITEX · FA 2026 0912, le 18/09/2026 — Fret maritime 2 450,00 €, THC 285,00 € ».
-  const groups = new Map<string, string[]>();
-  for (const [, type, vendor, number, amount, , day] of (p.errors ?? []).map((e) => e.message.split("|")).filter((parts) => parts[0] === "@recorded")) {
+  // cost — « TRANSITEX · FA 2026 0912, le 18/09/2026 — Fret maritime 2 450,00 €, THC 285,00 € ». The
+  // eighth field says whether what carries the number is a real cost or an estimate: an estimate that
+  // bears the number is not « an invoice already recorded », and is said apart.
+  const groups = { actual: new Map<string, string[]>(), estimate: new Map<string, string[]>() };
+  for (const [, type, vendor, number, amount, , day, status] of (p.errors ?? []).map((e) => e.message.split("|")).filter((parts) => parts[0] === "@recorded")) {
     const invoice = [vendor, number].filter(Boolean).join(" · ") + (day ? `, ${t("recordedOn", { date: dateShort(day, locale) })}` : "");
     const cost = `${costType.has(type as never) ? costType(type as never) : type} ${money(amount, base, locale)}`;
-    groups.set(invoice, [...(groups.get(invoice) ?? []), cost]);
+    const group = status === "ESTIMATE" ? groups.estimate : groups.actual;
+    group.set(invoice, [...(group.get(invoice) ?? []), cost]);
   }
-  const items = [...groups].map(([invoice, costs]) => (invoice ? `${invoice} — ${costs.join(", ")}` : costs.join(", ")));
+  const items = (group: Map<string, string[]>) =>
+    [...group].map(([invoice, costs]) => (invoice ? `${invoice} — ${costs.join(", ")}` : costs.join(", "))).join(" ; ");
   const line = p.code === "INVOICE_LINE_ALREADY_RECORDED";
-  if (!items.length) return t(line ? "INVOICE_LINE_ALREADY_RECORDED" : "INVOICE_ALREADY_RECORDED");
-  return t(line ? "recordedLine" : "recordedInvoice", { items: items.join(" ; ") });
+  const sentences = [
+    groups.actual.size ? t(line ? "recordedLine" : "recordedInvoice", { items: items(groups.actual) }) : null,
+    groups.estimate.size ? t(line ? "recordedLineEstimate" : "recordedInvoiceEstimate", { items: items(groups.estimate) }) : null,
+  ].filter(Boolean);
+  return sentences.length ? sentences.join(" ") : t(line ? "INVOICE_LINE_ALREADY_RECORDED" : "INVOICE_ALREADY_RECORDED");
 }
 
 /**
