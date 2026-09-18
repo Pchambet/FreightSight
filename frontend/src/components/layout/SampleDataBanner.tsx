@@ -23,7 +23,8 @@ export default function SampleDataBanner() {
   const trigger = useRef<HTMLButtonElement>(null);
 
   return (
-    <div className="border-b border-violet-200 bg-violet-50 print:hidden">
+    // A landmark of its own: it sits above the page's main, and a screen reader lists it by name.
+    <section aria-label={t("region")} className="border-b border-violet-200 bg-violet-50 print:hidden">
       <div className="px-4 sm:px-6 lg:px-8 py-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-violet-950">
         <FlaskConical className="w-4 h-4 shrink-0 text-violet-700" aria-hidden />
         <span className="min-w-0">{t("banner")}</span>
@@ -64,6 +65,6 @@ export default function SampleDataBanner() {
           })
         }
       />
-    </div>
+    </section>
   );
 }

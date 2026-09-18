@@ -1,4 +1,5 @@
 import type { ContainerResponse, ImportJobResponse, LandedCostReport, LoadResponse, PurchaseOrderSummary } from "@/lib/api/client";
+import { NEXT_IMPORT_KIND } from "@/lib/domain";
 
 export type WorkflowStep = {
   descriptionKey: string;
@@ -279,7 +280,7 @@ export function invoiceDetailStep(
   return null;
 }
 
-export function importsHubStep(jobs: Pick<ImportJobResponse, "id" | "status">[]): WorkflowStep {
+export function importsHubStep(jobs: Pick<ImportJobResponse, "id" | "status" | "kind" | "created_at" | "undone_at">[]): WorkflowStep {
   const pending = jobs.find((j) => j.status === "PARSED" || j.status === "VALIDATED");
   if (pending) {
     return {
@@ -295,6 +296,26 @@ export function importsHubStep(jobs: Pick<ImportJobResponse, "id" | "status">[])
       primary: { href: "/imports/new", labelKey: "imports.startAction" },
       secondary: [{ href: "/containers", labelKey: "imports.sampleData" }],
       variant: "default",
+    };
+  }
+  // The quarter goes on from the last file that went in: the next kind, then the audit's list.
+  const last = jobs.filter((j) => j.status === "DONE" && !j.undone_at).sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  const next = last ? NEXT_IMPORT_KIND[last.kind] : undefined;
+  if (last && next) {
+    return {
+      descriptionKey: "imports.next",
+      descriptionParams: { last: last.kind, next },
+      primary: { href: `/imports/new?kind=${next}`, labelKey: "imports.nextAction", labelParams: { next } },
+      secondary: [{ href: "/cost-audit", labelKey: "imports.prepareAudit" }],
+      variant: "default",
+    };
+  }
+  if (last?.kind === "COSTS") {
+    return {
+      descriptionKey: "imports.costsDone",
+      primary: { href: "/cost-audit", labelKey: "imports.prepareAudit" },
+      secondary: [{ href: "/containers", labelKey: "imports.goContainers" }],
+      variant: "success",
     };
   }
   return {

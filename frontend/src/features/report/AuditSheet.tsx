@@ -209,14 +209,15 @@ export default async function AuditSheet({ audit, header, locale }: { audit: Aud
             </div>
           </section>
 
-          {/* 2 · The margin, per SKU, in euros over the period's volume. */}
+          {/* 2 · The margin, per SKU, in euros over the period's volume. The table's scroll region is
+              named apart from the section, so a screen reader's list of landmarks tells them apart. */}
           <section className={section} aria-labelledby="audit-margins">
             <h2 id="audit-margins" className={h2}>{t("margins.title")}</h2>
             <p className="mt-1 mb-3 text-sm text-slate-600">{priced ? t("margins.subtitle") : t("margins.subtitleUnpriced")}</p>
             {audit.margins.length === 0 ? (
               <p className="text-sm text-slate-600">{t("margins.none")}</p>
             ) : (
-              <ScrollRegion label={t("margins.title")} className="rounded-lg border border-slate-200">
+              <ScrollRegion label={t("table", { title: t("margins.title") })} className="rounded-lg border border-slate-200">
                 <table className="min-w-full text-sm">
                   <thead className="bg-slate-50">
                     <tr>
@@ -279,7 +280,7 @@ export default async function AuditSheet({ audit, header, locale }: { audit: Aud
               <p className="mt-2 text-sm text-slate-600">{t("demurrage.none")}</p>
             ) : (
               <>
-                <ScrollRegion label={t("demurrage.title")} className="mt-3 rounded-lg border border-slate-200">
+                <ScrollRegion label={t("table", { title: t("demurrage.title") })} className="mt-3 rounded-lg border border-slate-200">
                   <table className="min-w-full text-sm">
                     <thead className="bg-slate-50">
                       <tr>

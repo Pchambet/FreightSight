@@ -6,6 +6,7 @@ import { PageHeader, btnSecondary, input, label } from "@/components/layout/AppS
 import ApiErrorNotice from "@/components/shared/ApiErrorNotice";
 import Panel from "@/components/ui/Panel";
 import AssumedCoefficientForm from "@/features/report/AssumedCoefficientForm";
+import AuditPreparation from "@/features/report/AuditPreparation";
 import AuditSheet from "@/features/report/AuditSheet";
 import PrintButton from "@/features/report/PrintButton";
 import ShareDialog from "@/features/report/ShareDialog";
@@ -79,6 +80,7 @@ export default async function CostAuditPage({ searchParams }: { searchParams: Pr
         }
       />
       {periodPicker}
+      <AuditPreparation periodFrom={from} periodTo={to} />
       <Panel title={t("assumed.title")} subtitle={a.assumed_coefficient === null ? t("assumed.subtitleMissing") : t("assumed.subtitle")} className="mb-6 print:hidden">
         <AssumedCoefficientForm current={a.assumed_coefficient ?? null} revalidate="/cost-audit" />
       </Panel>

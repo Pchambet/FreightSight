@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { monthTitle } from "@/features/overview/period";
 import { api, problemMessage, type ImportJobResponse, type LandedCostReport, type Problem, type Schemas } from "@/lib/api/client";
 import { protectAction } from "@/lib/auth";
 import type { AllocationMethod, ContainerMilestone, CostScope, CostStatus, CostType, ImportKind, MilestoneCode, RateBasis } from "@/lib/domain";
@@ -485,7 +486,13 @@ export async function replaceLoads(
 
 // ---------------------------------------------------------------------------- imports
 
-export async function createImport(formData: FormData): Promise<ActionResult<ImportJobResponse>> {
+/**
+ * A file refused because the very same file was already imported (costs: replaying it would count
+ * every line twice) — `existingId` is that import, so the screen can open it instead of stopping.
+ */
+export type ImportUploadResult = { ok: true; data: ImportJobResponse } | { ok: false; error: string; existingId?: string };
+
+export async function createImport(formData: FormData): Promise<ImportUploadResult> {
   await protectAction();
   const file = formData.get("file");
   const kind = String(formData.get("kind") ?? "PURCHASE_ORDERS") as ImportKind;
@@ -500,31 +507,89 @@ export async function createImport(formData: FormData): Promise<ActionResult<Imp
     body: body as unknown as { kind: ImportKind; file: string },
     bodySerializer: (b) => b as unknown as BodyInit,
   });
-  if (error || !data) return await fail(error, "importWizard.upload.failed");
+  if (error || !data) {
+    const t = await getTranslations();
+    const p = error as (Problem & { existing_id?: string }) | undefined;
+    return { ok: false, error: await problemMessage(error, t("importWizard.upload.failed")), existingId: p?.code === "FILE_ALREADY_IMPORTED" ? p.existing_id : undefined };
+  }
   return { ok: true, data };
 }
 
-export async function validateImport(importId: string, mapping: Record<string, string>): Promise<ActionResult<ImportJobResponse>> {
+/**
+ * The preview: the file read with this mapping, written nowhere. For a costs file, `defaultCostType`
+ * types every line whose type cannot be read, and `labelTypes` types the lines of one wording at a
+ * time (the labels exactly as the last preview's `unknown_labels` gave them); both are kept on the
+ * job, so the commit replays exactly what was previewed.
+ */
+export async function validateImport(
+  importId: string,
+  mapping: Record<string, string>,
+  options: { defaultCostType?: CostType | null; labelTypes?: Record<string, CostType> } = {},
+): Promise<ActionResult<ImportJobResponse>> {
   await protectAction();
   const { data, error } = await api.POST("/api/v1/imports/{import_id}/validate", {
     params: { path: { import_id: importId } },
-    body: { mapping },
+    body: {
+      mapping,
+      ...(options.defaultCostType ? { default_cost_type: options.defaultCostType } : {}),
+      ...(options.labelTypes && Object.keys(options.labelTypes).length ? { label_types: options.labelTypes } : {}),
+    },
   });
   if (error || !data) return await fail(error, "importWizard.mapping.failed");
   return { ok: true, data };
 }
 
-export async function commitImport(importId: string, onError: "skip_rows" | "abort"): Promise<ActionResult<ImportJobResponse>> {
+/**
+ * On PREVIEW_CHANGED the figures moved between the preview and the commit (a cost entered meanwhile):
+ * nothing was written, and `report` is the new preview — the job carries it too — to show and have
+ * validated again, never committed behind the person's back.
+ */
+export type ImportCommitResult =
+  | { ok: true; data: ImportJobResponse }
+  | { ok: false; error: string; code?: string; report?: Schemas["ImportReport"] };
+
+export async function commitImport(importId: string, onError: "skip_rows" | "abort"): Promise<ImportCommitResult> {
   await protectAction();
   const { data, error } = await api.POST("/api/v1/imports/{import_id}/commit", {
     params: { path: { import_id: importId } },
     body: { on_error: onError },
   });
-  if (error || !data) return await fail(error, "importWizard.review.failed");
-  revalidatePath("/containers");
-  revalidatePath("/purchase-orders");
-  revalidatePath("/imports");
+  if (error || !data) {
+    const t = await getTranslations();
+    const p = error as (Problem & { report?: Schemas["ImportReport"] }) | undefined;
+    return { ok: false, error: await problemMessage(error, t("importWizard.review.failed")), code: p?.code ?? undefined, report: p?.code === "PREVIEW_CHANGED" ? p.report : undefined };
+  }
+  // An import can date containers, create costs, match waiting invoices and fill sale prices.
+  for (const path of ["/containers", "/purchase-orders", "/imports", "/invoices", "/skus", "/cost-audit", "/overview"]) revalidatePath(path);
   return { ok: true, data };
+}
+
+/**
+ * Takes a costs import back: its costs are deleted, the estimates they had replaced are open again.
+ * Refused, by name, when a cost went to the ERP or sits in a closed month.
+ */
+export async function undoImport(importId: string): Promise<ActionResult<{ costsDeleted: number; estimatesReopened: number }>> {
+  await protectAction();
+  const { data, error } = await api.DELETE("/api/v1/imports/{import_id}", { params: { path: { import_id: importId } } });
+  if (error || !data) {
+    // Two refusals name what stands in the way, as real lists: the ERP documents that carry some of
+    // the costs (the invoice-reopen code, whose own sentence speaks of « cette facture »), and the
+    // closed months — said in words, in the reader's language.
+    const p = error as (Problem & { months?: string[] }) | undefined;
+    const [t, locale] = await Promise.all([getTranslations("imports.undo"), getLocale()]);
+    const list = (items: string[]) => new Intl.ListFormat(locale === "fr" ? "fr-FR" : "en-GB", { type: "conjunction" }).format(items);
+    // One document carries several costs: it is counted, and named, once.
+    const documents = [...new Set((p?.errors ?? []).map((e) => e.message.split("|")).filter((x) => x[0] === "@pushed_cost").map((x) => x[1]).filter(Boolean))];
+    if (p?.code === "COSTS_PUSHED_TO_ERP" && documents.length) {
+      return { ok: false, error: t("pushed", { count: documents.length, documents: list(documents) }) };
+    }
+    if (p?.code === "IMPORT_PERIOD_CLOSED" && p.months?.length) {
+      return { ok: false, error: t("periodClosed", { count: p.months.length, months: list(p.months.map((m) => monthTitle(m, locale))) }) };
+    }
+    return await fail(error, "imports.undo.failed");
+  }
+  for (const path of ["/containers", "/imports", "/cost-audit", "/overview"]) revalidatePath(path);
+  return { ok: true, data: { costsDeleted: data.costs_deleted, estimatesReopened: data.estimates_reopened } };
 }
 
 // ---------------------------------------------------------------------------- demo data

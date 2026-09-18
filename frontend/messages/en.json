@@ -361,7 +361,7 @@
   },
   "imports": {
     "title": "Imports",
-    "subtitle": "Purchase orders and container loads from CSV or Excel",
+    "subtitle": "Price list, orders, container tracking and costs, from a CSV or an Excel file",
     "new": "New import",
     "th": {
       "date": "Date",
@@ -370,14 +370,18 @@
       "status": "Status",
       "rows": "Rows",
       "errors": "Errors",
-      "result": "Result"
+      "result": "Result",
+      "actions": "Actions"
     },
     "empty": "No import yet.",
     "emptyLink": "Start an import",
     "emptySuffix": "to load your purchase orders.",
     "kind": {
       "PURCHASE_ORDERS": "PO lines",
-      "LEGACY_PO_CONTAINER": "Legacy PO + container"
+      "LEGACY_PO_CONTAINER": "Legacy PO + container",
+      "PRODUCTS": "Price list",
+      "CONTAINERS": "Container tracking",
+      "COSTS": "Costs"
     },
     "status": {
       "PARSED": "Parsed",
@@ -390,11 +394,26 @@
     "source": {
       "upload": "Uploaded file",
       "erp_sync": "Odoo sync — automatic"
+    },
+    "resultProducts": "{created, plural, one {# sheet created} other {# sheets created}}, {updated} updated",
+    "resultContainers": "{created, plural, one {# container created} other {# containers created}}, {updated} updated, {dated} dated",
+    "resultCosts": "{count, plural, one {# cost} other {# costs}} for {amount}",
+    "undoneOn": "Undone on {date}",
+    "undo": {
+      "action": "Undo this import",
+      "title": "Undo this costs import?",
+      "body": "{count, plural, one {The cost this import created will be deleted} other {The # costs this import created will be deleted}}, and the estimates they had replaced will be open again. The file stays in the history.",
+      "confirm": "Undo the import",
+      "cancel": "Keep the import",
+      "done": "Import undone: {costs, plural, one {# cost deleted} other {# costs deleted}}, {estimates, plural, one {# estimate reopened} other {# estimates reopened}}.",
+      "failed": "Could not undo this import",
+      "pushed": "{count, plural, one {An ERP document carries costs of this import} other {ERP documents carry costs of this import}} ({documents}): forget {count, plural, one {it} other {them}} first, or correct in the ERP with an adjustment document.",
+      "periodClosed": "{count, plural, one {{months} is closed} other {{months} are closed}}: reopen {count, plural, one {it} other {them}} first to undo this import."
     }
   },
   "importWizard": {
-    "title": "Import purchase orders",
-    "subtitle": "Upload, map the columns, review the validation report, then commit. Nothing is written before the last step.",
+    "title": "Import a file",
+    "subtitle": "Choose the kind of file, upload it, match the columns, read the preview, then import. Nothing is written before the last step.",
     "steps": {
       "upload": "1. Upload",
       "mapping": "2. Map columns",
@@ -402,7 +421,7 @@
       "done": "4. Done"
     },
     "upload": {
-      "card": "Choose a file",
+      "card": "Choose the kind and the file",
       "format": "Format",
       "kindPurchaseOrders": "One row per purchase-order line (SKU, quantity, unit price, optional container)",
       "kindLegacy": "One row per purchase order with a total value and a container",
@@ -411,7 +430,10 @@
       "cta": "Click to choose a CSV or XLSX",
       "hint": "Excel FR exports (BOM, semicolons, French decimals) are fine.",
       "submit": "Upload and detect columns",
-      "failed": "Upload failed"
+      "failed": "Upload failed",
+      "chooseFor": "Choose the file: {kind}",
+      "alreadyImported": "This file was already imported: importing it again would count every cost twice.",
+      "openExisting": "See that import"
     },
     "mapping": {
       "card": "Map the columns of {filename}",
@@ -421,7 +443,13 @@
       "required": "Required: {fields}",
       "back": "Back",
       "validate": "Validate (dry run)",
-      "failed": "Validation failed"
+      "failed": "Validation failed",
+      "kind": "File: {kind}",
+      "requiredMark": "(required)",
+      "defaultType": "Default cost type (optional)",
+      "defaultTypeNone": "None: rows without a readable type are errors",
+      "defaultTypeHint": "Every row whose type reads neither from a column nor from the label takes this type. Those rows only give findings to check.",
+      "oneOf": "At least one of these columns: {fields}"
     },
     "review": {
       "card": "What the import will do",
@@ -447,7 +475,17 @@
         "row": "Row",
         "field": "Field",
         "message": "Message"
-      }
+      },
+      "products": "Product sheets",
+      "containers": "Containers",
+      "dated": "Containers dated",
+      "shipmentsLoads": "Shipments / loads",
+      "costs": "Costs to create",
+      "costsSkipped": "Already there, skipped",
+      "estimatesReplaced": "Estimates replaced",
+      "newUpdatedMasculine": "{created} new, {updated} updated",
+      "changed": "The figures changed since the preview ({before} → {after}): nothing was written. Read the updated preview below, then import.",
+      "rowsCount": "{count, plural, one {# row} other {# rows}}"
     },
     "done": {
       "card": "Import committed",
@@ -455,7 +493,96 @@
       "skipped": "{rows, plural, one {# row} other {# rows}} skipped.",
       "committed": "Import committed. Allocations recalculated.",
       "goToContainers": "Go to containers",
-      "another": "Import another file"
+      "another": "Import another file",
+      "products": "{created, plural, one {# product sheet created} other {# product sheets created}}, {updated} updated.",
+      "containers": "{created, plural, one {# container created} other {# containers created}}, {updated} updated; {dated, plural, one {# container dated} other {# containers dated}}.",
+      "shipments": "{shipments, plural, one {# shipment created} other {# shipments created}}, {loads, plural, one {# load} other {# loads}}.",
+      "invoicesMatched": "{count, plural, one {# waiting invoice found its container.} other {# waiting invoices found their container.}}",
+      "poSplit": "{count, plural, one {# order is spread over several containers: its loads need checking.} other {# orders are spread over several containers: their loads need checking.}}",
+      "costs": "{created, plural, one {# cost created} other {# costs created}} for {amount}.",
+      "costsSkipped": "{count, plural, one {# row already there skipped.} other {# rows already there skipped.}}",
+      "estimatesReplaced": "{count, plural, one {# estimate replaced by its actual.} other {# estimates replaced by their actual.}}",
+      "creditNotes": "{count, plural, one {# credit note left out: check it does not refund a finding.} other {# credit notes left out: check none refunds a finding.}}",
+      "next": "Import next: {kind}",
+      "prepareAudit": "See what the audit still needs"
+    },
+    "kinds": {
+      "legend": "Kind of file",
+      "order": "To load a quarter, in this order: each file builds on the previous ones.",
+      "other": "Other format: one row per order, with a total value and a container",
+      "template": "CSV template",
+      "templateFor": "Download the CSV template: {kind}",
+      "PRODUCTS": {
+        "title": "Price list",
+        "brings": "Sale prices (without them, no margin) and duty rates, which order lines imported afterwards take on.",
+        "where": "The ERP's item export: SKU, sale price, HS code, duty rate."
+      },
+      "PURCHASE_ORDERS": {
+        "title": "Orders",
+        "brings": "What was bought, line by line: the purchase price (FOB) of each container.",
+        "where": "The ERP's purchase order export, with the container column if you have it."
+      },
+      "CONTAINERS": {
+        "title": "Container tracking",
+        "brings": "Arrival dates (without them, the audit does not see the containers), ports, sizes and each container's orders.",
+        "where": "The arrivals tracking sheet: one row per order and container is fine."
+      },
+      "COSTS": {
+        "title": "Costs",
+        "brings": "Freight, duty, customs brokerage and delivery for each container.",
+        "where": "The purchase journal (transport and customs accounts) or the forwarder's detailed statement."
+      },
+      "LEGACY_PO_CONTAINER": {
+        "title": "Orders by container",
+        "brings": "One total value per order, spread over its containers.",
+        "where": "The old format: one row per order, with its container."
+      }
+    },
+    "issues": {
+      "rows": "{count, plural, one {row {list}} other {# rows: {list}{more, plural, =0 {} other { and # more}}}}",
+      "seeAll": "See each one ({count})",
+      "remedy": {
+        "importContainers": "Import the container tracking first: a costs file creates no container.",
+        "importOrders": "Import the orders first.",
+        "typeLabels": "Choose a type for these labels in the table above, or a default type at the columns step.",
+        "splitLine": "Split the line in the file: customs duty on one side, import VAT on the other (the detail is on the forwarder's invoice or the customs declaration).",
+        "arrival": "Add the actual or expected arrival date: without it, this container falls in no period.",
+        "alreadyInBooks": "These rows are already in the costs: they are left out, nothing will be counted twice.",
+        "inInbox": "A PDF invoice with this number is waiting for review: confirm or reject it first.",
+        "ordersThenAgain": "Import the orders, then this file again: the containers will be loaded."
+      },
+      "remedyLink": {
+        "importContainers": "Import the container tracking",
+        "importOrders": "Import the orders",
+        "inInbox": "See the invoices to review",
+        "ordersThenAgain": "Import the orders"
+      },
+      "example": "For example, row {row}: {sentence}"
+    },
+    "costs": {
+      "total": "of costs to import, in the base currency",
+      "estimatesReplaced": "{count, plural, one {# estimate replaced} other {# estimates replaced}} ({amount})",
+      "duplicates": "{count, plural, one {# row left out as already in the books} other {# rows left out as already in the books}} ({amount})",
+      "reversed": "{count, plural, one {# pair of entries cancelling out in the file, left out} other {# pairs of entries cancelling out in the file, left out}}",
+      "byType": "By cost type",
+      "byCurrency": "By currency",
+      "th": {
+        "type": "Type",
+        "rows": "Rows",
+        "amount": "Amount ({currency})",
+        "currency": "Currency",
+        "inCurrency": "In the currency",
+        "label": "Label"
+      },
+      "labelsTitle": "{count, plural, one {# label without a type} other {# labels without a type}}",
+      "labelsHint": "One choice per label applies to all its rows. Those rows only give findings to check: a type deduced from a label is not a type read on the invoice.",
+      "typeFor": "Type for \"{label}\"",
+      "chooseType": "Choose the type…",
+      "retype": "{count, plural, =0 {Review the preview} one {Review the preview with this type} other {Review the preview with these # types}}",
+      "creditsTitle": "{count, plural, one {# credit note left out} other {# credit notes left out}} ({amount})",
+      "creditsHint": "A cost carries no negative amount: these rows are not imported. Check that none refunds a finding of the audit, or it would claim a sum already refunded.",
+      "creditLine": "Row {row} · {date} · {vendor} · invoice {invoice} · {amount}",
+      "creditsMore": "and {count} more"
     }
   },
   "settings": {
@@ -669,7 +796,9 @@
       "share_revoked": "Share link withdrawn",
       "period_drift_acknowledged": "Closing gap posted",
       "audit_shared": "Audit shared",
-      "invoice_corrected": "Invoice header corrected"
+      "invoice_corrected": "Invoice header corrected",
+      "import_committed": "Import committed",
+      "import_undone": "Import undone"
     },
     "finding": {
       "DUPLICATE_CHARGE": "Service invoiced twice",
@@ -809,7 +938,30 @@
     "recordedOn": "on {date}",
     "INVOICE_LINE_ALREADY_RECORDED": "This invoice already has this cost: edit or delete the existing entry rather than add a second one.",
     "recordedInvoiceEstimate": "An estimate already carries this invoice number ({items}): edit or delete that estimate before confirming.",
-    "recordedLineEstimate": "An estimate already carries this invoice number for this cost ({items}): edit or delete that estimate rather than record a second cost."
+    "recordedLineEstimate": "An estimate already carries this invoice number for this cost ({items}): edit or delete that estimate rather than record a second cost.",
+    "INVOICE_BUSY": "This invoice is being read or changed: try again in a moment.",
+    "IMPORT_ALREADY_UNDONE": "This import is already undone.",
+    "IMPORT_NOT_UNDOABLE": "Only a validated costs import, uploaded by hand, can be undone.",
+    "FILE_ALREADY_IMPORTED": "This file was already imported: importing it again would count every cost twice.",
+    "PREVIEW_CHANGED": "The figures changed since the preview: read it again, then import.",
+    "PREVIEW_REQUIRED": "Preview this file first.",
+    "IMPORT_KIND_NOT_READY": "This kind of file cannot be imported yet.",
+    "CONTAINER_CHECK_DIGIT": "\"{value}\": the check digit does not match, the number is probably mistyped.",
+    "CONFLICT_IN_FILE": "{on, select, bill {B/L {shipment_reference}: {field} differs from one container to another ({values}). No container of this B/L is imported.} other {{container_number}: {field} is {first} on another row and {second} on this one. This container is not imported.}}",
+    "DATE_IN_FUTURE": "{field}: \"{value}\" is still to come. This date is recorded once the event has happened; an expected arrival goes in the ETA.",
+    "DATES_OUT_OF_ORDER": "\"{second}\" falls before \"{first}\": one of the two dates is wrong, the file does not say which.",
+    "FIELD_TOO_LONG": "{field}: value too long (\"{value}…\").",
+    "DATE_ORDER_ASSUMED": "Column \"{column}\": every date in it reads both ways, {order, select, mdy {the month was read before the day} other {the day was read before the month}} (for example \"{example}\"). If it is the other way round, fix the file before importing.",
+    "ISO_TYPE_UNKNOWN": "\"{value}\" is not a container type we recognise (20GP, 40HC, 45G1…): the size stays empty.",
+    "CARRIER_UNKNOWN": "\"{value}\" is not a shipping line we recognise: the line stays empty.",
+    "PORT_UNKNOWN": "\"{value}\" is not a port we recognise (name or UN/LOCODE): the port stays empty.",
+    "SHIPMENT_CHANGED": "{container_number} moves to B/L {shipment_reference}.",
+    "TRACKED_CONTAINER": "{container_number} is tracked live: its dates stay the tracking's, not the file's.",
+    "CLOCK_LEFT_RUNNING": "{container_number} was discharged and has not left the terminal: its demurrage runs until an exit date is given.",
+    "NO_DISCHARGE_DATE": "{container_number} arrived without a discharge date: its free days cannot be counted.",
+    "ARRIVAL_UNKNOWN": "{container_number} has neither an arrival date nor an expected arrival: no period counts it.",
+    "PO_UNKNOWN": "Order {po_number} is not known: it is loaded in no container.",
+    "PO_SPLIT": "Order {po_number} is in several containers ({container_numbers}) or already loaded elsewhere: say on the order how much went in each container."
   },
   "timeline": {
     "title": "Timeline",
@@ -1488,7 +1640,7 @@
       "backReports": "Back to reports"
     },
     "imports": {
-      "start": "Start by importing purchase orders from CSV or Excel, or load the sample data.",
+      "start": "To load a quarter: the price list, then the orders, the container tracking and the costs. Or look at the sample data first.",
       "startAction": "Start an import",
       "sampleData": "View containers",
       "resume": "An import is in progress — resume mapping or validation.",
@@ -1496,7 +1648,11 @@
       "newImport": "New import",
       "done": "Purchase orders are imported. Check they are loaded into containers.",
       "viewPos": "View purchase orders",
-      "goContainers": "Go to containers"
+      "goContainers": "Go to containers",
+      "next": "Last file imported: {last, select, PRODUCTS {the price list} PURCHASE_ORDERS {the orders} CONTAINERS {the container tracking} COSTS {the costs} other {the next file}}. To load the quarter, import {next, select, PRODUCTS {the price list} PURCHASE_ORDERS {the orders} CONTAINERS {the container tracking} COSTS {the costs} other {the next file}} next.",
+      "nextAction": "Import {next, select, PRODUCTS {the price list} PURCHASE_ORDERS {the orders} CONTAINERS {the container tracking} COSTS {the costs} other {the next file}}",
+      "prepareAudit": "Prepare the audit",
+      "costsDone": "The costs are imported: see what is still missing for the period's audit to be right."
     },
     "importNew": {
       "upload": "Choose a CSV or Excel file — columns will be detected automatically.",
@@ -1862,7 +2018,8 @@
       "OWN_COST_ON_SAMPLE": "{ref} carries a cost from one of your invoices. Attach that invoice elsewhere, or reject it, first.",
       "ERP_PUSH_ON_SAMPLE": "{ref}: a draft was written to your ERP from this sample container. Forget that push first.",
       "other": "{ref} is still tied to your own data."
-    }
+    },
+    "region": "Sample data"
   },
   "periods": {
     "title": "Period close",
@@ -2364,7 +2521,65 @@
       "empty": {
         "title": "No goods arrived in this period",
         "body": "The audit covers the containers that arrived between the two dates. Choose another period, or fill in your containers' arrival dates."
-      }
+      },
+      "table": "Table: {title}"
     }
+  },
+  "preparation": {
+    "title": "Prepare the audit",
+    "subtitle": "What is still missing for the period's audit to be right.",
+    "blocking": "What would make the audit wrong",
+    "limits": "What the audit will not be able to say",
+    "clear": "Nothing makes this period's audit wrong.",
+    "amount": "{amount} concerned",
+    "section": {
+      "period": "Period",
+      "findings": "Findings",
+      "margins": "Margins and coefficient",
+      "demurrage": "Demurrage"
+    },
+    "code": {
+      "CONTAINERS_WITHOUT_DATE": "{count, plural, one {# container loaded or invoiced has no date: no period counts it.} other {# containers loaded or invoiced have no date: no period counts them.}}",
+      "CONTAINERS_WITHOUT_GOODS": "{count, plural, one {# container that arrived in the period has no goods loaded: its costs are spread on nothing, and its orders are missing from the landed cost.} other {# containers that arrived in the period have no goods loaded: their costs are spread on nothing, and their orders are missing from the landed cost.}}",
+      "CONTAINERS_WITHOUT_COST": "{count, plural, one {# container has no cost yet.} other {# containers have no cost yet.}}",
+      "CONTAINERS_WITHOUT_FREIGHT": "{count, plural, one {# container bought EXW, FCA or FOB has no freight.} other {# containers bought EXW, FCA or FOB have no freight.}}",
+      "CONTAINERS_WITHOUT_DUTY": "{count, plural, one {# container has dutiable lines but no customs duty.} other {# containers have dutiable lines but no customs duty.}}",
+      "INVOICES_NOT_READ": "{count, plural, one {# invoice is not read yet.} other {# invoices are not read yet.}}",
+      "INVOICES_TO_REVIEW": "{count, plural, one {# invoice is waiting for your review.} other {# invoices are waiting for your review.}}",
+      "COSTS_UNALLOCATED": "{count, plural, one {# cost is spread over no line} other {# costs are spread over no line}}: {reason}",
+      "SAME_INVOICE_TWICE": "{count, plural, one {# invoice is recorded twice: the landed cost counts it twice.} other {# invoices are recorded twice: the landed cost counts them twice.}}",
+      "CREDIT_NOTES_SKIPPED": "{count, plural, one {# credit note left out at import: check it does not refund a finding.} other {# credit notes left out at import: check none refunds a finding.}}",
+      "PO_SPLIT": "{count, plural, one {# order is spread over several containers: its loads need checking.} other {# orders are spread over several containers: their loads need checking.}}",
+      "LINES_WITHOUT_DUTY_RATE": "{count, plural, one {# order line without a duty rate: its duty follows the CIF value.} other {# order lines without a duty rate: their duty follows the CIF value.}}",
+      "DUTY_GAP": "{count, plural, one {On # container, the duty paid differs from the theoretical duty by more than {pct}%: a wrong rate, or an origin preference not applied.} other {On # containers, the duty paid differs from the theoretical duty by more than {pct}%: wrong rates, or an origin preference not applied.}}",
+      "DUTY_SPREAD_ON_CIF": "{count, plural, one {The duty of # container is spread on the CIF value, not along each line's duty.} other {The duty of # containers is spread on the CIF value, not along each line's duty.}}",
+      "CONTAINERS_WITHOUT_ROUTE": "{count, plural, one {# container without a known route: \"out of line\" does not compare it.} other {# containers without a known route: \"out of line\" does not compare them.}}",
+      "CONTAINERS_WITHOUT_SIZE": "{count, plural, one {# container without a size: \"out of line\" does not compare it.} other {# containers without a size: \"out of line\" does not compare them.}}",
+      "COSTS_NOT_ON_CONTAINER": "{count, plural, one {# cost is on a whole order or shipment, not on a container.} other {# costs are on a whole order or shipment, not on a container.}}",
+      "COSTS_TYPED_OTHER": "{count, plural, one {# cost is typed \"Other\": no rule compares it.} other {# costs are typed \"Other\": no rule compares them.}}",
+      "CLOCKS_RUNNING": "{count, plural, one {# container still has a clock running: discharged without gate-out, or out without return.} other {# containers still have a clock running: discharged without gate-out, or out without return.}}",
+      "NO_SALE_PRICE": "{count, plural, one {# SKU without a sale price: no margin for it.} other {# SKUs without a sale price: no margin for them.}}",
+      "NO_ASSUMED_COEFFICIENT": "No assumed coefficient: the audit will not say the gap with your practice.",
+      "ESTIMATES_OPEN": "{count, plural, one {# estimate is still open.} other {# estimates are still open.}}"
+    },
+    "remedy": {
+      "importContainers": "Import the container tracking file",
+      "importOrders": "Import the orders, with the container column",
+      "reimportOrdersWithRates": "Re-import the orders with their rate column",
+      "importCosts": "Import the costs",
+      "importPrices": "Import the price list",
+      "dropInvoices": "Upload the invoices",
+      "seeInvoices": "See the invoices",
+      "reviewFirst": "Review the first one",
+      "openContainer": "Open the container",
+      "loadContainer": "Load lines into the container",
+      "openOrder": "Open the order",
+      "openImport": "See the import",
+      "setTheoreticalDuty": "Complete the rates, then switch its duty to \"theoretical duty\" on the container",
+      "setType": "Set the type on the container",
+      "setCoefficient": "Enter the coefficient",
+      "seeCosts": "See the container's costs"
+    },
+    "period": "Last quarter, {from} to {to}"
   }
 }

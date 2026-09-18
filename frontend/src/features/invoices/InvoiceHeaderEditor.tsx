@@ -10,10 +10,13 @@ import { correctInvoiceHeader } from "@/features/actions";
 /** Where the review panel sends someone whose refusal may come from a misread number or forwarder. */
 export const HEADER_EDITOR_ID = "en-tete";
 
-/** Opens the editor and puts the cursor in the number — or, on a page without it, goes to the invoice's. */
-export function openHeaderEditor(invoiceId: string) {
+/**
+ * Opens the editor and puts the cursor in the number — or, on a page without it, goes to the
+ * invoice's with the caller's router, where the hash opens it.
+ */
+export function openHeaderEditor(invoiceId: string, push: (href: string) => void) {
   const box = document.getElementById(HEADER_EDITOR_ID) as HTMLDetailsElement | null;
-  if (!box) return void window.location.assign(`/invoices/${invoiceId}#${HEADER_EDITOR_ID}`);
+  if (!box) return push(`/invoices/${invoiceId}#${HEADER_EDITOR_ID}`);
   box.open = true;
   box.scrollIntoView({ block: "center" });
   box.querySelector<HTMLInputElement>("#header-number")?.focus();
@@ -51,8 +54,8 @@ export default function InvoiceHeaderEditor({
 
   // Arriving from a refusal on another page (the first-steps flow) lands here with the editor open.
   useEffect(() => {
-    if (window.location.hash === `#${HEADER_EDITOR_ID}`) openHeaderEditor(invoiceId);
-  }, [invoiceId]);
+    if (window.location.hash === `#${HEADER_EDITOR_ID}`) openHeaderEditor(invoiceId, (href) => router.push(href));
+  }, [invoiceId, router]);
 
   return (
     <details id={HEADER_EDITOR_ID} className="mt-2 scroll-mt-6">

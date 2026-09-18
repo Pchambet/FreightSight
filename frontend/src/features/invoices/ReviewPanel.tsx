@@ -362,7 +362,7 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
               {/* A number or forwarder the reader got wrong is the usual cause, and the way out when
                   the refusal cannot be forced: correct the header from the PDF, then confirm again. */}
               <div className="flex flex-wrap items-center gap-3">
-                <button type="button" onClick={() => openHeaderEditor(invoice.id)} className="text-sm text-blue-700 underline underline-offset-2 hover:no-underline">
+                <button type="button" onClick={() => openHeaderEditor(invoice.id, (href) => router.push(href))} className="text-sm text-blue-700 underline underline-offset-2 hover:no-underline">
                   {t("fixHeader")}
                 </button>
               </div>

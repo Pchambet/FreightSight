@@ -361,7 +361,7 @@
   },
   "imports": {
     "title": "Imports",
-    "subtitle": "Commandes et chargements de conteneurs depuis un CSV ou un Excel",
+    "subtitle": "Tarif, commandes, suivi des conteneurs et frais, depuis un CSV ou un Excel",
     "new": "Nouvel import",
     "th": {
       "date": "Date",
@@ -370,14 +370,18 @@
       "status": "Statut",
       "rows": "Lignes",
       "errors": "Erreurs",
-      "result": "Résultat"
+      "result": "Résultat",
+      "actions": "Actions"
     },
     "empty": "Aucun import pour l'instant.",
     "emptyLink": "Lancer un import",
     "emptySuffix": "pour charger vos commandes.",
     "kind": {
       "PURCHASE_ORDERS": "Lignes de commande",
-      "LEGACY_PO_CONTAINER": "Commande + conteneur (ancien format)"
+      "LEGACY_PO_CONTAINER": "Commande + conteneur (ancien format)",
+      "PRODUCTS": "Tarif",
+      "CONTAINERS": "Suivi des conteneurs",
+      "COSTS": "Frais"
     },
     "status": {
       "PARSED": "Analysé",
@@ -390,11 +394,26 @@
     "source": {
       "upload": "Fichier déposé",
       "erp_sync": "Synchronisation Odoo — automatique"
+    },
+    "resultProducts": "{created, plural, one {# fiche créée} other {# fiches créées}}, {updated, plural, one {# mise à jour} other {# mises à jour}}",
+    "resultContainers": "{created, plural, one {# conteneur créé} other {# conteneurs créés}}, {updated} mis à jour, {dated, plural, one {# daté} other {# datés}}",
+    "resultCosts": "{count, plural, one {# coût} other {# coûts}} pour {amount}",
+    "undoneOn": "Annulé le {date}",
+    "undo": {
+      "action": "Annuler cet import",
+      "title": "Annuler cet import de frais ?",
+      "body": "{count, plural, one {Le coût créé par cet import sera supprimé} other {Les # coûts créés par cet import seront supprimés}}, et les estimés qu'ils avaient remplacés seront de nouveau ouverts. Le fichier reste dans l'historique.",
+      "confirm": "Annuler l'import",
+      "cancel": "Garder l'import",
+      "done": "Import annulé : {costs, plural, one {# coût supprimé} other {# coûts supprimés}}, {estimates, plural, one {# estimé rouvert} other {# estimés rouverts}}.",
+      "failed": "Impossible d'annuler cet import",
+      "pushed": "{count, plural, one {Un document ERP porte des coûts de cet import} other {Des documents ERP portent des coûts de cet import}} ({documents}) : oubliez-{count, plural, one {le} other {les}} d'abord, ou corrigez dans l'ERP par un document d'ajustement.",
+      "periodClosed": "{count, plural, one {Le mois de {months} est clos} other {Les mois de {months} sont clos}} : rouvrez-{count, plural, one {le} other {les}} d'abord pour annuler cet import."
     }
   },
   "importWizard": {
-    "title": "Importer des commandes",
-    "subtitle": "Déposez le fichier, faites correspondre les colonnes, relisez le rapport de validation, puis validez. Rien n'est écrit avant la dernière étape.",
+    "title": "Importer un fichier",
+    "subtitle": "Choisissez le type de fichier, déposez-le, faites correspondre les colonnes, relisez l'aperçu, puis importez. Rien n'est écrit avant la dernière étape.",
     "steps": {
       "upload": "1. Dépôt",
       "mapping": "2. Colonnes",
@@ -402,7 +421,7 @@
       "done": "4. Terminé"
     },
     "upload": {
-      "card": "Choisir un fichier",
+      "card": "Choisir le type et le fichier",
       "format": "Format",
       "kindPurchaseOrders": "Une ligne par ligne de commande (référence, quantité, prix unitaire, conteneur facultatif)",
       "kindLegacy": "Une ligne par commande, avec une valeur totale et un conteneur",
@@ -411,7 +430,10 @@
       "cta": "Cliquez pour choisir un CSV ou un XLSX",
       "hint": "Les exports Excel français (BOM, points-virgules, virgule décimale) passent sans réglage.",
       "submit": "Déposer et détecter les colonnes",
-      "failed": "Le dépôt a échoué"
+      "failed": "Le dépôt a échoué",
+      "chooseFor": "Choisir le fichier : {kind}",
+      "alreadyImported": "Ce fichier a déjà été importé : le réimporter compterait chaque frais deux fois.",
+      "openExisting": "Voir cet import"
     },
     "mapping": {
       "card": "Faire correspondre les colonnes de {filename}",
@@ -421,7 +443,13 @@
       "required": "Obligatoires : {fields}",
       "back": "Retour",
       "validate": "Valider (à blanc)",
-      "failed": "La validation a échoué"
+      "failed": "La validation a échoué",
+      "kind": "Fichier : {kind}",
+      "requiredMark": "(obligatoire)",
+      "defaultType": "Type de frais par défaut (facultatif)",
+      "defaultTypeNone": "Aucun : les lignes sans type lisible sont en erreur",
+      "defaultTypeHint": "Chaque ligne dont le type ne se lit ni dans une colonne ni dans le libellé prendra ce type. Ces lignes ne donneront que des constats à vérifier.",
+      "oneOf": "Au moins une de ces colonnes : {fields}"
     },
     "review": {
       "card": "Ce que l'import va faire",
@@ -447,7 +475,17 @@
         "row": "Ligne",
         "field": "Champ",
         "message": "Message"
-      }
+      },
+      "products": "Fiches produits",
+      "containers": "Conteneurs",
+      "dated": "Conteneurs datés",
+      "shipmentsLoads": "Expéditions / chargements",
+      "costs": "Coûts à créer",
+      "costsSkipped": "Déjà présents, ignorés",
+      "estimatesReplaced": "Estimés remplacés",
+      "newUpdatedMasculine": "{created, plural, one {# nouveau} other {# nouveaux}}, {updated, plural, one {# mis à jour} other {# mis à jour}}",
+      "changed": "Les chiffres ont changé depuis l'aperçu ({before} → {after}) : rien n'a été écrit. Relisez l'aperçu mis à jour ci-dessous, puis importez.",
+      "rowsCount": "{count, plural, one {# ligne} other {# lignes}}"
     },
     "done": {
       "card": "Import validé",
@@ -455,7 +493,96 @@
       "skipped": "{rows, plural, one {# ligne ignorée} other {# lignes ignorées}}.",
       "committed": "Import validé. Ventilations recalculées.",
       "goToContainers": "Voir les conteneurs",
-      "another": "Importer un autre fichier"
+      "another": "Importer un autre fichier",
+      "products": "{created, plural, one {# fiche produit créée} other {# fiches produits créées}}, {updated, plural, one {# mise à jour} other {# mises à jour}}.",
+      "containers": "{created, plural, one {# conteneur créé} other {# conteneurs créés}}, {updated, plural, one {# mis à jour} other {# mis à jour}} ; {dated, plural, one {# conteneur daté} other {# conteneurs datés}}.",
+      "shipments": "{shipments, plural, one {# expédition créée} other {# expéditions créées}}, {loads, plural, one {# chargement} other {# chargements}}.",
+      "invoicesMatched": "{count, plural, one {# facture en attente a trouvé son conteneur.} other {# factures en attente ont trouvé leur conteneur.}}",
+      "poSplit": "{count, plural, one {# commande est répartie sur plusieurs conteneurs : ses chargements sont à vérifier.} other {# commandes sont réparties sur plusieurs conteneurs : leurs chargements sont à vérifier.}}",
+      "costs": "{created, plural, one {# coût créé} other {# coûts créés}} pour {amount}.",
+      "costsSkipped": "{count, plural, one {# ligne déjà présente ignorée.} other {# lignes déjà présentes ignorées.}}",
+      "estimatesReplaced": "{count, plural, one {# estimé remplacé par son réel.} other {# estimés remplacés par leur réel.}}",
+      "creditNotes": "{count, plural, one {# avoir écarté : vérifiez qu'il ne rembourse pas un constat.} other {# avoirs écartés : vérifiez qu'aucun ne rembourse un constat.}}",
+      "next": "Importer ensuite : {kind}",
+      "prepareAudit": "Voir ce qui manque pour l'audit"
+    },
+    "kinds": {
+      "legend": "Type de fichier",
+      "order": "Pour reprendre un trimestre, dans cet ordre : chaque fichier s'appuie sur les précédents.",
+      "other": "Autre format : une ligne par commande, avec une valeur totale et un conteneur",
+      "template": "Modèle CSV",
+      "templateFor": "Télécharger le modèle CSV : {kind}",
+      "PRODUCTS": {
+        "title": "Tarif",
+        "brings": "Les prix de vente (sans eux, pas de marge) et les taux de droits, que les lignes de commande importées ensuite reprennent.",
+        "where": "L'export articles de l'ERP : référence, prix de vente, code SH, taux de droits."
+      },
+      "PURCHASE_ORDERS": {
+        "title": "Commandes",
+        "brings": "Ce qui a été acheté, ligne par ligne : le prix d'achat (FOB) de chaque conteneur.",
+        "where": "L'export des commandes fournisseurs de l'ERP, avec la colonne conteneur si vous l'avez."
+      },
+      "CONTAINERS": {
+        "title": "Suivi des conteneurs",
+        "brings": "Les dates d'arrivée (sans elles, l'audit ne voit pas les conteneurs), les ports, les tailles et les commandes de chaque conteneur.",
+        "where": "Le tableau de suivi des arrivages : une ligne par commande et par conteneur convient."
+      },
+      "COSTS": {
+        "title": "Frais",
+        "brings": "Le fret, les droits, le dédouanement et la livraison de chaque conteneur.",
+        "where": "Le journal d'achats (comptes de transport et de douane) ou le relevé détaillé du transitaire."
+      },
+      "LEGACY_PO_CONTAINER": {
+        "title": "Commandes par conteneur",
+        "brings": "Une valeur totale par commande, répartie sur ses conteneurs.",
+        "where": "L'ancien format : une ligne par commande, avec son conteneur."
+      }
+    },
+    "issues": {
+      "rows": "{count, plural, one {ligne {list}} other {# lignes : {list}{more, plural, =0 {} other { et # autres}}}}",
+      "seeAll": "Voir le détail ({count})",
+      "remedy": {
+        "importContainers": "Importez d'abord le suivi des conteneurs : un fichier de frais ne crée aucun conteneur.",
+        "importOrders": "Importez d'abord les commandes.",
+        "typeLabels": "Choisissez un type pour ces libellés dans le tableau ci-dessus, ou un type par défaut à l'étape des colonnes.",
+        "splitLine": "Scindez la ligne dans le fichier : droits de douane d'un côté, TVA à l'importation de l'autre (le détail est sur la facture du transitaire ou la déclaration en douane).",
+        "arrival": "Ajoutez la date d'arrivée réelle ou prévue : sans elle, ce conteneur n'entre dans aucune période.",
+        "alreadyInBooks": "Ces lignes sont déjà dans les coûts : elles sont écartées, rien ne sera compté deux fois.",
+        "inInbox": "Une facture PDF de ce numéro attend sa relecture : confirmez-la ou rejetez-la d'abord.",
+        "ordersThenAgain": "Importez les commandes, puis ce fichier à nouveau : les conteneurs seront chargés."
+      },
+      "remedyLink": {
+        "importContainers": "Importer le suivi des conteneurs",
+        "importOrders": "Importer les commandes",
+        "inInbox": "Voir les factures à relire",
+        "ordersThenAgain": "Importer les commandes"
+      },
+      "example": "Par exemple, ligne {row} : {sentence}"
+    },
+    "costs": {
+      "total": "de frais à importer, en devise de base",
+      "estimatesReplaced": "{count, plural, one {# estimé remplacé} other {# estimés remplacés}} ({amount})",
+      "duplicates": "{count, plural, one {# ligne écartée car déjà dans les livres} other {# lignes écartées car déjà dans les livres}} ({amount})",
+      "reversed": "{count, plural, one {# paire d'écritures qui s'annulent dans le fichier, écartée} other {# paires d'écritures qui s'annulent dans le fichier, écartées}}",
+      "byType": "Par type de frais",
+      "byCurrency": "Par devise",
+      "th": {
+        "type": "Type",
+        "rows": "Lignes",
+        "amount": "Montant ({currency})",
+        "currency": "Devise",
+        "inCurrency": "Dans la devise",
+        "label": "Libellé"
+      },
+      "labelsTitle": "{count, plural, one {# libellé sans type} other {# libellés sans type}}",
+      "labelsHint": "Un choix par libellé vaut pour toutes ses lignes. Ces lignes ne donneront que des constats à vérifier : un type déduit d'un libellé n'est pas un type lu sur la facture.",
+      "typeFor": "Type pour « {label} »",
+      "chooseType": "Choisir le type…",
+      "retype": "{count, plural, =0 {Revoir l'aperçu} one {Revoir l'aperçu avec ce type} other {Revoir l'aperçu avec ces # types}}",
+      "creditsTitle": "{count, plural, one {# avoir écarté} other {# avoirs écartés}} ({amount})",
+      "creditsHint": "Un coût ne porte pas de montant négatif : ces lignes ne sont pas importées. Vérifiez qu'aucune ne rembourse un constat de l'audit, sinon il réclamerait une somme déjà remboursée.",
+      "creditLine": "Ligne {row} · {date} · {vendor} · facture {invoice} · {amount}",
+      "creditsMore": "et {count} autres"
     }
   },
   "settings": {
@@ -669,7 +796,9 @@
       "share_revoked": "Lien de partage retiré",
       "period_drift_acknowledged": "Écart de clôture comptabilisé",
       "audit_shared": "Audit partagé",
-      "invoice_corrected": "En-tête de facture corrigé"
+      "invoice_corrected": "En-tête de facture corrigé",
+      "import_committed": "Import validé",
+      "import_undone": "Import annulé"
     },
     "finding": {
       "DUPLICATE_CHARGE": "Prestation facturée deux fois",
@@ -809,7 +938,30 @@
     "recordedOn": "le {date}",
     "INVOICE_LINE_ALREADY_RECORDED": "Cette facture a déjà ce coût : modifiez ou supprimez la saisie existante plutôt que d'en ajouter une seconde.",
     "recordedInvoiceEstimate": "Un estimé porte déjà ce numéro de facture ({items}) : modifiez ou supprimez cet estimé avant de confirmer.",
-    "recordedLineEstimate": "Un estimé porte déjà ce numéro de facture pour ce coût ({items}) : modifiez ou supprimez cet estimé plutôt que d'enregistrer un second coût."
+    "recordedLineEstimate": "Un estimé porte déjà ce numéro de facture pour ce coût ({items}) : modifiez ou supprimez cet estimé plutôt que d'enregistrer un second coût.",
+    "INVOICE_BUSY": "Cette facture est en cours de lecture ou de modification : réessayez dans un instant.",
+    "IMPORT_ALREADY_UNDONE": "Cet import est déjà annulé.",
+    "IMPORT_NOT_UNDOABLE": "Seul un import de frais validé, déposé à la main, peut être annulé.",
+    "FILE_ALREADY_IMPORTED": "Ce fichier a déjà été importé : le réimporter compterait chaque frais deux fois.",
+    "PREVIEW_CHANGED": "Les chiffres ont changé depuis l'aperçu : relisez-le, puis importez.",
+    "PREVIEW_REQUIRED": "Faites d'abord l'aperçu de ce fichier.",
+    "IMPORT_KIND_NOT_READY": "Ce type de fichier ne s'importe pas encore.",
+    "CONTAINER_CHECK_DIGIT": "« {value} » : le chiffre de contrôle ne correspond pas, le numéro est sans doute mal saisi.",
+    "CONFLICT_IN_FILE": "{on, select, bill {B/L {shipment_reference} : {field} diffère d'un conteneur à l'autre ({values}). Aucun conteneur de ce B/L n'est importé.} other {{container_number} : {field} vaut {first} sur une autre ligne et {second} sur celle-ci. Ce conteneur n'est pas importé.}}",
+    "DATE_IN_FUTURE": "{field} : « {value} » est une date à venir. Cette date se note une fois l'événement passé ; une arrivée attendue va dans l'ETA.",
+    "DATES_OUT_OF_ORDER": "« {second} » tombe avant « {first} » : l'une des deux dates est fausse, le fichier ne dit pas laquelle.",
+    "FIELD_TOO_LONG": "{field} : valeur trop longue (« {value}… »).",
+    "DATE_ORDER_ASSUMED": "Colonne « {column} » : toutes les dates s'y lisent dans les deux sens, {order, select, mdy {le mois a été lu avant le jour} other {le jour a été lu avant le mois}} (par exemple « {example} »). Si c'est l'inverse, corrigez le fichier avant d'importer.",
+    "ISO_TYPE_UNKNOWN": "« {value} » n'est pas un type de conteneur reconnu (20GP, 40HC, 45G1…) : la taille reste vide.",
+    "CARRIER_UNKNOWN": "« {value} » n'est pas une compagnie maritime reconnue : la compagnie reste vide.",
+    "PORT_UNKNOWN": "« {value} » n'est pas un port reconnu (nom ou code UN/LOCODE) : le port reste vide.",
+    "SHIPMENT_CHANGED": "{container_number} passe sur le B/L {shipment_reference}.",
+    "TRACKED_CONTAINER": "{container_number} est suivi en direct : ses dates restent celles du suivi, pas celles du fichier.",
+    "CLOCK_LEFT_RUNNING": "{container_number} a été déchargé et n'est pas sorti du terminal : ses surestaries courent jusqu'à ce qu'une date de sortie soit donnée.",
+    "NO_DISCHARGE_DATE": "{container_number} est arrivé sans date de déchargement : ses jours francs ne peuvent pas être comptés.",
+    "ARRIVAL_UNKNOWN": "{container_number} n'a ni date d'arrivée ni arrivée prévue : aucune période ne le compte.",
+    "PO_UNKNOWN": "La commande {po_number} est inconnue : elle n'est chargée dans aucun conteneur.",
+    "PO_SPLIT": "La commande {po_number} est dans plusieurs conteneurs ({container_numbers}) ou déjà chargée ailleurs : indiquez sur la commande la quantité de chaque conteneur."
   },
   "timeline": {
     "title": "Chronologie",
@@ -1488,7 +1640,7 @@
       "backReports": "Retour aux rapports"
     },
     "imports": {
-      "start": "Commencez par importer vos commandes depuis un CSV ou Excel, ou chargez le jeu d'exemple.",
+      "start": "Pour reprendre un trimestre : le tarif, puis les commandes, le suivi des conteneurs et les frais. Ou regardez d'abord le jeu d'exemple.",
       "startAction": "Lancer un import",
       "sampleData": "Voir les conteneurs",
       "resume": "Un import est en cours — reprenez le mapping ou la validation.",
@@ -1496,7 +1648,11 @@
       "newImport": "Nouvel import",
       "done": "Vos commandes sont importées. Vérifiez qu'elles sont bien chargées dans les conteneurs.",
       "viewPos": "Voir les commandes",
-      "goContainers": "Aller aux conteneurs"
+      "goContainers": "Aller aux conteneurs",
+      "next": "Dernier fichier importé : {last, select, PRODUCTS {le tarif} PURCHASE_ORDERS {les commandes} CONTAINERS {le suivi des conteneurs} COSTS {les frais} other {le fichier suivant}}. Pour reprendre le trimestre, importez ensuite {next, select, PRODUCTS {le tarif} PURCHASE_ORDERS {les commandes} CONTAINERS {le suivi des conteneurs} COSTS {les frais} other {le fichier suivant}}.",
+      "nextAction": "Importer {next, select, PRODUCTS {le tarif} PURCHASE_ORDERS {les commandes} CONTAINERS {le suivi des conteneurs} COSTS {les frais} other {le fichier suivant}}",
+      "prepareAudit": "Préparer l'audit",
+      "costsDone": "Les frais sont importés : voyez ce qui manque encore pour que l'audit de la période dise juste."
     },
     "importNew": {
       "upload": "Choisissez un fichier CSV ou Excel : les colonnes seront détectées automatiquement.",
@@ -1862,7 +2018,8 @@
       "OWN_COST_ON_SAMPLE": "{ref} porte un coût issu d'une de vos factures. Rattachez cette facture ailleurs, ou rejetez-la, d'abord.",
       "ERP_PUSH_ON_SAMPLE": "{ref} : un brouillon a été écrit dans votre ERP depuis ce conteneur d'exemple. Oubliez cet envoi d'abord.",
       "other": "{ref} est encore lié à vos propres données."
-    }
+    },
+    "region": "Données d'exemple"
   },
   "periods": {
     "title": "Clôtures",
@@ -2364,7 +2521,65 @@
       "empty": {
         "title": "Aucune marchandise arrivée sur cette période",
         "body": "L'audit porte sur les conteneurs arrivés entre les deux dates. Choisissez une autre période, ou renseignez la date d'arrivée de vos conteneurs."
-      }
+      },
+      "table": "Tableau : {title}"
     }
+  },
+  "preparation": {
+    "title": "Préparer l'audit",
+    "subtitle": "Ce qui manque encore pour que l'audit de la période dise juste.",
+    "blocking": "Ce qui fausserait l'audit",
+    "limits": "Ce que l'audit ne pourra pas dire",
+    "clear": "Rien ne fausse l'audit de cette période.",
+    "amount": "{amount} concernés",
+    "section": {
+      "period": "Période",
+      "findings": "Constats",
+      "margins": "Marges et coefficient",
+      "demurrage": "Surestaries"
+    },
+    "code": {
+      "CONTAINERS_WITHOUT_DATE": "{count, plural, one {# conteneur chargé ou facturé n'a aucune date : aucune période ne le compte.} other {# conteneurs chargés ou facturés n'ont aucune date : aucune période ne les compte.}}",
+      "CONTAINERS_WITHOUT_GOODS": "{count, plural, one {# conteneur arrivé dans la période n'a aucune marchandise chargée : ses frais ne sont répartis sur rien, et ses commandes manquent au coût de revient.} other {# conteneurs arrivés dans la période n'ont aucune marchandise chargée : leurs frais ne sont répartis sur rien, et leurs commandes manquent au coût de revient.}}",
+      "CONTAINERS_WITHOUT_COST": "{count, plural, one {# conteneur n'a encore aucun frais.} other {# conteneurs n'ont encore aucun frais.}}",
+      "CONTAINERS_WITHOUT_FREIGHT": "{count, plural, one {# conteneur acheté EXW, FCA ou FOB n'a pas de fret.} other {# conteneurs achetés EXW, FCA ou FOB n'ont pas de fret.}}",
+      "CONTAINERS_WITHOUT_DUTY": "{count, plural, one {# conteneur a des lignes taxées mais aucun droit de douane.} other {# conteneurs ont des lignes taxées mais aucun droit de douane.}}",
+      "INVOICES_NOT_READ": "{count, plural, one {# facture n'est pas encore lue.} other {# factures ne sont pas encore lues.}}",
+      "INVOICES_TO_REVIEW": "{count, plural, one {# facture attend votre relecture.} other {# factures attendent votre relecture.}}",
+      "COSTS_UNALLOCATED": "{count, plural, one {# coût n'est réparti sur aucune ligne} other {# coûts ne sont répartis sur aucune ligne}} : {reason}",
+      "SAME_INVOICE_TWICE": "{count, plural, one {# facture est enregistrée deux fois : le coût de revient la compte deux fois.} other {# factures sont enregistrées deux fois : le coût de revient les compte deux fois.}}",
+      "CREDIT_NOTES_SKIPPED": "{count, plural, one {# avoir écarté à l'import : vérifiez qu'il ne rembourse pas un constat.} other {# avoirs écartés à l'import : vérifiez qu'aucun ne rembourse un constat.}}",
+      "PO_SPLIT": "{count, plural, one {# commande est répartie sur plusieurs conteneurs : ses chargements sont à vérifier.} other {# commandes sont réparties sur plusieurs conteneurs : leurs chargements sont à vérifier.}}",
+      "LINES_WITHOUT_DUTY_RATE": "{count, plural, one {# ligne de commande sans taux de droits : ses droits suivent la valeur CIF.} other {# lignes de commande sans taux de droits : leurs droits suivent la valeur CIF.}}",
+      "DUTY_GAP": "{count, plural, one {Sur # conteneur, les droits payés s'écartent de plus de {pct} % des droits théoriques : un taux faux, ou une préférence d'origine non appliquée.} other {Sur # conteneurs, les droits payés s'écartent de plus de {pct} % des droits théoriques : des taux faux, ou une préférence d'origine non appliquée.}}",
+      "DUTY_SPREAD_ON_CIF": "{count, plural, one {Les droits de # conteneur sont répartis sur la valeur CIF, pas selon les droits de chaque ligne.} other {Les droits de # conteneurs sont répartis sur la valeur CIF, pas selon les droits de chaque ligne.}}",
+      "CONTAINERS_WITHOUT_ROUTE": "{count, plural, one {# conteneur sans route connue : « hors norme » ne le compare pas.} other {# conteneurs sans route connue : « hors norme » ne les compare pas.}}",
+      "CONTAINERS_WITHOUT_SIZE": "{count, plural, one {# conteneur sans taille : « hors norme » ne le compare pas.} other {# conteneurs sans taille : « hors norme » ne les compare pas.}}",
+      "COSTS_NOT_ON_CONTAINER": "{count, plural, one {# frais porte sur une commande ou une expédition entière, pas sur un conteneur.} other {# frais portent sur une commande ou une expédition entière, pas sur un conteneur.}}",
+      "COSTS_TYPED_OTHER": "{count, plural, one {# frais est de type « Autre » : aucune règle ne le compare.} other {# frais sont de type « Autre » : aucune règle ne les compare.}}",
+      "CLOCKS_RUNNING": "{count, plural, one {# conteneur a encore une horloge qui court : déchargé sans sortie, ou sorti sans restitution.} other {# conteneurs ont encore une horloge qui court : déchargés sans sortie, ou sortis sans restitution.}}",
+      "NO_SALE_PRICE": "{count, plural, one {# référence sans prix de vente : pas de marge pour elle.} other {# références sans prix de vente : pas de marge pour elles.}}",
+      "NO_ASSUMED_COEFFICIENT": "Aucun coefficient d'approche supposé : l'audit ne dira pas l'écart avec votre pratique.",
+      "ESTIMATES_OPEN": "{count, plural, one {# estimé est encore ouvert.} other {# estimés sont encore ouverts.}}"
+    },
+    "remedy": {
+      "importContainers": "Importer le suivi des conteneurs",
+      "importOrders": "Importer les commandes, avec la colonne conteneur",
+      "reimportOrdersWithRates": "Réimporter les commandes avec leur colonne taux",
+      "importCosts": "Importer les frais",
+      "importPrices": "Importer le tarif",
+      "dropInvoices": "Déposer les factures",
+      "seeInvoices": "Voir les factures",
+      "reviewFirst": "Relire la première",
+      "openContainer": "Ouvrir le conteneur",
+      "loadContainer": "Charger des lignes dans le conteneur",
+      "openOrder": "Ouvrir la commande",
+      "openImport": "Voir l'import",
+      "setTheoreticalDuty": "Compléter les taux, puis passer ses droits en « droits théoriques » sur la fiche",
+      "setType": "Indiquer le type sur la fiche",
+      "setCoefficient": "Saisir le coefficient",
+      "seeCosts": "Voir les frais du conteneur"
+    },
+    "period": "Dernier trimestre, du {from} au {to}"
   }
 }

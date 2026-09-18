@@ -495,6 +495,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/audit/preparation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit Preparation
+         * @description Before auditing a period: what would make the audit wrong — boxes with no date, no goods, no
+         *     freight, invoices not yet read, costs the engine could not place, one invoice recorded twice —
+         *     then what it will not be able to say. Counts, amounts and examples by id; the same computation and
+         *     the same rules as the audit. A period that makes no sense is refused with PERIOD_INVALID.
+         */
+        get: operations["audit_preparation_api_v1_reports_audit_preparation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/skus": {
         parameters: {
             query?: never;
@@ -1284,6 +1307,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/imports/kinds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Import Kinds
+         * @description What each kind of file reads, in the order a quarter is loaded — the catalogue first, since it
+         *     lends its rates only to the order lines written after it — with the header each column carries
+         *     in either language. A template written with these headers maps itself.
+         */
+        get: operations["import_kinds_api_v1_imports_kinds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/imports/{import_id}": {
         parameters: {
             query?: never;
@@ -1295,7 +1340,13 @@ export interface paths {
         get: operations["get_import_api_v1_imports__import_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Undo Import
+         * @description Take a costs file back: every cost it wrote is deleted, and the estimates they had replaced
+         *     stand again. Refused by name once a cost is in the ERP (COSTS_PUSHED_TO_ERP) or in a closed month
+         *     (IMPORT_PERIOD_CLOSED, with its `months`); a file taken back once answers IMPORT_ALREADY_UNDONE.
+         */
+        delete: operations["undo_import_api_v1_imports__import_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2196,6 +2247,32 @@ export interface components {
             };
         };
         /**
+         * AuditPreparation
+         * @description What to put right before auditing a period: only what was found, blocking first. Not part of the
+         *     audit, and never sent with it: a working list, not a result.
+         */
+        AuditPreparation: {
+            /** Base Currency */
+            base_currency: string;
+            /**
+             * Period From
+             * Format: date
+             */
+            period_from: string;
+            /**
+             * Period To
+             * Format: date
+             */
+            period_to: string;
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /** Items */
+            items: components["schemas"]["PreparationItem"][];
+        };
+        /**
          * AuditReport
          * @description Frozen into the snapshot of every audit sent by link, and validated again at each opening: once
          *     a link exists, this changes only by adding fields that may be absent.
@@ -3018,6 +3095,42 @@ export interface components {
              */
             on_error: "skip_rows" | "abort";
         };
+        /**
+         * ImportCreditNote
+         * @description A negative line left out of the books — costs cannot be negative — and counted, never dropped in
+         *     silence: it may refund a charge the audit would otherwise claim.
+         */
+        ImportCreditNote: {
+            /** Row */
+            row: number;
+            /** Cost Date */
+            cost_date?: string | null;
+            /** Vendor */
+            vendor?: string | null;
+            /** Invoice Number */
+            invoice_number?: string | null;
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /** Amount Base */
+            amount_base?: string | null;
+        };
+        /**
+         * ImportFieldInfo
+         * @description A column an import reads, and the header the templates and the application's own exports give
+         *     it in each language: a file written with either maps itself.
+         */
+        ImportFieldInfo: {
+            /** Field */
+            field: string;
+            /** Required */
+            required: boolean;
+            /** Header Fr */
+            header_fr: string;
+            /** Header En */
+            header_en: string;
+        };
         /** ImportJobResponse */
         ImportJobResponse: {
             /**
@@ -3039,14 +3152,15 @@ export interface components {
             mapping: {
                 [key: string]: string;
             };
+            /** Options */
+            options?: {
+                [key: string]: unknown;
+            };
             /** Row Count */
             row_count: number;
             /** Error Count */
             error_count: number;
-            /** Report */
-            report: {
-                [key: string]: unknown;
-            };
+            report: components["schemas"]["ImportReport"];
             /**
              * Created At
              * Format: date-time
@@ -3054,6 +3168,13 @@ export interface components {
             created_at: string;
             /** Committed At */
             committed_at: string | null;
+            /** Undone At */
+            undone_at?: string | null;
+            /**
+             * Can Undo
+             * @default false
+             */
+            can_undo: boolean;
             /**
              * Source
              * @default upload
@@ -3065,17 +3186,192 @@ export interface components {
          * ImportKind
          * @enum {string}
          */
-        ImportKind: "PURCHASE_ORDERS" | "LEGACY_PO_CONTAINER";
+        ImportKind: "PURCHASE_ORDERS" | "LEGACY_PO_CONTAINER" | "CONTAINERS" | "COSTS" | "PRODUCTS";
+        /** ImportKindInfo */
+        ImportKindInfo: {
+            kind: components["schemas"]["ImportKind"];
+            /** Fields */
+            fields: components["schemas"]["ImportFieldInfo"][];
+            /** Required One Of */
+            required_one_of?: string[][];
+        };
+        /**
+         * ImportMoney
+         * @description What a costs file puts in the books, in the organization's currency: the money first.
+         */
+        ImportMoney: {
+            /** Total Base */
+            total_base: string;
+            /** By Type */
+            by_type?: components["schemas"]["ImportMoneyByType"][];
+            /** By Currency */
+            by_currency?: components["schemas"]["ImportMoneyByCurrency"][];
+        };
+        /** ImportMoneyByCurrency */
+        ImportMoneyByCurrency: {
+            /** Currency */
+            currency: string;
+            /** Rows */
+            rows: number;
+            /** Total */
+            total: string;
+            /** Total Base */
+            total_base: string;
+        };
+        /** ImportMoneyByType */
+        ImportMoneyByType: {
+            cost_type: components["schemas"]["CostType"];
+            /** Rows */
+            rows: number;
+            /** Total Base */
+            total_base: string;
+        };
+        /**
+         * ImportReport
+         * @description What a preview found or a commit did. The counters of the other kinds are absent, not zero;
+         *     a preview or commit refused as a whole says so in `code` and `error`.
+         */
+        ImportReport: {
+            /**
+             * Row Count
+             * @default 0
+             */
+            row_count: number;
+            /**
+             * Valid Rows
+             * @default 0
+             */
+            valid_rows: number;
+            /**
+             * Header Row
+             * @default 1
+             */
+            header_row: number;
+            /**
+             * Totals Row Ignored
+             * @default false
+             */
+            totals_row_ignored: boolean;
+            /**
+             * Forward Filled Rows
+             * @default 0
+             */
+            forward_filled_rows: number;
+            /** Errors */
+            errors?: components["schemas"]["ImportRowIssue"][];
+            /** Warnings */
+            warnings?: components["schemas"]["ImportRowIssue"][];
+            /** Code */
+            code?: string | null;
+            /** Error */
+            error?: string | null;
+            /** Purchase Orders Created */
+            purchase_orders_created?: number | null;
+            /** Purchase Orders Updated */
+            purchase_orders_updated?: number | null;
+            /** Lines Created */
+            lines_created?: number | null;
+            /** Lines Updated */
+            lines_updated?: number | null;
+            /** Suppliers Created */
+            suppliers_created?: number | null;
+            /** Loads Updated */
+            loads_updated?: number | null;
+            /** Containers Created */
+            containers_created?: number | null;
+            /** Loads Created */
+            loads_created?: number | null;
+            /** Containers Updated */
+            containers_updated?: number | null;
+            /** Containers Dated */
+            containers_dated?: number | null;
+            /** Shipments Created */
+            shipments_created?: number | null;
+            /** Po Split */
+            po_split?: number | null;
+            /** Invoices Matched */
+            invoices_matched?: number | null;
+            /** Costs Created */
+            costs_created?: number | null;
+            /** Costs Skipped */
+            costs_skipped?: number | null;
+            /** Estimates Replaced */
+            estimates_replaced?: number | null;
+            /** Estimates Replaced Base */
+            estimates_replaced_base?: string | null;
+            /** Duplicates */
+            duplicates?: number | null;
+            /** Duplicates Base */
+            duplicates_base?: string | null;
+            money?: components["schemas"]["ImportMoney"] | null;
+            /** Unknown Labels */
+            unknown_labels?: components["schemas"]["ImportUnknownLabel"][] | null;
+            /** Credit Notes Skipped */
+            credit_notes_skipped?: components["schemas"]["ImportCreditNote"][] | null;
+            /** Credit Notes Skipped Base */
+            credit_notes_skipped_base?: string | null;
+            /** Reversed In File */
+            reversed_in_file?: number | null;
+            /** Products Created */
+            products_created?: number | null;
+            /** Products Updated */
+            products_updated?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ImportRowIssue
+         * @description One thing to say about one row: `code` and `params` are what the screen words; `message` is
+         *     the English fallback.
+         */
+        ImportRowIssue: {
+            /** Row */
+            row: number;
+            /** Field */
+            field: string;
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+        };
         /**
          * ImportStatus
          * @enum {string}
          */
         ImportStatus: "PARSED" | "VALIDATED" | "DONE" | "FAILED";
+        /** ImportUndoResponse */
+        ImportUndoResponse: {
+            /** Costs Deleted */
+            costs_deleted: number;
+            /** Estimates Reopened */
+            estimates_reopened: number;
+        };
+        /**
+         * ImportUnknownLabel
+         * @description A label no rule can type, with what hangs on it: a person gives it a type (`label_types`).
+         */
+        ImportUnknownLabel: {
+            /** Label */
+            label: string;
+            /** Rows */
+            rows: number;
+            /** Total Base */
+            total_base: string;
+        };
         /** ImportValidateRequest */
         ImportValidateRequest: {
             /** Mapping */
             mapping: {
                 [key: string]: string;
+            };
+            default_cost_type?: components["schemas"]["CostType"] | null;
+            /** Label Types */
+            label_types?: {
+                [key: string]: components["schemas"]["CostType"];
             };
         };
         /**
@@ -3795,6 +4091,56 @@ export interface components {
             unit_volume_cbm: string | null;
             /** Duty Rate */
             duty_rate: string | null;
+        };
+        /**
+         * PreparationExample
+         * @description Something to click on: `kind` says which page, `id` which one — a uuid, or for a `sku` the
+         *     article code itself.
+         */
+        PreparationExample: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "container" | "invoice" | "purchase_order" | "sku" | "import";
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+        };
+        /**
+         * PreparationItem
+         * @description One thing that would make the audit wrong (`blocking`) or that it will not be able to say
+         *     (`limits`), counted, with the section it touches and a few examples. Codes and raw values: the
+         *     sentence and the remedy are the screen's. `params`: COSTS_UNALLOCATED `reason` (an engine code),
+         *     DUTY_GAP `pct` (the guard, "20"); none elsewhere.
+         */
+        PreparationItem: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "CONTAINERS_WITHOUT_DATE" | "CONTAINERS_WITHOUT_GOODS" | "CONTAINERS_WITHOUT_COST" | "CONTAINERS_WITHOUT_FREIGHT" | "CONTAINERS_WITHOUT_DUTY" | "INVOICES_NOT_READ" | "INVOICES_TO_REVIEW" | "COSTS_UNALLOCATED" | "SAME_INVOICE_TWICE" | "CREDIT_NOTES_SKIPPED" | "PO_SPLIT" | "LINES_WITHOUT_DUTY_RATE" | "DUTY_GAP" | "DUTY_SPREAD_ON_CIF" | "CONTAINERS_WITHOUT_ROUTE" | "CONTAINERS_WITHOUT_SIZE" | "COSTS_NOT_ON_CONTAINER" | "COSTS_TYPED_OTHER" | "CLOCKS_RUNNING" | "NO_SALE_PRICE" | "NO_ASSUMED_COEFFICIENT" | "ESTIMATES_OPEN";
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "blocking" | "limits";
+            /**
+             * Section
+             * @enum {string}
+             */
+            section: "period" | "findings" | "margins" | "demurrage";
+            /** Count */
+            count: number;
+            /** Amount Base */
+            amount_base?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: string;
+            };
+            /** Examples */
+            examples?: components["schemas"]["PreparationExample"][];
         };
         /** PreviewRequest */
         PreviewRequest: {
@@ -5925,6 +6271,40 @@ export interface operations {
             };
         };
     };
+    audit_preparation_api_v1_reports_audit_preparation_get: {
+        parameters: {
+            query: {
+                period_from: string;
+                period_to: string;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditPreparation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     skus_api_v1_reports_skus_get: {
         parameters: {
             query?: {
@@ -7657,6 +8037,37 @@ export interface operations {
             };
         };
     };
+    import_kinds_api_v1_imports_kinds_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportKindInfo"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_import_api_v1_imports__import_id__get: {
         parameters: {
             query?: never;
@@ -7677,6 +8088,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImportJobResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_import_api_v1_imports__import_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                import_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportUndoResponse"];
                 };
             };
             /** @description Validation Error */
