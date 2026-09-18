@@ -6,19 +6,22 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { btnPrimary, btnSecondary, input, label } from "@/components/layout/AppShell";
 import { createContainerForOrder } from "@/features/start/actions";
+import { CONTAINER_TYPES } from "@/lib/containerTypes";
 
 /** Which box the order travelled in, and when it landed. The whole remainder of the order is loaded into it. */
 export default function ContainerStep({ poId, today }: { poId: string; today: string }) {
   const t = useTranslations("start.container");
+  const typeLabel = useTranslations("domain.containerType");
   const router = useRouter();
   const [number, setNumber] = useState("");
   const [arrived, setArrived] = useState(today);
+  const [isoType, setIsoType] = useState("");
   const [conflict, setConflict] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   const go = (reuseId?: string) =>
     start(async () => {
-      const r = await createContainerForOrder({ container_number: number, arrived_on: arrived, po_id: poId, reuseId });
+      const r = await createContainerForOrder({ container_number: number, arrived_on: arrived, iso_type: isoType, po_id: poId, reuseId });
       if (!r.ok) {
         setConflict(r.existingId ?? null);
         return void toast.error(r.error);
@@ -38,6 +41,14 @@ export default function ContainerStep({ poId, today }: { poId: string; today: st
           <label className={label} htmlFor="start-arrived">{t("arrived")}</label>
           <input id="start-arrived" type="date" value={arrived} onChange={(e) => setArrived(e.target.value)} className={input} />
           <p className="mt-1 text-xs text-slate-500">{arrived ? t("arrivedHint") : t("arrivedMissing")}</p>
+        </div>
+        <div>
+          <label className={label} htmlFor="start-type">{t("type")}</label>
+          <select id="start-type" value={isoType} onChange={(e) => setIsoType(e.target.value)} aria-describedby="start-type-hint" className={input}>
+            <option value="">{t("typeUnset")}</option>
+            {CONTAINER_TYPES.map((c) => <option key={c} value={c}>{typeLabel(c)}</option>)}
+          </select>
+          <p id="start-type-hint" className="mt-1 text-xs text-slate-500">{t("typeHint")}</p>
         </div>
       </div>
       <p className="text-sm text-slate-600 max-w-2xl">{t("loadsHint")}</p>

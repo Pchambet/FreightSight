@@ -83,7 +83,10 @@
       "title": "ISO 6346: 4 letters + 7 digits",
       "submit": "Add container",
       "added": "Container added",
-      "failed": "Could not create the container"
+      "failed": "Could not create the container",
+      "type": "Type",
+      "typeUnset": "Not specified",
+      "typeHint": "To compare charges at equal size"
     },
     "risk": {
       "over": "{days} d over",
@@ -199,7 +202,10 @@
     "unsubscribed": "Tracking stopped",
     "subscribeFailed": "Could not enable tracking",
     "subStatus": "status {status}",
-    "lastAttemptFailed": "The last sync attempt failed."
+    "lastAttemptFailed": "The last sync attempt failed.",
+    "containerType": "Container type",
+    "containerTypeUnset": "Not specified",
+    "containerTypeHint": "Without a type, the audit does not compare this container's charges with the others'."
   },
   "loads": {
     "empty": "Nothing loaded yet. Costs cannot be allocated until a purchase-order line is in this container.",
@@ -675,6 +681,12 @@
     "confidence": {
       "sure": "Established",
       "to_check": "To check"
+    },
+    "containerType": {
+      "22G1": "20'",
+      "42G1": "40'",
+      "45G1": "40' HC",
+      "L5G1": "45' HC"
     }
   },
   "errors": {
@@ -2138,7 +2150,10 @@
       "next": "Save and go to the charges",
       "failed": "Could not save the container",
       "loadFailed": "The container was created but the lines could not be loaded into it",
-      "nothingLeft": "The whole order is already loaded into other containers."
+      "nothingLeft": "The whole order is already loaded into other containers.",
+      "type": "Container type",
+      "typeUnset": "Not specified",
+      "typeHint": "Used to compare your charges with those of containers of the same size."
     },
     "costs": {
       "title": "3 · The charges — the forwarder's invoice",

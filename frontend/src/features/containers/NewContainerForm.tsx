@@ -7,10 +7,13 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { btnPrimary, input, label } from "@/components/layout/AppShell";
 import { createContainer } from "@/features/actions";
+import { CONTAINER_TYPES } from "@/lib/containerTypes";
 
 export default function NewContainerForm() {
   const t = useTranslations("containers.new");
+  const typeLabel = useTranslations("domain.containerType");
   const [value, setValue] = useState("");
+  const [type, setType] = useState("");
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -20,10 +23,11 @@ export default function NewContainerForm() {
       onSubmit={(e) => {
         e.preventDefault();
         startTransition(async () => {
-          const result = await createContainer(value);
+          const result = await createContainer(value, type || undefined);
           if (!result.ok) return void toast.error(result.error);
           toast.success(t("added"));
           setValue("");
+          setType("");
           router.push(`/container/${result.data.id}`);
         });
       }}
@@ -43,7 +47,15 @@ export default function NewContainerForm() {
         />
         <p id="new-container-hint" className="text-xs text-slate-500 mt-1">{t("title")}</p>
       </div>
-      <button type="submit" disabled={pending} className={`${btnPrimary} shrink-0`}>
+      <div className="w-full sm:w-auto">
+        <label htmlFor="new-container-type" className={label}>{t("type")}</label>
+        <select id="new-container-type" value={type} onChange={(e) => setType(e.target.value)} aria-describedby="new-container-type-hint" className={`${input} sm:w-32`}>
+          <option value="">{t("typeUnset")}</option>
+          {CONTAINER_TYPES.map((c) => <option key={c} value={c}>{typeLabel(c)}</option>)}
+        </select>
+        <p id="new-container-type-hint" className="text-xs text-slate-500 mt-1">{t("typeHint")}</p>
+      </div>
+      <button type="submit" disabled={pending} className={`${btnPrimary} shrink-0 sm:mb-5`}>
         <Plus className="w-4 h-4 mr-1.5" />
         {t("submit")}
       </button>

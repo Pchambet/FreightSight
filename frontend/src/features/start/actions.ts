@@ -64,21 +64,23 @@ export async function createOrder(input: { po_number: string; supplier_name: str
  * and loaded with what is LEFT of the order — a line partly loaded elsewhere only brings its remainder,
  * and the loads the container already carries are kept.
  */
-export async function createContainerForOrder(input: { container_number: string; arrived_on: string; po_id: string; reuseId?: string }): Promise<StepResult> {
+export async function createContainerForOrder(input: { container_number: string; arrived_on: string; iso_type?: string; po_id: string; reuseId?: string }): Promise<StepResult> {
   await protectAction();
   const t = await getTranslations("start.container");
   let containerId = input.reuseId;
   if (!containerId) {
-    const created = await api.POST("/api/v1/containers", { body: { container_number: input.container_number.trim().toUpperCase() } });
+    const created = await api.POST("/api/v1/containers", { body: { container_number: input.container_number.trim().toUpperCase(), ...(input.iso_type ? { iso_type: input.iso_type } : {}) } });
     if (created.error || !created.data) {
       const p = created.error as (Problem & { existing_id?: string }) | undefined;
       return { ok: false, error: await problemMessage(created.error, t("failed")), existingId: p?.code === "CONTAINER_EXISTS" ? p.existing_id : undefined };
     }
     containerId = created.data.id;
   }
-  if (input.arrived_on) {
-    // The arrival date is what puts the file in a month: without it the container is in no report.
-    const dated = await api.PATCH("/api/v1/containers/{container_id}", { params: { path: { container_id: containerId } }, body: { ata: `${input.arrived_on}T12:00:00Z` } });
+  // The arrival date is what puts the file in a month: without it the container is in no report. A
+  // container reused as it is gets the type chosen here too; a new one already has it.
+  const patch = { ...(input.arrived_on ? { ata: `${input.arrived_on}T12:00:00Z` } : {}), ...(input.reuseId && input.iso_type ? { iso_type: input.iso_type } : {}) };
+  if (Object.keys(patch).length) {
+    const dated = await api.PATCH("/api/v1/containers/{container_id}", { params: { path: { container_id: containerId } }, body: patch });
     if (dated.error) return { ok: false, error: await problemMessage(dated.error, t("failed")) };
   }
 

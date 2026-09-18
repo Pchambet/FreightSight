@@ -110,7 +110,7 @@ export async function previewAllocation(input: {
 
 export async function updateContainer(
   containerId: string,
-  patch: { milestone?: ContainerMilestone; free_days_demurrage?: number | null; discharged_at?: string | null },
+  patch: { milestone?: ContainerMilestone; free_days_demurrage?: number | null; discharged_at?: string | null; iso_type?: string | null },
 ): Promise<ActionResult<null>> {
   await protectAction();
   const { error } = await api.PATCH("/api/v1/containers/{container_id}", {
@@ -449,10 +449,10 @@ export async function unsubscribeTracking(containerId: string): Promise<ActionRe
   return { ok: true, data: null };
 }
 
-export async function createContainer(containerNumber: string): Promise<ActionResult<{ id: string }>> {
+export async function createContainer(containerNumber: string, isoType?: string): Promise<ActionResult<{ id: string }>> {
   await protectAction();
   const { data, error } = await api.POST("/api/v1/containers", {
-    body: { container_number: containerNumber.trim().toUpperCase() },
+    body: { container_number: containerNumber.trim().toUpperCase(), ...(isoType ? { iso_type: isoType } : {}) },
   });
   if (error || !data) return await fail(error, "containers.new.failed");
   revalidatePath("/containers");

@@ -83,7 +83,10 @@
       "title": "ISO 6346 : 4 lettres puis 7 chiffres",
       "submit": "Ajouter un conteneur",
       "added": "Conteneur ajouté",
-      "failed": "Impossible de créer le conteneur"
+      "failed": "Impossible de créer le conteneur",
+      "type": "Type",
+      "typeUnset": "Non précisé",
+      "typeHint": "Pour comparer les frais à taille égale"
     },
     "risk": {
       "over": "{days} j de dépassement",
@@ -199,7 +202,10 @@
     "unsubscribed": "Suivi arrêté",
     "subscribeFailed": "Impossible d'activer le suivi",
     "subStatus": "statut {status}",
-    "lastAttemptFailed": "La dernière tentative de synchronisation a échoué."
+    "lastAttemptFailed": "La dernière tentative de synchronisation a échoué.",
+    "containerType": "Type de conteneur",
+    "containerTypeUnset": "Non précisé",
+    "containerTypeHint": "Sans type, l'audit ne compare pas les frais de ce conteneur à ceux des autres."
   },
   "loads": {
     "empty": "Rien de chargé pour l'instant. Aucun coût ne peut être ventilé tant qu'aucune ligne de commande n'est dans ce conteneur.",
@@ -675,6 +681,12 @@
     "confidence": {
       "sure": "Établi",
       "to_check": "À vérifier"
+    },
+    "containerType": {
+      "22G1": "20'",
+      "42G1": "40'",
+      "45G1": "40' HC",
+      "L5G1": "45' HC"
     }
   },
   "errors": {
@@ -2138,7 +2150,10 @@
       "next": "Enregistrer et passer aux frais",
       "failed": "Impossible d'enregistrer le conteneur",
       "loadFailed": "Le conteneur est créé mais les lignes n'ont pas pu y être chargées",
-      "nothingLeft": "Toute la commande est déjà chargée dans d'autres conteneurs."
+      "nothingLeft": "Toute la commande est déjà chargée dans d'autres conteneurs.",
+      "type": "Type de conteneur",
+      "typeUnset": "Non précisé",
+      "typeHint": "Sert à comparer vos frais à ceux des conteneurs de même taille."
     },
     "costs": {
       "title": "3 · Les frais — la facture du transitaire",

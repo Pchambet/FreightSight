@@ -8,6 +8,7 @@ import { Card, btnSecondary, input, label } from "@/components/layout/AppShell";
 import { subscribeTracking, unsubscribeTracking, updateContainer } from "@/features/actions";
 import type { ContainerResponse, Schemas } from "@/lib/api/client";
 import { MILESTONES, type ContainerMilestone } from "@/lib/domain";
+import { containerTypeOptions } from "@/lib/containerTypes";
 import { dateShort } from "@/lib/format";
 
 function toDateInput(iso: string | null): string {
@@ -17,10 +18,12 @@ function toDateInput(iso: string | null): string {
 export default function TrackingPanel({ container, subscription }: { container: ContainerResponse; subscription: Schemas["TrackingSubscriptionResponse"] | null }) {
   const t = useTranslations("tracking");
   const milestoneLabel = useTranslations("domain.milestone");
+  const typeLabel = useTranslations("domain.containerType");
   const locale = useLocale();
   const [milestone, setMilestone] = useState<ContainerMilestone>(container.milestone);
   const [discharged, setDischarged] = useState(toDateInput(container.discharged_at));
   const [freeDays, setFreeDays] = useState(container.free_days_demurrage?.toString() ?? "");
+  const [isoType, setIsoType] = useState(container.iso_type ?? "");
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -30,6 +33,7 @@ export default function TrackingPanel({ container, subscription }: { container: 
         milestone,
         discharged_at: discharged ? `${discharged}T12:00:00Z` : null,
         free_days_demurrage: freeDays === "" ? null : Number(freeDays),
+        iso_type: isoType || null,
       });
       if (!result.ok) return void toast.error(result.error);
       toast.success(t("saved"));
@@ -48,12 +52,22 @@ export default function TrackingPanel({ container, subscription }: { container: 
   return (
     <Card title={t("title")} right={<span className="text-xs text-slate-500">{subscription ? `${t("subscribed", { provider: providerLabel(subscription.provider) })} · ${t("subStatus", { status: subscription.status })}` : t("manualNote")}</span>}>
       <div className="p-5 space-y-4">
-        <div>
-          <label className={label} htmlFor="milestone">{t("milestone")}</label>
-          <select id="milestone" value={milestone} onChange={(e) => setMilestone(e.target.value as ContainerMilestone)} className={input}>
-            {MILESTONES.map((m) => <option key={m} value={m}>{milestoneLabel(m)}</option>)}
-          </select>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={label} htmlFor="milestone">{t("milestone")}</label>
+            <select id="milestone" value={milestone} onChange={(e) => setMilestone(e.target.value as ContainerMilestone)} className={input}>
+              {MILESTONES.map((m) => <option key={m} value={m}>{milestoneLabel(m)}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={label} htmlFor="iso-type">{t("containerType")}</label>
+            <select id="iso-type" value={isoType} onChange={(e) => setIsoType(e.target.value)} aria-describedby={isoType ? undefined : "iso-type-hint"} className={input}>
+              <option value="">{t("containerTypeUnset")}</option>
+              {containerTypeOptions(container.iso_type).map((c) => <option key={c} value={c}>{typeLabel.has(c as never) ? typeLabel(c as never) : c}</option>)}
+            </select>
+          </div>
         </div>
+        {!isoType ? <p id="iso-type-hint" className="-mt-2 text-xs text-slate-500">{t("containerTypeHint")}</p> : null}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={label} htmlFor="discharged">{t("dischargedOn")}</label>
