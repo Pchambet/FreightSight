@@ -122,6 +122,7 @@ def test_the_screens_of_a_five_year_importer_answer_within_budget(
         "/api/v1/reports/overview": 8.0,
         "/api/v1/reports/skus": 5.0,
         f"/api/v1/reports/audit?{quarter}": 8.0,
+        f"/api/v1/reports/audit/preparation?{quarter}": 8.0,
         "/api/v1/periods": 5.0,
         "/api/v1/search?q=scal0000": 2.0,
     }

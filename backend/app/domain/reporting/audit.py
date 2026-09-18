@@ -336,6 +336,12 @@ def audit_report(
         + _unallocated(comp, every, costs_in)
         + _duty_without_rate(comp, every, costs_in)
     )
+    # A cost whose type was inferred — from its label, or from what a person said for a whole file —
+    # may be of another type than it says: what a rule finds on it is a question, never a fact.
+    inferred = {cost.id for cost in comp.cost_rows.values() if cost.type_inferred}
+    for finding in findings:
+        if finding.code in (*RECOVERABLE, "DOUBLE_ENTRY") and inferred & set(finding.cost_ids):
+            finding.confidence = "to_check"
     findings.sort(key=lambda f: (f.confidence != "sure", -f.amount, f.code))
     demurrage = _demurrage(db, org, period_from, period_to, quantities)
     monthly = landed_cost_report(comp, org, group_by="month", period_from=period_from, period_to=period_to)

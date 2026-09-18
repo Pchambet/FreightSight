@@ -35,6 +35,7 @@ from app.domain.models import (
     RateBasis,
     TrackingState,
 )
+from app.domain.reporting.preparation import Code as PreparationCode
 
 Money = Annotated[Decimal, PlainSerializer(lambda d: f"{d:.2f}", return_type=str, when_used="json")]
 Qty = Annotated[Decimal, PlainSerializer(lambda d: f"{d:.4f}", return_type=str, when_used="json")]
@@ -600,6 +601,131 @@ class IntegrityReport(BaseModel):
 # ---------------------------------------------------------------------------- imports
 
 
+class ImportFieldInfo(BaseModel):
+    """A column an import reads, and the header the templates and the application's own exports give
+    it in each language: a file written with either maps itself."""
+
+    field: str
+    required: bool
+    header_fr: str
+    header_en: str
+
+
+class ImportKindInfo(BaseModel):
+    kind: ImportKind
+    fields: list[ImportFieldInfo]
+    #: Groups of fields of which at least one must be mapped: a cost lands on a box, a bill of lading
+    #: or an order, whichever column says it — or its label.
+    required_one_of: list[list[str]] = Field(default_factory=list)
+
+
+class ImportRowIssue(BaseModel):
+    """One thing to say about one row: `code` and `params` are what the screen words; `message` is
+    the English fallback."""
+
+    row: int
+    field: str
+    code: str
+    message: str
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
+class ImportMoneyByType(BaseModel):
+    cost_type: CostType
+    rows: int
+    total_base: Money
+
+
+class ImportMoneyByCurrency(BaseModel):
+    currency: str
+    rows: int
+    total: Money
+    total_base: Money
+
+
+class ImportMoney(BaseModel):
+    """What a costs file puts in the books, in the organization's currency: the money first."""
+
+    total_base: Money
+    by_type: list[ImportMoneyByType] = Field(default_factory=list)
+    by_currency: list[ImportMoneyByCurrency] = Field(default_factory=list)
+
+
+class ImportUnknownLabel(BaseModel):
+    """A label no rule can type, with what hangs on it: a person gives it a type (`label_types`)."""
+
+    label: str
+    rows: int
+    total_base: Money
+
+
+class ImportCreditNote(BaseModel):
+    """A negative line left out of the books — costs cannot be negative — and counted, never dropped in
+    silence: it may refund a charge the audit would otherwise claim."""
+
+    row: int
+    cost_date: date | None = None
+    vendor: str | None = None
+    invoice_number: str | None = None
+    amount: Money
+    currency: str
+    amount_base: Money | None = None
+
+
+class ImportReport(BaseModel):
+    """What a preview found or a commit did. The counters of the other kinds are absent, not zero;
+    a preview or commit refused as a whole says so in `code` and `error`."""
+
+    model_config = ConfigDict(extra="allow")
+    row_count: int = 0
+    valid_rows: int = 0
+    header_row: int = 1
+    totals_row_ignored: bool = False
+    forward_filled_rows: int = 0
+    errors: list[ImportRowIssue] = Field(default_factory=list)
+    warnings: list[ImportRowIssue] = Field(default_factory=list)
+    code: str | None = None
+    error: str | None = None
+    # PURCHASE_ORDERS, LEGACY_PO_CONTAINER
+    purchase_orders_created: int | None = None
+    purchase_orders_updated: int | None = None
+    lines_created: int | None = None
+    lines_updated: int | None = None
+    suppliers_created: int | None = None
+    loads_updated: int | None = None
+    # PURCHASE_ORDERS, CONTAINERS
+    containers_created: int | None = None
+    loads_created: int | None = None
+    # CONTAINERS
+    containers_updated: int | None = None
+    #: Boxes that had no arrival date and have one now: what makes them visible to a period.
+    containers_dated: int | None = None
+    shipments_created: int | None = None
+    #: Orders the file puts on several boxes without saying how much on each: left to a person.
+    po_split: int | None = None
+    #: Invoices waiting for a box this file created, now pointed at it.
+    invoices_matched: int | None = None
+    # COSTS
+    costs_created: int | None = None
+    #: Rows already in the books from an earlier import of the same ledger: left as they are.
+    costs_skipped: int | None = None
+    estimates_replaced: int | None = None
+    estimates_replaced_base: Money | None = None
+    #: Rows refused because they are already in the books: DUPLICATE_COST, INVOICE_ALREADY_RECORDED,
+    #: INVOICE_IN_INBOX.
+    duplicates: int | None = None
+    duplicates_base: Money | None = None
+    money: ImportMoney | None = None
+    unknown_labels: list[ImportUnknownLabel] | None = None
+    credit_notes_skipped: list[ImportCreditNote] | None = None
+    credit_notes_skipped_base: Money | None = None
+    #: Pairs of rows that cancel each other out in the file, both left out.
+    reversed_in_file: int | None = None
+    # PRODUCTS
+    products_created: int | None = None
+    products_updated: int | None = None
+
+
 class ImportJobResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
@@ -610,11 +736,18 @@ class ImportJobResponse(BaseModel):
     delimiter: str | None
     columns: list[str]
     mapping: dict[str, str]
+    #: What the preview ran with besides the mapping (COSTS: `default_cost_type`, `label_types`).
+    options: dict[str, Any] = Field(default_factory=dict)
     row_count: int
     error_count: int
-    report: dict[str, Any]
+    report: ImportReport
     created_at: datetime
     committed_at: datetime | None
+    #: A costs file taken back (DELETE /imports/{id}).
+    undone_at: datetime | None = None
+    #: A costs file, committed, dropped by a person, not taken back yet. What happened since — a cost
+    #: pushed to the ERP, a month closed — is the DELETE's to refuse, by name.
+    can_undo: bool = False
     #: How the file got here: a person dropped it, or an ERP sync produced it. Not stored on the
     #: job — the sync run that drove it says so (see api/v1/imports.py).
     source: Literal["upload", "erp_sync"] = "upload"
@@ -622,11 +755,29 @@ class ImportJobResponse(BaseModel):
 
 class ImportValidateRequest(BaseModel):
     mapping: dict[str, str]
+    #: COSTS: the type of the rows whose type no column and no label gives. Rows typed this way only
+    #: ever give findings to check.
+    default_cost_type: CostType | None = None
+    #: COSTS: the type a person gave each label the preview could not read, keyed by the label as
+    #: `report.unknown_labels[].label` gives it.
+    label_types: dict[str, CostType] = Field(default_factory=dict)
+    #: COSTS: a person has looked at the charges of the same type already on the same freight
+    #: (DUPLICATE_COST) and says these are others. Written in the history with the import.
+    force_duplicates: bool = False
 
 
 class ImportCommitRequest(BaseModel):
+    #: PURCHASE_ORDERS and LEGACY_PO_CONTAINER only. The other kinds commit exactly what their preview
+    #: ran with, which the job keeps: 409 PREVIEW_REQUIRED without one, 409 PREVIEW_CHANGED — with the
+    #: new `report` — when the books moved since.
     mapping: dict[str, str] | None = None
     on_error: Literal["skip_rows", "abort"] = "skip_rows"
+
+
+class ImportUndoResponse(BaseModel):
+    costs_deleted: int
+    #: Estimates the deleted costs had replaced, standing again.
+    estimates_reopened: int
 
 
 # ---------------------------------------------------------------------------- fx
@@ -1083,6 +1234,45 @@ class AuditReport(BaseModel):
     assumed_coefficient: Qty | None
     completeness: AuditCompleteness
     rules: AuditRules
+
+
+class PreparationExample(BaseModel):
+    """Something to click on: `kind` says which page, `id` which one — a uuid, or for a `sku` the
+    article code itself."""
+
+    model_config = ConfigDict(from_attributes=True)
+    kind: Literal["container", "invoice", "purchase_order", "sku", "import"]
+    id: str
+    label: str
+
+
+class PreparationItem(BaseModel):
+    """One thing that would make the audit wrong (`blocking`) or that it will not be able to say
+    (`limits`), counted, with the section it touches and a few examples. Codes and raw values: the
+    sentence and the remedy are the screen's. `params`: COSTS_UNALLOCATED `reason` (an engine code),
+    DUTY_GAP `pct` (the guard, "20"); none elsewhere."""
+
+    model_config = ConfigDict(from_attributes=True)
+    code: PreparationCode
+    severity: Literal["blocking", "limits"]
+    section: Literal["period", "findings", "margins", "demurrage"]
+    count: int
+    amount_base: Money | None = None
+    params: dict[str, str] = Field(default_factory=dict)
+    #: At most five; `count` says how many there are in all.
+    examples: list[PreparationExample] = Field(default_factory=list)
+
+
+class AuditPreparation(BaseModel):
+    """What to put right before auditing a period: only what was found, blocking first. Not part of the
+    audit, and never sent with it: a working list, not a result."""
+
+    model_config = ConfigDict(from_attributes=True)
+    base_currency: str
+    period_from: date
+    period_to: date
+    as_of: date
+    items: list[PreparationItem]
 
 
 # ---------------------------------------------------------------------------- shared reports

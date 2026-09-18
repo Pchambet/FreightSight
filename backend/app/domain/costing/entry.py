@@ -56,6 +56,7 @@ def default_method(
     amount_base: Decimal | None = None,
     comp: Computation | None = None,
     exclude: UUID | None = None,
+    pending: Decimal = Decimal(0),
 ) -> AllocationMethod:
     """The method written on a new cost when nobody chose one. Written on the cost, never implicit at
     compute time, and the same for every door a cost comes in by.
@@ -66,7 +67,8 @@ def default_method(
     customs value, which is never unallocated and never puts a whole duty on one line.
 
     `exclude` is the cost the method is for when it is already on file — re-typed as duty, it would
-    otherwise count among the duty already paid, and be weighed twice.
+    otherwise count among the duty already paid, and be weighed twice. `pending` is duty already paid
+    on this very target that the computation does not hold yet: written by the same file, a moment ago.
     """
     if cost_type is not CostType.CUSTOMS_DUTY:
         return org.default_allocation_method
@@ -94,7 +96,7 @@ def default_method(
             ),
             Decimal(0),
         )
-        if abs(amount_base + already - theoretical) > theoretical * DUTY_GUARD:
+        if abs(amount_base + already + pending - theoretical) > theoretical * DUTY_GUARD:
             return AllocationMethod.BY_CIF_VALUE
     return AllocationMethod.BY_THEORETICAL_DUTY
 

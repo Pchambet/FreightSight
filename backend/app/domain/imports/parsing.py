@@ -13,6 +13,7 @@ from typing import Literal
 
 from charset_normalizer import from_bytes
 
+from app.domain.imports.fields import FIELDS, required_fields
 from app.domain.models import ImportKind
 
 CONTAINER_NUMBER_RE = re.compile(r"^[A-Z]{4}[0-9]{7}$")
@@ -127,12 +128,81 @@ TARGET_ALIASES: dict[ImportKind, dict[str, list[str]]] = {
         "container_number": ["container_number", "container", "conteneur", "n_tc"],
         "allocation_percentage": ["allocation_percentage", "allocation_pct", "allocation"],
     },
-}
+    # A tracking sheet: one row per container, or per container and order. « Réception » and
+    # « livraison » are the goods reaching the warehouse, never the box reaching the port: no alias.
+    ImportKind.CONTAINERS: {
+        "container_number": ["container_number", "container", "conteneur", "n_conteneur", "no_conteneur",
+                             "numero_conteneur", "n_tc", "no_tc", "tc", "ctn", "box", "equipment_number"],
+        "iso_type": ["iso_type", "type_de_conteneur", "type_conteneur", "type_tc", "type", "taille", "size",
+                     "size_type", "container_type", "equipment_type"],
+        "po_numbers": ["po_numbers", "po_number", "po", "n_commandes", "n_commande", "no_commande",
+                       "commandes", "commande", "n_cde", "cde", "orders", "order", "n_bc"],
+        "shipment_reference": ["shipment_reference", "n_b_l", "n_bl", "no_bl", "bl", "b_l", "bl_number",
+                               "b_l_number", "bill_of_lading", "connaissement", "n_connaissement", "booking",
+                               "n_booking", "booking_number", "expedition", "dossier", "n_dossier",
+                               "shipment"],
+        "carrier": ["carrier", "carrier_scac", "scac", "compagnie_maritime", "compagnie", "armateur",
+                    "shipping_line", "compagnie_scac"],
+        "origin_port": ["origin_port", "port_de_chargement", "port_chargement", "pol", "port_of_loading",
+                        "loading_port", "port_depart", "port_de_depart", "origine", "origin"],
+        "destination_port": ["destination_port", "port_de_dechargement", "port_dechargement", "pod",
+                             "port_of_discharge", "discharge_port", "port_arrivee", "port_d_arrivee",
+                             "destination"],
+        "etd": ["etd", "date_de_depart_prevue", "depart_prevu"],
+        "eta": ["eta", "date_d_arrivee_prevue", "arrivee_prevue"],
+        "ata": ["ata", "arrivee_reelle", "date_d_arrivee", "date_arrivee", "arrivee", "actual_arrival",
+                "arrival_date", "arrival"],
+        "discharged_at": ["discharged_at", "decharge_le", "date_de_dechargement", "date_dechargement",
+                          "dechargement", "discharge_date", "discharged"],
+        "gate_out_at": ["gate_out_at", "sorti_du_terminal_le", "sortie_terminal", "date_de_sortie",
+                        "date_sortie",
+                        "gate_out", "sortie", "enlevement", "date_d_enlevement"],
+        "empty_returned_at": ["empty_returned_at", "vide_restitue_le", "restitution", "date_de_restitution",
+                              "restitution_vide", "empty_return", "empty_returned", "retour_vide",
+                              "date_retour_vide"],
+    },
+    # A costs ledger — the purchase journal's lines for the forwarders, hauliers and customs brokers.
+    ImportKind.COSTS: {
+        "cost_date": ["cost_date", "date_du_cout", "date", "date_piece", "date_facture", "date_de_facture",
+                      "date_ecriture", "invoice_date", "date_comptable"],
+        "vendor": ["vendor", "prestataire", "fournisseur", "tiers", "libelle_tiers", "raison_sociale",
+                   "supplier"],
+        "invoice_number": ["invoice_number", "n_facture", "no_facture", "numero_facture", "n_piece", "piece",
+                           "facture", "invoice_no", "invoice", "reference_piece"],
+        "label": ["label", "libelle", "libelle_ecriture", "designation", "description", "intitule", "objet",
+                  "nature"],
+        "cost_type": ["cost_type", "type_de_cout", "type_cout", "type", "type_de_frais", "nature_de_frais",
+                      "categorie"],
+        "amount": ["amount", "montant_ht", "montant", "montant_hors_taxes", "ht", "debit", "amount_excl_vat",
+                   "net_amount"],
+        "currency": ["currency", "devise", "cur"],
+        "container_number": ["container_number", "n_conteneur", "conteneur", "container", "no_conteneur",
+                             "n_tc", "tc"],
+        "shipment_reference": ["shipment_reference", "n_b_l", "n_bl", "bl", "b_l", "bl_number",
+                               "connaissement", "booking", "n_dossier", "dossier", "expedition"],
+        "po_number": ["po_number", "n_commande", "commande", "po", "n_cde", "order"],
+    },
+    # The tariff: one row per article. « Prix » alone is a purchase price in an order file, never a
+    # selling price: no alias.
+    ImportKind.PRODUCTS: {
+        "sku": ["sku", "reference", "ref", "reference_article", "ref_article", "code_article", "article",
+                "item", "product", "code"],
+        "description": ["description", "designation", "libelle", "label"],
+        "hs_code": ["hs_code", "code_sh", "hs", "nc", "code_nc", "taric", "tariff", "nomenclature"],
+        "duty_rate": ["duty_rate", "taux_de_droits", "taux_droits", "droits", "duty"],
+        "unit_weight_kg": ["unit_weight_kg", "poids_unitaire_kg", "poids_unitaire", "poids_net",
+                           "poids_net_kg",
+                           "poids", "poids_kg", "weight", "weight_kg"],
+        "unit_volume_cbm": ["unit_volume_cbm", "volume_unitaire_m3", "volume_unitaire", "volume", "volume_m3",
+                            "cbm", "m3"],
+        "sale_price": ["sale_price", "prix_de_vente_ht", "prix_de_vente", "prix_vente", "pv_ht", "pv",
+                       "tarif",
+                       "prix_public", "selling_price"],
+        "sale_currency": ["sale_currency", "devise_de_vente", "devise_vente", "devise", "currency"],
+    },
+}  # fmt: skip
 
-REQUIRED: dict[ImportKind, list[str]] = {
-    ImportKind.PURCHASE_ORDERS: ["po_number", "quantity", "unit_price"],
-    ImportKind.LEGACY_PO_CONTAINER: ["po_number"],
-}
+REQUIRED: dict[ImportKind, list[str]] = {kind: required_fields(kind) for kind in FIELDS}
 
 # A weight or a volume column that does not name its unit is ambiguous: in a real ERP export
 # "Poids (kg)" is as often the weight of the whole line as the weight of one piece, and reading a
@@ -150,9 +220,6 @@ _TOTALS_LABEL = re.compile(
     r"^(total|totaux|sous[\s-]?total|cumul|somme|r[ée]capitulatif)(?![\w-])(?!\s*[-_/#]?\s*\d)", re.IGNORECASE
 )
 
-_ALL_ALIASES = frozenset(
-    alias for kind in TARGET_ALIASES.values() for aliases in kind.values() for alias in aliases
-)
 
 # Characters a Western European business file actually contains: French, plus the accents of a
 # German/Spanish/Italian/Portuguese supplier name, plus the punctuation Excel writes. Everything
@@ -276,6 +343,23 @@ def normalize_header(name: str) -> str:
     s = s.strip().strip('"').casefold()
     s = re.sub(r"[^a-z0-9]+", "_", s).strip("_")
     return s
+
+
+def _add_template_headers() -> None:
+    """The headers of the templates and of the application's own exports, as aliases of their field:
+    « Code SH » and « Taux de droits », written by the exports, did not map back on their own."""
+    for kind, fields in FIELDS.items():
+        for field in fields:
+            known = TARGET_ALIASES[kind].setdefault(field.name, [field.name])
+            for header in (field.header_fr, field.header_en):
+                if (name := normalize_header(header)) not in known:
+                    known.append(name)
+
+
+_add_template_headers()
+_ALL_ALIASES = frozenset(
+    alias for kind in TARGET_ALIASES.values() for aliases in kind.values() for alias in aliases
+)
 
 
 def is_ambiguous_unit_column(column: str) -> bool:

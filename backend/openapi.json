@@ -2018,6 +2018,77 @@
         }
       }
     },
+    "/api/v1/reports/audit/preparation": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Audit Preparation",
+        "description": "Before auditing a period: what would make the audit wrong \u2014 boxes with no date, no goods, no\nfreight, invoices not yet read, costs the engine could not place, one invoice recorded twice \u2014\nthen what it will not be able to say. Counts, amounts and examples by id; the same computation and\nthe same rules as the audit. A period that makes no sense is refused with PERIOD_INVALID.",
+        "operationId": "audit_preparation_api_v1_reports_audit_preparation_get",
+        "parameters": [
+          {
+            "name": "period_from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Period From"
+            }
+          },
+          {
+            "name": "period_to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Period To"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPreparation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reports/skus": {
       "get": {
         "tags": [
@@ -5541,6 +5612,61 @@
         }
       }
     },
+    "/api/v1/imports/kinds": {
+      "get": {
+        "tags": [
+          "imports"
+        ],
+        "summary": "Import Kinds",
+        "description": "What each kind of file reads, in the order a quarter is loaded \u2014 the catalogue first, since it\nlends its rates only to the order lines written after it \u2014 with the header each column carries\nin either language. A template written with these headers maps itself.",
+        "operationId": "import_kinds_api_v1_imports_kinds_get",
+        "parameters": [
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImportKindInfo"
+                  },
+                  "title": "Response Import Kinds Api V1 Imports Kinds Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/imports/{import_id}": {
       "get": {
         "tags": [
@@ -5599,6 +5725,65 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "imports"
+        ],
+        "summary": "Undo Import",
+        "description": "Take a costs file back: every cost it wrote is deleted, and the estimates they had replaced\nstand again. Refused by name once a cost is in the ERP (COSTS_PUSHED_TO_ERP) or in a closed month\n(IMPORT_PERIOD_CLOSED, with its `months`); a file taken back once answers IMPORT_ALREADY_UNDONE.",
+        "operationId": "undo_import_api_v1_imports__import_id__delete",
+        "parameters": [
+          {
+            "name": "import_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Import Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportUndoResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/imports/{import_id}/validate": {
@@ -5607,7 +5792,7 @@
           "imports"
         ],
         "summary": "Validate Import",
-        "description": "Dry run: the commit code path under a SAVEPOINT that is rolled back.\n\nThe report is exactly what commit would do.",
+        "description": "Dry run: the commit code path under a SAVEPOINT that is rolled back.\n\nThe report is exactly what commit would do. For containers, costs and products the job keeps what\nthe preview ran with \u2014 the mapping, and for costs the type of the rows no label types and the\ntypes a person gave the labels it could not read \u2014 and the commit runs with exactly that.",
         "operationId": "validate_import_api_v1_imports__import_id__validate_post",
         "parameters": [
           {
@@ -5678,6 +5863,7 @@
           "imports"
         ],
         "summary": "Commit Import",
+        "description": "Write the file. Containers, costs and products write exactly what their preview showed:\nwithout a preview, 409 PREVIEW_REQUIRED; when the books have moved since and the same file would\nnow do something else, nothing is written and 409 PREVIEW_CHANGED carries the new `report`.",
         "operationId": "commit_import_api_v1_imports__import_id__commit_post",
         "parameters": [
           {
@@ -8674,6 +8860,46 @@
         "title": "AuditPage",
         "description": "A page of history, newest first. `next_cursor` is null when there is nothing older."
       },
+      "AuditPreparation": {
+        "properties": {
+          "base_currency": {
+            "type": "string",
+            "title": "Base Currency"
+          },
+          "period_from": {
+            "type": "string",
+            "format": "date",
+            "title": "Period From"
+          },
+          "period_to": {
+            "type": "string",
+            "format": "date",
+            "title": "Period To"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date",
+            "title": "As Of"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PreparationItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "base_currency",
+          "period_from",
+          "period_to",
+          "as_of",
+          "items"
+        ],
+        "title": "AuditPreparation",
+        "description": "What to put right before auditing a period: only what was found, blocking first. Not part of the\naudit, and never sent with it: a working list, not a result."
+      },
       "AuditReport": {
         "properties": {
           "base_currency": {
@@ -11360,6 +11586,104 @@
         "type": "object",
         "title": "ImportCommitRequest"
       },
+      "ImportCreditNote": {
+        "properties": {
+          "row": {
+            "type": "integer",
+            "title": "Row"
+          },
+          "cost_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Date"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor"
+          },
+          "invoice_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Number"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "amount_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Base"
+          }
+        },
+        "type": "object",
+        "required": [
+          "row",
+          "amount",
+          "currency"
+        ],
+        "title": "ImportCreditNote",
+        "description": "A negative line left out of the books \u2014 costs cannot be negative \u2014 and counted, never dropped in\nsilence: it may refund a charge the audit would otherwise claim."
+      },
+      "ImportFieldInfo": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required"
+          },
+          "header_fr": {
+            "type": "string",
+            "title": "Header Fr"
+          },
+          "header_en": {
+            "type": "string",
+            "title": "Header En"
+          }
+        },
+        "type": "object",
+        "required": [
+          "field",
+          "required",
+          "header_fr",
+          "header_en"
+        ],
+        "title": "ImportFieldInfo",
+        "description": "A column an import reads, and the header the templates and the application's own exports give\nit in each language: a file written with either maps itself."
+      },
       "ImportJobResponse": {
         "properties": {
           "id": {
@@ -11420,6 +11744,11 @@
             "type": "object",
             "title": "Mapping"
           },
+          "options": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Options"
+          },
           "row_count": {
             "type": "integer",
             "title": "Row Count"
@@ -11429,9 +11758,7 @@
             "title": "Error Count"
           },
           "report": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Report"
+            "$ref": "#/components/schemas/ImportReport"
           },
           "created_at": {
             "type": "string",
@@ -11449,6 +11776,23 @@
               }
             ],
             "title": "Committed At"
+          },
+          "undone_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Undone At"
+          },
+          "can_undo": {
+            "type": "boolean",
+            "title": "Can Undo",
+            "default": false
           },
           "source": {
             "type": "string",
@@ -11482,9 +11826,514 @@
         "type": "string",
         "enum": [
           "PURCHASE_ORDERS",
-          "LEGACY_PO_CONTAINER"
+          "LEGACY_PO_CONTAINER",
+          "CONTAINERS",
+          "COSTS",
+          "PRODUCTS"
         ],
         "title": "ImportKind"
+      },
+      "ImportKindInfo": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ImportKind"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/ImportFieldInfo"
+            },
+            "type": "array",
+            "title": "Fields"
+          },
+          "required_one_of": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Required One Of"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "fields"
+        ],
+        "title": "ImportKindInfo"
+      },
+      "ImportMoney": {
+        "properties": {
+          "total_base": {
+            "type": "string",
+            "title": "Total Base"
+          },
+          "by_type": {
+            "items": {
+              "$ref": "#/components/schemas/ImportMoneyByType"
+            },
+            "type": "array",
+            "title": "By Type"
+          },
+          "by_currency": {
+            "items": {
+              "$ref": "#/components/schemas/ImportMoneyByCurrency"
+            },
+            "type": "array",
+            "title": "By Currency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_base"
+        ],
+        "title": "ImportMoney",
+        "description": "What a costs file puts in the books, in the organization's currency: the money first."
+      },
+      "ImportMoneyByCurrency": {
+        "properties": {
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "rows": {
+            "type": "integer",
+            "title": "Rows"
+          },
+          "total": {
+            "type": "string",
+            "title": "Total"
+          },
+          "total_base": {
+            "type": "string",
+            "title": "Total Base"
+          }
+        },
+        "type": "object",
+        "required": [
+          "currency",
+          "rows",
+          "total",
+          "total_base"
+        ],
+        "title": "ImportMoneyByCurrency"
+      },
+      "ImportMoneyByType": {
+        "properties": {
+          "cost_type": {
+            "$ref": "#/components/schemas/CostType"
+          },
+          "rows": {
+            "type": "integer",
+            "title": "Rows"
+          },
+          "total_base": {
+            "type": "string",
+            "title": "Total Base"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cost_type",
+          "rows",
+          "total_base"
+        ],
+        "title": "ImportMoneyByType"
+      },
+      "ImportReport": {
+        "properties": {
+          "row_count": {
+            "type": "integer",
+            "title": "Row Count",
+            "default": 0
+          },
+          "valid_rows": {
+            "type": "integer",
+            "title": "Valid Rows",
+            "default": 0
+          },
+          "header_row": {
+            "type": "integer",
+            "title": "Header Row",
+            "default": 1
+          },
+          "totals_row_ignored": {
+            "type": "boolean",
+            "title": "Totals Row Ignored",
+            "default": false
+          },
+          "forward_filled_rows": {
+            "type": "integer",
+            "title": "Forward Filled Rows",
+            "default": 0
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ImportRowIssue"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ImportRowIssue"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "purchase_orders_created": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purchase Orders Created"
+          },
+          "purchase_orders_updated": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purchase Orders Updated"
+          },
+          "lines_created": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lines Created"
+          },
+          "lines_updated": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lines Updated"
+          },
+          "suppliers_created": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suppliers Created"
+          },
+          "loads_updated": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loads Updated"
+          },
+          "containers_created": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Containers Created"
+          },
+          "loads_created": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loads Created"
+          },
+          "containers_updated": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Containers Updated"
+          },
+          "containers_dated": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Containers Dated"
+          },
+          "shipments_created": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shipments Created"
+          },
+          "po_split": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Po Split"
+          },
+          "invoices_matched": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoices Matched"
+          },
+          "costs_created": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Costs Created"
+          },
+          "costs_skipped": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Costs Skipped"
+          },
+          "estimates_replaced": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimates Replaced"
+          },
+          "estimates_replaced_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimates Replaced Base"
+          },
+          "duplicates": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duplicates"
+          },
+          "duplicates_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duplicates Base"
+          },
+          "money": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportMoney"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unknown_labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ImportUnknownLabel"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unknown Labels"
+          },
+          "credit_notes_skipped": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ImportCreditNote"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Notes Skipped"
+          },
+          "credit_notes_skipped_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Notes Skipped Base"
+          },
+          "reversed_in_file": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reversed In File"
+          },
+          "products_created": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Products Created"
+          },
+          "products_updated": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Products Updated"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ImportReport",
+        "description": "What a preview found or a commit did. The counters of the other kinds are absent, not zero;\na preview or commit refused as a whole says so in `code` and `error`."
+      },
+      "ImportRowIssue": {
+        "properties": {
+          "row": {
+            "type": "integer",
+            "title": "Row"
+          },
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "params": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Params"
+          }
+        },
+        "type": "object",
+        "required": [
+          "row",
+          "field",
+          "code",
+          "message"
+        ],
+        "title": "ImportRowIssue",
+        "description": "One thing to say about one row: `code` and `params` are what the screen words; `message` is\nthe English fallback."
       },
       "ImportStatus": {
         "type": "string",
@@ -11496,6 +12345,48 @@
         ],
         "title": "ImportStatus"
       },
+      "ImportUndoResponse": {
+        "properties": {
+          "costs_deleted": {
+            "type": "integer",
+            "title": "Costs Deleted"
+          },
+          "estimates_reopened": {
+            "type": "integer",
+            "title": "Estimates Reopened"
+          }
+        },
+        "type": "object",
+        "required": [
+          "costs_deleted",
+          "estimates_reopened"
+        ],
+        "title": "ImportUndoResponse"
+      },
+      "ImportUnknownLabel": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "rows": {
+            "type": "integer",
+            "title": "Rows"
+          },
+          "total_base": {
+            "type": "string",
+            "title": "Total Base"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "rows",
+          "total_base"
+        ],
+        "title": "ImportUnknownLabel",
+        "description": "A label no rule can type, with what hangs on it: a person gives it a type (`label_types`)."
+      },
       "ImportValidateRequest": {
         "properties": {
           "mapping": {
@@ -11504,6 +12395,28 @@
             },
             "type": "object",
             "title": "Mapping"
+          },
+          "default_cost_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CostType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "label_types": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CostType"
+            },
+            "type": "object",
+            "title": "Label Types"
+          },
+          "force_duplicates": {
+            "type": "boolean",
+            "title": "Force Duplicates",
+            "default": false
           }
         },
         "type": "object",
@@ -13744,6 +14657,125 @@
           "duty_rate"
         ],
         "title": "PoLineResponse"
+      },
+      "PreparationExample": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "container",
+              "invoice",
+              "purchase_order",
+              "sku",
+              "import"
+            ],
+            "title": "Kind"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "id",
+          "label"
+        ],
+        "title": "PreparationExample",
+        "description": "Something to click on: `kind` says which page, `id` which one \u2014 a uuid, or for a `sku` the\narticle code itself."
+      },
+      "PreparationItem": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "CONTAINERS_WITHOUT_DATE",
+              "CONTAINERS_WITHOUT_GOODS",
+              "CONTAINERS_WITHOUT_COST",
+              "CONTAINERS_WITHOUT_FREIGHT",
+              "CONTAINERS_WITHOUT_DUTY",
+              "INVOICES_NOT_READ",
+              "INVOICES_TO_REVIEW",
+              "COSTS_UNALLOCATED",
+              "SAME_INVOICE_TWICE",
+              "CREDIT_NOTES_SKIPPED",
+              "PO_SPLIT",
+              "LINES_WITHOUT_DUTY_RATE",
+              "DUTY_GAP",
+              "DUTY_SPREAD_ON_CIF",
+              "CONTAINERS_WITHOUT_ROUTE",
+              "CONTAINERS_WITHOUT_SIZE",
+              "COSTS_NOT_ON_CONTAINER",
+              "COSTS_TYPED_OTHER",
+              "CLOCKS_RUNNING",
+              "NO_SALE_PRICE",
+              "NO_ASSUMED_COEFFICIENT",
+              "ESTIMATES_OPEN"
+            ],
+            "title": "Code"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "blocking",
+              "limits"
+            ],
+            "title": "Severity"
+          },
+          "section": {
+            "type": "string",
+            "enum": [
+              "period",
+              "findings",
+              "margins",
+              "demurrage"
+            ],
+            "title": "Section"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "amount_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Base"
+          },
+          "params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Params"
+          },
+          "examples": {
+            "items": {
+              "$ref": "#/components/schemas/PreparationExample"
+            },
+            "type": "array",
+            "title": "Examples"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "severity",
+          "section",
+          "count"
+        ],
+        "title": "PreparationItem",
+        "description": "One thing that would make the audit wrong (`blocking`) or that it will not be able to say\n(`limits`), counted, with the section it touches and a few examples. Codes and raw values: the\nsentence and the remedy are the screen's. `params`: COSTS_UNALLOCATED `reason` (an engine code),\nDUTY_GAP `pct` (the guard, \"20\"); none elsewhere."
       },
       "PreviewRequest": {
         "properties": {

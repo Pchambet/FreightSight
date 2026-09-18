@@ -21,6 +21,7 @@ from app.domain.models import CostType, RateBasis, RateCard
 from app.domain.reporting import service as reporting
 from app.domain.reporting.audit import Audit, audit_report
 from app.domain.reporting.overview import overview as build_overview
+from app.domain.reporting.preparation import audit_preparation as prepare_audit
 from app.domain.reporting.skus import sku_report
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -261,6 +262,16 @@ def audit(t: TenantDep, period_from: date, period_to: date) -> schemas.AuditRepo
     that ends before it starts, or outside the years 2000 to 2100, is refused with PERIOD_INVALID."""
     found = audit_report(t.db, compute(t.db, t.org), t.org, period_from, period_to)
     return _audit_schema(found)
+
+
+@router.get("/audit/preparation", response_model=schemas.AuditPreparation)
+def audit_preparation(t: TenantDep, period_from: date, period_to: date) -> schemas.AuditPreparation:
+    """Before auditing a period: what would make the audit wrong — boxes with no date, no goods, no
+    freight, invoices not yet read, costs the engine could not place, one invoice recorded twice —
+    then what it will not be able to say. Counts, amounts and examples by id; the same computation and
+    the same rules as the audit. A period that makes no sense is refused with PERIOD_INVALID."""
+    found = prepare_audit(t.db, compute(t.db, t.org), t.org, period_from, period_to)
+    return schemas.AuditPreparation.model_validate(found)
 
 
 def _audit_schema(found: Audit) -> schemas.AuditReport:

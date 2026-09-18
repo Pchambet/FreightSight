@@ -14,6 +14,7 @@ from app.core.errors import Conflict, Unprocessable
 from app.core.tenancy import TenantSession
 from app.domain.costing.service import recompute_org
 from app.domain.fx.service import FxService
+from app.domain.imports.fields import REQUIRED_ONE_OF
 from app.domain.imports.parsing import (
     CONTAINER_NUMBER_RE,
     REQUIRED,
@@ -53,6 +54,8 @@ NUMERIC_FIELDS = (
     "container_quantity",
     "total_value",
     "allocation_percentage",
+    "amount",
+    "sale_price",
 )
 #: Fields an export may state once, on the first row of an order, and leave blank underneath.
 FORWARD_FILLED_FIELDS = ("po_number", "supplier_name", "currency")
@@ -90,9 +93,13 @@ class ImportReport:
     loads_created: int = 0
     loads_updated: int = 0
     suppliers_created: int = 0
+    kind: ImportKind = ImportKind.PURCHASE_ORDERS
+    #: The counters and figures of the kinds read in their own module — containers, costs, products —
+    #: as the report states them. A counter of another kind is absent, never zero.
+    extra: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        common = {
             "row_count": self.row_count,
             "valid_rows": self.valid_rows,
             "header_row": self.header_row,
@@ -100,15 +107,19 @@ class ImportReport:
             "forward_filled_rows": self.forward_filled_rows,
             "errors": [e.__dict__ for e in self.errors],
             "warnings": [w.__dict__ for w in self.warnings],
-            "purchase_orders_created": self.purchase_orders_created,
-            "purchase_orders_updated": self.purchase_orders_updated,
-            "lines_created": self.lines_created,
-            "lines_updated": self.lines_updated,
-            "containers_created": self.containers_created,
-            "loads_created": self.loads_created,
-            "loads_updated": self.loads_updated,
-            "suppliers_created": self.suppliers_created,
         }
+        if self.kind in (ImportKind.PURCHASE_ORDERS, ImportKind.LEGACY_PO_CONTAINER):
+            common |= {
+                "purchase_orders_created": self.purchase_orders_created,
+                "purchase_orders_updated": self.purchase_orders_updated,
+                "lines_created": self.lines_created,
+                "lines_updated": self.lines_updated,
+                "containers_created": self.containers_created,
+                "loads_created": self.loads_created,
+                "loads_updated": self.loads_updated,
+                "suppliers_created": self.suppliers_created,
+            }
+        return common | self.extra
 
 
 def create_job(t: TenantSession, kind: ImportKind, content: bytes, filename: str | None) -> ImportJob:
@@ -121,10 +132,17 @@ def create_job(t: TenantSession, kind: ImportKind, content: bytes, filename: str
         t.q(ImportMapping).where(ImportMapping.kind == kind, ImportMapping.header_signature == signature)
     )
     mapping = dict(saved.mapping) if saved else suggest_mapping(kind, table.columns)
+    sha256 = hashlib.sha256(content).hexdigest()
+    if kind is ImportKind.COSTS and (previous := find_duplicate(t, sha256, kind)) is not None:
+        # The same ledger twice is every cost twice; the file already in is opened instead. The other
+        # kinds write what their file says, and saying it again changes nothing.
+        raise Conflict(
+            "This costs file is already imported", code="FILE_ALREADY_IMPORTED", existing_id=str(previous.id)
+        )
     job = ImportJob(
         kind=kind,
         original_filename=filename,
-        sha256=hashlib.sha256(content).hexdigest(),
+        sha256=sha256,
         content=content,
         encoding=table.encoding,
         delimiter=table.delimiter,
@@ -144,6 +162,11 @@ def _check_mapping(kind: ImportKind, mapping: dict[str, str], columns: list[str]
         raise Unprocessable(
             f"Mapping is missing required field(s): {', '.join(missing)}", code="MAPPING_INCOMPLETE"
         )
+    for group in REQUIRED_ONE_OF.get(kind, ()):
+        if not any(mapping.get(f) for f in group):
+            raise Unprocessable(
+                f"Map at least one of: {', '.join(group)}", code="MAPPING_INCOMPLETE", one_of=list(group)
+            )
     unknown = [c for c in mapping.values() if c and c not in columns]
     if unknown:
         raise Unprocessable(
@@ -159,14 +182,20 @@ def run_job(
     dry_run: bool,
     on_error: str = "skip_rows",
     fx: FxService | None = None,
+    expected: dict[str, Any] | None = None,
 ) -> ImportReport:
-    """Apply the import inside a SAVEPOINT. Dry run rolls it back; commit keeps it and marks the job DONE."""
+    """Apply the import inside a SAVEPOINT. Dry run rolls it back; commit keeps it and marks the job DONE.
+
+    `expected` is the report of the preview a commit is bound to: when the books have moved since and
+    the same file would now do something else, nothing is written and the new report is refused with
+    it (PREVIEW_CHANGED) — a person approved figures, not a file."""
     _check_mapping(job.kind, mapping, list(job.columns))
     table = parse_table(bytes(job.content), job.original_filename)
     report = ImportReport(
         row_count=len(table.rows),
         header_row=table.header_row,
         totals_row_ignored=table.totals_row_ignored,
+        kind=job.kind,
     )
     conventions = infer_comma_conventions(table, {mapping[f] for f in NUMERIC_FIELDS if mapping.get(f)})
     _report_file_notes(table, mapping, conventions, report)
@@ -175,6 +204,18 @@ def run_job(
     try:
         if job.kind is ImportKind.PURCHASE_ORDERS:
             _apply_purchase_orders(t, table, mapping, report, conventions, fx)
+        elif job.kind is ImportKind.CONTAINERS:
+            from app.domain.imports.containers import apply_containers
+
+            apply_containers(t, table, mapping, report)
+        elif job.kind is ImportKind.COSTS:
+            from app.domain.imports.costs import apply_costs
+
+            apply_costs(t, job, table, mapping, report, conventions, fx)
+        elif job.kind is ImportKind.PRODUCTS:
+            from app.domain.imports.products import apply_products
+
+            apply_products(t, table, mapping, report, conventions)
         else:
             _apply_legacy(t, table, mapping, report, conventions)
         if report.errors and on_error == "abort":
@@ -183,6 +224,12 @@ def run_job(
             )
         if report.valid_rows == 0:
             raise Unprocessable("No row could be imported.", code="NO_VALID_ROWS", report=report.to_dict())
+        if expected is not None and report.to_dict() != expected:
+            raise Conflict(
+                "The books have moved since the preview: look at the figures again before importing",
+                code="PREVIEW_CHANGED",
+                report=report.to_dict(),
+            )
         recompute_org(t.db, t.org)
         if dry_run:
             nested.rollback()
@@ -771,9 +818,15 @@ def _apply_legacy(
         report.valid_rows += 1
 
 
-def find_duplicate(t: TenantSession, sha256: str) -> ImportJob | None:
+def find_duplicate(t: TenantSession, sha256: str, kind: ImportKind) -> ImportJob | None:
+    """The same file of this kind, committed and not taken back."""
     return t.db.scalar(
-        t.q(ImportJob).where(ImportJob.sha256 == sha256, ImportJob.status == ImportStatus.DONE)
+        t.q(ImportJob).where(
+            ImportJob.sha256 == sha256,
+            ImportJob.kind == kind,
+            ImportJob.status == ImportStatus.DONE,
+            ImportJob.undone_at.is_(None),
+        )
     )
 
 

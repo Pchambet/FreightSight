@@ -228,6 +228,9 @@ class PurchaseOrderStatus(enum.StrEnum):
 class ImportKind(enum.StrEnum):
     PURCHASE_ORDERS = "PURCHASE_ORDERS"  # one row per PO line
     LEGACY_PO_CONTAINER = "LEGACY_PO_CONTAINER"  # Phase 0 format: one row per PO with a container
+    CONTAINERS = "CONTAINERS"  # the containers' tracking: one row per container and order
+    COSTS = "COSTS"  # a costs ledger: one row per invoice line, actual costs only
+    PRODUCTS = "PRODUCTS"  # the tariff: one row per article
 
 
 class InvoiceStatus(enum.StrEnum):
@@ -506,6 +509,15 @@ class Cost(Timestamped, OrgScoped, Base):
     #: An estimate closed without an invoice ever arriving — "the forwarder never billed it".
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     close_reason: Mapped[str | None] = mapped_column(String)
+    #: The costs file this cost was read from: the whole file can be taken back, and nothing else.
+    import_job_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("import_jobs.id", ondelete="SET NULL"), index=True
+    )
+    #: The type was inferred — from the line's label, or the type a person gave the whole file — not
+    #: read from a column: what the audit finds on such a cost is a question, never a fact.
+    type_inferred: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
 
     allocations: Mapped[list[CostAllocation]] = relationship(
         back_populates="cost", cascade="all, delete-orphan"
@@ -564,6 +576,13 @@ class ImportJob(Timestamped, OrgScoped, Base):
     report: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     committed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: A costs file taken back: its costs are gone, the job stays as the record that they came and went.
+    undone_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: What the preview ran with besides the mapping — the type of the rows that name none, the types a
+    #: person gave the labels it could not read. The commit runs with exactly that, never another.
+    options: Mapped[dict[str, Any]] = mapped_column(
+        nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
 
 
 class ImportMapping(OrgScoped, Base):
