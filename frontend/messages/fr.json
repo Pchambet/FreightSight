@@ -409,7 +409,8 @@
       "failed": "Impossible d'annuler cet import",
       "pushed": "{count, plural, one {Un document ERP porte des coûts de cet import} other {Des documents ERP portent des coûts de cet import}} ({documents}) : oubliez-{count, plural, one {le} other {les}} d'abord, ou corrigez dans l'ERP par un document d'ajustement.",
       "periodClosed": "{count, plural, one {Le mois de {months} est clos} other {Les mois de {months} sont clos}} : rouvrez-{count, plural, one {le} other {les}} d'abord pour annuler cet import."
-    }
+    },
+    "history": "Historique des imports"
   },
   "importWizard": {
     "title": "Importer un fichier",
@@ -2580,6 +2581,8 @@
       "setCoefficient": "Saisir le coefficient",
       "seeCosts": "Voir les frais du conteneur"
     },
-    "period": "Dernier trimestre, du {from} au {to}"
+    "period": "Dernier trimestre, du {from} au {to}",
+    "summary": "{blocking, plural, =0 {Rien ne fausse l'audit} one {# point fausserait l'audit} other {# points fausseraient l'audit}}, {limits, plural, =0 {aucune limite} one {# limite} other {# limites}}",
+    "otherPeriod": "Choisir une autre période"
   }
 }

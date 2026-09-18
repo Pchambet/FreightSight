@@ -409,7 +409,8 @@
       "failed": "Could not undo this import",
       "pushed": "{count, plural, one {An ERP document carries costs of this import} other {ERP documents carry costs of this import}} ({documents}): forget {count, plural, one {it} other {them}} first, or correct in the ERP with an adjustment document.",
       "periodClosed": "{count, plural, one {{months} is closed} other {{months} are closed}}: reopen {count, plural, one {it} other {them}} first to undo this import."
-    }
+    },
+    "history": "Import history"
   },
   "importWizard": {
     "title": "Import a file",
@@ -2580,6 +2581,8 @@
       "setCoefficient": "Enter the coefficient",
       "seeCosts": "See the container's costs"
     },
-    "period": "Last quarter, {from} to {to}"
+    "period": "Last quarter, {from} to {to}",
+    "summary": "{blocking, plural, =0 {Nothing makes the audit wrong} one {# point would make the audit wrong} other {# points would make the audit wrong}}, {limits, plural, =0 {no limit} one {# limit} other {# limits}}",
+    "otherPeriod": "Choose another period"
   }
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Card, PageHeader, btnPrimary, td, tdRight, th, thRight } from "@/components/layout/AppShell";
+import ScrollRegion from "@/components/shared/ScrollRegion";
 import UndoImportButton from "@/features/imports/UndoImportButton";
 import AuditPreparation from "@/features/report/AuditPreparation";
 import { presetRange } from "@/features/report/auditPeriods";
@@ -54,9 +55,7 @@ export default async function ImportsPage() {
       <WorkflowNextStep step={hubStep} />
       <AuditPreparation periodFrom={quarter.from} periodTo={quarter.to} showPeriod />
       <Card>
-        {/* Positioned, so the visually hidden « Actions » header stays inside the scroll area on a phone
-            instead of widening the page. */}
-        <div className="relative overflow-x-auto">
+        <ScrollRegion label={t("history")}>
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50"><tr><th className={th}>{t("th.date")}</th><th className={th}>{t("th.file")}</th><th className={th}>{t("th.kind")}</th><th className={th}>{t("th.status")}</th><th className={thRight}>{t("th.rows")}</th><th className={thRight}>{t("th.errors")}</th><th className={th}>{t("th.result")}</th><th className={th}><span className="sr-only">{t("th.actions")}</span></th></tr></thead>
             <tbody className="divide-y divide-slate-200">
@@ -92,7 +91,7 @@ export default async function ImportsPage() {
               )}
             </tbody>
           </table>
-        </div>
+        </ScrollRegion>
       </Card>
     </>
   );

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { CheckCircle2 } from "lucide-react";
+import CollapsibleSection from "@/components/shared/CollapsibleSection";
 import { skuHref } from "@/features/skus/href";
 import { api, type Schemas } from "@/lib/api/client";
 import { dateShort, money } from "@/lib/format";
@@ -117,32 +118,38 @@ export default async function AuditPreparation({ periodFrom, periodTo, showPerio
     );
   };
 
+  const period = showPeriod ? `${t("period", { from: dateShort(periodFrom, locale), to: dateShort(periodTo, locale) })} · ` : "";
   return (
-    <section aria-labelledby="preparation-title" className="mb-6 rounded-lg border border-slate-200 bg-white print:hidden">
-      <div className="px-5 pt-4 pb-3 border-b border-slate-100">
-        <h2 id="preparation-title" className="text-base font-semibold text-slate-900">{t("title")}</h2>
-        <p className="mt-0.5 text-xs text-slate-500">
-          {showPeriod ? `${t("period", { from: dateShort(periodFrom, locale), to: dateShort(periodTo, locale) })} · ` : ""}
-          {t("subtitle")}
-        </p>
-      </div>
-      <div className="px-5 py-4 space-y-5">
-        {items.length === 0 ? (
-          <p className="flex items-center gap-2 text-sm text-emerald-800"><CheckCircle2 className="w-4 h-4" aria-hidden />{t("clear")}</p>
-        ) : null}
-        {blocking.length ? (
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-red-700">{t("blocking")}</h3>
-            <ul className="mt-2 divide-y divide-slate-100">{blocking.map(row)}</ul>
-          </div>
-        ) : null}
-        {limits.length ? (
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-600">{t("limits")}</h3>
-            <ul className="mt-2 divide-y divide-slate-100">{limits.map(row)}</ul>
-          </div>
-        ) : null}
-      </div>
-    </section>
+    // Open while something would make the audit wrong; folded once only its limits remain.
+    <div className="mb-6 print:hidden">
+      <CollapsibleSection id="preparation" title={t("title")} hint={`${period}${t("summary", { blocking: blocking.length, limits: limits.length })}`} defaultOpen={blocking.length > 0}>
+        <div className="px-5 py-4 space-y-5">
+          <p className="text-xs text-slate-500">
+            {t("subtitle")}
+            {showPeriod ? (
+              <>
+                {" "}
+                <Link href="/cost-audit" className="text-blue-700 underline underline-offset-2 hover:no-underline">{t("otherPeriod")}</Link>
+              </>
+            ) : null}
+          </p>
+          {items.length === 0 ? (
+            <p className="flex items-center gap-2 text-sm text-emerald-800"><CheckCircle2 className="w-4 h-4" aria-hidden />{t("clear")}</p>
+          ) : null}
+          {blocking.length ? (
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-red-700">{t("blocking")}</h2>
+              <ul className="mt-2 divide-y divide-slate-100">{blocking.map(row)}</ul>
+            </div>
+          ) : null}
+          {limits.length ? (
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-600">{t("limits")}</h2>
+              <ul className="mt-2 divide-y divide-slate-100">{limits.map(row)}</ul>
+            </div>
+          ) : null}
+        </div>
+      </CollapsibleSection>
+    </div>
   );
 }
