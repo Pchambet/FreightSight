@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { CircleHelp } from "lucide-react";
 
 /**
@@ -9,10 +10,25 @@ import { CircleHelp } from "lucide-react";
  * only (hidden from assistive technology, or the text would be read a second time as a description
  * and a third time in the page's flow). The button is 24 px square (WCAG 2.2 target size) while
  * taking the room of the 18 px it looks like: the negative margin gives the difference back.
+ *
+ * Content that appears on hover or focus must stay while the pointer moves onto it, and go away on
+ * Escape without moving the pointer or the focus (WCAG 1.4.13): the bubble takes the pointer, and
+ * Escape — listened for on the document, since a hover puts no focus here — hides it until the next
+ * hover or focus.
  */
 export default function Hint({ text }: { text: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const box = ref.current;
+      if (e.key === "Escape" && box && (box.matches(":hover") || box.contains(document.activeElement))) setDismissed(true);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
   return (
-    <span className="relative inline-flex group/hint">
+    <span ref={ref} className="relative inline-flex group/hint" onMouseEnter={() => setDismissed(false)} onFocus={() => setDismissed(false)}>
       <button
         type="button"
         aria-label={text}
@@ -22,9 +38,12 @@ export default function Hint({ text }: { text: string }) {
       </button>
       <span
         aria-hidden
-        className="pointer-events-none absolute left-1/2 bottom-full z-20 mb-1.5 w-[min(14rem,calc(100vw-2rem))] -translate-x-1/2 rounded-md bg-slate-900 px-2.5 py-2 text-xs font-normal normal-case tracking-normal text-white opacity-0 shadow-lg transition-opacity group-focus-within/hint:opacity-100 group-hover/hint:opacity-100"
+        className={`absolute left-1/2 bottom-full z-20 w-[min(14rem,calc(100vw-2rem))] -translate-x-1/2 pb-1.5 transition-opacity ${
+          dismissed ? "invisible opacity-0" : "invisible opacity-0 group-hover/hint:visible group-hover/hint:opacity-100 group-focus-within/hint:visible group-focus-within/hint:opacity-100"
+        }`}
       >
-        {text}
+        {/* The padding below the bubble is part of it, so the pointer crosses no gap on its way up. */}
+        <span className="block rounded-md bg-slate-900 px-2.5 py-2 text-xs font-normal normal-case tracking-normal text-white shadow-lg">{text}</span>
       </span>
     </span>
   );
