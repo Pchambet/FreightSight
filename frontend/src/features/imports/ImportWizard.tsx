@@ -3,15 +3,17 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { CheckCircle2, FileType, Loader2 } from "lucide-react";
+import { CheckCircle2, FileType, FileWarning, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, btnPrimary, btnSecondary, input, label, td, th } from "@/components/layout/AppShell";
+import FileTooLarge from "@/components/shared/FileTooLarge";
 import NextStepCard from "@/components/shared/NextStepCard";
 import { commitImport, createImport, validateImport } from "@/features/actions";
 import { importWizardStep } from "@/features/workflow/steps";
 import type { ImportJobResponse } from "@/lib/api/client";
 import { IMPORT_FIELDS, type ImportKind } from "@/lib/domain";
 import { dateShort, rate as formatRate } from "@/lib/format";
+import { fileSize, isTooLarge } from "@/lib/uploads";
 
 type Step = "upload" | "mapping" | "review" | "done";
 
@@ -32,6 +34,8 @@ export default function ImportWizard({ initialJob }: { initialJob: ImportJobResp
   const [mapping, setMapping] = useState<Record<string, string>>(initialJob?.mapping ?? {});
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const locale = useLocale();
+  const tooLarge = isTooLarge(file);
 
   const fields = IMPORT_FIELDS[kind];
   const report = (job?.report ?? {}) as Record<string, unknown>;
@@ -49,12 +53,14 @@ export default function ImportWizard({ initialJob }: { initialJob: ImportJobResp
   );
 
   const upload = () => {
-    if (!file) return;
+    if (!file || tooLarge) return;
     const fd = new FormData();
     fd.append("file", file);
     fd.append("kind", kind);
     startTransition(async () => {
-      const result = await createImport(fd);
+      // Refused before the action runs (connection dropped, a body over a limit): it rejects.
+      const result = await createImport(fd).catch(() => null);
+      if (!result) return void toast.error(t("upload.failed"));
       if (!result.ok) return void toast.error(result.error);
       setJob(result.data);
       setMapping(result.data.mapping);
@@ -112,14 +118,23 @@ export default function ImportWizard({ initialJob }: { initialJob: ImportJobResp
               </select>
             </div>
             <label className="relative border-2 border-dashed border-slate-300 rounded-md p-8 flex flex-col items-center justify-center text-center hover:bg-slate-50 cursor-pointer">
-              <input type="file" accept=".csv,.xlsx,text/csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" aria-label={t("upload.choose")} />
+              <input
+                type="file"
+                accept=".csv,.xlsx,text/csv"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                aria-label={t("upload.choose")}
+                aria-invalid={tooLarge || undefined}
+                aria-describedby={tooLarge ? "import-file-too-large" : undefined}
+              />
               {file ? (
-                <><CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" /><p className="text-sm font-medium">{file.name}</p><p className="text-xs text-slate-500 mt-1">{(file.size / 1024).toFixed(1)} KB</p></>
+                <>{tooLarge ? <FileWarning className="w-8 h-8 text-red-600 mb-2" aria-hidden /> : <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" aria-hidden />}<p className="text-sm font-medium">{file.name}</p><p className="text-xs text-slate-500 mt-1">{fileSize(file.size, locale)}</p></>
               ) : (
                 <><FileType className="w-8 h-8 text-slate-400 mb-2" /><p className="text-sm font-medium text-slate-700">{t("upload.cta")}</p><p className="text-xs text-slate-500 mt-1">{t("upload.hint")}</p></>
               )}
             </label>
-            <button type="button" onClick={upload} disabled={!file || pending} className={btnPrimary}>
+            {tooLarge ? <FileTooLarge id="import-file-too-large" file={file} kind="import" /> : null}
+            <button type="button" onClick={upload} disabled={!file || tooLarge || pending} className={btnPrimary}>
               {pending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}{t("upload.submit")}
             </button>
           </div>

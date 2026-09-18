@@ -10,6 +10,7 @@ import { invoicesHubStep } from "@/features/workflow/steps";
 import { api, type InvoiceSummary } from "@/lib/api/client";
 import type { InvoiceStatus } from "@/lib/domain";
 import { dateShort, money } from "@/lib/format";
+import { MAX_UPLOAD_BYTES, fileSize } from "@/lib/uploads";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("invoices");
@@ -41,7 +42,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
     <>
       <PageHeader title={t("title")} subtitle={t("subtitle", { review, total: invoices.length })} />
       <WorkflowNextStep step={hubStep} />
-      <Card title={t("upload.title")} right={<span className="text-xs text-slate-400 max-w-md text-right">{t("upload.hint")}</span>} className="mb-6">
+      <Card title={t("upload.title")} right={<span className="text-xs text-slate-500 max-w-md text-right">{t("upload.hint", { max: fileSize(MAX_UPLOAD_BYTES, locale) })}</span>} className="mb-6">
         <div id="depot" className="scroll-mt-6">
           <UploadForm />
         </div>

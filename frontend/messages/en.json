@@ -14,7 +14,12 @@
     "apiUnreachable": "Cannot reach the API. Is the backend running?",
     "skipToContent": "Skip to main content",
     "dataUnavailable": "Your data could not be read",
-    "retry": "Try again"
+    "retry": "Try again",
+    "upload": {
+      "tooLarge": "This file is {size}: an upload takes {max} at most.",
+      "tooLargeInvoice": "The PDF the forwarder sent is almost always much lighter than a scan or a photo of the invoice: upload that one.",
+      "tooLargeImport": "Split it into two files and import them one after the other: the second import adds to the orders the first one created."
+    }
   },
   "nav": {
     "main": "Main navigation",
@@ -877,7 +882,7 @@
     "nav": "Invoices",
     "upload": {
       "title": "Upload an invoice",
-      "hint": "PDF, PNG or JPEG, 20 MB max. The invoice is read, then each line is proposed: nothing enters the costs without your confirmation.",
+      "hint": "PDF, PNG or JPEG, {max} max. The invoice is read, then each line is proposed: nothing enters the costs without your confirmation.",
       "fileLabel": "Invoice file",
       "choose": "Choose a file",
       "submit": "Upload and read",

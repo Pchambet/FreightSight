@@ -6,45 +6,62 @@ import { useLocale, useTranslations } from "next-intl";
 import { FileUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { btnPrimary, btnSecondary, input, label } from "@/components/layout/AppShell";
+import FileTooLarge from "@/components/shared/FileTooLarge";
 import { uploadInvoice } from "@/features/actions";
 import { addManualCosts, type ManualCost } from "@/features/start/actions";
 import { amountPlaceholder } from "@/lib/format";
+import { isTooLarge } from "@/lib/uploads";
 
 const FIELDS: ManualCost["cost_type"][] = ["OCEAN_FREIGHT", "CUSTOMS_DUTY", "CUSTOMS_BROKERAGE", "DRAYAGE"];
 
 /** Drop the forwarder's PDF — it is read for this container — or type the four figures known by heart. */
 export function InvoiceDrop({ base, containerId }: { base: string; containerId: string }) {
   const t = useTranslations("start.costs");
+  const tu = useTranslations("invoices.upload");
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [pending, start] = useTransition();
   const ref = useRef<HTMLInputElement>(null);
+  const tooLarge = isTooLarge(file);
   return (
-    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-      <label className="flex-1 min-w-0 flex items-center gap-3 rounded-lg border border-dashed border-slate-300 px-4 py-4 cursor-pointer hover:bg-slate-50 focus-within:ring-2 focus-within:ring-blue-500">
-        <FileUp className="w-5 h-5 text-slate-400 shrink-0" aria-hidden />
-        <span className="text-sm text-slate-600 truncate">{file ? file.name : t("choose")}</span>
-        <input ref={ref} type="file" accept="application/pdf,image/png,image/jpeg" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-      </label>
-      <button
-        type="button"
-        disabled={!file || pending}
-        className={`${btnPrimary} shrink-0`}
-        onClick={() =>
-          start(async () => {
-            if (!file) return;
-            const fd = new FormData();
-            fd.append("file", file);
-            fd.append("default_container_id", containerId);
-            const r = await uploadInvoice(fd);
-            if (!r.ok) return void toast.error(r.error);
-            router.push(`${base}&invoice=${r.data.id}`);
-          })
-        }
-      >
-        {pending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden /> : null}
-        {pending ? t("uploading") : t("upload")}
-      </button>
+    <div className="space-y-2">
+      <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+        <label className="flex-1 min-w-0 flex items-center gap-3 rounded-lg border border-dashed border-slate-300 px-4 py-4 cursor-pointer hover:bg-slate-50 focus-within:ring-2 focus-within:ring-blue-500">
+          <FileUp className="w-5 h-5 text-slate-400 shrink-0" aria-hidden />
+          <span className="text-sm text-slate-600 truncate">{file ? file.name : t("choose")}</span>
+          <input
+            ref={ref}
+            type="file"
+            accept="application/pdf,image/png,image/jpeg"
+            className="sr-only"
+            aria-invalid={tooLarge || undefined}
+            aria-describedby={tooLarge ? "start-invoice-too-large" : undefined}
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
+        </label>
+        <button
+          type="button"
+          disabled={!file || tooLarge || pending}
+          className={`${btnPrimary} shrink-0`}
+          onClick={() =>
+            start(async () => {
+              if (!file || tooLarge) return;
+              const fd = new FormData();
+              fd.append("file", file);
+              fd.append("default_container_id", containerId);
+              // Refused before the action runs (connection dropped, a body over a limit): it rejects.
+              const r = await uploadInvoice(fd).catch(() => null);
+              if (!r) return void toast.error(tu("failed"));
+              if (!r.ok) return void toast.error(r.error);
+              router.push(`${base}&invoice=${r.data.id}`);
+            })
+          }
+        >
+          {pending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden /> : null}
+          {pending ? t("uploading") : t("upload")}
+        </button>
+      </div>
+      {tooLarge ? <FileTooLarge id="start-invoice-too-large" file={file} kind="invoice" /> : null}
     </div>
   );
 }

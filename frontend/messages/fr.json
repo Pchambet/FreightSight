@@ -14,7 +14,12 @@
     "apiUnreachable": "L'API est injoignable. Le backend tourne-t-il ?",
     "skipToContent": "Aller au contenu principal",
     "dataUnavailable": "Vos données n'ont pas pu être lues",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "upload": {
+      "tooLarge": "Ce fichier fait {size} : un dépôt accepte {max} au plus.",
+      "tooLargeInvoice": "Le PDF envoyé par le transitaire est presque toujours bien plus léger qu'un scan ou une photo de la facture : déposez celui-là.",
+      "tooLargeImport": "Coupez-le en deux fichiers et importez-les l'un après l'autre : le second import complète les commandes créées par le premier."
+    }
   },
   "nav": {
     "main": "Navigation principale",
@@ -877,7 +882,7 @@
     "nav": "Factures",
     "upload": {
       "title": "Déposer une facture",
-      "hint": "PDF, PNG ou JPEG, 20 Mo maximum. La facture est lue, puis chaque ligne est proposée : rien n'entre dans les coûts sans votre validation.",
+      "hint": "PDF, PNG ou JPEG, {max} au plus. La facture est lue, puis chaque ligne est proposée : rien n'entre dans les coûts sans votre validation.",
       "fileLabel": "Fichier facture",
       "choose": "Choisir un fichier",
       "submit": "Déposer et lire",

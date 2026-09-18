@@ -15,6 +15,16 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  experimental: {
+    serverActions: {
+      // Invoices and import files are uploaded through Server Actions. Next refuses a body over 1 MB
+      // by default, and the refusal reaches the page as a crash, while a scanned invoice easily
+      // weighs 2 MB. Set above the largest file the screens send (src/lib/uploads.ts, 4,000,000
+      // bytes) plus the multipart envelope, and under what Vercel lets reach a function (4,400,000
+      // bytes pass, 4,500,000 are refused: measured on production, 18 Sept 2026).
+      bodySizeLimit: 4_300_000,
+    },
+  },
   async headers() {
     return [
       { source: "/(.*)", headers: securityHeaders },
