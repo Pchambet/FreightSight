@@ -458,12 +458,17 @@ class Cost(Timestamped, OrgScoped, Base):
         CheckConstraint("closed_at IS NULL OR status = 'ESTIMATE'", name="estimate_only_close"),
         CheckConstraint("supersedes_cost_id IS NULL OR status = 'ACTUAL'", name="actual_only_supersede"),
         Index("ix_costs_org_status", "org_id", "status", postgresql_where=text("closed_at IS NULL")),
+        # One invoice line is one charge of one type, in one currency, on one target: the freight of
+        # each container of a bill of lading, or a freight and its bunker surcharge merged into one
+        # cost, never collide; the same line recorded twice still does (migration 0028).
         Index(
             "uq_costs_invoice_line",
             "org_id",
             "vendor",
             "invoice_number",
             "cost_type",
+            "currency",
+            text("COALESCE(container_id, shipment_id, po_id, po_line_id)"),
             unique=True,
             postgresql_where=text("invoice_number IS NOT NULL"),
         ),

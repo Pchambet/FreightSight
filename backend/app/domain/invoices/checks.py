@@ -23,9 +23,10 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, or_, select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.domain.costing.entry import normalize_invoice_number, normalize_vendor
 from app.domain.fx.service import FxService
 from app.domain.invoices.ports import ExtractedLine, ExtractionContext, FreightInvoice
 from app.domain.models import Container, Cost, CostScope, CostStatus, CostType, PurchaseOrderLine
@@ -161,6 +162,48 @@ def duplicate_cost_note(
         f"{existing.invoice_number or ''}|{existing.amount_base}|{existing.currency}|"
         f"{existing.scope.value}"
     )
+
+
+def invoice_recorded(
+    db: Session,
+    org_id: UUID,
+    vendor: str | None,
+    invoice_number: str | None,
+    freight: list[tuple[CostScope, UUID]],
+) -> list[Cost]:
+    """The costs that already carry this invoice, whatever door it came in by: the same number, as it
+    compares (`normalize_invoice_number`), from the same forwarder — or, when either copy names no
+    forwarder, on the same freight. A short number like "1234" is in every forwarder's range; alone,
+    it proves nothing.
+
+    Not a charge that resembles another (that is `duplicate_cost_note`, which a person may overrule),
+    but the same document entered twice: a statement imported on Monday and its PDF confirmed on
+    Tuesday count every line of it twice, including the lines of other types the statement lumped
+    together.
+    """
+    number = normalize_invoice_number(invoice_number)
+    if not number:
+        return []
+    same_number = select(Cost).where(
+        Cost.org_id == org_id,
+        Cost.status == CostStatus.ACTUAL,
+        Cost.closed_at.is_(None),
+        Cost.invoice_number.is_not(None),
+        func.regexp_replace(func.upper(Cost.invoice_number), "[^A-Z0-9]", "", "g") == number,
+    )
+    wanted = normalize_vendor(vendor)
+    places = [
+        where for scope, target in freight if (where := _same_freight(db, org_id, scope, target)) is not None
+    ]
+    found: list[Cost] = []
+    for cost in db.scalars(same_number.order_by(Cost.created_at)):
+        theirs = normalize_vendor(cost.vendor)
+        if wanted and theirs:
+            if wanted == theirs:
+                found.append(cost)
+        elif places and db.scalar(select(Cost.id).where(Cost.id == cost.id, or_(*places))) is not None:
+            found.append(cost)
+    return found
 
 
 def check(

@@ -84,11 +84,11 @@ douane dedans, puisque ce sont des barèmes, pas juste le fret :
 
 | Ligne | FOB unitaire | Coût rendu unitaire (estimé, avant facture) |
 |-------|--------------|----------------------------------------------|
-| PO-2026-014 · pneu | **14,00 €** | **~17,85 €** |
-| PO-2026-015 · tapis | **20,00 €** | **~25,50 €** |
+| PO-2026-014 · pneu | **14,00 €** | **~17,72 €** |
+| PO-2026-015 · tapis | **20,00 €** | **~25,71 €** |
 
 ### Réflexe dirigeant
-> « Je croyais acheter le pneu à 14 €. En entrepôt c'est déjà 17,85 € **avant même** la facture Transitex,
+> « Je croyais acheter le pneu à 14 €. En entrepôt c'est déjà 17,72 € **avant même** la facture Transitex,
 > droits de douane compris. À 20 € de vente, ma marge n'est pas 6 € — c'est plutôt **2,15 €**. »
 
 ### Explorer (optionnel, 3 min)
@@ -158,8 +158,8 @@ Ouvrir la facture → encart **Relire les lignes**
 
 | Référence | FOB | Rendu **estimé** (avant Transitex) | Rendu **réel** (après Transitex) |
 |-----------|-----|-------------------------------------|-------------------------------------|
-| Pneu PO-2026-014 | 14,00 € | ~17,85 € | **18,14 €** |
-| Tapis PO-2026-015 | 20,00 € | ~25,50 € | **25,91 €** |
+| Pneu PO-2026-014 | 14,00 € | ~17,72 € | **17,98 €** |
+| Tapis PO-2026-015 | 20,00 € | ~25,71 € | **26,16 €** |
 
 Jauge **Postes facturés** : **5/5**, 100 % — plus aucun estimé sur ce conteneur.
 
@@ -186,7 +186,7 @@ Jauge **Postes facturés** : **5/5**, 100 % — plus aucun estimé sur ce conten
 - Déjà **sorti du terminal** — risque plus faible
 - 1 200 pneus seuls — autre profil de ventilation (mix pneus/tapis différent, fret et droits calculés sur
   ce seul chargement)
-- Comparez le **coût unitaire pneu** MSCU (18,14 €, réel) vs TGHU (~18,40 €, encore estimé — cette
+- Comparez le **coût unitaire pneu** MSCU (17,98 €, réel) vs TGHU (~18,40 €, encore estimé — cette
   facture ne concerne que MSCU) : même SKU, coût rendu différent selon le conteneur **et** selon que la
   facture est arrivée ou non
 

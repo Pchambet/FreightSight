@@ -58,8 +58,9 @@ def test_sample_data_seeds_the_reference_case(client: TestClient) -> None:
     assert report["totals"]["variance"] == "0.00"
     assert report["completeness"] == "0.00"
     by_sku = {ln["sku"]: ln for ln in report["lines"]}
-    assert by_sku["TYR-20555R16-91V"]["unit_landed_cost"] == "17.8534"
-    assert by_sku["MAT-EVA-6040-GY"]["unit_landed_cost"] == "25.5049"
+    # The duty goes by each line's own rate: the tyre at 4.5 % carries less of it than the mat at 6.5 %.
+    assert by_sku["TYR-20555R16-91V"]["unit_landed_cost"] == "17.7168"
+    assert by_sku["MAT-EVA-6040-GY"]["unit_landed_cost"] == "25.7098"
 
     report2 = client.get(f"/api/v1/landed-costs/containers/{cnt2['id']}").json()
     assert report2["totals"]["fob"] == "16800.00"
@@ -68,7 +69,7 @@ def test_sample_data_seeds_the_reference_case(client: TestClient) -> None:
 
     po_id = client.get("/api/v1/purchase-orders").json()[0]["id"]
     po = client.get(f"/api/v1/landed-costs/purchase-orders/{po_id}").json()
-    assert po["totals"]["allocated"] == "8166.06" and po["totals"]["landed"] == "35466.06"
+    assert po["totals"]["allocated"] == "8063.62" and po["totals"]["landed"] == "35363.62"
 
     integrity = client.get("/api/v1/reports/integrity").json()
     assert integrity["ok"] and integrity["costs_checked"] == 10

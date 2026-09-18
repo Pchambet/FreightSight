@@ -198,7 +198,9 @@ def test_duty_is_computed_on_the_customs_value(client: TestClient, org: Organiza
 
     created = {c["cost_type"]: c for c in estimates(client, container_id)["created"]}
     assert created["CUSTOMS_DUTY"]["amount"] == "585.00"  # 4.5 % of 13 000
-    assert created["CUSTOMS_DUTY"]["allocation_method"] == "BY_CIF_VALUE"
+    # every loaded line has its rate and they explain the duty: spread by theoretical duty, the
+    # same method the invoice that replaces this estimate will get
+    assert created["CUSTOMS_DUTY"]["allocation_method"] == "BY_THEORETICAL_DUTY"
 
 
 def test_a_tariff_card_supplies_the_rate_by_heading(client: TestClient, org: Organization) -> None:

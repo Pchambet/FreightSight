@@ -171,13 +171,19 @@ def landed_cost(
 
 @router.get("/dnd", response_model=schemas.DndAnalysis)
 def demurrage_and_detention(
-    t: TenantDep, period_from: date | None = None, period_to: date | None = None
+    t: TenantDep,
+    period_from: date | None = None,
+    period_to: date | None = None,
+    basis: Literal["cost_date", "arrival"] = "cost_date",
 ) -> schemas.DndAnalysis:
     """What demurrage and detention cost, and what acting in time plausibly saved.
 
     Paid is a fact. Avoided is an estimate that each line justifies in words, and that does not exist
     at all without the organization's own daily rate: a made-up saving is the kind of figure that
     destroys trust in every other number on the page.
+
+    `basis=arrival` counts what the boxes that arrived in the period cost, whenever it was invoiced —
+    the audit's reading, since detention is billed after the empty comes back.
     """
     card = t.db.scalar(
         t.q(RateCard).where(RateCard.cost_type == CostType.DEMURRAGE, RateCard.basis == RateBasis.FLAT)
@@ -188,6 +194,7 @@ def demurrage_and_detention(
         period_from=period_from,
         period_to=period_to,
         daily_rate=card.amount if card else None,
+        basis=basis,
     )
     return schemas.DndAnalysis(
         base_currency=report.base_currency,

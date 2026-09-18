@@ -32,9 +32,11 @@ from sqlalchemy.orm import Session
 from app.core.errors import Unprocessable
 from app.core.money import q2, q4, to_base
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
+from app.domain.costing.entry import same_invoice
 from app.domain.costing.service import Computation
 from app.domain.models import Container, Cost, CostStatus, Invoice, InvoiceStatus, Organization
 from app.domain.reporting.service import (
+    UNKNOWN,
     AvoidedRule,
     Bucket,
     _route,
@@ -462,8 +464,11 @@ def _duplicates(
             for second in costs[i + 1 :]:
                 if second.id in repeated:
                     continue
-                if (first.vendor, first.invoice_number) == (second.vendor, second.invoice_number):
-                    continue  # two lines of one invoice are that invoice's business
+                if same_invoice(first.vendor, first.invoice_number, second.vendor, second.invoice_number):
+                    # Two lines of one invoice are that invoice's business — and the same invoice
+                    # entered twice, a statement and its PDF, is a double entry of ours, not a
+                    # charge billed twice: preparing the audit says so, the audit never claims it.
+                    continue
                 if not _close(first, second):
                     continue
                 same_vendor = _name(first.vendor) is not None and _name(first.vendor) == _name(second.vendor)
@@ -588,8 +593,13 @@ def _outliers(
         landed_on = arrival_date(container)
         if landed_on is None or not (since <= landed_on <= period_to):
             continue
+        route, size = _route(container)[0], _size(container)
+        if route == UNKNOWN or not size:
+            # A box whose route or length nobody told us is compared with nothing: the middle of
+            # "unknown" is not a norm, and a 40' measured against 20' boxes is always "far above".
+            continue
         per_box_type[(cost.container_id, kind)] += cost.amount_base
-        group_of[cost.container_id] = (_route(container)[0], _size(container))
+        group_of[cost.container_id] = (route, size)
         landed_of[cost.container_id] = landed_on
         number_of[cost.container_id] = container.container_number
     for key in per_box_type:
@@ -764,8 +774,15 @@ def _margins(
 def _demurrage(
     db: Session, org: Organization, period_from: date, period_to: date, quantities: dict[UUID, Decimal]
 ) -> list[DemurrageLine]:
+    # By the arrival of the box, whatever the date of the charge: detention is invoiced after the empty
+    # comes back, often in the next quarter, and it belongs to the goods that arrived in this one.
     report = dnd_report(
-        db, org, period_from=period_from, period_to=period_to, daily_rate=_daily_rate(db, org)
+        db,
+        org,
+        period_from=period_from,
+        period_to=period_to,
+        daily_rate=_daily_rate(db, org),
+        basis="arrival",
     )
     lines: list[DemurrageLine] = []
     for line in report.lines:

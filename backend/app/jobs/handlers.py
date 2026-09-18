@@ -26,7 +26,7 @@ from app.core.settings import get_settings
 from app.core.tenancy import TenantSession, set_current_org
 from app.domain.alerts import codes
 from app.domain.alerts.notifier import Notification, Notifier, make_notifier
-from app.domain.alerts.service import raise_alert, raise_dnd_risk_alert
+from app.domain.alerts.service import REMIND_UNTIL_DAYS, raise_alert, raise_dnd_risk_alert
 from app.domain.documents.registry import get_store
 from app.domain.fx.service import FxService
 from app.domain.invoices import service as invoices_service
@@ -623,6 +623,9 @@ def remind_manual_tracking(db: Session, *, now: datetime | None = None) -> int:
                         Container.discharged_at.is_(None),
                         Container.eta.is_not(None),
                         Container.eta < moment - ETA_OVERDUE_AFTER * 2,
+                        # Like the demurrage reminders, silent after two months: a box whose ETA is a
+                        # quarter old is history someone imported, not a delivery to chase.
+                        Container.eta >= moment - timedelta(days=REMIND_UNTIL_DAYS),
                         Container.tracking_state.in_([TrackingState.MANUAL, TrackingState.UNTRACKED]),
                     )
                 )

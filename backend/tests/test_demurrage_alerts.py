@@ -388,6 +388,23 @@ def test_an_organization_on_manual_tracking_is_asked_once_a_week(
     assert "Saisissez le déchargement" in body
 
 
+def test_a_box_whose_eta_is_two_months_old_is_history_not_a_reminder(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """Like the demurrage reminders, silent after two months: a quarter imported for an audit is
+    history, and a weekly note for each of its boxes would bury the ones that matter."""
+    container_id = make_container(client)
+    container = db.get(Container, container_id)
+    assert container is not None
+    container.eta = NOW - timedelta(days=61)
+    container.tracking_state = TrackingState.MANUAL
+    db.commit()
+    assert handlers.remind_manual_tracking(db, now=NOW) == 0
+    container.eta = NOW - timedelta(days=59)
+    db.commit()
+    assert handlers.remind_manual_tracking(db, now=NOW) == 1
+
+
 def test_a_container_whose_discharge_was_entered_is_left_in_peace(
     client: TestClient, db: Session, org: Organization
 ) -> None:

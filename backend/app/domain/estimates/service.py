@@ -24,11 +24,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.money import q2, to_base
-from app.domain.costing import engine
+from app.domain.costing import engine, entry
 from app.domain.costing.service import Computation, compute
 from app.domain.fx.service import FxService
 from app.domain.models import (
-    AllocationMethod,
     Container,
     Cost,
     CostScope,
@@ -201,6 +200,7 @@ def estimate_container(
                 cost_date=cost_date,
                 created_by=created_by,
                 note=f"Estimated from the {card.basis.value} rate card",
+                comp=comp,
             )
         )
 
@@ -222,6 +222,7 @@ def estimate_container(
                     cost_date=cost_date,
                     created_by=created_by,
                     note="Theoretical duty on the customs value, from the tariff rates on the lines",
+                    comp=comp,
                 )
             )
         else:
@@ -246,10 +247,15 @@ def _estimate(
     cost_date: date,
     created_by: UUID | None,
     note: str,
+    comp: Computation,
 ) -> Cost:
     resolved = fx.resolve(db, org.base_currency, currency, cost_date)
-    method = (
-        AllocationMethod.BY_CIF_VALUE if cost_type is CostType.CUSTOMS_DUTY else org.default_allocation_method
+    target_id = container.id if scope is CostScope.CONTAINER else container.shipment_id
+    assert target_id is not None  # a SHIPMENT card is only applied to a container that has one
+    # The same method as the invoice that will replace this estimate, so that the variance between
+    # the two is a difference of amounts, not of how they were spread.
+    method = entry.default_method(
+        db, org, scope, target_id, cost_type, to_base(q2(amount), resolved.rate), comp
     )
     cost = Cost(
         org_id=org.id,

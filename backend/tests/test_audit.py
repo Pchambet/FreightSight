@@ -26,9 +26,10 @@ NOBODY = {"X-Org-Id": ""}
 
 
 def landed(
-    client: TestClient, number: str, day: str, quantity: str = "100", iso_type: str | None = None
+    client: TestClient, number: str, day: str, quantity: str = "100", iso_type: str | None = "42G1"
 ) -> str:
-    """A container discharged on `day`, carrying `quantity` units of a fresh order."""
+    """A container discharged on `day`, carrying `quantity` units of a fresh order: a 40' unless said
+    otherwise, since a box of unknown length is compared with nothing."""
     po = client.post(
         "/api/v1/purchase-orders",
         json={"po_number": f"PO-{number}", "currency": "EUR", "lines": [{**LINE, "quantity": quantity}]},
@@ -232,7 +233,7 @@ def test_a_charge_far_above_its_route_is_a_question_and_only_with_enough_peers(c
     (found,) = findings(client, "OUTLIER_CHARGE")
     assert (found["confidence"], found["amount"], found["basis"]) == ("to_check", "1000.00", 4)
     assert found["params"] == {
-        "amount": "1450.00", "median": "450.00", "ratio": "3.2", "route": "CNNGB-FRLEH"
+        "amount": "1450.00", "median": "450.00", "ratio": "3.2", "route": "CNNGB-FRLEH", "size": "40"
     }  # fmt: skip
     headline = audit(client)["headline"]
     assert (headline["recoverable_sure"], headline["recoverable_to_check"]) == ("0.00", "1000.00")
@@ -277,6 +278,19 @@ def test_duty_demurrage_and_catch_alls_are_never_compared_and_one_euro_is_one_fi
         cost(client, box, "THC", "260.00", vendor="T", invoice_number=f"T-{n}")
     cost(client, boxes[4], "THC", "260.00", vendor="TERMINAL", invoice_number="TH-9")
     assert [f["code"] for f in audit(client)["findings"]] == ["DUPLICATE_CHARGE"]
+
+
+def test_a_box_of_unknown_route_or_length_is_compared_with_nothing(client: TestClient) -> None:
+    """The middle of "unknown" is not a norm: without a route or a length, no box is far above anything."""
+    boxes = [landed(client, f"MSCU48219{n:02d}", day, iso_type=None) for n, day in enumerate(YEAR)]
+    route(client, boxes)
+    for n, box in enumerate(boxes):
+        cost(client, box, "DRAYAGE", "1450.00" if n == 4 else "450.00", vendor="T", invoice_number=f"D-{n}")
+    assert findings(client, "OUTLIER_CHARGE") == []
+    sized = [landed(client, f"TGHU72450{n:02d}", day) for n, day in enumerate(YEAR)]  # no voyage: no route
+    for n, box in enumerate(sized):
+        cost(client, box, "DRAYAGE", "1450.00" if n == 4 else "450.00", vendor="T", invoice_number=f"E-{n}")
+    assert findings(client, "OUTLIER_CHARGE") == []
 
 
 def test_charges_billed_at_nothing_are_no_norm(client: TestClient) -> None:
@@ -369,13 +383,31 @@ def test_the_first_page_is_the_sum_of_its_sections_and_the_sections_are_the_repo
     assert [(b["key"], b["landed"]) for b in body["coefficient_by_month"]] == [
         (b["key"], b["landed"]) for b in monthly["buckets"]
     ]
-    dnd = client.get("/api/v1/reports/dnd", params=period).json()
+    dnd = client.get("/api/v1/reports/dnd", params={**period, "basis": "arrival"}).json()
     assert [
         (d["container_number"], d["paid"], d["rule_code"], d["days_over"]) for d in body["demurrage"]
     ] == [(ln["container_number"], ln["paid"], ln["rule_code"], ln["days_over"]) for ln in dnd["lines"]]
     assert body["completeness"]["containers"] > 0 and "ecb" in body["completeness"]["fx_sources"]
     assert body["rules"]["outlier_min_basis"] == 4 and "DEMURRAGE" in body["rules"]["not_compared"]
     assert body["as_of"] == days_ago(0)
+
+
+def test_detention_invoiced_after_the_quarter_belongs_to_the_quarter_the_box_arrived_in(
+    client: TestClient,
+) -> None:
+    """Detention is billed once the empty is back, often weeks into the next quarter. The audit counts
+    what the boxes that arrived in the period cost; the screen's report stays on invoice dates."""
+    box = landed(client, "MSCU4821990", "2026-03-10")
+    cost(client, box, "DETENTION", "340.00", vendor="MSC", invoice_number="DET-1", cost_date="2026-04-22")
+    march = {"period_from": "2026-03-01", "period_to": "2026-03-31"}
+    body = audit(client, **march)
+    assert body["headline"]["demurrage_paid"] == "340.00"
+    assert [(d["container_number"], d["paid"]) for d in body["demurrage"]] == [("MSCU4821990", "340.00")]
+    by_invoice = client.get("/api/v1/reports/dnd", params=march).json()
+    by_arrival = client.get("/api/v1/reports/dnd", params={**march, "basis": "arrival"}).json()
+    assert (by_invoice["paid"], by_arrival["paid"]) == ("0.00", "340.00")
+    april = audit(client, period_from="2026-04-01", period_to="2026-04-30")
+    assert april["headline"]["demurrage_paid"] == "0.00"  # counted once, with its box
 
 
 def test_the_six_month_dataset_carries_the_three_flaws_that_were_put_in_it_and_nothing_untrue(

@@ -17,11 +17,12 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import Unprocessable
 from app.core.money import q2, to_base
-from app.domain.costing.service import recompute_org
+from app.domain.costing import entry
+from app.domain.costing.service import Computation, compute, recompute_org
 from app.domain.documents.ports import DocumentStore
 from app.domain.documents.service import store_document
 from app.domain.fx.service import FxService
-from app.domain.invoices.checks import CREDIT_NOTE_NOTE, check, duplicate_cost_note
+from app.domain.invoices.checks import CREDIT_NOTE_NOTE, check, duplicate_cost_note, invoice_recorded
 from app.domain.invoices.ports import (
     DocumentExtractor,
     ExtractionContext,
@@ -30,11 +31,10 @@ from app.domain.invoices.ports import (
     ExtractorNotConfigured,
 )
 from app.domain.models import (
-    AllocationMethod,
     Container,
     Cost,
     CostScope,
-    CostStatus,
+    CostType,
     ErpPush,
     Invoice,
     InvoiceLine,
@@ -272,41 +272,79 @@ def confirm(
             ],
         )
 
+    # The same document already in the books — its statement imported, or its PDF confirmed under a
+    # neighbouring spelling — is refused outright: no person can mean to count one invoice twice.
+    freight = [(line.scope, line.target_id) for line in accepted if line.scope and line.target_id]
+    recorded = invoice_recorded(db, org.id, invoice.vendor, invoice.invoice_number, freight)
+    if recorded:
+        raise Unprocessable(
+            "This invoice is already recorded; reopen or delete what carries it before confirming it again",
+            code="INVOICE_ALREADY_RECORDED",
+            errors=[
+                {
+                    "field": "invoice",
+                    "code": "INVOICE_ALREADY_RECORDED",
+                    "message": (
+                        f"@recorded|{cost.cost_type.value}|{cost.vendor or ''}|{cost.invoice_number or ''}|"
+                        f"{cost.amount_base}|{cost.scope.value}|{cost.created_at.date().isoformat()}"
+                    ),
+                }
+                for cost in recorded
+            ],
+        )
+
     notes: list[str] = _duplicate_notes(db, org, accepted, force=force)
 
-    cost_date = invoice.invoice_date or datetime.now(UTC).date()
-    costs: list[Cost] = []
-    superseded: list[UUID] = []
+    # Lines of one type, on one target, in one currency are one cost: the freight and its bunker
+    # surcharge, the origin and destination handlings. One cost per line would be two costs with the
+    # same invoice, forwarder, type and target — which the database refuses, rightly — and the
+    # allocation is the same either way. Every line still points at the cost it went into.
+    groups: dict[tuple[CostScope, UUID, CostType, str], list[InvoiceLine]] = {}
     for line in accepted:
         assert line.scope is not None and line.target_id is not None and line.cost_type is not None
-        model, foreign_key, what = SCOPE_MODEL[line.scope]
+        groups.setdefault((line.scope, line.target_id, line.cost_type, line.currency), []).append(line)
+
+    cost_date = invoice.invoice_date or datetime.now(UTC).date()
+    comp: Computation | None = None  # computed once, and only if a duty needs its method
+    costs: list[Cost] = []
+    superseded: list[UUID] = []
+    for (scope, target_id, cost_type, currency), lines in groups.items():
+        model, foreign_key, what = SCOPE_MODEL[scope]
         target = db.scalar(
-            select(model).where(model.id == line.target_id, model.org_id == org.id)  # type: ignore[attr-defined]
+            select(model).where(model.id == target_id, model.org_id == org.id)  # type: ignore[attr-defined]
         )
         if target is None:
             raise Unprocessable(
-                f"{what} {line.target_id} does not belong to this organization", code="UNKNOWN_TARGET"
+                f"{what} {target_id} does not belong to this organization", code="UNKNOWN_TARGET"
             )
-        resolved = fx.resolve(db, org.base_currency, line.currency, cost_date)
+        amount = q2(sum((line.amount for line in lines), Decimal(0)))
+        resolved = fx.resolve(db, org.base_currency, currency, cost_date)
+        amount_base = to_base(amount, resolved.rate)
+        if cost_type is CostType.CUSTOMS_DUTY and comp is None:
+            comp = compute(db, org)
+        numbers = ", ".join(str(line.line_no) for line in lines)
         cost = Cost(
             org_id=org.id,
-            scope=line.scope,
-            cost_type=line.cost_type,
-            amount=q2(line.amount),
-            currency=line.currency,
+            scope=scope,
+            cost_type=cost_type,
+            amount=amount,
+            currency=currency,
             fx_rate=resolved.rate,
             fx_date=resolved.rate_date,
             fx_source=resolved.source,
-            amount_base=to_base(q2(line.amount), resolved.rate),
-            allocation_method=_method(org, line.cost_type),
+            amount_base=amount_base,
+            allocation_method=entry.default_method(db, org, scope, target_id, cost_type, amount_base, comp),
             cost_date=cost_date,
             vendor=invoice.vendor,
             invoice_number=invoice.invoice_number,
-            notes=f"From invoice {invoice.invoice_number or invoice.id} line {line.line_no}",
+            notes=(
+                f"From invoice {invoice.invoice_number or invoice.id} "
+                f"{'lines' if len(lines) > 1 else 'line'} {numbers}"
+            ),
             created_by=created_by,
         )
-        setattr(cost, foreign_key, line.target_id)
-        candidates = _open_estimates(db, org, line)
+        setattr(cost, foreign_key, target_id)
+        candidates = entry.open_estimates(db, org.id, scope, target_id, cost_type)
         if len(candidates) == 1:
             # One estimate of this type on this target: this invoice is plainly the one it was
             # waiting for, and the pair becomes the variance.
@@ -316,12 +354,13 @@ def confirm(
             # Several: which one this invoice settles is a judgement, and guessing would silently
             # drop a real estimate out of the landed cost. Say so and leave them alone.
             notes.append(
-                f"Line {line.line_no}: {len(candidates)} open estimates of type "
-                f"{line.cost_type.value} on this target; none was replaced, pick one by hand."
+                f"Line {numbers}: {len(candidates)} open estimates of type "
+                f"{cost_type.value} on this target; none was replaced, pick one by hand."
             )
         db.add(cost)
         db.flush()
-        line.cost_id = cost.id
+        for line in lines:
+            line.cost_id = cost.id
         costs.append(cost)
 
     invoice.status = InvoiceStatus.CONFIRMED
@@ -433,27 +472,3 @@ def _duplicate_notes(
             ],
         )
     return [f"@forced_duplicate|{line.line_no}|{note.split('|', 1)[1]}" for line, note in collisions]
-
-
-def _open_estimates(db: Session, org: Organization, line: InvoiceLine) -> list[Cost]:
-    """Estimates of this cost type, on this exact target, still standing and not yet replaced."""
-    assert line.scope is not None and line.target_id is not None
-    _, foreign_key, _ = SCOPE_MODEL[line.scope]
-    taken = select(Cost.supersedes_cost_id).where(Cost.org_id == org.id, Cost.supersedes_cost_id.is_not(None))
-    stmt = select(Cost).where(
-        Cost.org_id == org.id,
-        Cost.status == CostStatus.ESTIMATE,
-        Cost.cost_type == line.cost_type,
-        Cost.closed_at.is_(None),
-        Cost.id.not_in(taken),
-        getattr(Cost, foreign_key) == line.target_id,
-    )
-    return list(db.scalars(stmt))
-
-
-def _method(org: Organization, cost_type: object) -> AllocationMethod:
-    from app.domain.models import CostType
-
-    if cost_type is CostType.CUSTOMS_DUTY:
-        return AllocationMethod.BY_CIF_VALUE
-    return org.default_allocation_method

@@ -1769,7 +1769,7 @@
           "reports"
         ],
         "summary": "Demurrage And Detention",
-        "description": "What demurrage and detention cost, and what acting in time plausibly saved.\n\nPaid is a fact. Avoided is an estimate that each line justifies in words, and that does not exist\nat all without the organization's own daily rate: a made-up saving is the kind of figure that\ndestroys trust in every other number on the page.",
+        "description": "What demurrage and detention cost, and what acting in time plausibly saved.\n\nPaid is a fact. Avoided is an estimate that each line justifies in words, and that does not exist\nat all without the organization's own daily rate: a made-up saving is the kind of figure that\ndestroys trust in every other number on the page.\n\n`basis=arrival` counts what the boxes that arrived in the period cost, whenever it was invoiced \u2014\nthe audit's reading, since detention is billed after the empty comes back.",
         "operationId": "demurrage_and_detention_api_v1_reports_dnd_get",
         "parameters": [
           {
@@ -1804,6 +1804,20 @@
                 }
               ],
               "title": "Period To"
+            }
+          },
+          {
+            "name": "basis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "cost_date",
+                "arrival"
+              ],
+              "type": "string",
+              "default": "cost_date",
+              "title": "Basis"
             }
           },
           {

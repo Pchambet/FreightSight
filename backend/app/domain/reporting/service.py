@@ -338,6 +338,7 @@ def dnd_report(
     period_from: date | None = None,
     period_to: date | None = None,
     daily_rate: Decimal | None = None,
+    basis: Literal["cost_date", "arrival"] = "cost_date",
 ) -> DndReport:
     """What demurrage and detention actually cost, and what acting in time plausibly saved.
 
@@ -345,7 +346,12 @@ def dnd_report(
     carries the rule that produced it — days between the first risk alert and the pickup, times the
     organization's own daily rate. Without a rate card there is no number at all, because a made-up
     saving is exactly the kind of figure that destroys trust in a report.
+
+    `basis` says what puts a charge in the period. `cost_date`, the screen's: what was invoiced in it.
+    `arrival`, the audit's: what the boxes that arrived in it cost, whenever it was invoiced —
+    detention comes after the empty is returned, often in the next quarter.
     """
+    by_invoice_date = basis == "cost_date"
     from app.domain.models import Alert, AlertKind
 
     charges = list(
@@ -355,8 +361,8 @@ def dnd_report(
                 Cost.status == CostStatus.ACTUAL,
                 Cost.closed_at.is_(None),
                 Cost.cost_type.in_([CostType.DEMURRAGE, CostType.DETENTION]),
-                *([Cost.cost_date >= period_from] if period_from else []),
-                *([Cost.cost_date <= period_to] if period_to else []),
+                *([Cost.cost_date >= period_from] if period_from and by_invoice_date else []),
+                *([Cost.cost_date <= period_to] if period_to and by_invoice_date else []),
             )
         )
     )
@@ -387,6 +393,8 @@ def dnd_report(
         alert = first_alert.get(container_id)
         picked_up = container.gate_out_at
         in_period = _in_period(container, period_from, period_to)
+        if not by_invoice_date and not in_period:
+            continue
         if paid == ZERO and (alert is None or picked_up is None or not in_period):
             continue
 

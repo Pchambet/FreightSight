@@ -52,8 +52,8 @@ def test_estimate_figures_quoted_in_the_demo_script(client: TestClient) -> None:
 
     mscu = client.get(f"/api/v1/landed-costs/containers/{containers['MSCU4821990']}").json()
     by_sku = {ln["sku"]: ln for ln in mscu["lines"]}
-    assert by_sku["TYR-20555R16-91V"]["unit_landed_cost"] == "17.8534"  # "~17,85 €"
-    assert by_sku["MAT-EVA-6040-GY"]["unit_landed_cost"] == "25.5049"  # "~25,50 €"
+    assert by_sku["TYR-20555R16-91V"]["unit_landed_cost"] == "17.7168"  # "~17,72 €"
+    assert by_sku["MAT-EVA-6040-GY"]["unit_landed_cost"] == "25.7098"  # "~25,71 €"
     assert mscu["totals"]["landed"] == "26142.50"
     assert mscu["completeness"] == "0.00"  # nothing invoiced yet
 
@@ -119,8 +119,8 @@ def test_confirming_the_whole_invoice_produces_a_real_variance(
     assert report["completeness"] == "1.00"
 
     by_sku = {ln["sku"]: ln for ln in report["lines"]}
-    assert by_sku["TYR-20555R16-91V"]["unit_landed_cost"] == "18.1377"  # "~18,14 €" — scène 5-6
-    assert by_sku["MAT-EVA-6040-GY"]["unit_landed_cost"] == "25.9110"  # "~25,91 €"
+    assert by_sku["TYR-20555R16-91V"]["unit_landed_cost"] == "17.9750"  # "~17,98 €" — scène 5-6
+    assert by_sku["MAT-EVA-6040-GY"]["unit_landed_cost"] == "26.1550"  # "~26,16 €"
 
     # TGHU never saw this invoice: it is exactly where it was before, still an estimate.
     tghu = client.get(f"/api/v1/landed-costs/containers/{containers['TGHU7245081']}").json()
