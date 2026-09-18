@@ -75,7 +75,7 @@ export default async function InvoicePage({ params }: Params) {
       />
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold">{invoice.vendor ?? "—"} <span className="text-slate-400 font-normal">{invoice.invoice_number ?? ""}</span></h1>
+          <h1 className="text-2xl font-semibold">{invoice.vendor ?? "—"} <span className="text-slate-500 font-normal">{invoice.invoice_number ?? ""}</span></h1>
           <p className="text-sm text-slate-500 mt-1">
             {statusLabel(invoice.status)}
             {invoice.invoice_date ? ` · ${dateShort(invoice.invoice_date, locale)}` : ""}
@@ -133,7 +133,7 @@ export default async function InvoicePage({ params }: Params) {
             <img src={`/api/invoices/${invoice.id}/document`} alt={invoice.filename ?? t("document")} className="w-full" />
           )}
         </Card>
-        <Card title={t("lines")} right={<span className="text-xs text-slate-400">{lines.length}</span>} className="xl:col-span-3">
+        <Card title={t("lines")} right={<span className="text-xs text-slate-500">{lines.length}</span>} className="xl:col-span-3">
           <div id="lignes" className="scroll-mt-6">
             <ReviewPanel invoice={invoice} targets={targets} />
           </div>

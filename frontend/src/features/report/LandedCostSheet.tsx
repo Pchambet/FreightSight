@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import BreakdownBar from "@/components/charts/BreakdownBar";
 import { COST_FAMILIES, familyTotal, foldFamilies, type CostFamily } from "@/components/charts/families";
+import ScrollRegion from "@/components/shared/ScrollRegion";
 import type { LandedCostReport } from "@/lib/api/client";
 import { dateShort, money, qty, rate } from "@/lib/format";
 
@@ -96,7 +97,7 @@ export default async function LandedCostSheet({ header, report, locale }: { head
 
       <section className="px-8 pb-6">
         <h2 className="text-sm font-semibold mb-2">{t("perSku")}</h2>
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <ScrollRegion label={t("perSku")} className="rounded-lg border border-slate-200">
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50">
               <tr>
@@ -114,7 +115,7 @@ export default async function LandedCostSheet({ header, report, locale }: { head
                 const q = Number(l.quantity);
                 return (
                   <tr key={l.load_id} className="print:break-inside-avoid">
-                    <td className={`${tdc} whitespace-nowrap`}>{l.po_number} <span className="text-slate-400">#{l.line_no}</span>{header.subjectType === "purchase_order" ? <div className="text-xs font-mono text-slate-500">{l.container_number}</div> : null}</td>
+                    <td className={`${tdc} whitespace-nowrap`}>{l.po_number} <span className="text-slate-500">#{l.line_no}</span>{header.subjectType === "purchase_order" ? <div className="text-xs font-mono text-slate-500">{l.container_number}</div> : null}</td>
                     <td className={tdc}><span className="font-mono">{l.sku ?? "—"}</span>{l.description ? <div className="text-xs text-slate-500">{l.description}</div> : null}</td>
                     <td className={`${tdc} text-right tabular-nums`}>{qty(l.quantity, locale)}</td>
                     <td className={`${tdc} text-right tabular-nums text-slate-600`}>{q > 0 ? money(Number(l.fob) / q, cur, locale) : "—"}</td>
@@ -126,7 +127,7 @@ export default async function LandedCostSheet({ header, report, locale }: { head
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollRegion>
       </section>
 
       <section className="px-8 pb-6">
@@ -134,7 +135,7 @@ export default async function LandedCostSheet({ header, report, locale }: { head
         {kept.length === 0 ? (
           <p className="text-sm text-slate-600">{t("noCosts")}</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <ScrollRegion label={t("costs")} className="rounded-lg border border-slate-200">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50">
                 <tr>
@@ -160,7 +161,7 @@ export default async function LandedCostSheet({ header, report, locale }: { head
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollRegion>
         )}
       </section>
 

@@ -9,6 +9,7 @@ import StackedRows from "@/components/charts/StackedRows";
 import { COST_FAMILIES, foldFamilies, type CostFamily } from "@/components/charts/families";
 import { Money } from "@/components/shared/Money";
 import Panel from "@/components/ui/Panel";
+import ScrollRegion from "@/components/shared/ScrollRegion";
 import { monthLabel, monthTitle } from "@/features/overview/period";
 import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
 import { reportsHubStep } from "@/features/workflow/steps";
@@ -113,7 +114,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       ) : null}
 
       <Card title={t("landed")} className="mb-6">
-        <div className="overflow-x-auto">
+        <ScrollRegion label={t("landed")}>
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50"><tr><th className={th}>{t("th.label")}</th><th className={thRight}>{t("th.loads")}</th><th className={thRight}>{t("th.quantity")}</th><th className={thRight}>{t("th.fob")}</th><th className={thRight}>{t("th.allocated")}</th><th className={thRight}>{t("th.landed")}</th><th className={thRight}>{t("th.freightShare")}</th></tr></thead>
             <tbody className="divide-y divide-slate-200">
@@ -139,12 +140,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               )}
             </tbody>
           </table>
-        </div>
+        </ScrollRegion>
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-2 items-start mb-6">
-        <Card title={t("skus")} right={<span className="text-xs text-slate-400 max-w-xs text-right">{t("skuAverageHint")}</span>}>
-          <div className="overflow-x-auto">
+        <Card title={t("skus")} right={<span className="text-xs text-slate-500 max-w-xs text-right">{t("skuAverageHint")}</span>}>
+          <ScrollRegion label={t("skus")}>
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50"><tr><th className={th}>{t("th.sku")}</th><th className={thRight}>{t("th.quantity")}</th><th className={thRight}>{t("th.fob")}</th><th className={thRight}>{t("th.landed")}</th><th className={thRight}>{t("th.unit")}</th></tr></thead>
               <tbody className="divide-y divide-slate-200">
@@ -153,10 +154,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollRegion>
         </Card>
 
-        <Card title={t("dnd")} right={<span className="text-xs text-slate-400 max-w-sm text-right">{t("dndHint", { demurrage: tt("DEMURRAGE") })}</span>}>
+        <Card title={t("dnd")} right={<span className="text-xs text-slate-500 max-w-sm text-right">{t("dndHint", { demurrage: tt("DEMURRAGE") })}</span>}>
           <div className="px-5 py-3 flex gap-8 border-b border-slate-200 text-sm">
             <div><div className="text-xs text-slate-500 uppercase tracking-wider">{t("th.paid")}</div><div className="font-semibold tabular-nums text-red-700"><Money amount={d?.paid ?? "0.00"} currency={cur} /></div></div>
             <div><div className="text-xs text-slate-500 uppercase tracking-wider">{t("th.avoided")}</div><div className="font-semibold tabular-nums text-emerald-700"><Money amount={d?.avoided ?? "0.00"} currency={cur} /></div></div>
@@ -179,7 +180,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <thead className="bg-slate-50"><tr><th className={th}>{t("th.container")}</th><th className={thRight}>{t("th.paid")}</th><th className={thRight}>{t("th.avoided")}</th><th className={th}>{t("th.rule")}</th></tr></thead>
               <tbody className="divide-y divide-slate-200">
                 {!d || d.lines.length === 0 ? <tr><td colSpan={4} className="px-5 py-6 text-center text-sm text-slate-500">{t("dndEmpty")}</td></tr> : d.lines.map((l) => (
-                  <tr key={l.container_id}><td className={td}><Link href={`/container/${l.container_id}`} className="font-mono text-blue-600 hover:underline">{l.container_number}</Link></td><td className={tdRight}><Money amount={l.paid} currency={cur} /></td><td className={tdRight}>{l.avoided != null ? <Money amount={l.avoided} currency={cur} /> : <span className="text-slate-400">{t("notEstimable")}</span>}</td><td className={`${td} text-xs text-slate-500 whitespace-normal max-w-md`}>{dndRuleText(l)}</td></tr>
+                  <tr key={l.container_id}><td className={td}><Link href={`/container/${l.container_id}`} className="font-mono text-blue-600 hover:underline">{l.container_number}</Link></td><td className={tdRight}><Money amount={l.paid} currency={cur} /></td><td className={tdRight}>{l.avoided != null ? <Money amount={l.avoided} currency={cur} /> : <span className="text-slate-500">{t("notEstimable")}</span>}</td><td className={`${td} text-xs text-slate-500 whitespace-normal max-w-md`}>{dndRuleText(l)}</td></tr>
                 ))}
               </tbody>
             </table>
@@ -187,7 +188,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </Card>
       </div>
 
-      <Card title={t("exports")} right={<span className="text-xs text-slate-400 max-w-md text-right">{t("exportsHint")}</span>}>
+      <Card title={t("exports")} right={<span className="text-xs text-slate-500 max-w-md text-right">{t("exportsHint")}</span>}>
         <div className="p-5 flex flex-wrap gap-3">
           {(["landed-costs", "costs", "purchase-orders", "containers"] as const).map((n) => (
             <a key={n} href={`/api/exports/${n}?${csvQuery}`} className={btnSecondary}><Download className="w-4 h-4 mr-2" />{t(`export.${n}`)}</a>

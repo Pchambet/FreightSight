@@ -38,7 +38,7 @@ export default function ConfidenceBadge({
 }) {
   const t = useTranslations("confidence");
   const tier = band ? (band.toLowerCase() as "high" | "medium" | "low") : confidenceTier(value);
-  if (tier === null) return <span className={`text-slate-400 ${className ?? ""}`}>—</span>;
+  if (tier === null) return <span className={`text-slate-500 ${className ?? ""}`}>—</span>;
   const n = typeof value === "number" ? value : Number(value);
   const pctLabel = Number.isFinite(n) ? `${Math.round(n * 100)} %` : "";
   const label = confirmed ? t("confirmedFlag") : flagOnly ? (tier === "high" ? null : t("reviewFlag")) : t(tier);

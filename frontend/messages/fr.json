@@ -1499,7 +1499,9 @@
       "costs": "Saisir des coûts (facture ou manuel)",
       "invoice": "Confirmer une facture transitaire",
       "unitCosts": "Voir le coût unitaire par référence"
-    }
+    },
+    "stepDone": "(fait)",
+    "stepTodo": "(à faire)"
   },
   "costFamily": {
     "freight": "Fret et assurance",

@@ -55,19 +55,19 @@ export async function AuditEntries({ entries, labels }: { entries: AuditEntry[];
                 <span className="ml-2 text-xs font-normal text-slate-500">{ref}</span>
               </div>
               {/* A member the API can no longer name gets a plain label, never a uuid fragment. */}
-              <div className="text-xs text-slate-400 tabular-nums whitespace-nowrap">{dateTimeShort(e.at, locale)} · {e.actor_user_id ? (e.actor_name ?? t("actorUnknown")) : t("system")}</div>
+              <div className="text-xs text-slate-500 tabular-nums whitespace-nowrap">{dateTimeShort(e.at, locale)} · {e.actor_user_id ? (e.actor_name ?? t("actorUnknown")) : t("system")}</div>
             </div>
             {changes.length ? (
               <dl className="mt-1.5 grid gap-x-4 gap-y-0.5 text-xs" style={{ gridTemplateColumns: "max-content 1fr" }}>
                 {changes.slice(0, 12).map((c) => (
                   <div key={c.key} className="contents">
                     <dt className="text-slate-500">{c.label}</dt>
-                    <dd className="text-slate-700 break-all"><span className="text-slate-400 line-through decoration-slate-300">{c.from}</span> → {c.to}</dd>
+                    <dd className="text-slate-700 break-all"><span className="text-slate-500 line-through decoration-slate-300">{c.from}</span> → {c.to}</dd>
                   </div>
                 ))}
-                {changes.length > 12 ? <div className="col-span-2 text-slate-400">…</div> : null}
+                {changes.length > 12 ? <div className="col-span-2 text-slate-500">…</div> : null}
               </dl>
-            ) : <div className="text-xs text-slate-400 mt-0.5">{t("unchanged")}</div>}
+            ) : <div className="text-xs text-slate-500 mt-0.5">{t("unchanged")}</div>}
           </li>
         );
       })}

@@ -358,7 +358,7 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
             </button>
             <button type="button" disabled={pending} onClick={() => run(() => rejectInvoice(invoice.id), () => t("rejected"))} className={btnSecondary}>{t("reject")}</button>
             <button type="button" disabled={pending} onClick={() => run(() => retryInvoice(invoice.id), () => t("retried"))} className="text-sm text-slate-500 hover:underline">{t("retry")}</button>
-            <span className="text-xs text-slate-400 ml-auto">{new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { dateStyle: "medium" }).format(new Date(invoice.created_at))}</span>
+            <span className="text-xs text-slate-500 ml-auto">{new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { dateStyle: "medium" }).format(new Date(invoice.created_at))}</span>
           </div>
           <AddLineForm invoiceId={invoice.id} targets={targets} />
         </>

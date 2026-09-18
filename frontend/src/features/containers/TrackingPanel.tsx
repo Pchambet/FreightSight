@@ -46,7 +46,7 @@ export default function TrackingPanel({ container, subscription }: { container: 
   const providerLabel = (p: string) => (t.has(`provider.${p}`) ? t(`provider.${p}`) : p);
 
   return (
-    <Card title={t("title")} right={<span className="text-xs text-slate-400">{subscription ? `${t("subscribed", { provider: providerLabel(subscription.provider) })} · ${t("subStatus", { status: subscription.status })}` : t("manualNote")}</span>}>
+    <Card title={t("title")} right={<span className="text-xs text-slate-500">{subscription ? `${t("subscribed", { provider: providerLabel(subscription.provider) })} · ${t("subStatus", { status: subscription.status })}` : t("manualNote")}</span>}>
       <div className="p-5 space-y-4">
         <div>
           <label className={label} htmlFor="milestone">{t("milestone")}</label>

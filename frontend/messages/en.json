@@ -1499,7 +1499,9 @@
       "costs": "Enter costs (invoice or manual)",
       "invoice": "Confirm a forwarder invoice",
       "unitCosts": "View unit cost per SKU"
-    }
+    },
+    "stepDone": "(done)",
+    "stepTodo": "(to do)"
   },
   "costFamily": {
     "freight": "Freight and insurance",

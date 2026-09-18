@@ -56,12 +56,15 @@ export default async function OnboardingChecklist({
           <li key={s.key}>
             <Link
               href={s.href}
+              aria-current={s.key === next.key ? "step" : undefined}
               className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
                 s.done ? "text-emerald-800 bg-emerald-50/80" : s.key === next.key ? "text-blue-950 bg-white/80 ring-1 ring-blue-200" : "text-slate-600 hover:bg-white/60"
               }`}
             >
-              {s.done ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" aria-hidden /> : <Circle className="w-4 h-4 shrink-0 text-slate-400" aria-hidden />}
+              {s.done ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" aria-hidden /> : <Circle className="w-4 h-4 shrink-0 text-slate-500" aria-hidden />}
               <span>{s.label}</span>
+              {/* The icon and the colours say it to the eye; this says it to a screen reader. */}
+              <span className="sr-only">{s.done ? t("stepDone") : t("stepTodo")}</span>
             </Link>
           </li>
         ))}

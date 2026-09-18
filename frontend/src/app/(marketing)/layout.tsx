@@ -48,7 +48,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <div className="font-semibold text-slate-900 mb-2">Contact</div>
             <p><a href={site.bookingUrl} className="text-blue-700 hover:underline">Réserver 20 minutes</a> · <Link href="/design-partner" className="text-blue-700 hover:underline">Programme design partner</Link></p>
             <p className="mt-2"><a href={site.quickCheckUrl} className="text-blue-700 hover:underline">Envoyez une facture transitaire et le bon de commande</a> : coût rendu par référence sous 24&nbsp;h.</p>
-            <p className="mt-3 text-xs text-slate-400">© 2026 FreightSight. Les montants affichés sur ce site sont des exemples.</p>
+            <p className="mt-3 text-xs text-slate-500">© 2026 FreightSight. Les montants affichés sur ce site sont des exemples.</p>
           </div>
         </div>
       </footer>

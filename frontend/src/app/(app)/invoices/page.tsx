@@ -23,7 +23,7 @@ const STATUS_STYLE: Record<InvoiceStatus, string> = {
   NEEDS_REVIEW: "bg-amber-100 text-amber-800",
   CONFIRMED: "bg-emerald-100 text-emerald-800",
   FAILED: "bg-red-100 text-red-800",
-  REJECTED: "bg-slate-100 text-slate-500",
+  REJECTED: "bg-slate-100 text-slate-600",
 };
 
 export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
@@ -63,7 +63,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
             </thead>
             <tbody className="divide-y divide-slate-200">
               {invoices.length === 0 ? (
-                <tr><td colSpan={7} className="px-5 py-14 text-center text-slate-400">
+                <tr><td colSpan={7} className="px-5 py-14 text-center text-slate-500">
                   <Receipt className="w-10 h-10 mx-auto mb-3 text-slate-300" aria-hidden />
                   <p className="text-sm text-slate-600 mb-4">{t("empty")}</p>
                   <Link href="#depot" className={btnPrimary}>{t("emptyAction")}</Link>

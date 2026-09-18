@@ -71,14 +71,14 @@ export default function RateCards({ cards, currency }: { cards: RateCard[]; curr
 
   return (
     <>
-    <Card title={t("title")} right={<span className="text-xs text-slate-400 max-w-md text-right">{t("hint", { demurrage: typeLabel("DEMURRAGE") })}</span>}>
+    <Card title={t("title")} right={<span className="text-xs text-slate-500 max-w-md text-right">{t("hint", { demurrage: typeLabel("DEMURRAGE") })}</span>}>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50"><tr><th className={th}>{t("costType")}</th><th className={th}>{t("scope")}</th><th className={th}>{t("basis")}</th><th className={thRight}>{t("amount")}</th><th className={th}>{t("hsCode")}</th><th className={th}>{t("notes")}</th><th className={th}></th></tr></thead>
           <tbody className="divide-y divide-slate-200">
             {cards.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-5 py-6 text-center text-sm text-slate-400">
+                <td colSpan={7} className="px-5 py-6 text-center text-sm text-slate-500">
                   <p>{t("empty")}</p>
                   <p className="mt-1">{t("emptyHint")}</p>
                   <button type="button" onClick={addExamples} disabled={pending} className={`${btnSecondary} mt-3`}>{t("example")}</button>
@@ -92,7 +92,7 @@ export default function RateCards({ cards, currency }: { cards: RateCard[]; curr
                 <td className={tdRight}>{c.basis === "PCT_OF_FOB" ? amountLabel(c) : <Money amount={c.amount} currency={c.currency} />}</td>
                 <td className={`${td} font-mono text-slate-600`}>{c.hs_code ?? "—"}</td>
                 <td className={`${td} text-slate-500 text-xs`}>{c.notes ?? ""}</td>
-                <td className={tdRight}><button type="button" onClick={(e) => { lastTriggerRef.current = e.currentTarget; setToDelete(c); }} disabled={pending} className="text-slate-400 hover:text-red-600" aria-label={t("deleteConfirmConfirm")}><Trash2 className="w-4 h-4" /></button></td>
+                <td className={tdRight}><button type="button" onClick={(e) => { lastTriggerRef.current = e.currentTarget; setToDelete(c); }} disabled={pending} className="text-slate-500 hover:text-red-600" aria-label={t("deleteConfirmConfirm")}><Trash2 className="w-4 h-4" /></button></td>
               </tr>
             ))}
           </tbody>

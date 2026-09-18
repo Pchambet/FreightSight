@@ -4,6 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { Card, PageHeader, btnSecondary, td, tdRight, th, thRight } from "@/components/layout/AppShell";
 import Breadcrumb from "@/components/shared/Breadcrumb";
 import { Money } from "@/components/shared/Money";
+import ScrollRegion from "@/components/shared/ScrollRegion";
 import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
 import { varianceHubStep } from "@/features/workflow/steps";
 import { api, type VarianceReport } from "@/lib/api/client";
@@ -22,7 +23,7 @@ function shiftMonth(period: string, delta: number): string {
 function Table({ rows, currency, title, thLabel, thEst, thAct, thVar }: { rows: VarianceReport["by_cost_type"]; currency: string; title: string; thLabel: string; thEst: string; thAct: string; thVar: string }) {
   return (
     <Card title={title}>
-      <div className="overflow-x-auto">
+      <ScrollRegion label={title}>
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50"><tr><th className={th}>{thLabel}</th><th className={thRight}>{thEst}</th><th className={thRight}>{thAct}</th><th className={thRight}>{thVar}</th></tr></thead>
           <tbody className="divide-y divide-slate-200">
@@ -39,7 +40,7 @@ function Table({ rows, currency, title, thLabel, thEst, thAct, thVar }: { rows: 
             })}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </Card>
   );
 }

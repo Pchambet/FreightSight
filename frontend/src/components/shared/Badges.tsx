@@ -15,7 +15,7 @@ const MILESTONE_STYLE: Partial<Record<ContainerMilestone, string>> = {
 };
 
 const RISK_STYLE: Record<DndRisk, string> = {
-  NONE: "bg-slate-100 text-slate-500 ring-slate-500/20",
+  NONE: "bg-slate-100 text-slate-600 ring-slate-500/20",
   LOW: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
   MEDIUM: "bg-amber-50 text-amber-700 ring-amber-600/20",
   HIGH: "bg-orange-50 text-orange-700 ring-orange-600/20",
@@ -31,7 +31,7 @@ export function MilestoneBadge({ milestone }: { milestone: ContainerMilestone })
 
 export function RiskBadge({ risk, days }: { risk: DndRisk; days?: number | null }) {
   const t = useTranslations();
-  if (risk === "NONE") return <span className="text-xs text-slate-400">—</span>;
+  if (risk === "NONE") return <span className="text-xs text-slate-500">—</span>;
   const suffix =
     days === null || days === undefined
       ? ""

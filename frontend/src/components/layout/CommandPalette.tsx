@@ -217,7 +217,7 @@ export default function CommandPalette() {
                 if (rows.length === 0) return null;
                 return (
                   <li key={g} role="presentation">
-                    <div className="px-2 pt-2 pb-1 text-[11px] font-medium uppercase tracking-wider text-slate-400">{t(`palette.group.${g}`)}</div>
+                    <div className="px-2 pt-2 pb-1 text-[11px] font-medium uppercase tracking-wider text-slate-500">{t(`palette.group.${g}`)}</div>
                     <ul role="group">
                       {rows.map((e) => {
                         const index = entries.indexOf(e);

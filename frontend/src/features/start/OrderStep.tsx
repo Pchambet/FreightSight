@@ -117,7 +117,7 @@ export default function OrderStep({ existing }: { existing: { id: string; label:
                     </td>
                   ))}
                   <td className="p-1 text-center">
-                    <button type="button" onClick={() => setRows((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== r) : [blank()]))} className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                    <button type="button" onClick={() => setRows((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== r) : [blank()]))} className="p-1.5 rounded text-slate-500 hover:text-red-600 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
                       <Trash2 className="w-4 h-4" aria-hidden />
                       <span className="sr-only">{t("removeLine", { line: r + 1 })}</span>
                     </button>

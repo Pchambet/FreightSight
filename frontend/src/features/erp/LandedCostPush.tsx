@@ -158,13 +158,13 @@ export default function LandedCostPush({ containerId, currency, embedded = false
               <div className="flex items-center justify-between px-3 py-2 bg-slate-50 text-sm">
                 <span className="text-slate-700">
                   {preview.receipt_name ? t("receipt", { name: preview.receipt_name }) : t("noReceipt")}
-                  <span className="text-slate-400"> · {going.length ? t("willGo", { count: going.length }) : t("nothingNew")}</span>
+                  <span className="text-slate-500"> · {going.length ? t("willGo", { count: going.length }) : t("nothingNew")}</span>
                 </span>
                 <span className="font-semibold tabular-nums"><Money amount={preview.total} currency={currency} /></span>
               </div>
               <ul className="divide-y divide-slate-100">
                 {preview.costs.map((c, i) => (
-                  <li key={i} className={`px-3 py-2 text-sm ${c.pushed_as ? "text-slate-400" : ""}`}>
+                  <li key={i} className={`px-3 py-2 text-sm ${c.pushed_as ? "text-slate-500" : ""}`}>
                     <div className="flex items-center justify-between gap-3">
                       <span className={c.pushed_as ? "" : "text-slate-800"}>
                         {c.label}
@@ -176,7 +176,7 @@ export default function LandedCostPush({ containerId, currency, embedded = false
                       <ul className="mt-1 space-y-0.5">
                         {c.lines.map((l) => (
                           <li key={l.move_id} className="flex items-center justify-between text-xs text-slate-500 pl-3">
-                            <span>{l.sku ? <span className="font-mono text-slate-600">{l.sku}</span> : null} {l.product_name} <span className="text-slate-400">× {l.quantity}</span></span>
+                            <span>{l.sku ? <span className="font-mono text-slate-600">{l.sku}</span> : null} {l.product_name} <span className="text-slate-500">× {l.quantity}</span></span>
                             <span className="tabular-nums"><Money amount={l.amount} currency={currency} /></span>
                           </li>
                         ))}
@@ -204,7 +204,7 @@ export default function LandedCostPush({ containerId, currency, embedded = false
               <div className="flex items-center text-xs text-slate-500 uppercase tracking-wider mb-2"><History className="w-3.5 h-3.5 mr-1.5" />{tp("title")}</div>
               <ul className="space-y-2">
                 {pushes.map((p) => (
-                  <li key={p.id} className={`text-sm ${p.forgotten_at ? "text-slate-400" : "text-slate-700"}`}>
+                  <li key={p.id} className={`text-sm ${p.forgotten_at ? "text-slate-500" : "text-slate-700"}`}>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       {p.record_url && !p.forgotten_at ? (
                         <OdooLink href={p.record_url} className={`font-medium ${p.forgotten_at ? "line-through" : ""}`}>

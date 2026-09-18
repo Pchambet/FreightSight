@@ -70,7 +70,7 @@ export default function EstimatePanel({ report, currency, containerId }: { repor
         <div className="text-xs text-slate-500 uppercase tracking-wider">{t("variance")}</div>
         {pairs === 0 ? (
           <>
-            <div className="text-base font-semibold tabular-nums text-slate-400">—</div>
+            <div className="text-base font-semibold tabular-nums text-slate-500">—</div>
             <div className="text-[11px] text-slate-500 mt-0.5">{t("varianceNone")}</div>
           </>
         ) : (
@@ -86,7 +86,7 @@ export default function EstimatePanel({ report, currency, containerId }: { repor
       <div className="min-w-[12rem]">
         <div className="text-xs text-slate-500 uppercase tracking-wider" title={t("completenessHint")}>{t("completeness")}</div>
         {expected.length === 0 ? (
-          <div className="text-sm text-slate-400">{t("noExpected")}</div>
+          <div className="text-sm text-slate-500">{t("noExpected")}</div>
         ) : (
           <div className="flex items-center gap-2">
             <div className="h-2 w-28 rounded bg-slate-200 overflow-hidden"><div className="h-2 bg-emerald-500" style={{ width: `${Math.round((invoiced.length / expected.length) * 100)}%` }} /></div>

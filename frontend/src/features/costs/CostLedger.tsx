@@ -94,14 +94,14 @@ export default function CostLedger({ report, currency, revalidate }: { report: L
                   <td className={`${td} text-slate-600`}>{dateShort(c.cost_date, locale)}</td>
                   <td className={td}>
                     {costTypeLabel(c.cost_type)}
-                    {c.status === "ESTIMATE" ? <span className={`ml-2 inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${c.closed_at ? "bg-slate-100 text-slate-500" : "bg-violet-100 text-violet-800"}`}>{c.closed_at ? te("closed") : te("statusEstimate")}</span> : null}
-                    {c.supersedes_cost_id ? <span className="ml-2 text-[10px] text-slate-400 uppercase tracking-wider">↩ {te("statusEstimate").toLowerCase()}</span> : null}
+                    {c.status === "ESTIMATE" ? <span className={`ml-2 inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${c.closed_at ? "bg-slate-100 text-slate-600" : "bg-violet-100 text-violet-800"}`}>{c.closed_at ? te("closed") : te("statusEstimate")}</span> : null}
+                    {c.supersedes_cost_id ? <span className="ml-2 text-[10px] text-slate-500 uppercase tracking-wider">↩ {te("statusEstimate").toLowerCase()}</span> : null}
                   </td>
                   <td className={`${td} text-slate-600`}>{scopeLabel(c.scope)}</td>
                   <td className={tdRight}><Money amount={c.amount} currency={c.currency} /></td>
                   <td className={tdRight}>
                     <Money amount={c.amount_base} currency={currency} className="font-medium" />
-                    {c.currency !== currency ? <div className="text-xs text-slate-400">@ {rate(c.fx_rate, locale)} ({fxSourceLabel(c.fx_source as never)})</div> : null}
+                    {c.currency !== currency ? <div className="text-xs text-slate-500">@ {rate(c.fx_rate, locale)} ({fxSourceLabel(c.fx_source as never)})</div> : null}
                   </td>
                   <td className={`${td} text-slate-600`}>{methodLabel(c.allocation_method)}</td>
                   <td className={`${td} text-slate-600 text-xs`}>{[c.vendor, c.invoice_number].filter(Boolean).join(" · ") || tc("empty")}</td>
@@ -110,7 +110,7 @@ export default function CostLedger({ report, currency, revalidate }: { report: L
                       type="button"
                       disabled={pending}
                       onClick={(e) => { lastTriggerRef.current = e.currentTarget; setToDelete(c); }}
-                      className="text-slate-400 hover:text-red-600"
+                      className="text-slate-500 hover:text-red-600"
                       aria-label={t("delete")}
                     >
                       <Trash2 className="w-4 h-4" />

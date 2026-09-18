@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Card, input, td, tdRight, th, thRight } from "@/components/layout/AppShell";
 import { Money } from "@/components/shared/Money";
+import ScrollRegion from "@/components/shared/ScrollRegion";
 import { previewAllocation } from "@/features/actions";
 import type { LandedCostReport } from "@/lib/api/client";
 import { USER_METHODS, type CostType } from "@/lib/domain";
@@ -77,11 +78,11 @@ export default function AllocationPanel({ containerId, poId, report }: { contain
               </select>
             </label>
           ))}
-          {pending ? <span className="text-slate-400">{tr("recomputing")}</span> : null}
+          {pending ? <span className="text-slate-500">{tr("recomputing")}</span> : null}
           {isPreview ? <button type="button" onClick={() => { setOverrides({}); setPreview(null); }} className="text-blue-600 hover:underline">{tr("reset")}</button> : null}
         </div>
       ) : null}
-      <div className="overflow-x-auto">
+      <ScrollRegion label={tr("title")}>
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50">
             <tr>
@@ -132,7 +133,7 @@ export default function AllocationPanel({ containerId, poId, report }: { contain
             </tfoot>
           ) : null}
         </table>
-      </div>
+      </ScrollRegion>
     </Card>
   );
 }

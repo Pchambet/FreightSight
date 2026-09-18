@@ -45,13 +45,13 @@ export default function ErpConnection({ connection, runs }: { connection: Conn |
     });
 
   return (
-    <Card title={t("title")} right={<span className="text-xs text-slate-400 max-w-md text-right">{t("hint")}</span>}>
+    <Card title={t("title")} right={<span className="text-xs text-slate-500 max-w-md text-right">{t("hint")}</span>}>
       {connection ? (
         <div className="p-5 space-y-4">
           <div className="flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700"><Plug className="w-4 h-4" />{t("connected")}</span>
             <span className="text-sm text-slate-600">{t("connectedDetail", { kind: connection.kind === "ODOO" ? "Odoo" : connection.kind, version: connection.server_version ?? "", company: connection.company ?? "" })}</span>
-            <span className="text-xs text-slate-400">· {connection.url} · {connection.database} · {connection.login}</span>
+            <span className="text-xs text-slate-500">· {connection.url} · {connection.database} · {connection.login}</span>
           </div>
           {/* connection.last_error is a raw, uncoded backend string (now readable prose, but still
               English on record) — shown as a generic sentence rather than verbatim; see needs_other_lane. */}
@@ -70,7 +70,7 @@ export default function ErpConnection({ connection, runs }: { connection: Conn |
           </div>
           <div>
             <div className="text-xs font-medium uppercase tracking-wider text-slate-500 mb-2">{t("runs")}</div>
-            {runs.length === 0 ? <p className="text-xs text-slate-400">{t("noRuns")}</p> : (
+            {runs.length === 0 ? <p className="text-xs text-slate-500">{t("noRuns")}</p> : (
               <table className="min-w-full text-sm divide-y divide-slate-200">
                 <thead><tr><th className={th}>{t("run.started")}</th><th className={th}>{t("run.status")}</th><th className={th}>{t("run.orders")}</th><th className={th}>{t("run.lines")}</th><th className={th}>{t("run.error")}</th></tr></thead>
                 <tbody className="divide-y divide-slate-200">
@@ -87,7 +87,7 @@ export default function ErpConnection({ connection, runs }: { connection: Conn |
           <div className="md:col-span-2"><label className={label} htmlFor="erp-url">{t("url")}</label><input id="erp-url" name="url" type="url" required placeholder="https://mycompany.odoo.com" className={input} /></div>
           <div><label className={label} htmlFor="erp-db">{t("database")}</label><input id="erp-db" name="database" required className={input} /></div>
           <div><label className={label} htmlFor="erp-login">{t("login")}</label><input id="erp-login" name="login" required autoComplete="off" className={input} /></div>
-          <div className="md:col-span-2"><label className={label} htmlFor="erp-key">{t("apiKey")}</label><input id="erp-key" name="api_key" type="password" required autoComplete="new-password" className={`${input} font-mono`} /><p className="text-xs text-slate-400 mt-1">{t("apiKeyHint")}</p></div>
+          <div className="md:col-span-2"><label className={label} htmlFor="erp-key">{t("apiKey")}</label><input id="erp-key" name="api_key" type="password" required autoComplete="new-password" className={`${input} font-mono`} /><p className="text-xs text-slate-500 mt-1">{t("apiKeyHint")}</p></div>
           <div className="md:col-span-2"><button type="submit" disabled={pending} className={btnPrimary}>{pending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plug className="w-4 h-4 mr-2" />}{t("connect")}</button></div>
         </form>
       )}

@@ -8,6 +8,7 @@ import Breadcrumb from "@/components/shared/Breadcrumb";
 import MetricLabel from "@/components/shared/MetricLabel";
 import CollapsibleSection from "@/components/shared/CollapsibleSection";
 import { Money } from "@/components/shared/Money";
+import ScrollRegion from "@/components/shared/ScrollRegion";
 import AddCostForm from "@/features/costs/AddCostForm";
 import AllocationPanel from "@/features/costs/AllocationPanel";
 import CostBreakdown from "@/features/costs/CostBreakdown";
@@ -135,7 +136,7 @@ export default async function PurchaseOrderPage({ params }: Params) {
 
       <div className="space-y-3">
         <CollapsibleSection title={t("linesCard")} defaultOpen>
-          <div className="overflow-x-auto">
+          <ScrollRegion label={t("linesCard")}>
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50"><tr><th className={th}>{t("th.lineNo")}</th><th className={th}>{t("th.sku")}</th><th className={thRight}>{t("th.quantity")}</th><th className={thRight}>{t("th.unitPrice")}</th><th className={thRight}>{t("th.weight")}</th><th className={thRight}>{t("th.volume")}</th><th className={thRight}>{t("th.duty")}</th></tr></thead>
               <tbody className="divide-y divide-slate-200">
@@ -152,7 +153,7 @@ export default async function PurchaseOrderPage({ params }: Params) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollRegion>
         </CollapsibleSection>
 
         <CollapsibleSection title={t("addCostCard")} hint={t("sections.addCostHint")}>

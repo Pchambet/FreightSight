@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Card, btnPrimary, btnSecondary, input, label, td, th } from "@/components/layout/AppShell";
 import FileTooLarge from "@/components/shared/FileTooLarge";
 import NextStepCard from "@/components/shared/NextStepCard";
+import ScrollRegion from "@/components/shared/ScrollRegion";
 import { commitImport, createImport, validateImport } from "@/features/actions";
 import { importWizardStep } from "@/features/workflow/steps";
 import type { ImportJobResponse } from "@/lib/api/client";
@@ -254,7 +255,7 @@ function IssueTable({ title, issues, tone }: { title: string; issues: Issue[]; t
   return (
     <div>
       <div className={`text-sm font-medium mb-2 ${color}`}>{title}</div>
-      <div className="overflow-x-auto border border-slate-200 rounded-md max-h-64 overflow-y-auto">
+      <ScrollRegion label={title} className="border border-slate-200 rounded-md max-h-64 overflow-y-auto">
         <table className="min-w-full divide-y divide-slate-200 text-xs">
           <thead className="bg-slate-50"><tr><th className={th}>{t("row")}</th><th className={th}>{t("field")}</th><th className={th}>{t("message")}</th></tr></thead>
           <tbody className="divide-y divide-slate-100">
@@ -263,7 +264,7 @@ function IssueTable({ title, issues, tone }: { title: string; issues: Issue[]; t
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </div>
   );
 }

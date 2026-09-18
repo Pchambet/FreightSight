@@ -29,7 +29,7 @@ export default async function UnitCostHighlight({ report }: { report: LandedCost
                 <div className="text-sm text-slate-600 truncate">
                   {ln.sku ? <Link href={skuHref(ln.sku)} className="font-mono text-blue-700 hover:underline" title={t("skuHistory")}>{ln.sku}</Link> : (ln.description ?? "—")}
                 </div>
-                <div className="text-xs text-slate-400 mt-0.5">{t("quantity", { qty: qty(ln.quantity, locale) })}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{t("quantity", { qty: qty(ln.quantity, locale) })}</div>
               </div>
               <div className="flex items-center gap-4 shrink-0">
                 <div className="text-right">

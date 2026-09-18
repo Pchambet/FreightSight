@@ -69,7 +69,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
       />
       <Card>
         {alerts.length === 0 ? (
-          <div className="px-5 py-14 text-center text-slate-400">
+          <div className="px-5 py-14 text-center text-slate-500">
             <Bell className="w-10 h-10 mx-auto mb-3 text-slate-300" />
             <p className="text-sm text-slate-600">{t("empty")}</p>
           </div>
@@ -83,10 +83,10 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-slate-900">
                       {text(a).title}
-                      {superseded ? <span className="ml-2 text-xs font-normal text-slate-400">· {t("superseded")}</span> : null}
+                      {superseded ? <span className="ml-2 text-xs font-normal text-slate-500">· {t("superseded")}</span> : null}
                     </div>
                     <div className="text-sm text-slate-600">{text(a).body}</div>
-                    <div className="text-xs text-slate-400 mt-1 tabular-nums">{kind(a.kind)} · {dateTimeShort(a.created_at, locale)}</div>
+                    <div className="text-xs text-slate-500 mt-1 tabular-nums">{kind(a.kind)} · {dateTimeShort(a.created_at, locale)}</div>
                   </div>
                   <div className="flex flex-col items-end gap-1.5 shrink-0">
                     {a.container_id ? <Link href={`/container/${a.container_id}`} className="text-xs text-blue-600 hover:underline whitespace-nowrap">{t("openContainer")}</Link> : null}

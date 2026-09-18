@@ -64,7 +64,7 @@ export default function LoadsEditor({ containerId, loads, purchaseOrders }: { co
                 <span className="font-medium">{r.po_number}</span> <span className="text-slate-500">{t("lineLabel", { lineNo: r.line_no })}{r.sku ? ` · ${r.sku}` : ""}</span>
                 <div className="text-xs text-slate-500 tabular-nums">{t("quantityOf", { loaded: qty(r.quantity, locale), total: qty(r.line_quantity, locale) })}</div>
               </div>
-              <button type="button" disabled={pending} onClick={() => save(rows.filter((x) => x.po_line_id !== r.po_line_id))} className="text-slate-400 hover:text-red-600" aria-label={t("remove")}>
+              <button type="button" disabled={pending} onClick={() => save(rows.filter((x) => x.po_line_id !== r.po_line_id))} className="text-slate-500 hover:text-red-600" aria-label={t("remove")}>
                 <Trash2 className="w-4 h-4" />
               </button>
             </li>

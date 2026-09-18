@@ -21,7 +21,7 @@ export default function CollapsibleSection({
           <span className="text-sm font-semibold text-slate-800">{title}</span>
           {hint ? <span className="block text-xs text-slate-500 mt-0.5">{hint}</span> : null}
         </div>
-        <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 transition-transform group-open:rotate-180" />
+        <ChevronDown className="w-4 h-4 text-slate-500 shrink-0 transition-transform group-open:rotate-180" />
       </summary>
       <div className="border-t border-slate-100">{children}</div>
     </details>

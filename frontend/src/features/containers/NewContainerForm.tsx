@@ -41,7 +41,7 @@ export default function NewContainerForm() {
           required
           className={`${input} sm:w-44 font-mono uppercase`}
         />
-        <p id="new-container-hint" className="text-xs text-slate-400 mt-1">{t("title")}</p>
+        <p id="new-container-hint" className="text-xs text-slate-500 mt-1">{t("title")}</p>
       </div>
       <button type="submit" disabled={pending} className={`${btnPrimary} shrink-0`}>
         <Plus className="w-4 h-4 mr-1.5" />

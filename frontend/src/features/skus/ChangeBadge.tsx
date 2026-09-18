@@ -6,9 +6,9 @@ import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
  * `value` is the API's signed one-decimal string ("8.6", "-2.1").
  */
 export default function ChangeBadge({ value, locale }: { value: string | null | undefined; locale: string }) {
-  if (value === null || value === undefined) return <span className="text-slate-400">—</span>;
+  if (value === null || value === undefined) return <span className="text-slate-500">—</span>;
   const n = Number(value);
-  if (!Number.isFinite(n)) return <span className="text-slate-400">—</span>;
+  if (!Number.isFinite(n)) return <span className="text-slate-500">—</span>;
   const flat = Math.abs(n) < 0.05;
   const Icon = flat ? Minus : n > 0 ? ArrowUpRight : ArrowDownRight;
   const tone = flat ? "text-slate-600 bg-slate-100" : n > 0 ? "text-red-800 bg-red-50" : "text-emerald-800 bg-emerald-50";

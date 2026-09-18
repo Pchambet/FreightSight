@@ -209,7 +209,7 @@ export default async function ContainersPage({ searchParams }: { searchParams: P
                   className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${v === view ? "bg-slate-900 text-white font-medium" : "text-slate-600 hover:bg-slate-100"}`}
                 >
                   {t(`views.${v}`)}
-                  <span className={`tabular-nums text-xs ${v === view ? "text-slate-300" : v === "exposed" && inView[v].length > 0 ? "text-amber-700 font-medium" : "text-slate-400"}`}>{inView[v].length}</span>
+                  <span className={`tabular-nums text-xs ${v === view ? "text-slate-300" : v === "exposed" && inView[v].length > 0 ? "text-amber-700 font-medium" : "text-slate-500"}`}>{inView[v].length}</span>
                 </Link>
               ))}
             </nav>
@@ -255,12 +255,12 @@ export default async function ContainersPage({ searchParams }: { searchParams: P
                         ))}
                       </ol>
                       <div className="mt-6 flex flex-col items-center gap-2 text-center">
-                        <span className="text-xs uppercase tracking-wider text-slate-400">{t("steps.or")}</span>
+                        <span className="text-xs uppercase tracking-wider text-slate-500">{t("steps.or")}</span>
                         <div className="flex flex-wrap justify-center gap-2">
                           <LoadSampleDataButton />
                           <LoadSampleDataButton profile="history" />
                         </div>
-                        <p className="text-xs text-slate-400 max-w-md">{t("empty.sampleHint")}</p>
+                        <p className="text-xs text-slate-500 max-w-md">{t("empty.sampleHint")}</p>
                       </div>
                     </div>
                   </td>
@@ -278,7 +278,7 @@ export default async function ContainersPage({ searchParams }: { searchParams: P
                     <td className={td}>
                       <Link href={`/container/${c.id}`} className="font-mono font-medium text-blue-600 hover:underline">{c.container_number}</Link>
                       {c.closed_period ? (
-                        <span title={tp("lock", { month: periodTitle(c.closed_period, locale) })} className="ml-1.5 inline-flex align-middle text-slate-400">
+                        <span title={tp("lock", { month: periodTitle(c.closed_period, locale) })} className="ml-1.5 inline-flex align-middle text-slate-500">
                           <LockKeyhole className="w-3.5 h-3.5" aria-hidden />
                           <span className="sr-only">{tp("lock", { month: periodTitle(c.closed_period, locale) })}</span>
                         </span>
@@ -288,11 +288,11 @@ export default async function ContainersPage({ searchParams }: { searchParams: P
                     <td className={td}><MilestoneBadge milestone={c.milestone} /></td>
                     <td className={`${td} text-slate-600`}>{dateShort(c.last_free_day, locale)}</td>
                     <td className={td}><RiskBadge risk={c.dnd_risk} days={demurrageRelevant(c) ? daysUntil(c.last_free_day) : null} /></td>
-                    <td className={`${td} text-slate-600`}>{c.po_numbers?.length ? c.po_numbers.join(", ") : <span className="text-slate-400">{t("none")}</span>}</td>
+                    <td className={`${td} text-slate-600`}>{c.po_numbers?.length ? c.po_numbers.join(", ") : <span className="text-slate-500">{t("none")}</span>}</td>
                     <td className={tdRight}><Money amount={c.fob_base} currency={currency} /></td>
                     <td className={tdRight}><Money amount={c.allocated_base} currency={currency} className="text-blue-700" /></td>
                     <td className={`${td} text-xs text-slate-500`}>
-                      {c.cost_types_present?.length ? c.cost_types_present.map((k) => costType(k)).join(", ") : <span className="text-slate-400">{t("none")}</span>}
+                      {c.cost_types_present?.length ? c.cost_types_present.map((k) => costType(k)).join(", ") : <span className="text-slate-500">{t("none")}</span>}
                     </td>
                   </tr>
                 ))
@@ -310,7 +310,7 @@ function Kpi({ label, tooltip, hint, tone, children }: { label: string; tooltip?
     <div className="bg-white rounded-lg border border-slate-200 px-5 py-4">
       <MetricLabel label={label} hint={tooltip} />
       <div className={`mt-1 text-2xl font-semibold tabular-nums ${tone === "warn" ? "text-amber-700" : ""}`}>{children}</div>
-      {hint ? <div className="text-xs text-slate-400 mt-0.5">{hint}</div> : null}
+      {hint ? <div className="text-xs text-slate-500 mt-0.5">{hint}</div> : null}
     </div>
   );
 }

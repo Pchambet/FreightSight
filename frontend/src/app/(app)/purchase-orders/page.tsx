@@ -87,7 +87,7 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
                     <td className={`${td} font-mono text-xs`}>{po.currency}</td>
                     <td className={tdRight}>{po.line_count}</td>
                     <td className={tdRight}><Money amount={po.fob_base} currency={cur} /></td>
-                    <td className={`${td} font-mono text-xs text-slate-600`}>{po.container_numbers.join(", ") || <span className="text-slate-400">{t("notLoaded")}</span>}</td>
+                    <td className={`${td} font-mono text-xs text-slate-600`}>{po.container_numbers.join(", ") || <span className="text-slate-500">{t("notLoaded")}</span>}</td>
                   </tr>
                 ))
               )}

@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { monthTitle } from "@/features/overview/period";
 import type { Schemas } from "@/lib/api/client";
 import { dateShort, money, qty } from "@/lib/format";
+import ScrollRegion from "@/components/shared/ScrollRegion";
 
 type Audit = Schemas["AuditReport"];
 type Finding = Schemas["AuditFinding"];
@@ -205,7 +206,7 @@ export default async function AuditSheet({ audit, header, locale }: { audit: Aud
             {audit.margins.length === 0 ? (
               <p className="text-sm text-slate-600">{t("margins.none")}</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <ScrollRegion label={t("margins.title")} className="rounded-lg border border-slate-200">
                 <table className="min-w-full text-sm">
                   <thead className="bg-slate-50">
                     <tr>
@@ -250,7 +251,7 @@ export default async function AuditSheet({ audit, header, locale }: { audit: Aud
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </ScrollRegion>
             )}
           </section>
 
@@ -268,7 +269,7 @@ export default async function AuditSheet({ audit, header, locale }: { audit: Aud
               <p className="mt-2 text-sm text-slate-600">{t("demurrage.none")}</p>
             ) : (
               <>
-                <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200">
+                <ScrollRegion label={t("demurrage.title")} className="mt-3 rounded-lg border border-slate-200">
                   <table className="min-w-full text-sm">
                     <thead className="bg-slate-50">
                       <tr>
@@ -295,7 +296,7 @@ export default async function AuditSheet({ audit, header, locale }: { audit: Aud
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </ScrollRegion>
                 <p className="mt-2 text-xs text-slate-500">
                   {t("demurrage.avoidedHint")}
                   {audit.demurrage.some((d) => d.rule_code === "DND_AVOIDED_NO_RATE") ? ` ${t("demurrage.noRateCard")}` : ""}
@@ -316,7 +317,7 @@ export default async function AuditSheet({ audit, header, locale }: { audit: Aud
                 ["month", audit.coefficient_by_month],
                 ["supplier", audit.coefficient_by_supplier],
               ] as const).filter(([, rows]) => rows.length > 0).map(([kind, rows]) => (
-                <div key={kind} className="overflow-x-auto rounded-lg border border-slate-200 print:break-inside-avoid">
+                <ScrollRegion key={kind} label={`${t("coefficient.title")} · ${t(`coefficient.th.${kind}`)}`} className="rounded-lg border border-slate-200 print:break-inside-avoid">
                   <table className="min-w-full text-sm">
                     <thead className="bg-slate-50">
                       <tr>
@@ -345,7 +346,7 @@ export default async function AuditSheet({ audit, header, locale }: { audit: Aud
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </ScrollRegion>
               ))}
             </div>
           </section>
