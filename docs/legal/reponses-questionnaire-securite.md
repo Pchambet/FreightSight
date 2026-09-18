@@ -184,8 +184,14 @@ assisté par IA qui existe dans le code mais n'est activé sur aucun des deux se
 ## Réversibilité, export, suppression
 
 **25. Le client peut-il exporter l'intégralité de ses données à tout moment ?**
-Oui, export CSV complet disponible sur demande, à tout moment, pas seulement en fin de contrat.
-**VRAI AUJOURD'HUI** — `securite/page.tsx:84`.
+Oui, à tout moment et pas seulement en fin de contrat — en partie en libre-service, le reste sur
+demande. Depuis l'application, sans intervention de FreightSight : commandes et leurs lignes,
+conteneurs, coûts (estimés et facturés), coût de revient par ligne, clôtures mensuelles (écarts,
+factures non parvenues), coût par référence et constats d'audit, en CSV français ou anglais. Le reste
+— factures PDF déposées, fiches produits, barèmes, événements de suivi, journal d'audit — est exporté
+sur demande, par des requêtes limitées à l'organisation ; cette procédure n'est pas encore outillée.
+**VRAI AUJOURD'HUI** pour les exports en libre-service — `backend/app/api/v1/exports.py`,
+`securite/page.tsx:84` ; **PRÉVU** : l'export complet en un seul fichier, en libre-service.
 
 **26. Que se passe-t-il si le client résilie ?**
 Suppression définitive de l'organisation exécutée sous 30 jours et confirmée par écrit ; les
@@ -203,8 +209,8 @@ jour — point ouvert, pas encore un risque puisque ce stockage séparé n'exist
 
 **28. FreightSight est aujourd'hui piloté par une seule personne. Que se passe-t-il en cas
 d'indisponibilité prolongée du fondateur ?**
-Trois mesures documentées atténuent ce risque : (a) le client peut exporter l'intégralité de ses
-données à tout moment, sans dépendre d'une action du fondateur (question 25) ; (b) les sauvegardes
+Trois mesures documentées atténuent ce risque : (a) l'essentiel des données s'exporte depuis
+l'application sans aucune action du fondateur, le reste sur demande (question 25) ; (b) les sauvegardes
 chiffrées sont hors du fournisseur d'hébergement principal, avec une clé qui doit être conservée en
 dehors de Railway (question 11) ; (c) un runbook de restauration écrit, reproductible par un tiers
 technique, existe déjà (`docs/04_ops_railway_vercel.md` §6, « Restaurer, en cinq commandes »).
