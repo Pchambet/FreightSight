@@ -7,6 +7,7 @@ import io
 import re
 import unicodedata
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
@@ -185,6 +186,18 @@ class ColumnNumbers:
     """What a comma means in one column, decided over the whole file rather than value by value."""
 
     comma: CommaMeaning
+    ambiguous: bool = False
+    example: str | None = None
+
+
+DateOrder = Literal["dmy", "mdy"]
+
+
+@dataclass(frozen=True)
+class ColumnDates:
+    """Whether a column writes the day or the month first, decided over the whole file."""
+
+    order: DateOrder
     ambiguous: bool = False
     example: str | None = None
 
@@ -419,6 +432,63 @@ def infer_comma_conventions(table: Table, columns: set[str]) -> dict[str, Column
                 "decimal" if french else "thousands", ambiguous=True, example=comma_example
             )
     return conventions
+
+
+_SLASHED_DATE_RE = re.compile(r"^\s*(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4}|\d{2})(?!\d)")
+_ISO_DATE_RE = re.compile(r"^\s*(\d{4})[\-/](\d{1,2})[\-/](\d{1,2})(?!\d)")
+
+
+def infer_date_orders(table: Table, columns: set[str]) -> dict[str, ColumnDates]:
+    """Decide, for each date column, whether the day or the month comes first.
+
+    One value settles it for the column, as for decimal commas: a first number above 12 can only be a
+    day, a second number above 12 can only be a day written second. Reading "03/04/2026" as the 3rd of
+    April when the sheet came from a US system moves a container into another month, silently — and a
+    quarter's audit with it. When nothing decides, the day comes first, as in France, and the report
+    says so.
+    """
+    orders: dict[str, ColumnDates] = {}
+    for column in columns:
+        day_first: str | None = None
+        month_first: str | None = None
+        example: str | None = None
+        for row in table.rows:
+            value = (row.get(column) or "").strip()
+            match = _SLASHED_DATE_RE.match(value)
+            if not match:
+                continue
+            example = example or value
+            first, second = int(match.group(1)), int(match.group(2))
+            if first > 12 >= second:
+                day_first = day_first or value
+            elif second > 12 >= first:
+                month_first = month_first or value
+        if month_first and not day_first:
+            orders[column] = ColumnDates("mdy", example=month_first)
+        elif day_first:
+            orders[column] = ColumnDates("dmy", example=day_first)
+        elif example is not None:
+            orders[column] = ColumnDates("dmy", ambiguous=True, example=example)
+    return orders
+
+
+def parse_date(raw: str | None, *, order: DateOrder = "dmy") -> date | None:
+    """Accepts '2026-07-01', '2026-07-01 00:00:00' (a spreadsheet's date cell), '01/07/2026',
+    '01.07.2026', '01-07-26'. Blank -> None. Two-digit years are this century's."""
+    if raw is None or not raw.strip():
+        return None
+    iso = _ISO_DATE_RE.match(raw)
+    slashed = _SLASHED_DATE_RE.match(raw)
+    try:
+        if iso:
+            return date(int(iso.group(1)), int(iso.group(2)), int(iso.group(3)))
+        if slashed:
+            first, second, year = int(slashed.group(1)), int(slashed.group(2)), int(slashed.group(3))
+            day, month = (first, second) if order == "dmy" else (second, first)
+            return date(year + 2000 if year < 100 else year, month, day)
+    except ValueError as e:
+        raise ImportError_("NOT_A_DATE", f"{raw!r} is not a date") from e
+    raise ImportError_("NOT_A_DATE", f"{raw!r} is not a date")
 
 
 def parse_decimal(raw: str | None, *, comma: CommaMeaning = "auto") -> Decimal | None:

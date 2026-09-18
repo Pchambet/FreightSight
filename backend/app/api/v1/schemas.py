@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, field_valida
 from pydantic_core import PydanticCustomError
 
 from app.domain.alerts.text import LOCALES
+from app.domain.boxes import iso_size_type
 from app.domain.invoices.ports import ConfidenceBand, ExtractorKind, confidence_band, extractor_kind
 from app.domain.models import (
     AlertKind,
@@ -289,6 +290,15 @@ class ShipmentResponse(BaseModel):
     eta: date | None
 
 
+def container_type(v: str | None) -> str | None:
+    """The ISO 6346 size-type, whatever notation came in: "40HC", "40' HC" and "45G1" are one box, and
+    the audit compares boxes by the length that code gives. A code nobody listed is kept as typed
+    rather than lost; an empty one is no type."""
+    if v is None or not v.strip():
+        return None
+    return iso_size_type(v) or v.strip()
+
+
 class ContainerCreate(BaseModel):
     container_number: str = Field(min_length=11, max_length=11, pattern=r"^[A-Za-z]{4}[0-9]{7}$")
     shipment_id: UUID | None = None
@@ -299,6 +309,11 @@ class ContainerCreate(BaseModel):
     @classmethod
     def _upper(cls, v: str) -> str:
         return v.upper()
+
+    @field_validator("iso_type")
+    @classmethod
+    def _iso(cls, v: str | None) -> str | None:
+        return container_type(v)
 
 
 class ContainerUpdate(BaseModel):
@@ -313,6 +328,11 @@ class ContainerUpdate(BaseModel):
     empty_returned_at: datetime | None = None
     free_days_demurrage: int | None = Field(default=None, ge=0, le=60)
     free_days_detention: int | None = Field(default=None, ge=0, le=60)
+
+    @field_validator("iso_type")
+    @classmethod
+    def _iso(cls, v: str | None) -> str | None:
+        return container_type(v)
 
 
 class ContainerResponse(BaseModel):

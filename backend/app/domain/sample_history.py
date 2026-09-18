@@ -449,7 +449,7 @@ def _container(db: Session, org: Organization, voyage: _Voyage, index: int, now:
         org_id=org.id,
         shipment_id=shipment.id,
         container_number=container_number(prefix, (482199 + index * 7919) % 1_000_000),
-        iso_type="40HC",
+        iso_type="45G1",  # ISO 6346 for a 40' high cube
         carrier_scac=scac,
         tracking_state=TrackingState.MANUAL,
         eta=arrived,

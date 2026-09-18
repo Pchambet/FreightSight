@@ -239,7 +239,7 @@ def seed_sample_data(db: Session, org: Organization) -> SampleData:
         org_id=org.id,
         shipment_id=shipment.id,
         container_number="MSCU4821990",
-        iso_type="40HC",
+        iso_type="45G1",  # ISO 6346 for a 40' high cube
         carrier_scac="MSCU",
         milestone=ContainerMilestone.DISCHARGED,
         tracking_state=TrackingState.MANUAL,
@@ -252,7 +252,7 @@ def seed_sample_data(db: Session, org: Organization) -> SampleData:
         org_id=org.id,
         shipment_id=shipment.id,
         container_number="TGHU7245081",
-        iso_type="40HC",
+        iso_type="45G1",  # ISO 6346 for a 40' high cube
         carrier_scac="MSCU",
         milestone=ContainerMilestone.GATE_OUT_FULL,
         tracking_state=TrackingState.MANUAL,
