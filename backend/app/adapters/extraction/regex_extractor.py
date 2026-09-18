@@ -33,11 +33,17 @@ CONTAINER_RE = re.compile(r"\b([A-Z]{4})[ -]?(\d{7})\b")
 BL_RE = re.compile(r"\b(?:B/?L|BILL OF LADING|CONNAISSEMENT)[\s:n°#]*([A-Z0-9]{6,20})\b", re.IGNORECASE)
 PO_RE = re.compile(r"\b(?:PO|P\.O\.|COMMANDE)[\s:n°#-]*([A-Z0-9][A-Z0-9-]{3,20})\b", re.IGNORECASE)
 INVOICE_NO_RE = re.compile(
-    r"(?:FACTURE|INVOICE|AVOIR|CREDIT\s+NOTE|NOTE\s+DE\s+CR[EÉ]DIT)\s*(?:N[°ºo]\.?|NO\.?|NUMBER|#)?\s*[:.]?\s*"
+    r"(?:FACTURE|INVOICE|AVOIR|CREDIT\s+NOTE|NOTE\s+DE\s+CR[EÉ]DIT)\s*(?P<label>N[°ºo]\.?|NO\.?|NUMBER|#)?\s*[:.]?\s*"
     # A number has a digit in it: « avoir confirmation de… » is a sentence, not a credit note.
-    r"(?=[A-Z0-9/-]*\d)([A-Z0-9][A-Z0-9/-]{3,24})",
+    r"(?=[A-Z0-9/-]*\d)(?P<number>[A-Z0-9][A-Z0-9/-]{3,24})",
     re.IGNORECASE,
 )
+#: « N° facture », « Numéro de la facture »: the label of a number written before the word, not after it.
+_LABEL_BEFORE_RE = re.compile(
+    r"\b(?:N[°ºo]\.?|NO\.?|NUM[EÉ]RO|NUMBER)\s*(?:DE\s+(?:LA\s+)?|OF\s+)?\W*\Z", re.IGNORECASE
+)
+#: What an invoice says, on the same line, before the number of another one it cancels or replaces.
+_OTHER_INVOICE_RE = re.compile(r"\b(?:REMPLACE|ANNULE|REPLACES|CANCELS|AVOIR\s+SUR)\b", re.IGNORECASE)
 #: What precedes "facture" when the words that follow are its date, not its number: « Date facture :
 #: 12/03/2026 », « Échéance facture ». Read as a number, two invoices of one day become one document.
 #: Whole words, on the same line: « Updated invoice » and « Due Date: » above « Invoice No » are not.
@@ -584,18 +590,19 @@ class RegexExtractor:
         subtotal = self._labelled(lines, upper_lines, SUBTOTAL_WORDS)
         vat = self._vat(lines, upper_lines, total, subtotal)
         invoice_number = None
-        header_end = sum(len(line) + 1 for line in text.split("\n")[:HEADER_LINES])
         passed_a_date = False
         for match in INVOICE_NO_RE.finditer(text):
-            if passed_a_date and match.start() >= header_end:
-                # Below the header, « facture » followed by a number is more often an invoice this one
-                # cancels or refers to: no number beats the wrong one.
-                break
-            candidate = match.group(1).strip(" .:")
-            before = text[max(0, match.start() - 12) : match.start()]
-            if _is_a_date(candidate) or _DATED_WORDS_RE.search(before):
+            candidate = match.group("number").strip(" .:")
+            same_line = text[text.rfind("\n", 0, match.start()) + 1 : match.start()]
+            if _is_a_date(candidate) or _DATED_WORDS_RE.search(same_line[-12:]):
                 passed_a_date = True
                 continue  # the date of the invoice, not its number
+            if _OTHER_INVOICE_RE.search(same_line):
+                continue  # « annule et remplace la facture N° FA-0400 »: another invoice's number
+            if passed_a_date and match.group("label") is None and not _LABEL_BEFORE_RE.search(same_line):
+                # Once a « facture » has turned out to be a date, only a number labelled as one — N°,
+                # No, # — is taken: no number beats the wrong one.
+                continue
             invoice_number = candidate
             break
 

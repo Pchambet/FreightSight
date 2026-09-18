@@ -349,7 +349,8 @@ def confirm(
         notes.append(f"@forced_recorded|{note_field(invoice.invoice_number)}|{note_field(invoice.vendor)}")
 
     cost_date = invoice.invoice_date or datetime.now(UTC).date()
-    comp: Computation | None = None  # computed only when a duty needs its method, and again after one
+    comp: Computation | None = None  # computed only when a duty needs its method
+    duty_loads: set[UUID] = set()  # the lines this confirmation has already written duty on
     costs: list[Cost] = []
     superseded: list[UUID] = []
     # Duty last: the customs value it is weighed against includes this invoice's own freight.
@@ -366,8 +367,15 @@ def confirm(
         amount = q2(sum((line.amount for line in lines), Decimal(0)))
         resolved = fx.resolve(db, org.base_currency, currency, cost_date)
         amount_base = to_base(amount, resolved.rate)
-        if cost_type is CostType.CUSTOMS_DUTY and comp is None:
-            comp = compute(db, org)
+        if cost_type is CostType.CUSTOMS_DUTY:
+            comp = comp or compute(db, org)
+            loads = {load.id for load in entry.loads_under(comp, scope, target_id)}
+            if loads & duty_loads:
+                # A second duty on goods this invoice already charged duty on — in another currency,
+                # on the bill of lading over its box — is weighed with the first among the duty paid.
+                # Only then is the organization computed again: a duty per box of a bill is not.
+                comp = compute(db, org)
+            duty_loads |= loads
         numbers = ", ".join(str(line.line_no) for line in lines)
         cost = Cost(
             org_id=org.id,
@@ -405,10 +413,6 @@ def confirm(
         for line in lines:
             line.cost_id = cost.id
         costs.append(cost)
-        if cost_type is CostType.CUSTOMS_DUTY:
-            # A second duty on the same goods — in another currency, or on the bill of lading — is
-            # weighed with this one among the duty already paid.
-            comp = None
 
     invoice.status = InvoiceStatus.CONFIRMED
     invoice.confirmed_at = datetime.now(UTC)

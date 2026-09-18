@@ -98,6 +98,14 @@ def test_the_date_of_the_invoice_is_not_taken_for_its_number() -> None:
         (["Updated invoice INV-0412"], "INV-0412"),  # « dated » inside a word is not the word
         (["Date de la facture : 2026/03/12"], None),
         (["Invoice: 12-MAR-2026"], None),
+        # after the date, a number labelled as one is still taken, however far down the header runs
+        (
+            ["Date facture : 12/03/2026", *(f"Dossier {n}" for n in range(6)), "FACTURE N° FA-2026-0912"],
+            "FA-2026-0912",
+        ),
+        (["Date facture : 12/03/2026", "Numéro de la facture : FA-77"], "FA-77"),
+        # the number of the invoice this one cancels, labelled or not, is not its own
+        (["Cette facture annule et remplace la facture N° FA-0400", "FACTURE N° FA-0412"], "FA-0412"),
         # a date, then — far below the header — the number of an invoice this one replaces
         (
             [

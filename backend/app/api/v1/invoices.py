@@ -12,11 +12,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, File, Form, Response, UploadFile, status
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.v1 import schemas
 from app.api.v1.deps import FxDep, WriterDep
-from app.core.errors import NotFound, Unprocessable
+from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.tenancy import TenantDep, TenantSession
 from app.domain.audit.service import (
     INVOICE_CONFIRMED,
@@ -34,18 +35,32 @@ from app.jobs.app import defer
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
 
+#: Postgres's « lock_not_available »: another transaction holds the row.
+_LOCK_NOT_AVAILABLE = "55P03"
+
+
 def _get(t: TenantSession, invoice_id: UUID, *, lock: bool = False) -> Invoice:
     """The invoice and its lines. `lock` is for every route that writes: two confirmations of one
     invoice at once — two tabs, two people on the quarter's queue — would otherwise both read "being
-    reviewed" and both write its costs. Locked, the second waits for the first and reads what it left."""
+    reviewed" and both write its costs. The second is not kept waiting: the reading job holds the row
+    for as long as a model takes to answer, so a busy invoice is said at once (409 INVOICE_BUSY)."""
     stmt = (
         t.q(Invoice)
         .where(Invoice.id == invoice_id)
         .options(selectinload(Invoice.lines), selectinload(Invoice.document))
     )
     if lock:
-        stmt = stmt.with_for_update(of=Invoice).execution_options(populate_existing=True)
-    invoice = t.db.scalar(stmt)
+        stmt = stmt.with_for_update(of=Invoice, nowait=True).execution_options(populate_existing=True)
+    try:
+        invoice = t.db.scalar(stmt)
+    except OperationalError as e:
+        if getattr(e.orig, "sqlstate", None) != _LOCK_NOT_AVAILABLE:
+            raise
+        t.db.rollback()
+        raise Conflict(
+            "This invoice is being read or changed at this moment; try again in a moment",
+            code="INVOICE_BUSY",
+        ) from e
     if invoice is None:
         raise NotFound("Invoice")
     return invoice
