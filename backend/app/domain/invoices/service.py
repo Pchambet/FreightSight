@@ -26,7 +26,9 @@ from app.domain.invoices.checks import (
     CREDIT_NOTE_NOTE,
     check,
     duplicate_cost_note,
+    invoice_line_recorded,
     invoice_recorded,
+    note_field,
     recorded_note,
     same_line_on_file,
 )
@@ -171,8 +173,10 @@ def extract(
         invoice_date=reading.invoice_date,
         default_container_id=invoice.default_container_id,
     )
-    invoice.vendor = reading.vendor
-    invoice.invoice_number = reading.invoice_number
+    # A reader that found nothing may say so with "": the guards against counting an invoice twice
+    # compare these two, and an empty number is no number.
+    invoice.vendor = entry.none_if_blank(reading.vendor)
+    invoice.invoice_number = entry.none_if_blank(reading.invoice_number)
     invoice.invoice_date = reading.invoice_date
     invoice.currency = (reading.currency or org.base_currency)[:3].upper()
     invoice.total_amount = q2(Decimal(reading.total)) if reading.total else None
@@ -293,15 +297,16 @@ def confirm(
 
     # The same document already in the books — its statement imported, or its PDF confirmed under a
     # neighbouring spelling — is refused: no person can mean to count one invoice twice. A person may
-    # still say it is another document under the same number (`force_recorded`), except where it is
-    # the very line on file, to the letter: that one the database itself refuses, and an override
-    # offered there could only end in an error.
+    # still say it is another document under the same number (`force_recorded`), except for a line
+    # already on file: the very line to the letter, which the database itself refuses, or the same
+    # line — type, currency, freight — with the forwarder named on both copies, which by that
+    # forwarder's own numbering is the same line. An override offered there could only end in an
+    # error, or in the line counted twice.
     freight = [(line.scope, line.target_id) for line in accepted if line.scope and line.target_id]
     recorded = invoice_recorded(db, org.id, invoice.vendor, invoice.invoice_number, freight)
-    exact = [
-        cost
-        for scope, target_id, cost_type, currency in groups
-        for cost in same_line_on_file(
+    blocking: list[Cost] = []
+    for (scope, target_id, cost_type, currency), lines in groups.items():
+        found = same_line_on_file(
             db,
             org.id,
             vendor=invoice.vendor,
@@ -310,9 +315,25 @@ def confirm(
             currency=currency,
             target_id=target_id,
         )
-    ]
-    if exact or (recorded and not force_recorded):
-        on_file = recorded + [cost for cost in exact if cost not in recorded]
+        if entry.normalize_vendor(invoice.vendor):
+            found += [
+                cost
+                for cost in invoice_line_recorded(
+                    db,
+                    org.id,
+                    vendor=invoice.vendor,
+                    invoice_number=invoice.invoice_number,
+                    cost_type=cost_type,
+                    currency=currency,
+                    amount=q2(sum((line.amount for line in lines), Decimal(0))),
+                    scope=scope,
+                    target_id=target_id,
+                )
+                if entry.normalize_vendor(cost.vendor)
+            ]
+        blocking += [cost for cost in found if cost not in blocking]
+    if blocking or (recorded and not force_recorded):
+        on_file = recorded + [cost for cost in blocking if cost not in recorded]
         raise Unprocessable(
             "This invoice is already recorded; reopen or delete what carries it before confirming it again",
             code="INVOICE_ALREADY_RECORDED",
@@ -320,15 +341,15 @@ def confirm(
                 {"field": "invoice", "code": "INVOICE_ALREADY_RECORDED", "message": recorded_note(cost)}
                 for cost in on_file
             ],
-            forceable=not exact,
+            forceable=not blocking,
         )
 
     notes: list[str] = _duplicate_notes(db, org, accepted, force=force)
     if recorded:
-        notes.append(f"@forced_recorded|{invoice.invoice_number or ''}|{invoice.vendor or ''}")
+        notes.append(f"@forced_recorded|{note_field(invoice.invoice_number)}|{note_field(invoice.vendor)}")
 
     cost_date = invoice.invoice_date or datetime.now(UTC).date()
-    comp: Computation | None = None  # computed once, and only if a duty needs its method
+    comp: Computation | None = None  # computed only when a duty needs its method, and again after one
     costs: list[Cost] = []
     superseded: list[UUID] = []
     # Duty last: the customs value it is weighed against includes this invoice's own freight.
@@ -384,6 +405,10 @@ def confirm(
         for line in lines:
             line.cost_id = cost.id
         costs.append(cost)
+        if cost_type is CostType.CUSTOMS_DUTY:
+            # A second duty on the same goods — in another currency, or on the bill of lading — is
+            # weighed with this one among the duty already paid.
+            comp = None
 
     invoice.status = InvoiceStatus.CONFIRMED
     invoice.confirmed_at = datetime.now(UTC)

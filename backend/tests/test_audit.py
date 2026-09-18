@@ -174,6 +174,16 @@ def test_one_invoice_recorded_twice_is_a_double_entry_of_ours_and_nothing_to_cla
     assert audit(client)["headline"]["recoverable_sure"] == "0.00"
 
 
+def test_one_number_in_two_currencies_on_one_box_is_a_question_not_a_fact(client: TestClient) -> None:
+    """The freight in dollars and a surcharge in euros under one number, both keyed in by hand: two
+    lines of one invoice, or one line keyed twice — nothing on file says which."""
+    box = landed(client, "MSCU4821990", "2026-03-10")
+    cost(client, box, "OCEAN_FREIGHT", "3000.00", currency="USD", vendor="TRANSITEX", invoice_number="F-0412")
+    cost(client, box, "OCEAN_FREIGHT", "40.00", vendor="TRANSITEX", invoice_number="F-0412")
+    (found,) = findings(client, "DOUBLE_ENTRY")
+    assert (found["confidence"], found["recoverable"]) == ("to_check", False)
+
+
 # ------------------------------------------------------------------------------- above the estimate
 
 

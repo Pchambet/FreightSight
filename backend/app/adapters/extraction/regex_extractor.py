@@ -40,8 +40,28 @@ INVOICE_NO_RE = re.compile(
 )
 #: What precedes "facture" when the words that follow are its date, not its number: « Date facture :
 #: 12/03/2026 », « Échéance facture ». Read as a number, two invoices of one day become one document.
-_DATED_WORDS_RE = re.compile(r"(?:DATE|[EÉ]CH[EÉ]ANCE|DU|DATED)\W{0,3}$", re.IGNORECASE)
-_DATE_LIKE_RE = re.compile(r"^\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}$|^\d{4}-\d{1,2}-\d{1,2}$")
+#: Whole words, on the same line: « Updated invoice » and « Due Date: » above « Invoice No » are not.
+_DATED_WORDS_RE = re.compile(r"\b(?:DATE|[EÉ]CH[EÉ]ANCE|DATED)[^\w\n]{0,3}\Z", re.IGNORECASE)
+_NUMERIC_DATE_RE = re.compile(r"^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$")
+_YEAR_FIRST_DATE_RE = re.compile(r"^(\d{4})[/.-](\d{1,2})[/.-](\d{1,2})$")
+_MONTH_NAME_DATE_RE = re.compile(
+    r"^\d{1,2}-?(JAN|FEB|FEV|MAR|APR|AVR|MAY|MAI|JUN|JUI|JUL|AUG|AOU|SEP|OCT|NOV|DEC)[A-Z]*-?(\d{2}|\d{4})$",
+    re.IGNORECASE,
+)
+
+
+def _is_a_date(text: str) -> bool:
+    """A calendar date — 12/03/2026, 2026/03/12, 12-MAR-2026 — and not a number that has the shape
+    of one: « 26-09-0412 » is a year, a month and a sequence, and 0412 is no year."""
+    if match := _NUMERIC_DATE_RE.match(text):
+        day, month, year = (int(part) for part in match.groups())
+        return 1 <= day <= 31 and 1 <= month <= 12 and (len(match.group(3)) == 2 or 1990 <= year <= 2100)
+    if match := _YEAR_FIRST_DATE_RE.match(text):
+        year, month, day = (int(part) for part in match.groups())
+        return 1990 <= year <= 2100 and 1 <= month <= 12 and 1 <= day <= 31
+    return _MONTH_NAME_DATE_RE.match(text) is not None
+
+
 # French invoices group thousands with a space, often a non-breaking one.
 DATE_RE = re.compile(r"\b(\d{2})[/.-](\d{2})[/.-](\d{4})\b|\b(\d{4})-(\d{2})-(\d{2})\b")
 AMOUNT_RE = re.compile(r"(?<![\d.,])\d{1,3}(?:[\u00a0 .,]\d{3})*(?:[.,]\d{1,2})?(?![\d])")
@@ -564,10 +584,17 @@ class RegexExtractor:
         subtotal = self._labelled(lines, upper_lines, SUBTOTAL_WORDS)
         vat = self._vat(lines, upper_lines, total, subtotal)
         invoice_number = None
+        header_end = sum(len(line) + 1 for line in text.split("\n")[:HEADER_LINES])
+        passed_a_date = False
         for match in INVOICE_NO_RE.finditer(text):
+            if passed_a_date and match.start() >= header_end:
+                # Below the header, « facture » followed by a number is more often an invoice this one
+                # cancels or refers to: no number beats the wrong one.
+                break
             candidate = match.group(1).strip(" .:")
             before = text[max(0, match.start() - 12) : match.start()]
-            if _DATE_LIKE_RE.match(candidate) or _DATED_WORDS_RE.search(before):
+            if _is_a_date(candidate) or _DATED_WORDS_RE.search(before):
+                passed_a_date = True
                 continue  # the date of the invoice, not its number
             invoice_number = candidate
             break

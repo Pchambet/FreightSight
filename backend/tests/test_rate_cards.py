@@ -237,6 +237,45 @@ def test_a_bill_of_lading_card_waits_for_the_box_to_travel_under_one(
     assert result["skipped"]["DRAYAGE"] == "a SHIPMENT rate card needs the container to be on a shipment"
 
 
+def test_a_card_priced_per_box_does_not_add_the_freight_its_bill_of_lading_carries(
+    client: TestClient, org: Organization
+) -> None:
+    """The freight invoiced per bill of lading is the box's freight too: a card priced per box would
+    have estimated it a second time. Skipped, and said, since another charge of that type is possible."""
+    container_id = seed_container(client)
+    voyage = client.post("/api/v1/shipments", json={"reference": "BL-1"}).json()
+    assert client.patch(f"/api/v1/containers/{container_id}", json={"shipment_id": voyage["id"]}).is_success
+    freight = {"scope": "SHIPMENT", "target_id": voyage["id"], "cost_type": "OCEAN_FREIGHT",
+               "amount": "3000.00", "currency": "EUR", "cost_date": "2026-03-12"}  # fmt: skip
+    assert client.post("/api/v1/costs", json=freight).status_code == 201
+    add_card(client, cost_type="OCEAN_FREIGHT", amount="3700.00")
+    result = estimates(client, container_id)
+    assert result["created"] == []
+    assert result["skipped"]["OCEAN_FREIGHT"] == "a cost of this type is already on the container's shipment"
+
+
+def test_the_duty_estimate_takes_each_line_s_customs_value_as_the_engine_spreads_the_freight(
+    client: TestClient, org: Organization
+) -> None:
+    """Freight spread by weight gives the heavy line three quarters of it: the light line's customs
+    value is 1 000 + 250, and its 10 % duty 125 € — not 150 €, as a share of the FOB would have it."""
+    lines = [
+        {"line_no": 1, "sku": "LIGHT", "quantity": "100", "unit_price": "10", "unit_weight_kg": "1",
+         "duty_rate": "0.10"},
+        {"line_no": 2, "sku": "HEAVY", "quantity": "100", "unit_price": "10", "unit_weight_kg": "3",
+         "duty_rate": "0"},
+    ]  # fmt: skip
+    po = client.post("/api/v1/purchase-orders", json={"po_number": "PO-W", "currency": "EUR", "lines": lines})
+    box = client.post("/api/v1/containers", json={"container_number": "MSCU4821990"}).json()["id"]
+    loads = [{"po_line_id": line["id"], "quantity": "100"} for line in po.json()["lines"]]
+    assert client.put(f"/api/v1/containers/{box}/loads", json=loads).status_code == 200
+    freight = {"scope": "CONTAINER", "target_id": box, "cost_type": "OCEAN_FREIGHT", "amount": "1000.00",
+               "currency": "EUR", "cost_date": "2026-03-12", "allocation_method": "BY_WEIGHT"}  # fmt: skip
+    assert client.post("/api/v1/costs", json=freight).status_code == 201
+    created = {c["cost_type"]: c for c in estimates(client, box)["created"]}
+    assert created["CUSTOMS_DUTY"]["amount"] == "125.00"
+
+
 def test_no_rate_anywhere_says_so_instead_of_inventing_one(client: TestClient, org: Organization) -> None:
     container_id = seed_container(client)
     result = estimates(client, container_id)

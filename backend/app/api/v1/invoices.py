@@ -18,7 +18,13 @@ from app.api.v1 import schemas
 from app.api.v1.deps import FxDep, WriterDep
 from app.core.errors import NotFound, Unprocessable
 from app.core.tenancy import TenantDep, TenantSession
-from app.domain.audit.service import INVOICE_CONFIRMED, INVOICE_REJECTED, INVOICE_REOPENED, record
+from app.domain.audit.service import (
+    INVOICE_CONFIRMED,
+    INVOICE_CORRECTED,
+    INVOICE_REJECTED,
+    INVOICE_REOPENED,
+    record,
+)
 from app.domain.documents.registry import get_store
 from app.domain.invoices.service import confirm as confirm_invoice
 from app.domain.invoices.service import create_invoice, reopen_confirmed
@@ -28,12 +34,18 @@ from app.jobs.app import defer
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
 
-def _get(t: TenantSession, invoice_id: UUID) -> Invoice:
-    invoice = t.db.scalar(
+def _get(t: TenantSession, invoice_id: UUID, *, lock: bool = False) -> Invoice:
+    """The invoice and its lines. `lock` is for every route that writes: two confirmations of one
+    invoice at once — two tabs, two people on the quarter's queue — would otherwise both read "being
+    reviewed" and both write its costs. Locked, the second waits for the first and reads what it left."""
+    stmt = (
         t.q(Invoice)
         .where(Invoice.id == invoice_id)
         .options(selectinload(Invoice.lines), selectinload(Invoice.document))
     )
+    if lock:
+        stmt = stmt.with_for_update(of=Invoice).execution_options(populate_existing=True)
+    invoice = t.db.scalar(stmt)
     if invoice is None:
         raise NotFound("Invoice")
     return invoice
@@ -118,6 +130,42 @@ def get_invoice(invoice_id: UUID, t: TenantDep) -> schemas.InvoiceResponse:
     return _response(_get(t, invoice_id))
 
 
+@router.patch("/{invoice_id}", response_model=schemas.InvoiceResponse)
+def correct_invoice(
+    invoice_id: UUID, payload: schemas.InvoiceUpdate, t: TenantDep, p: WriterDep
+) -> schemas.InvoiceResponse:
+    """Correct the header the reader took — the number, the forwarder, the date — before confirming.
+
+    Every guard against counting one invoice twice compares the number and the forwarder, and the
+    confirmation writes them on each cost: a date read as the number is a false « already recorded »
+    today and a missed double entry tomorrow. Only while the invoice is being reviewed; what a
+    confirmed invoice says is corrected by reopening it.
+    """
+    invoice = _get(t, invoice_id, lock=True)
+    if invoice.status not in (InvoiceStatus.NEEDS_REVIEW, InvoiceStatus.FAILED):
+        raise Unprocessable(
+            f"Only an invoice being reviewed can be corrected (this one is {invoice.status.value})",
+            code="INVALID_STATUS",
+        )
+    changes = payload.model_dump(exclude_unset=True)
+    before = {field: getattr(invoice, field) for field in changes}
+    for field, value in changes.items():
+        setattr(invoice, field, value)
+    record(
+        t.db,
+        t.org_id,
+        actor_user_id=p.user_id,
+        action=INVOICE_CORRECTED,
+        entity_type="invoice",
+        entity_id=invoice.id,
+        before=before,
+        after=changes,
+    )
+    t.db.commit()
+    t.db.refresh(invoice)
+    return _response(invoice)
+
+
 @router.get("/{invoice_id}/document")
 def get_invoice_document(invoice_id: UUID, t: TenantDep) -> Response:
     """The file itself, streamed by the API.
@@ -144,7 +192,7 @@ def update_line(
     _: WriterDep,
 ) -> schemas.InvoiceResponse:
     """Correct what was read, and accept the line or not. This is the human half of the loop."""
-    invoice = _get(t, invoice_id)
+    invoice = _get(t, invoice_id, lock=True)
     if invoice.status is InvoiceStatus.CONFIRMED:
         raise NotFound("Invoice line")  # a confirmed invoice is history, not a draft
     line = next((ln for ln in invoice.lines if ln.id == line_id), None)
@@ -176,7 +224,7 @@ def add_line(
     read, otherwise sends the reviewer off to key a cost somewhere else, unlinked to the invoice it
     came from and flagged as a duplicate on the next one.
     """
-    invoice = _get(t, invoice_id)
+    invoice = _get(t, invoice_id, lock=True)
     if invoice.status is InvoiceStatus.CONFIRMED:
         raise NotFound("Invoice line")  # a confirmed invoice is history, not a draft
     line = InvoiceLine(
@@ -213,7 +261,7 @@ def confirm(
     One transaction: the costs, the invoice's new status and the recomputed allocations land
     together. A line pointing at something that is not ours stops the whole confirmation.
     """
-    invoice = _get(t, invoice_id)
+    invoice = _get(t, invoice_id, lock=True)
     try:
         result = confirm_invoice(
             t.db,
@@ -268,7 +316,7 @@ def reopen(invoice_id: UUID, t: TenantDep, p: WriterDep) -> schemas.InvoiceRespo
     the forwarder sent the next morning is made on the invoice it belongs to. Once those costs have
     reached the customer's ERP the confirmation stops being ours to undo, and the service refuses.
     """
-    invoice = _get(t, invoice_id)
+    invoice = _get(t, invoice_id, lock=True)
     if invoice.status not in (InvoiceStatus.REJECTED, InvoiceStatus.CONFIRMED):
         raise Unprocessable(
             f"Only a rejected or confirmed invoice can be reopened (this one is {invoice.status.value})",
@@ -309,7 +357,7 @@ def reopen(invoice_id: UUID, t: TenantDep, p: WriterDep) -> schemas.InvoiceRespo
 @router.post("/{invoice_id}/reject", response_model=schemas.InvoiceResponse)
 def reject(invoice_id: UUID, t: TenantDep, p: WriterDep) -> schemas.InvoiceResponse:
     """Not our invoice, a duplicate, an error: it stays on file, it creates nothing."""
-    invoice = _get(t, invoice_id)
+    invoice = _get(t, invoice_id, lock=True)
     if invoice.status is InvoiceStatus.CONFIRMED:
         raise NotFound("Invoice")  # confirmed costs are undone by deleting the costs, not the invoice
     before = {"status": invoice.status}
@@ -332,7 +380,7 @@ def reject(invoice_id: UUID, t: TenantDep, p: WriterDep) -> schemas.InvoiceRespo
 @router.post("/{invoice_id}/retry", response_model=schemas.InvoiceResponse)
 def retry(invoice_id: UUID, t: TenantDep, _: WriterDep) -> schemas.InvoiceResponse:
     """Read the document again — after a fix on our side, or once a model key exists."""
-    invoice = _get(t, invoice_id)
+    invoice = _get(t, invoice_id, lock=True)
     if invoice.status is InvoiceStatus.CONFIRMED:
         raise NotFound("Invoice")
     invoice.status = InvoiceStatus.UPLOADED

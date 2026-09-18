@@ -89,6 +89,34 @@ def test_the_date_of_the_invoice_is_not_taken_for_its_number() -> None:
         assert read(lines).invoice_number == "FA-2026-0912", dated
 
 
+@pytest.mark.parametrize(
+    ("header", "number"),
+    [
+        (["FACTURE N° 26-09-0412"], "26-09-0412"),  # a year, a month and a sequence: 0412 is no year
+        (["Due Date:", "Invoice No: INV-0412"], "INV-0412"),  # the date's words end on the line above
+        (["Montant du", "Facture N° FA-0412"], "FA-0412"),
+        (["Updated invoice INV-0412"], "INV-0412"),  # « dated » inside a word is not the word
+        (["Date de la facture : 2026/03/12"], None),
+        (["Invoice: 12-MAR-2026"], None),
+        # a date, then — far below the header — the number of an invoice this one replaces
+        (
+            [
+                "Date facture : 12/03/2026",
+                *(f"Ref {n}" for n in range(14)),
+                "annule et remplace la facture FA-0400",
+            ],
+            None,
+        ),
+    ],
+)
+def test_a_number_is_told_from_a_date_by_the_calendar_and_by_where_it_stands(
+    header: list[str], number: str | None
+) -> None:
+    lines = ["TRANSITEX SAS", *header, "Conteneur MSCU4821990",
+             "Fret maritime CNNGB / FRLEH                  1          3 000,00  3 000,00"]  # fmt: skip
+    assert read(lines).invoice_number == number
+
+
 def test_the_charge_is_the_rightmost_amount_on_the_line() -> None:
     """« THC 2 x 137,50  275,00 » is a charge of 275, not of 2 or of 137.50."""
     assert trailing_amount("THC destination Le Havre    2    137,50    275,00") == Decimal("275.00")

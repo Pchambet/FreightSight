@@ -145,6 +145,14 @@ _LEGAL_FORMS = frozenset(
 )  # fmt: skip
 
 
+def none_if_blank(text: str | None) -> str | None:
+    """A field left empty is no value. Stored as "", an invoice number would be a number — the
+    database's own uniqueness counts it as one — and every empty one the same number."""
+    if text is None:
+        return None
+    return text.strip() or None
+
+
 def normalize_vendor(name: str | None) -> str:
     """A forwarder's name as it can be compared: no accents, case, punctuation or legal form."""
     if not name:

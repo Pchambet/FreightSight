@@ -67,12 +67,12 @@ _UNSET = object()
 
 def _refuse_a_line_already_recorded(t: TenantSession, cost: Cost) -> None:
     """The same invoice line keyed in twice — "TRANSITEX / F-0412" then "Transitex SAS / F0412" on one
-    box, or once on the box and once on its bill of lading — counts twice in the landed cost. Refused
-    by name: before this it was a database error when spelled the same, and nothing at all otherwise.
-    Spelled the same to the letter, an estimate carrying the number is refused too: the database's
-    own index does not tell the two statuses apart."""
+    box in one currency, or once on the box and once on its bill of lading for the same amount —
+    counts twice in the landed cost. Refused by name: before this it was a database error when spelled
+    the same, and nothing at all otherwise. Spelled the same to the letter, an estimate carrying the
+    number is refused too: the database's own index does not tell the two statuses apart."""
     target = cost.container_id or cost.shipment_id or cost.po_id or cost.po_line_id
-    if not cost.invoice_number or target is None:
+    if cost.invoice_number is None or target is None:
         return
     with t.db.no_autoflush:  # the pending row itself must not reach the index before we have looked
         found = same_line_on_file(
@@ -94,6 +94,8 @@ def _refuse_a_line_already_recorded(t: TenantSession, cost: Cost) -> None:
                     vendor=cost.vendor,
                     invoice_number=cost.invoice_number,
                     cost_type=cost.cost_type,
+                    currency=cost.currency,
+                    amount=cost.amount,
                     scope=cost.scope,
                     target_id=target,
                     exclude=cost.id,
@@ -237,6 +239,11 @@ def update_cost(cost_id: UUID, payload: schemas.CostUpdate, t: TenantDep, fx: Fx
         if k == "amount":
             v = q2(v)
         setattr(cost, k, v)
+    # Before anything below may write the edited row — a rate fetched for a new currency or date is
+    # saved at once, and any query outside `no_autoflush` sends what is pending — and so reach the
+    # database's own refusal as a server error.
+    if {"invoice_number", "vendor", "cost_type", "currency", "amount", "status"} & changes.keys():
+        _refuse_a_line_already_recorded(t, cost)
     if payload.allocation_method is not None or splits is not None:
         if cost.allocation_method is AllocationMethod.MANUAL:
             if splits is None and cost.manual_splits is None:
@@ -257,22 +264,31 @@ def update_cost(cost_id: UUID, payload: schemas.CostUpdate, t: TenantDep, fx: Fx
     if cost.cost_type is not before_type:
         # A duty re-typed as freight kept its duty method and was spread by duty rates in the second
         # pass, after the customs value it belongs to had been taken. The method follows the type when
-        # nobody chose one; and whatever the method, it has to suit the new type.
-        target = cost.container_id or cost.shipment_id or cost.po_id or cost.po_line_id
-        duty_moved = CostType.CUSTOMS_DUTY in (before_type, cost.cost_type)
+        # it was the old type's own default or does not suit the new one; a method somebody chose that
+        # suits both stays theirs. Whatever the method, it has to suit the new type.
+        duty_like = cost.allocation_method in (
+            AllocationMethod.BY_CIF_VALUE,
+            AllocationMethod.BY_THEORETICAL_DUTY,
+        )
+        was_default = (
+            duty_like
+            if before_type is CostType.CUSTOMS_DUTY
+            else cost.allocation_method is t.org.default_allocation_method
+        )
+        unsuited = duty_like and cost.cost_type is not CostType.CUSTOMS_DUTY
         if (
-            duty_moved
+            CostType.CUSTOMS_DUTY in (before_type, cost.cost_type)
             and payload.allocation_method is None
             and cost.allocation_method is not AllocationMethod.MANUAL
+            and (was_default or unsuited)
         ):
+            target = cost.container_id or cost.shipment_id or cost.po_id or cost.po_line_id
             assert target is not None
             with t.db.no_autoflush:
                 cost.allocation_method = entry.default_method(
                     t.db, t.org, cost.scope, target, cost.cost_type, cost.amount_base, exclude=cost.id
                 )
         entry.check_method(cost.allocation_method, cost.cost_type)
-    if {"invoice_number", "vendor", "cost_type", "currency", "status"} & changes.keys():
-        _refuse_a_line_already_recorded(t, cost)
     t.db.flush()
     record(
         t.db,

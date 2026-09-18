@@ -158,8 +158,8 @@ def duplicate_cost_note(
     if existing is None:
         return None
     return (
-        f"@duplicate_cost|{cost_type.value}|{existing.vendor or ''}|"
-        f"{existing.invoice_number or ''}|{existing.amount_base}|{existing.currency}|"
+        f"@duplicate_cost|{cost_type.value}|{note_field(existing.vendor)}|"
+        f"{note_field(existing.invoice_number)}|{existing.amount_base}|{existing.currency}|"
         f"{existing.scope.value}"
     )
 
@@ -213,27 +213,34 @@ def invoice_line_recorded(
     vendor: str | None,
     invoice_number: str | None,
     cost_type: CostType,
+    currency: str,
+    amount: Decimal,
     scope: CostScope,
     target_id: UUID,
     exclude: UUID | None = None,
 ) -> list[Cost]:
-    """The live invoiced costs that are this very line already: the same invoice (`same_invoice`),
-    the same type, on the same freight — the box, or the bill of lading it travelled under. What a
-    person keys in twice by hand, under two spellings, counts twice in the landed cost; this is where
-    it is stopped."""
+    """The live invoiced costs that are this very line already: the same invoice (`same_invoice`), the
+    same type and currency — on the same target, or for the same amount at the other end of the same
+    freight (the box and the bill of lading it travelled under, an order and its lines). What a person
+    keys in twice by hand, under two spellings, counts twice in the landed cost; this is where it is
+    stopped. A second line of one invoice is not: the same type in another currency, a surcharge on
+    the bill of lading next to the box's freight — which is how a confirmed invoice writes them."""
     number = normalize_invoice_number(invoice_number)
     where = _same_freight(db, org_id, scope, target_id)
     if not number or where is None:
         return []
+    target = func.coalesce(Cost.container_id, Cost.shipment_id, Cost.po_id, Cost.po_line_id)
     candidates = db.scalars(
         select(Cost).where(
             Cost.org_id == org_id,
             Cost.status == CostStatus.ACTUAL,
             Cost.closed_at.is_(None),
             Cost.cost_type == cost_type,
+            Cost.currency == currency,
             Cost.invoice_number.is_not(None),
             func.regexp_replace(func.upper(Cost.invoice_number), "[^A-Z0-9]", "", "g") == number,
             where,
+            or_(target == target_id, Cost.amount == amount),
             *([Cost.id != exclude] if exclude is not None else []),
         )
     )
@@ -255,8 +262,10 @@ def same_line_on_file(
     to the letter, the same type, currency and target, whatever their status. Asked before writing,
     so that what the database refuses is a refusal with the line on file named — never a server
     error, and never an override a person is offered and cannot use."""
-    if not vendor or not invoice_number:
-        return []  # the index leaves unnumbered costs alone, and a missing vendor never equals another
+    if vendor is None or invoice_number is None:
+        # The index leaves unnumbered costs alone, and a missing vendor never equals another. An empty
+        # string is not missing to it: "" is a value, and two of them are the same value.
+        return []
     target = func.coalesce(Cost.container_id, Cost.shipment_id, Cost.po_id, Cost.po_line_id)
     return list(
         db.scalars(
@@ -273,12 +282,19 @@ def same_line_on_file(
     )
 
 
+def note_field(text: str | None) -> str:
+    """A free text as one field of an `@code|…` note: a "|" in a forwarder's name would shift every
+    field after it."""
+    return (text or "").replace("|", "/")
+
+
 def recorded_note(cost: Cost) -> str:
     """Machine-readable description of a cost that already carries an invoice, for the screen to
-    write its sentence from: type, forwarder, number, amount in base currency, scope, day entered."""
+    write its sentence from: type, forwarder, number, amount in base currency, scope, day entered, and
+    its status — an estimate carrying the number is not an invoice already recorded."""
     return (
-        f"@recorded|{cost.cost_type.value}|{cost.vendor or ''}|{cost.invoice_number or ''}|"
-        f"{cost.amount_base}|{cost.scope.value}|{cost.created_at.date().isoformat()}"
+        f"@recorded|{cost.cost_type.value}|{note_field(cost.vendor)}|{note_field(cost.invoice_number)}|"
+        f"{cost.amount_base}|{cost.scope.value}|{cost.created_at.date().isoformat()}|{cost.status.value}"
     )
 
 
@@ -314,7 +330,7 @@ def check(
     for line in invoice.lines:
         amount = line.decimal()
         if amount is None or amount == 0:
-            notes.append(f"@dropped_line|{line.description[:60]}|{line.amount}")
+            notes.append(f"@dropped_line|{note_field(line.description[:60])}|{line.amount}")
             confidence = min(confidence, CAPPED_CONFIDENCE)
         else:
             priced.append((line, amount))

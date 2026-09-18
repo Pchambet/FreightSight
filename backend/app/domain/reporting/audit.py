@@ -34,7 +34,7 @@ from app.core.money import q2, q4, to_base
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
 from app.domain.costing.entry import DUTY_GUARD, normalize_invoice_number, normalize_vendor, same_invoice
 from app.domain.costing.service import Computation
-from app.domain.models import Container, Cost, CostStatus, Invoice, InvoiceStatus, Organization
+from app.domain.models import Container, Cost, CostStatus, Invoice, InvoiceLine, InvoiceStatus, Organization
 from app.domain.reporting.service import (
     UNKNOWN,
     AvoidedRule,
@@ -326,7 +326,7 @@ def audit_report(
     # route" and an invoice above its estimate would be claimed twice.
     claims = (
         _duplicates(comp, every, boxes, costs_in)
-        + _double_entries(comp, every, costs_in)
+        + _double_entries(comp, every, costs_in, documents_of(db, costs_in))
         + _above_quote(comp, every, costs_in, org.base_currency)
     )
     findings = (
@@ -522,12 +522,35 @@ def _close(a: Cost, b: Cost) -> bool:
     return larger > 0 and abs(x - y) <= larger * DUPLICATE_TOLERANCE
 
 
+def documents_of(db: Session, cost_ids: Iterable[UUID]) -> dict[UUID, UUID]:
+    """The confirmed invoice each cost was written from. One confirmation writes one cost per type,
+    target and currency: the freight in dollars and its security surcharge in euros, a surcharge on the
+    bill of lading next to the box's freight, are two costs of one document — never a double entry."""
+    ids = list(cost_ids)
+    if not ids:
+        return {}
+    rows = db.execute(
+        select(InvoiceLine.cost_id, InvoiceLine.invoice_id).where(InvoiceLine.cost_id.in_(ids)).distinct()
+    )
+    return {cost_id: invoice_id for cost_id, invoice_id in rows.tuples() if cost_id is not None}
+
+
+def _target(cost: Cost) -> UUID | None:
+    return cost.container_id or cost.shipment_id or cost.po_id or cost.po_line_id
+
+
 def _double_entries(
-    comp: Computation, every: dict[UUID, Container], costs_in: dict[UUID, Cost]
+    comp: Computation,
+    every: dict[UUID, Container],
+    costs_in: dict[UUID, Cost],
+    written_by: dict[UUID, UUID],
 ) -> list[Finding]:
     """The same invoice recorded twice — a statement keyed in and its PDF confirmed, two spellings of
     one forwarder, once on a box and once on its bill of lading. Not the forwarder's doing and nothing
-    to claim: a double entry of ours, which the landed cost counts twice until one of the two goes."""
+    to claim: a double entry of ours, which the landed cost counts twice until one of the two goes.
+
+    `written_by` names the invoice a cost was confirmed from: two costs of one document are two of its
+    lines, whatever their number says."""
     lands_on: dict[UUID, set[UUID]] = defaultdict(set)
     for allocation in comp.result.allocations:
         lands_on[allocation.cost_id].add(comp.load_rows[allocation.load_id].container_id)
@@ -544,21 +567,26 @@ def _double_entries(
             for second in costs[i + 1 :]:
                 if second.id in repeated:
                     continue
+                document = written_by.get(first.id)
+                if document is not None and document == written_by.get(second.id):
+                    continue  # two lines of one invoice, written by its one confirmation
                 if not same_invoice(first.vendor, first.invoice_number, second.vendor, second.invoice_number):
                     continue
                 boxes_first = lands_on[first.id] | ({first.container_id} if first.container_id else set())
                 boxes_second = lands_on[second.id] | ({second.container_id} if second.container_id else set())
                 if not boxes_first & boxes_second:
                     continue  # one number on two freights: two invoices that happen to share it
-                # A forwarder's invoice numbers are its own, one per document; with its name on both
-                # copies the pair is one invoice. Without it, a number and a freight are all it rests
-                # on, and a short number is in every forwarder's range: a question.
+                # A forwarder's invoice numbers are its own, one per document: with its name on both
+                # copies, one line of it — type, currency, target — recorded twice is a fact. Without the
+                # name, on a box and on its bill of lading, or in two currencies, the two may be two
+                # lines of one invoice or a number every forwarder uses: a question.
                 named = bool(normalize_vendor(first.vendor)) and bool(normalize_vendor(second.vendor))
+                one_line = first.currency == second.currency and _target(first) == _target(second)
                 finding = _finding(
                     comp,
                     every,
                     "DOUBLE_ENTRY",
-                    "sure" if named else "to_check",
+                    "sure" if named and one_line else "to_check",
                     min(first.amount_base, second.amount_base),
                     second,
                     first_invoice=first.invoice_number or "",

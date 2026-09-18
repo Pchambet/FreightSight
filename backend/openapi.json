@@ -5929,6 +5929,75 @@
             }
           }
         }
+      },
+      "patch": {
+        "tags": [
+          "invoices"
+        ],
+        "summary": "Correct Invoice",
+        "description": "Correct the header the reader took \u2014 the number, the forwarder, the date \u2014 before confirming.\n\nEvery guard against counting one invoice twice compares the number and the forwarder, and the\nconfirmation writes them on each cost: a date read as the number is a false \u00ab already recorded \u00bb\ntoday and a missed double entry tomorrow. Only while the invoice is being reviewed; what a\nconfirmed invoice says is corrected by reopening it.",
+        "operationId": "correct_invoice_api_v1_invoices__invoice_id__patch",
+        "parameters": [
+          {
+            "name": "invoice_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Invoice Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/invoices/{invoice_id}/document": {
@@ -12229,6 +12298,49 @@
           "created_at"
         ],
         "title": "InvoiceSummary"
+      },
+      "InvoiceUpdate": {
+        "properties": {
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor"
+          },
+          "invoice_number": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Number"
+          },
+          "invoice_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Date"
+          }
+        },
+        "type": "object",
+        "title": "InvoiceUpdate",
+        "description": "What the reader took from the invoice's header, corrected by the person looking at the PDF: a\ndate or a file reference read as the invoice's number, a forwarder not recognised. The number and\nthe forwarder are what every guard against counting an invoice twice compares, so a wrong one is\neither a false refusal or a missed double entry. Only while the invoice is being reviewed; a field\nleft out is left as it is, and an empty one is cleared."
       },
       "LandedCostAnalysis": {
         "properties": {

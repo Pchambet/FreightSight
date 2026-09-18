@@ -15,6 +15,7 @@ Running this twice changes nothing.
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -120,18 +121,6 @@ def theoretical_duty(comp: Computation, container_id: UUID, cards: list[RateCard
     loads = [ld for ld in comp.loads if ld.container_id == container_id]
     if not loads:
         return None
-    dutiable = sum(
-        (
-            a.amount_base
-            for a in comp.result.allocations
-            if comp.load_rows[a.load_id].container_id == container_id
-            and comp.cost_rows[a.cost_id].cost_type.value in engine.DUTIABLE
-        ),
-        Decimal("0.00"),
-    )
-    fob = sum((ld.fob for ld in loads), Decimal("0.00"))
-    if fob <= 0:
-        return None
     total = Decimal("0.00")
     seen_rate = False
     for load in loads:
@@ -139,9 +128,10 @@ def theoretical_duty(comp: Computation, container_id: UUID, cards: list[RateCard
         if rate is None:
             continue
         seen_rate = True
-        # Each line's customs value is its FOB plus its share of what enters the customs value.
-        cif = load.fob + (dutiable * load.fob / fob)
-        total += cif * rate
+        # Each line's customs value as the engine gives it after its first pass: its FOB and what it
+        # received of the freight and insurance, spread by their own methods — by weight, by volume —
+        # not by a share of FOB, which is the same only when the organization spreads by value.
+        total += comp.result.cif.get(load.id, load.fob) * rate
     return q2(total) if seen_rate and total > 0 else None
 
 
@@ -165,12 +155,28 @@ def estimate_container(
     basis = basis_for(comp, container.id)
     cost_date = on_date or datetime.now(UTC).date()
 
-    existing = {
-        (cost.cost_type, cost.scope)
-        for cost in comp.cost_rows.values()
-        if cost.container_id == container.id
-        or (container.shipment_id is not None and cost.shipment_id == container.shipment_id)
-    }
+    # What is already on this box's freight — the box, or the bill of lading it travels under — and on
+    # the bill of lading's — the bill, or any box on it. A freight invoiced per bill of lading is the
+    # box's freight too: a card priced per box would add it a second time, and the reverse.
+    voyage = (
+        set(
+            db.scalars(
+                select(Container.id).where(
+                    Container.org_id == org.id, Container.shipment_id == container.shipment_id
+                )
+            )
+        )
+        if container.shipment_id is not None
+        else set()
+    )
+    on_box: dict[CostType, set[CostScope]] = defaultdict(set)
+    on_voyage: dict[CostType, set[CostScope]] = defaultdict(set)
+    for cost in comp.cost_rows.values():
+        on_its_bill = container.shipment_id is not None and cost.shipment_id == container.shipment_id
+        if cost.container_id == container.id or on_its_bill:
+            on_box[cost.cost_type].add(cost.scope)
+        if on_its_bill or cost.container_id in voyage:
+            on_voyage[cost.cost_type].add(cost.scope)
     created: list[Cost] = []
     skipped: dict[str, str] = {}
 
@@ -183,8 +189,18 @@ def estimate_container(
         if card.scope is CostScope.SHIPMENT and container.shipment_id is None:
             skipped[card.cost_type.value] = "a SHIPMENT rate card needs the container to be on a shipment"
             continue
-        if (card.cost_type, card.scope) in existing:
+        present = (on_box if card.scope is CostScope.CONTAINER else on_voyage).get(card.cost_type, set())
+        if card.scope in present:
             skipped[card.cost_type.value] = "a cost of this type already exists"
+            continue
+        if present:
+            # The same charge recorded at the other end of the freight: another charge of the same
+            # type is possible — origin and destination handling — but only a person can say so.
+            skipped[card.cost_type.value] = (
+                "a cost of this type is already on the container's shipment"
+                if card.scope is CostScope.CONTAINER
+                else "a cost of this type is already on a container of this shipment"
+            )
             continue
         amount = amount_for(card, basis)
         if amount is None:
@@ -212,7 +228,7 @@ def estimate_container(
         # this, a box whose freight card is applied in the same call got the duty of its goods alone.
         db.flush()
         comp = compute(db, org)
-    if (CostType.CUSTOMS_DUTY, CostScope.CONTAINER) not in existing:
+    if CostType.CUSTOMS_DUTY not in on_box:
         duty = theoretical_duty(
             comp, container.id, [c for c in cards if c.cost_type is CostType.CUSTOMS_DUTY]
         )

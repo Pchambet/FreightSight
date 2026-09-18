@@ -12,6 +12,7 @@ from pydantic_core import PydanticCustomError
 
 from app.domain.alerts.text import LOCALES
 from app.domain.boxes import iso_size_type
+from app.domain.costing.entry import none_if_blank
 from app.domain.invoices.ports import ConfidenceBand, ExtractorKind, confidence_band, extractor_kind
 from app.domain.models import (
     AlertKind,
@@ -423,6 +424,11 @@ class CostCreate(BaseModel):
     def _cur(cls, v: str) -> str:
         return currency_code(v)
 
+    @field_validator("vendor", "invoice_number")
+    @classmethod
+    def _blank(cls, v: str | None) -> str | None:
+        return none_if_blank(v)
+
     @model_validator(mode="after")
     def _manual(self) -> CostCreate:
         if (self.allocation_method == AllocationMethod.MANUAL) != (self.manual_splits is not None):
@@ -452,6 +458,11 @@ class CostUpdate(BaseModel):
     @classmethod
     def _cur(cls, v: str | None) -> str | None:
         return None if v is None else currency_code(v)
+
+    @field_validator("vendor", "invoice_number")
+    @classmethod
+    def _blank(cls, v: str | None) -> str | None:
+        return none_if_blank(v)
 
 
 class CostResponse(BaseModel):
@@ -811,6 +822,23 @@ class InvoiceLineUpdate(BaseModel):
         return None if v is None else currency_code(v)
 
 
+class InvoiceUpdate(BaseModel):
+    """What the reader took from the invoice's header, corrected by the person looking at the PDF: a
+    date or a file reference read as the invoice's number, a forwarder not recognised. The number and
+    the forwarder are what every guard against counting an invoice twice compares, so a wrong one is
+    either a false refusal or a missed double entry. Only while the invoice is being reviewed; a field
+    left out is left as it is, and an empty one is cleared."""
+
+    vendor: str | None = Field(default=None, max_length=200)
+    invoice_number: str | None = Field(default=None, max_length=64)
+    invoice_date: date | None = None
+
+    @field_validator("vendor", "invoice_number")
+    @classmethod
+    def _blank(cls, v: str | None) -> str | None:
+        return none_if_blank(v)
+
+
 class InvoiceLineCreate(BaseModel):
     """The charge the arithmetic says is missing, added by the person who is looking at the PDF.
 
@@ -866,13 +894,15 @@ class AuditFinding(BaseModel):
     how sure it is, how much money it is about, and the objects behind it."""
 
     model_config = ConfigDict(from_attributes=True)
-    #: DUPLICATE_CHARGE | ABOVE_QUOTE | OUTLIER_CHARGE | ESTIMATE_NEVER_INVOICED | UNALLOCATED_COST |
-    #: DUTY_RATE_MISSING
+    #: DUPLICATE_CHARGE | DOUBLE_ENTRY | ABOVE_QUOTE | OUTLIER_CHARGE | ESTIMATE_NEVER_INVOICED |
+    #: UNALLOCATED_COST | DUTY_RATE_MISSING
     code: str
-    #: sure: a fact — one provider billing a charge twice or two identical amounts, an invoice above the
-    #: estimate it replaced in the same currency, an estimate nobody invoiced. to_check: a question —
-    #: two providers billing neighbouring amounts, an estimate and an invoice in two currencies, a
-    #: charge far above the median of its route.
+    #: sure: a fact — one provider billing a charge twice or two identical amounts, one invoice line
+    #: recorded twice on one target in one currency with its forwarder named on both copies, an invoice
+    #: above the estimate it replaced in the same currency, an estimate nobody invoiced. to_check: a
+    #: question — two providers billing neighbouring amounts, the same invoice number on a box and on
+    #: its bill of lading or in two currencies or with a forwarder missing, an estimate and an invoice
+    #: in two currencies, a charge far above the median of its route.
     confidence: Literal["sure", "to_check"]
     #: The money the finding is about: what was billed twice, the excess over the estimate (at the
     #: invoice's own rate, exchange effect apart) or over the median, the estimate still standing.
@@ -887,7 +917,9 @@ class AuditFinding(BaseModel):
     #: Statistical rules only: how many other containers the charge was compared with.
     basis: int | None
     #: The moving parts of the sentence, as raw strings. DUPLICATE_CHARGE: first_invoice,
-    #: first_vendor, first_amount (base currency), same_vendor ("true" | "false"). ABOVE_QUOTE: quoted,
+    #: first_vendor, first_amount (base currency), same_vendor ("true" | "false"). DOUBLE_ENTRY:
+    #: first_invoice, first_vendor, first_amount (base currency) — the copy recorded first; two costs
+    #: written by one confirmed invoice are two lines of it, never a double entry. ABOVE_QUOTE: quoted,
     #: invoiced and currency (the currency both were written in, or the base currency when they
     #: differ), share_pct, and fx_effect when the exchange rate moved: the part of the difference in
     #: base currency that is the rate's, not the price's. OUTLIER_CHARGE: amount, median, ratio,
@@ -897,7 +929,8 @@ class AuditFinding(BaseModel):
     #: with names left out keeps only the params that name nobody (reporting.audit.PUBLIC_PARAMS).
     params: dict[str, str]
     #: DUPLICATE_CHARGE, ABOVE_QUOTE and OUTLIER_CHARGE: a claim can be made, and the amount counts in
-    #: the first page's recoverable sums. The others are about the quality of the figures.
+    #: the first page's recoverable sums. The others are about the quality of the figures — a
+    #: DOUBLE_ENTRY is corrected in the company's own books, never claimed from anybody.
     recoverable: bool
 
 
