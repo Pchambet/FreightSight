@@ -13,7 +13,10 @@ type Shared = Schemas["SharedReportPublic"];
 type Params = { params: Promise<{ token: string }> };
 
 // A private document behind an unguessable link: never indexed, never cached, never previewed.
-export const metadata: Metadata = { title: "FreightSight", robots: { index: false, follow: false, nocache: true }, referrer: "no-referrer" };
+// `absolute`: the root layout's "%s · FreightSight" template made it "FreightSight · FreightSight". The
+// title stays neutral on purpose — no company, no period — because a chat that unfurls the link shows
+// it to everyone in the channel, and reading the share here would count one more opening.
+export const metadata: Metadata = { title: { absolute: "FreightSight" }, robots: { index: false, follow: false, nocache: true }, referrer: "no-referrer" };
 
 /**
  * No session, no tenant header, nothing of the visitor: the token is the whole credential, and the
