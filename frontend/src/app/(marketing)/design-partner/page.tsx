@@ -87,7 +87,7 @@ export default function DesignPartnerPage() {
         </div>
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wider text-blue-700">Profil recherché</h2>
-          <p className="mt-2 text-slate-700 leading-relaxed">PME importatrice de 5 à 60 conteneurs par mois, avec un responsable supply, un COO ou un DAF qui veut un chiffre juste ce trimestre. Odoo, Sage, Cegid ou Pennylane. Négoce, pièces, mobilier, vin, D2C.</p>
+          <p className="mt-2 text-slate-700 leading-relaxed">PME importatrice de 5 à 60 conteneurs par mois, avec un responsable supply, un COO ou un DAF qui veut un chiffre juste ce trimestre. Odoo, Sage, Cegid ou Pennylane. Négoce, maison et jardin, mobilier, pièces, épicerie fine, D2C.</p>
         </div>
       </section>
 
