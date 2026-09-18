@@ -205,16 +205,35 @@ export function reportsHubStep(
   };
 }
 
+/**
+ * `next` is the invoice waiting for review that comes after this one in drop order, and how many
+ * wait: a quarter dropped at once is reviewed one invoice after the other, without going back to the
+ * list between two.
+ */
 export function invoiceDetailStep(
   status: string,
   container?: { id: string; number: string },
+  next?: { id: string; waiting: number },
 ): WorkflowStep | null {
+  const toNext = next ? { href: `/invoices/${next.id}`, labelKey: "invoiceDetail.nextReview" } : null;
+  const skip = next ? [{ href: `/invoices/${next.id}`, labelKey: "invoiceDetail.skip" }] : [];
   if (status === "NEEDS_REVIEW") {
     return {
       descriptionKey: "invoiceDetail.review",
       primary: { href: "#lignes", labelKey: "invoiceDetail.reviewAction" },
-      secondary: [{ href: "/invoices", labelKey: "invoiceDetail.backList" }],
+      secondary: [...skip, { href: "/invoices", labelKey: "invoiceDetail.backList" }],
       variant: "warning",
+    };
+  }
+  if (status === "CONFIRMED" && toNext && next) {
+    return {
+      descriptionKey: "invoiceDetail.confirmedNext",
+      descriptionParams: { count: next.waiting },
+      primary: toNext,
+      secondary: container
+        ? [{ href: `/container/${container.id}#couts-unitaires`, labelKey: "invoiceDetail.seeUnitCosts", labelParams: { container: container.number } }]
+        : [],
+      variant: "success",
     };
   }
   if (status === "CONFIRMED" && container) {
@@ -232,11 +251,20 @@ export function invoiceDetailStep(
       variant: "success",
     };
   }
+  if (status === "REJECTED" && toNext && next) {
+    return {
+      descriptionKey: "invoiceDetail.rejectedNext",
+      descriptionParams: { count: next.waiting },
+      primary: toNext,
+      secondary: [{ href: "/invoices", labelKey: "invoiceDetail.backList" }],
+      variant: "default",
+    };
+  }
   if (status === "UPLOADED" || status === "EXTRACTING") {
     return {
       descriptionKey: "invoiceDetail.extracting",
       primary: { href: "#lignes", labelKey: "invoiceDetail.waitLines" },
-      secondary: [],
+      secondary: skip,
       variant: "default",
     };
   }
@@ -244,7 +272,7 @@ export function invoiceDetailStep(
     return {
       descriptionKey: "invoiceDetail.failed",
       primary: { href: "#lignes", labelKey: "invoiceDetail.retryAction" },
-      secondary: [{ href: "/invoices", labelKey: "invoiceDetail.backList" }],
+      secondary: [...skip, { href: "/invoices", labelKey: "invoiceDetail.backList" }],
       variant: "warning",
     };
   }

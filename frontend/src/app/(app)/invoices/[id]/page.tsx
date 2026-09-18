@@ -45,25 +45,36 @@ export default async function InvoicePage({ params }: Params) {
   const { invoice, targets } = data;
   const lines = invoice.lines ?? [];
   const notes = invoice.notes ?? [];
-  const [t, noteT, costType, statusLabel, extractorKind, locale] = await Promise.all([
+  const [t, noteT, costType, statusLabel, extractorKind, locale, waitingRes] = await Promise.all([
     getTranslations("invoices.detail"),
     getTranslations("invoices.lineNotes"),
     getTranslations("domain.costType"),
     getTranslations("domain.invoiceStatus"),
     getTranslations("domain.extractorKind"),
     getLocale(),
+    api.GET("/api/v1/invoices", { params: { query: { invoice_status: "NEEDS_REVIEW" } } }),
   ]);
   const inProgress = invoice.status === "UPLOADED" || invoice.status === "EXTRACTING";
   const isPdf = (invoice.filename ?? "").toLowerCase().endsWith(".pdf");
   const continueContainers = invoice.status === "CONFIRMED" ? containerLinksFromLines(lines, targets) : [];
   const primaryContainer = continueContainers[0];
-  const detailStep = invoiceDetailStep(invoice.status, primaryContainer ? { id: primaryContainer.id, number: primaryContainer.container_number } : undefined);
+  // The other invoices waiting for review, in the order they were dropped: the next one is the first
+  // dropped after this one — a batch is walked through in its own order — then back to the oldest.
+  const waiting = (waitingRes.data ?? []).filter((i) => i.id !== invoice.id).sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const next = waiting.find((i) => i.created_at > invoice.created_at) ?? waiting[0];
+  const detailStep = invoiceDetailStep(
+    invoice.status,
+    primaryContainer ? { id: primaryContainer.id, number: primaryContainer.container_number } : undefined,
+    next ? { id: next.id, waiting: waiting.length } : undefined,
+  );
   // `extractor_kind` (RULES/MODEL/UNKNOWN) and each line's `confidence_band` (HIGH/MEDIUM/LOW) are
   // new fields the generated schema does not carry yet (needs_other_lane) — read through a narrow
   // type rather than the raw `extractor` string ("regex") a DAF cannot make sense of (audit B24/B25).
   const extractorKindValue = (invoice as { extractor_kind?: string }).extractor_kind ?? "";
   const confidenceBandValue = (invoice as { confidence_band?: "HIGH" | "MEDIUM" | "LOW" }).confidence_band;
-  const confirmedCostCount = lines.filter((l) => l.cost_id).length;
+  // Costs, not lines: lines of one type on one target and currency become one cost, which each of
+  // them points to (freight + bunker surcharge on one container).
+  const confirmedCostCount = new Set(lines.map((l) => l.cost_id).filter(Boolean)).size;
 
   return (
     <>

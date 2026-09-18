@@ -787,7 +787,8 @@
     "SHARE_NOT_FOUND": "Ce lien de partage n'existe pas ou n'est plus valable.",
     "RATE_LIMITED": "Trop de demandes en peu de temps. Réessayez dans un instant.",
     "PERIOD_INVALID": "La période n'est pas valide : la date de début doit précéder la date de fin, entre 2000 et 2100.",
-    "ASSUMED_COEFFICIENT_INVALID": "Le coefficient appliqué est un rapport entre 1 et 3, comme 1,15, et non un pourcentage."
+    "ASSUMED_COEFFICIENT_INVALID": "Le coefficient appliqué est un rapport entre 1 et 3, comme 1,15, et non un pourcentage.",
+    "INVOICE_ALREADY_RECORDED": "Cette facture est déjà enregistrée : rouvrez ou supprimez ce qui la porte avant de la confirmer."
   },
   "timeline": {
     "title": "Chronologie",
@@ -882,14 +883,32 @@
     "nav": "Factures",
     "upload": {
       "title": "Déposer une facture",
-      "hint": "PDF, PNG ou JPEG, {max} au plus. La facture est lue, puis chaque ligne est proposée : rien n'entre dans les coûts sans votre validation.",
+      "hint": "PDF, PNG ou JPEG, {max} au plus par fichier, plusieurs à la fois si besoin. Chaque facture est lue, puis chaque ligne est proposée : rien n'entre dans les coûts sans votre validation.",
       "fileLabel": "Fichier facture",
       "choose": "Choisir un fichier",
       "submit": "Déposer et lire",
       "uploading": "Dépôt…",
       "done": "Facture déposée, lecture en cours",
       "failed": "Impossible de déposer la facture",
-      "duplicate": "Cette facture a déjà été déposée"
+      "duplicate": "Cette facture a déjà été déposée",
+      "chooseMany": "Choisissez les factures, ou déposez-les ici — une ou plusieurs à la fois",
+      "listLabel": "Factures à déposer",
+      "submitMany": "{count, plural, =0 {Déposer et lire} one {Déposer et lire la facture} other {Déposer et lire les # factures}}",
+      "status": {
+        "ready": "Prête",
+        "sending": "Envoi…",
+        "created": "Déposée, lecture en cours",
+        "duplicate": "Déjà reçue",
+        "failed": "Refusée : {reason}",
+        "tooLarge": "Trop lourde : {max} au plus",
+        "badType": "Format refusé : PDF, PNG ou JPEG"
+      },
+      "open": "Ouvrir",
+      "remove": "Retirer {name}",
+      "progress": "Envoi {done} sur {total}…",
+      "summary": "{created, plural, =0 {Aucune facture déposée} one {# facture déposée} other {# factures déposées}}{duplicate, plural, =0 {} one {, # déjà reçue} other {, # déjà reçues}}{failed, plural, =0 {} one {, # refusée} other {, # refusées}}.",
+      "reviewFirst": "Relire la première",
+      "duplicateOpened": "Cette facture était déjà déposée : la voici."
     },
     "th": {
       "vendor": "Émetteur",
@@ -923,7 +942,7 @@
       "rejected": "Facture rejetée",
       "retried": "Lecture relancée",
       "failed": "Action impossible",
-      "confirmedBanner": "Facture confirmée : {count} coûts créés le {date}.",
+      "confirmedBanner": "{count, plural, =0 {Facture confirmée le {date}, sans coût créé.} one {Facture confirmée : # coût créé le {date}.} other {Facture confirmée : # coûts créés le {date}.}}",
       "continueTitle": "Étape suivante",
       "continueHint": "Les coûts sont ventilés. Ouvrez le conteneur pour voir le coût unitaire par référence.",
       "continueToContainer": "Voir le conteneur {container}",
@@ -947,7 +966,7 @@
       "creditNoteBanner": "Ce document est un avoir : les remboursements ne peuvent pas encore devenir des coûts. Saisissez le remboursement à la main.",
       "reopenConfirmedAction": "Rouvrir pour correction",
       "reopenConfirmedTitle": "Rouvrir cette facture confirmée ?",
-      "reopenConfirmedBody": "Les {count} coûts créés par cette confirmation seront supprimés. La facture repasse à relire ; rien d'autre n'est touché.",
+      "reopenConfirmedBody": "{count, plural, one {Le coût créé par cette confirmation sera supprimé.} other {Les # coûts créés par cette confirmation seront supprimés.}} La facture repasse à relire ; rien d'autre n'est touché.",
       "reopenConfirmedConfirm": "Rouvrir et supprimer les coûts",
       "reopenConfirmedCancel": "Annuler",
       "reopenedConfirmed": "Facture rouverte, {count, plural, one {# coût supprimé} other {# coûts supprimés}}.",
@@ -963,7 +982,10 @@
       "progressNone": "{count, plural, one {# ligne lue, à retenir ou non} other {# lignes lues, aucune retenue pour l'instant}}",
       "acceptAll": "{count, plural, one {Retenir la ligne} other {Retenir les # lignes}}",
       "sumMatches": "Lignes retenues : {amount} = total HT de la facture",
-      "sumGap": "Lignes retenues : {kept} · HT de la facture : {subtotal} · écart {gap}"
+      "sumGap": "Lignes retenues : {kept} · HT de la facture : {subtotal} · écart {gap}",
+      "alreadyRecorded": "Cette facture est déjà enregistrée ({items}) : rouvrez ou supprimez ce qui la porte avant de la confirmer.",
+      "alreadyRecordedGeneric": "Cette facture est déjà enregistrée : rouvrez ou supprimez ce qui la porte avant de la confirmer.",
+      "recordedOn": "le {date}"
     },
     "lineNotes": {
       "singleContainer": "Facturé sur {container}, seul conteneur mentionné sur la facture.",
@@ -1412,7 +1434,11 @@
       "extracting": "La facture est en cours de lecture. La page se rafraîchit automatiquement.",
       "waitLines": "Voir les lignes",
       "failed": "La lecture a échoué. Relancez l'extraction ou saisissez les coûts à la main sur le conteneur.",
-      "retryAction": "Voir les options"
+      "retryAction": "Voir les options",
+      "confirmedNext": "Facture confirmée — les coûts sont ventilés. {count, plural, one {Une autre facture attend votre relecture.} other {# autres factures attendent votre relecture.}}",
+      "rejectedNext": "Facture rejetée : rien n'a été créé. {count, plural, one {Une autre facture attend votre relecture.} other {# autres factures attendent votre relecture.}}",
+      "nextReview": "Relire la facture suivante",
+      "skip": "Passer à la suivante"
     },
     "reports": {
       "explore": "Le coût unitaire de {sku} est calculé — ouvrez le conteneur pour le montrer en détail.",

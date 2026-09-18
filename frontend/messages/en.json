@@ -787,7 +787,8 @@
     "SHARE_NOT_FOUND": "This share link does not exist or is no longer valid.",
     "RATE_LIMITED": "Too many requests in a short time. Try again in a moment.",
     "PERIOD_INVALID": "The period is not valid: the start date must come before the end date, between 2000 and 2100.",
-    "ASSUMED_COEFFICIENT_INVALID": "The applied ratio is a ratio between 1 and 3, such as 1.15, not a percentage."
+    "ASSUMED_COEFFICIENT_INVALID": "The applied ratio is a ratio between 1 and 3, such as 1.15, not a percentage.",
+    "INVOICE_ALREADY_RECORDED": "This invoice is already recorded: reopen or delete what carries it before confirming it."
   },
   "timeline": {
     "title": "Timeline",
@@ -882,14 +883,32 @@
     "nav": "Invoices",
     "upload": {
       "title": "Upload an invoice",
-      "hint": "PDF, PNG or JPEG, {max} max. The invoice is read, then each line is proposed: nothing enters the costs without your confirmation.",
+      "hint": "PDF, PNG or JPEG, {max} max per file, several at once if needed. Each invoice is read, then each line is proposed: nothing enters the costs without your confirmation.",
       "fileLabel": "Invoice file",
       "choose": "Choose a file",
       "submit": "Upload and read",
       "uploading": "Uploading…",
       "done": "Invoice uploaded, reading in progress",
       "failed": "Could not upload the invoice",
-      "duplicate": "This invoice was already uploaded"
+      "duplicate": "This invoice was already uploaded",
+      "chooseMany": "Choose the invoices, or drop them here — one or several at once",
+      "listLabel": "Invoices to upload",
+      "submitMany": "{count, plural, =0 {Upload and read} one {Upload and read the invoice} other {Upload and read the # invoices}}",
+      "status": {
+        "ready": "Ready",
+        "sending": "Sending…",
+        "created": "Uploaded, being read",
+        "duplicate": "Already received",
+        "failed": "Refused: {reason}",
+        "tooLarge": "Too large: {max} at most",
+        "badType": "Format refused: PDF, PNG or JPEG"
+      },
+      "open": "Open",
+      "remove": "Remove {name}",
+      "progress": "Sending {done} of {total}…",
+      "summary": "{created, plural, =0 {No invoice uploaded} one {# invoice uploaded} other {# invoices uploaded}}{duplicate, plural, =0 {} other {, # already received}}{failed, plural, =0 {} other {, # refused}}.",
+      "reviewFirst": "Review the first one",
+      "duplicateOpened": "This invoice had already been uploaded: here it is."
     },
     "th": {
       "vendor": "Vendor",
@@ -923,7 +942,7 @@
       "rejected": "Invoice rejected",
       "retried": "Reading restarted",
       "failed": "Action failed",
-      "confirmedBanner": "Invoice confirmed: {count} costs created on {date}.",
+      "confirmedBanner": "{count, plural, =0 {Invoice confirmed on {date}, no cost created.} one {Invoice confirmed: # cost created on {date}.} other {Invoice confirmed: # costs created on {date}.}}",
       "continueTitle": "Next step",
       "continueHint": "Costs are allocated. Open the container to see the unit cost per SKU.",
       "continueToContainer": "View container {container}",
@@ -947,7 +966,7 @@
       "creditNoteBanner": "This document is a credit note: refunds cannot become costs yet. Enter the refund by hand.",
       "reopenConfirmedAction": "Reopen for correction",
       "reopenConfirmedTitle": "Reopen this confirmed invoice?",
-      "reopenConfirmedBody": "The {count} costs this confirmation created will be deleted. The invoice goes back to review; nothing else is touched.",
+      "reopenConfirmedBody": "{count, plural, one {The cost this confirmation created will be deleted.} other {The # costs this confirmation created will be deleted.}} The invoice goes back to review; nothing else is touched.",
       "reopenConfirmedConfirm": "Reopen and delete the costs",
       "reopenConfirmedCancel": "Cancel",
       "reopenedConfirmed": "Invoice reopened, {count, plural, one {# cost deleted} other {# costs deleted}}.",
@@ -963,7 +982,10 @@
       "progressNone": "{count, plural, one {# line read, to keep or not} other {# lines read, none kept yet}}",
       "acceptAll": "{count, plural, one {Keep the line} other {Keep all # lines}}",
       "sumMatches": "Kept lines: {amount} = the invoice's total before tax",
-      "sumGap": "Kept lines: {kept} · invoice before tax: {subtotal} · gap {gap}"
+      "sumGap": "Kept lines: {kept} · invoice before tax: {subtotal} · gap {gap}",
+      "alreadyRecorded": "This invoice is already recorded ({items}): reopen or delete what carries it before confirming it.",
+      "alreadyRecordedGeneric": "This invoice is already recorded: reopen or delete what carries it before confirming it.",
+      "recordedOn": "on {date}"
     },
     "lineNotes": {
       "singleContainer": "Charged to {container}, the only container named on the invoice.",
@@ -1412,7 +1434,11 @@
       "extracting": "The invoice is being read. This page refreshes automatically.",
       "waitLines": "View lines",
       "failed": "Reading failed. Retry extraction or enter costs manually on the container.",
-      "retryAction": "View options"
+      "retryAction": "View options",
+      "confirmedNext": "Invoice confirmed — the costs are allocated. {count, plural, one {One more invoice is waiting for your review.} other {# more invoices are waiting for your review.}}",
+      "rejectedNext": "Invoice rejected: nothing was created. {count, plural, one {One more invoice is waiting for your review.} other {# more invoices are waiting for your review.}}",
+      "nextReview": "Review the next invoice",
+      "skip": "Skip to the next one"
     },
     "reports": {
       "explore": "Unit cost for {sku} is computed — open the container to show the detail.",

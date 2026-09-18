@@ -1,9 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { api, problemMessage, type ImportJobResponse, type LandedCostReport, type Problem, type Schemas } from "@/lib/api/client";
 import { protectAction } from "@/lib/auth";
+import { dateShort, money } from "@/lib/format";
 import type { AllocationMethod, ContainerMilestone, CostScope, CostStatus, CostType, ImportKind, MilestoneCode, RateBasis } from "@/lib/domain";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -166,7 +167,14 @@ export async function markAllAlertsRead(): Promise<ActionResult<{ marked: number
 
 // ---------------------------------------------------------------------------- invoices
 
-export async function uploadInvoice(formData: FormData): Promise<ActionResult<{ id: string }>> {
+/**
+ * An invoice opened on the file — or, when the very same file was already received (the API refuses
+ * a re-upload on the content and names the document), `duplicateOf` is the invoice it opened then, so
+ * the screen can go straight to it rather than stop at an error.
+ */
+export type UploadResult = { ok: true; data: { id: string } } | { ok: false; error: string; duplicateOf?: string };
+
+export async function uploadInvoice(formData: FormData): Promise<UploadResult> {
   await protectAction();
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return await fail(null, "invoices.upload.failed");
@@ -181,7 +189,12 @@ export async function uploadInvoice(formData: FormData): Promise<ActionResult<{ 
       return fd;
     },
   });
-  if (response.status === 409) return await fail(error, "invoices.upload.duplicate");
+  if (response.status === 409) {
+    const documentId = (error as (Problem & { document_id?: string }) | undefined)?.document_id;
+    const existing = documentId ? (await api.GET("/api/v1/invoices")).data?.find((i) => i.document_id === documentId) : undefined;
+    const t = await getTranslations();
+    return { ok: false, error: await problemMessage(error, t("invoices.upload.duplicate")), duplicateOf: existing?.id };
+  }
   if (error || !data) return await fail(error, "invoices.upload.failed");
   revalidatePath("/invoices");
   return { ok: true, data: { id: data.id } };
@@ -237,6 +250,32 @@ export type ConfirmInvoiceResult =
  * hands the code back on failure (not just the translated sentence) so the review screen can tell a
  * duplicate refusal — offer "confirm anyway" — apart from every other reason confirming can fail.
  */
+/**
+ * « Cette facture est déjà enregistrée (TRANSITEX · FA 2026 0912 · Fret maritime · 3 830,00 € · le
+ * 18/09/2026) : … ». The API refuses, without a way to force it, an invoice whose normalized number
+ * already carries a real cost — its statement imported, or its PDF confirmed under a neighbouring
+ * spelling — and describes each such cost in `errors` as
+ * `@recorded|type|vendor|number|amount in the base currency|scope|creation day`.
+ */
+async function alreadyRecorded(error: Problem | null | undefined): Promise<string> {
+  const [t, costType, locale, org] = await Promise.all([
+    getTranslations("invoices.detail"),
+    getTranslations("domain.costType"),
+    getLocale(),
+    api.GET("/api/v1/organization"),
+  ]);
+  const base = org.data?.base_currency ?? "EUR";
+  const items = (error?.errors ?? [])
+    .map((e) => e.message.split("|"))
+    .filter((parts) => parts[0] === "@recorded")
+    .map(([, type, vendor, number, amount, , day]) =>
+      [vendor, number, costType.has(type as never) ? costType(type as never) : type, money(amount, base, locale), day ? t("recordedOn", { date: dateShort(day, locale) }) : ""]
+        .filter(Boolean)
+        .join(" · "),
+    );
+  return items.length ? t("alreadyRecorded", { items: items.join(" ; ") }) : t("alreadyRecordedGeneric");
+}
+
 export async function confirmInvoice(invoiceId: string, force = false): Promise<ConfirmInvoiceResult> {
   await protectAction();
   // The route only gained this optional body for the force-confirm case; the generated schema does
@@ -249,8 +288,8 @@ export async function confirmInvoice(invoiceId: string, force = false): Promise<
   const { data, error } = raw as { data?: Schemas["InvoiceConfirmResponse"]; error?: Problem | null };
   if (error || !data) {
     const t = await getTranslations();
-    const message = await problemMessage(error, t("invoices.detail.failed"));
     const code = error && typeof error === "object" ? (error as { code?: string | null }).code ?? undefined : undefined;
+    const message = code === "INVOICE_ALREADY_RECORDED" ? await alreadyRecorded(error) : await problemMessage(error, t("invoices.detail.failed"));
     return { ok: false, error: message, code: code ?? undefined };
   }
   revalidatePath(`/invoices/${invoiceId}`);

@@ -136,7 +136,7 @@ export default function CommandPalette() {
     const actions: Entry[] = [
       { id: "act-start", group: "actions" as const, icon: Plus, label: t("palette.action.newFile"), href: "/start" },
       { id: "act-container", group: "actions" as const, icon: Container, label: t("palette.action.addContainer"), href: "/containers#nouveau" },
-      { id: "act-invoice", group: "actions" as const, icon: FileUp, label: t("palette.action.uploadInvoice"), href: "/invoices#deposer" },
+      { id: "act-invoice", group: "actions" as const, icon: FileUp, label: t("palette.action.uploadInvoice"), href: "/invoices#depot" },
       { id: "act-import", group: "actions" as const, icon: Upload, label: t("palette.action.importOrders"), href: "/imports/new" },
     ].filter((e) => match(e.label));
     return [...results, ...actions, ...pages];

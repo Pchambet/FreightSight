@@ -338,6 +338,8 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
                       toast.error(t("duplicateBlocked"), { duration: 10000 });
                       return;
                     }
+                    // Cannot be forced: the sentence names what already carries the invoice and what to do.
+                    if (r.code === "INVOICE_ALREADY_RECORDED") return void toast.error(r.error, { duration: 12000 });
                     toast.error(r.error ?? t("failed"));
                     return;
                   }

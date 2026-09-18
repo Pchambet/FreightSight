@@ -52,6 +52,11 @@ export function InvoiceDrop({ base, containerId }: { base: string; containerId: 
               // Refused before the action runs (connection dropped, a body over a limit): it rejects.
               const r = await uploadInvoice(fd).catch(() => null);
               if (!r) return void toast.error(tu("failed"));
+              // The same file was already received: carry on with the invoice it opened then.
+              if (!r.ok && r.duplicateOf) {
+                toast.info(tu("duplicateOpened"));
+                return void router.push(`${base}&invoice=${r.duplicateOf}`);
+              }
               if (!r.ok) return void toast.error(r.error);
               router.push(`${base}&invoice=${r.data.id}`);
             })
