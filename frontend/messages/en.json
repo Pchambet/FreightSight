@@ -2326,7 +2326,9 @@
         "toReview": "Invoices waiting for review, to date",
         "fx": "Exchange rates of the costs",
         "fxSource": "{source}: {count}",
-        "findings": "Findings on the quality of the figures"
+        "findings": "Findings on the quality of the figures",
+        "notCompared": "Containers not compared (no route or no size)",
+        "withoutDate": "Containers without a date, outside every period"
       },
       "footer": "Drawn up from the issuer's orders and invoices. An “established” finding is a measured fact; “to check” is a question to ask, not an accusation.",
       "method": {
@@ -2336,7 +2338,11 @@
         "aboveQuote": "Invoice above the estimate: from +{pct}% in the estimate's currency and {amount} at the invoice's rate; the exchange rate's effect is given apart.",
         "outlier": "Out-of-line amount: more than {ratio} times the median of the same service, at least {excess} above it, on at least {basis} other containers of the same route and size, over {days} days ({freight} days either side for freight). Never compared: {notCompared}.",
         "stale": "Estimate never invoiced: still an estimate {days} days after the goods arrived.",
-        "once": "One euro is never counted by two rules."
+        "once": "One euro is never counted by two rules.",
+        "allocationDuty": "Every cost is allocated to the loaded lines by the chosen method. Customs duty follows each line's theoretical duty (CIF value × rate) when that explains the duty paid within {pct}%, the CIF value otherwise. Import VAT, recoverable, is excluded from the landed cost. Foreign-currency amounts are converted at the European Central Bank rate of the invoice date.",
+        "sameInvoice": "Invoice entered twice: the same invoice (normalised number, same provider) recorded twice on one freight. Never a service invoiced twice; established when both copies name the provider, to check otherwise.",
+        "outlierUnknown": "A container without a known route or size is not compared.",
+        "demurrageByArrival": "Demurrage and detention: attached to the container that arrived in the period, whatever the date of their invoice."
       },
       "empty": {
         "title": "No goods arrived in this period",

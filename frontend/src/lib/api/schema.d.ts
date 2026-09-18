@@ -437,6 +437,9 @@ export interface paths {
          *     Paid is a fact. Avoided is an estimate that each line justifies in words, and that does not exist
          *     at all without the organization's own daily rate: a made-up saving is the kind of figure that
          *     destroys trust in every other number on the page.
+         *
+         *     `basis=arrival` counts what the boxes that arrived in the period cost, whenever it was invoiced —
+         *     the audit's reading, since detention is billed after the empty comes back.
          */
         get: operations["demurrage_and_detention_api_v1_reports_dnd_get"];
         put?: never;
@@ -2017,6 +2020,10 @@ export interface components {
             fx_sources: {
                 [key: string]: number;
             };
+            /** Containers Not Compared */
+            containers_not_compared?: number | null;
+            /** Containers Without Date */
+            containers_without_date?: number | null;
         };
         /** AuditDemurrageLine */
         AuditDemurrageLine: {
@@ -2248,6 +2255,14 @@ export interface components {
             not_compared: components["schemas"]["CostType"][];
             /** Estimate Stale After Days */
             estimate_stale_after_days: number;
+            /** Duty Explained Pct */
+            duty_explained_pct?: string | null;
+            /** Demurrage By Arrival */
+            demurrage_by_arrival?: boolean | null;
+            /** Outlier Needs Route And Size */
+            outlier_needs_route_and_size?: boolean | null;
+            /** Same Invoice Never Duplicate */
+            same_invoice_never_duplicate?: boolean | null;
         };
         /** AuditShareCreate */
         AuditShareCreate: {
@@ -3072,7 +3087,8 @@ export interface components {
         };
         /**
          * InvoiceConfirmRequest
-         * @description Confirm again after looking at what the duplicate check found.
+         * @description Confirm again after looking at what a check found. Each flag answers one check only, and both
+         *     may be sent together; what was overruled is written into the confirmation's notes.
          */
         InvoiceConfirmRequest: {
             /**
@@ -3080,6 +3096,11 @@ export interface components {
              * @default false
              */
             force: boolean;
+            /**
+             * Force Recorded
+             * @default false
+             */
+            force_recorded: boolean;
         };
         /** InvoiceConfirmResponse */
         InvoiceConfirmResponse: {
@@ -5781,6 +5802,7 @@ export interface operations {
             query?: {
                 period_from?: string | null;
                 period_to?: string | null;
+                basis?: "cost_date" | "arrival";
             };
             header?: {
                 "X-Org-Id"?: string | null;

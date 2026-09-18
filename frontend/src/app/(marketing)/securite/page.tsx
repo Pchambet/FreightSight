@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { site } from "@/lib/site";
 import ScrollRegion from "@/components/shared/ScrollRegion";
+import { site } from "@/lib/site";
 
 const description = "Où sont vos données, qui y accède, et ce que FreightSight ne fait pas.";
 

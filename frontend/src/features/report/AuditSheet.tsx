@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import ScrollRegion from "@/components/shared/ScrollRegion";
 import { monthTitle } from "@/features/overview/period";
 import type { Schemas } from "@/lib/api/client";
 import { dateShort, money, qty } from "@/lib/format";
-import ScrollRegion from "@/components/shared/ScrollRegion";
 
 type Audit = Schemas["AuditReport"];
 type Finding = Schemas["AuditFinding"];
@@ -366,6 +366,12 @@ export default async function AuditSheet({ audit, header, locale }: { audit: Aud
               <div className="flex justify-between gap-3"><dt className="text-slate-600">{t("quality.estimated")}</dt><dd className="tabular-nums font-medium">{eur(c.estimated)}{c.estimated_share_pct != null ? <span className="text-slate-500 font-normal"> ({pct1(c.estimated_share_pct)})</span> : null}</dd></div>
               <div className="flex justify-between gap-3"><dt className="text-slate-600">{t("quality.withoutCost")}</dt><dd className="tabular-nums font-medium">{c.containers_without_cost}</dd></div>
               <div className="flex justify-between gap-3"><dt className="text-slate-600">{t("quality.toReview")}</dt><dd className="tabular-nums font-medium">{c.invoices_to_review}</dd></div>
+              {c.containers_not_compared != null ? (
+                <div className="flex justify-between gap-3"><dt className="text-slate-600">{t("quality.notCompared")}</dt><dd className="tabular-nums font-medium">{c.containers_not_compared}</dd></div>
+              ) : null}
+              {c.containers_without_date != null ? (
+                <div className="flex justify-between gap-3"><dt className="text-slate-600">{t("quality.withoutDate")}</dt><dd className="tabular-nums font-medium">{c.containers_without_date}</dd></div>
+              ) : null}
               <div className="flex justify-between gap-3">
                 <dt className="text-slate-600">{t("quality.fx")}</dt>
                 <dd className="text-right text-slate-700">
@@ -385,11 +391,18 @@ export default async function AuditSheet({ audit, header, locale }: { audit: Aud
             ) : null}
             <h3 className="mt-5 text-sm font-semibold text-slate-900">{t("method.title")}</h3>
             <ul className="mt-2 list-disc pl-5 space-y-1 text-xs text-slate-600">
-              <li>{t("method.allocation")}</li>
+              {/* A rule is said only by the documents computed with it: links created before a rule
+                  existed carry no flag for it, and keep the sentences of their day. */}
+              <li>{rules.duty_explained_pct != null ? t("method.allocationDuty", { pct: plain(rules.duty_explained_pct) }) : t("method.allocation")}</li>
               <li>{t("method.duplicate", { tolerance: plain(rules.duplicate_tolerance_pct), never: types(rules.never_duplicate) })}</li>
+              {rules.same_invoice_never_duplicate ? <li>{t("method.sameInvoice")}</li> : null}
               <li>{t("method.aboveQuote", { pct: plain(rules.above_quote_min_pct), amount: eur(rules.above_quote_min_amount) })}</li>
-              <li>{t("method.outlier", { ratio: plain(rules.outlier_ratio), excess: eur(rules.outlier_min_excess), basis: rules.outlier_min_basis, days: rules.outlier_lookback_days, freight: rules.freight_window_days, notCompared: types(rules.not_compared) })}</li>
+              <li>
+                {t("method.outlier", { ratio: plain(rules.outlier_ratio), excess: eur(rules.outlier_min_excess), basis: rules.outlier_min_basis, days: rules.outlier_lookback_days, freight: rules.freight_window_days, notCompared: types(rules.not_compared) })}
+                {rules.outlier_needs_route_and_size ? ` ${t("method.outlierUnknown")}` : null}
+              </li>
               <li>{t("method.stale", { days: rules.estimate_stale_after_days })}</li>
+              {rules.demurrage_by_arrival ? <li>{t("method.demurrageByArrival")}</li> : null}
               <li>{t("method.once")}</li>
             </ul>
           </section>

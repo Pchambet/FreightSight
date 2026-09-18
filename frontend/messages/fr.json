@@ -2326,7 +2326,9 @@
         "toReview": "Factures en attente de relecture, à ce jour",
         "fx": "Taux de change des coûts",
         "fxSource": "{source} : {count}",
-        "findings": "Constats sur la qualité des chiffres"
+        "findings": "Constats sur la qualité des chiffres",
+        "notCompared": "Conteneurs non comparés (sans route ou sans taille)",
+        "withoutDate": "Conteneurs sans date, hors de toute période"
       },
       "footer": "Établi à partir des commandes et des factures de l'émetteur. Un constat « établi » est un fait mesuré ; « à vérifier » est une question à poser, pas une accusation.",
       "method": {
@@ -2336,7 +2338,11 @@
         "aboveQuote": "Facture au-dessus de l'estimé : à partir de +{pct} % dans la devise de l'estimé et de {amount} au taux de la facture ; l'effet du change est donné à part.",
         "outlier": "Montant hors norme : plus de {ratio} fois la médiane de la même prestation, à au moins {excess} au-dessus, sur au moins {basis} autres conteneurs de même route et de même taille, sur {days} jours ({freight} jours de part et d'autre pour le fret). Jamais comparés : {notCompared}.",
         "stale": "Estimé jamais facturé : encore estimé {days} jours après l'arrivée de la marchandise.",
-        "once": "Un même euro n'est jamais compté par deux règles."
+        "once": "Un même euro n'est jamais compté par deux règles.",
+        "allocationDuty": "Chaque coût est ventilé sur les lignes chargées selon la méthode choisie. Les droits de douane suivent les droits théoriques de chaque ligne (valeur CIF × taux) quand ceux-ci expliquent les droits payés à {pct} % près, la valeur CIF sinon. La TVA à l'importation, récupérable, est exclue du coût de revient. Les montants en devise sont convertis au taux de la Banque centrale européenne du jour de la facture.",
+        "sameInvoice": "Facture saisie deux fois : la même facture (numéro normalisé, même prestataire) enregistrée deux fois sur un même fret. Ce n'est jamais une prestation facturée deux fois ; établie si les deux copies nomment le prestataire, à vérifier sinon.",
+        "outlierUnknown": "Un conteneur sans route ou sans taille connue n'est pas comparé.",
+        "demurrageByArrival": "Surestaries et détention : rattachées au conteneur arrivé dans la période, quelle que soit la date de leur facture."
       },
       "empty": {
         "title": "Aucune marchandise arrivée sur cette période",
