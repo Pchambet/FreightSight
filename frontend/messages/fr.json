@@ -397,7 +397,7 @@
     },
     "resultProducts": "{created, plural, one {# fiche créée} other {# fiches créées}}, {updated, plural, one {# mise à jour} other {# mises à jour}}",
     "resultContainers": "{created, plural, one {# conteneur créé} other {# conteneurs créés}}, {updated} mis à jour, {dated, plural, one {# daté} other {# datés}}",
-    "resultCosts": "{count, plural, one {# coût} other {# coûts}} pour {amount}",
+    "resultCosts": "{count, plural, =0 {Aucun coût} one {# coût pour {amount}} other {# coûts pour {amount}}}{vat, select, yes {, hors TVA à l'importation} other {}}",
     "undoneOn": "Annulé le {date}",
     "undo": {
       "action": "Annuler cet import",
@@ -408,7 +408,9 @@
       "done": "Import annulé : {costs, plural, one {# coût supprimé} other {# coûts supprimés}}, {estimates, plural, one {# estimé rouvert} other {# estimés rouverts}}.",
       "failed": "Impossible d'annuler cet import",
       "pushed": "{count, plural, one {Un document ERP porte des coûts de cet import} other {Des documents ERP portent des coûts de cet import}} ({documents}) : oubliez-{count, plural, one {le} other {les}} d'abord, ou corrigez dans l'ERP par un document d'ajustement.",
-      "periodClosed": "{count, plural, one {Le mois de {months} est clos} other {Les mois de {months} sont clos}} : rouvrez-{count, plural, one {le} other {les}} d'abord pour annuler cet import."
+      "periodClosed": "{count, plural, one {Le mois de {months} est clos} other {Les mois de {months} sont clos}} : rouvrez-{count, plural, one {le} other {les}} d'abord pour annuler cet import.",
+      "reliedOn": "{count, plural, one {Le fichier {files}, importé après, s'appuie sur des lignes de celui-ci : annulez-le d'abord.} other {Les fichiers {files}, importés après, s'appuient sur des lignes de celui-ci : annulez-les d'abord.}}",
+      "reliedOnUnnamed": "Un fichier importé après s'appuie sur des lignes de celui-ci : annulez-le d'abord."
     },
     "history": "Historique des imports"
   },
@@ -450,7 +452,7 @@
       "defaultType": "Type de frais par défaut (facultatif)",
       "defaultTypeNone": "Aucun : les lignes sans type lisible sont en erreur",
       "defaultTypeHint": "Chaque ligne dont le type ne se lit ni dans une colonne ni dans le libellé prendra ce type. Ces lignes ne donneront que des constats à vérifier.",
-      "oneOf": "Au moins une de ces colonnes : {fields}"
+      "oneOf": "{count, plural, one {Faites aussi correspondre la colonne {fields}.} other {Au moins une de ces colonnes : {fields}}}"
     },
     "review": {
       "card": "Ce que l'import va faire",
@@ -486,7 +488,8 @@
       "estimatesReplaced": "Estimés remplacés",
       "newUpdatedMasculine": "{created, plural, one {# nouveau} other {# nouveaux}}, {updated, plural, one {# mis à jour} other {# mis à jour}}",
       "changed": "Les chiffres ont changé depuis l'aperçu ({before} → {after}) : rien n'a été écrit. Relisez l'aperçu mis à jour ci-dessous, puis importez.",
-      "rowsCount": "{count, plural, one {# ligne} other {# lignes}}"
+      "rowsCount": "{count, plural, one {# ligne} other {# lignes}}",
+      "lineRecordedMeanwhile": "Une ligne de ce fichier vient d'être enregistrée ailleurs : refaites l'aperçu pour voir laquelle."
     },
     "done": {
       "card": "Import validé",
@@ -500,12 +503,13 @@
       "shipments": "{shipments, plural, one {# expédition créée} other {# expéditions créées}}, {loads, plural, one {# chargement} other {# chargements}}.",
       "invoicesMatched": "{count, plural, one {# facture en attente a trouvé son conteneur.} other {# factures en attente ont trouvé leur conteneur.}}",
       "poSplit": "{count, plural, one {# commande est répartie sur plusieurs conteneurs : ses chargements sont à vérifier.} other {# commandes sont réparties sur plusieurs conteneurs : leurs chargements sont à vérifier.}}",
-      "costs": "{created, plural, one {# coût créé} other {# coûts créés}} pour {amount}.",
+      "costs": "{created, plural, =0 {Aucun coût créé} one {# coût créé pour {amount}} other {# coûts créés pour {amount}}}{vat, select, yes {, hors TVA à l'importation suivie à part} other {}}.",
       "costsSkipped": "{count, plural, one {# ligne déjà importée ignorée.} other {# lignes déjà importées ignorées.}}",
       "estimatesReplaced": "{count, plural, one {# estimé remplacé par son réel.} other {# estimés remplacés par leur réel.}}",
       "creditNotes": "{count, plural, one {# avoir écarté : vérifiez qu'il ne rembourse pas un constat.} other {# avoirs écartés : vérifiez qu'aucun ne rembourse un constat.}}",
       "next": "Importer ensuite : {kind}",
-      "prepareAudit": "Voir ce qui manque pour l'audit"
+      "prepareAudit": "Voir ce qui manque pour l'audit",
+      "creditReverses": "{count, plural, one {# avoir annule un coût encore en compte : supprimez ce coût.} other {# avoirs annulent des coûts encore en compte : supprimez ces coûts.}}"
     },
     "kinds": {
       "legend": "Type de fichier",
@@ -552,7 +556,8 @@
         "inInbox": "Confirmez-la ou rejetez-la d'abord : l'importer ici la compterait deux fois.",
         "ordersThenAgain": "Importez les commandes, puis ce fichier à nouveau : les conteneurs seront chargés.",
         "noTarget": "Ajoutez au fichier une colonne conteneur, B/L ou commande, ou importez d'abord le suivi des conteneurs.",
-        "maybeSecondInvoice": "Un frais du même type est déjà sur ce transport : ces lignes sont écartées comme doublons possibles. Si ce sont bien d'autres factures (un second passage, un complément), importez-les quand même."
+        "maybeSecondInvoice": "Un frais du même type est déjà sur ce transport : ces lignes sont écartées comme doublons possibles. Si ce sont bien d'autres factures (un second passage, un complément), importez-les quand même.",
+        "oneContainer": "Ajoutez une colonne conteneur, ou scindez la ligne : un frais par conteneur."
       },
       "remedyLink": {
         "importContainers": "Importer le suivi des conteneurs",
@@ -591,7 +596,9 @@
       "creditsTitle": "{count, plural, one {# avoir écarté} other {# avoirs écartés}} ({amount})",
       "creditsHint": "Un coût ne porte pas de montant négatif : ces lignes ne sont pas importées. Vérifiez qu'aucune ne rembourse un constat de l'audit, sinon il réclamerait une somme déjà remboursée.",
       "creditLine": "Ligne {row} · {date} · {vendor} · facture {invoice} · {amount}",
-      "creditsMore": "et {count} autres"
+      "creditsMore": "et {count} autres",
+      "vatApart": "suivie à part, hors coût de revient",
+      "reversesCost": "annule un coût encore en compte"
     },
     "row": {
       "invoiceNo": "facture {number}",
@@ -603,7 +610,7 @@
         "AMOUNT_CURRENCY_MISMATCH": "Le montant est en {amount}, la colonne devise dit {currency} : corrigez l'une des deux.",
         "TARGET_FROM_LABEL": "Rattaché à {value}, lu dans le libellé : vérifiez que c'est bien lui.",
         "ZERO_AMOUNT": "Montant nul : ce n'est pas un coût, la ligne est ignorée.",
-        "CREDIT_NOTE_SKIPPED": "Avoir de {amount} écarté : un coût n'est jamais négatif. Vérifiez qu'il ne rembourse pas un constat.",
+        "CREDIT_NOTE_SKIPPED": "{reverses, select, yes {Avoir de {amount} écarté : il annule un coût encore en compte. Supprimez ce coût.} other {Avoir de {amount} écarté : un coût n'est jamais négatif. Vérifiez qu'il ne rembourse pas un constat.}}",
         "REVERSED_IN_FILE": "Annulée par la ligne {row} ({amount} dans l'autre sens) : les deux lignes sont écartées.",
         "INVOICE_IN_INBOX": "La facture {invoice_number} attend sa relecture parmi les factures déposées.",
         "SEVERAL_ESTIMATES": "{estimates} estimés « {type} » sont ouverts sur ce transport : on ne sait pas lequel cette ligne remplace. Saisissez ce frais à la main sur la fiche.",
@@ -632,10 +639,16 @@
       },
       "COSTS": {
         "DATE_IN_FUTURE": "Date du frais à venir (« {value} ») : un frais s'importe une fois facturé.",
-        "NO_TARGET": "Cette ligne ne désigne aucun conteneur, B/L ou commande connu, ou en désigne plusieurs{hasLabel, select, yes { (libellé : « {value} »)} other {}}.",
+        "NO_TARGET": "Cette ligne ne désigne aucun conteneur, B/L ou commande connu{hasLabel, select, yes { (libellé : « {value} »)} other {}}.",
         "FX_RATE_UNAVAILABLE": "Aucun taux {currency} connu au {date} : la ligne ne peut pas être convertie. Saisissez ce frais à la main avec son taux.",
         "INVOICE_ALREADY_RECORDED": "Cette facture est déjà dans les livres ({recorded}) : la ligne est écartée.",
-        "DUPLICATE_COST": "Un frais « {type} » est déjà enregistré sur ce transport ({recorded}) : la ligne est écartée."
+        "DUPLICATE_COST": "Un frais « {type} » est déjà enregistré sur ce transport ({recorded}) : la ligne est écartée.",
+        "VAT_NOT_A_COST": "{on, select, account {Compte {account} : de la TVA, pas un coût. La ligne est écartée.} other {« {label} » : de la TVA, pas un coût. La ligne est écartée.}}",
+        "NOT_A_CHARGE_ACCOUNT": "Compte {account} : pas un compte de charges. La ligne est écartée.",
+        "AMOUNT_INCLUDES_VAT": "« {value} » : montant toutes taxes comprises. Un coût se lit hors taxes : donnez la ligne hors taxes.",
+        "TARGET_AMBIGUOUS": "« {value} » nomme plusieurs conteneurs ({container_numbers}) : on ne sait pas auquel revient ce frais.",
+        "AMOUNT_PRECISION": "{field} : « {value} » a plus de deux décimales.",
+        "INVOICE_LINE_ALREADY_RECORDED": "Cette ligne de facture est déjà enregistrée ({recorded}) : la ligne est écartée."
       },
       "PRODUCTS": {
         "NEGATIVE": "{field} : valeur négative ({value}), la ligne est écartée.",
@@ -2621,7 +2634,9 @@
       "CLOCKS_RUNNING": "{count, plural, one {# conteneur a encore une horloge qui court : déchargé sans sortie, ou sorti sans restitution.} other {# conteneurs ont encore une horloge qui court : déchargés sans sortie, ou sortis sans restitution.}}",
       "NO_SALE_PRICE": "{count, plural, one {# référence sans prix de vente : pas de marge pour elle.} other {# références sans prix de vente : pas de marge pour elles.}}",
       "NO_ASSUMED_COEFFICIENT": "Aucun coefficient d'approche supposé : l'audit ne dira pas l'écart avec votre pratique.",
-      "ESTIMATES_OPEN": "{count, plural, one {# estimé est encore ouvert.} other {# estimés sont encore ouverts.}}"
+      "ESTIMATES_OPEN": "{count, plural, one {# estimé est encore ouvert.} other {# estimés sont encore ouverts.}}",
+      "COST_ROWS_REFUSED": "{count, plural, one {# ligne de frais refusée à l'import n'est dans aucun coût} other {# lignes de frais refusées à l'import ne sont dans aucun coût}} : conteneur inconnu, libellé sans type, taux manquant… Corrigez le fichier et importez-le de nouveau : les lignes déjà importées sont reconnues.",
+      "CREDIT_NOTE_REVERSES_COST": "{count, plural, one {# avoir du journal annule un coût encore en compte : le coût de revient le compte à tort.} other {# avoirs du journal annulent des coûts encore en compte : le coût de revient les compte à tort.}}"
     },
     "remedy": {
       "importContainers": "Importer le suivi des conteneurs",
@@ -2639,7 +2654,8 @@
       "setTheoreticalDuty": "Compléter les taux, puis passer ses droits en « droits théoriques » sur la fiche",
       "setType": "Indiquer le type sur la fiche",
       "setCoefficient": "Saisir le coefficient",
-      "seeCosts": "Voir les frais du conteneur"
+      "seeCosts": "Voir les frais du conteneur",
+      "deleteReversedCost": "Supprimer le coût annulé sur la fiche"
     },
     "period": "Dernier trimestre, du {from} au {to}",
     "summary": "{blocking, plural, =0 {Rien ne fausse l'audit} one {# point fausserait l'audit} other {# points fausseraient l'audit}}, {limits, plural, =0 {aucune limite} one {# limite} other {# limites}}",

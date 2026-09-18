@@ -60,7 +60,10 @@ function remedy(item: Item): { key: string; href: string } | null {
     case "COSTS_TYPED_OTHER":
       return { key: "seeCosts", href: onFirst("/containers") };
     case "CREDIT_NOTES_SKIPPED":
+    case "COST_ROWS_REFUSED":
       return { key: "openImport", href: onFirst("/imports") };
+    case "CREDIT_NOTE_REVERSES_COST":
+      return { key: "deleteReversedCost", href: onFirst("/containers") };
     case "PO_SPLIT":
       return { key: "openOrder", href: onFirst("/purchase-orders") };
     case "NO_SALE_PRICE":

@@ -132,8 +132,9 @@ export default function ImportWizard({
     startTransition(async () => {
       const result = await validateImport(job.id, mapping, { defaultCostType: defaultCostType || null, labelTypes: types, forceDuplicates: force });
       if (!result.ok) {
-        if (step !== "mapping") toast.error(result.error);
-        setMappingError(result.error);
+        const message = "oneOf" in result ? t("mapping.oneOf", { count: result.oneOf.length, fields: result.oneOf.map(fieldName).join(", ") }) : result.error;
+        if (step !== "mapping") toast.error(message);
+        setMappingError(message);
         return;
       }
       setMappingError(null);
@@ -148,11 +149,12 @@ export default function ImportWizard({
   const commit = (onError: "skip_rows" | "abort") => {
     if (!job) return;
     startTransition(async () => {
-      const result = await commitImport(job.id, onError);
+      const result = await commitImport(job.id, onError, job.preview_key ?? null);
       if (!result.ok) {
         if (result.code === "PREVIEW_CHANGED" && result.report) {
+          // The new preview, and the key that commits exactly it: the next click imports what is shown.
           setChanged({ before: job.report, after: result.report });
-          setJob({ ...job, report: result.report });
+          setJob({ ...job, report: result.report, preview_key: result.previewKey ?? job.preview_key });
           return;
         }
         return void toast.error(result.error);
@@ -282,7 +284,7 @@ export default function ImportWizard({
             ) : null}
             {missingRequired.length ? <p className="text-sm text-amber-700">{t("mapping.required", { fields: missingRequired.join(", ") })}</p> : null}
             {missingOneOf.map((group) => (
-              <p key={group.join()} className="text-sm text-amber-700">{t("mapping.oneOf", { fields: group.join(", ") })}</p>
+              <p key={group.join()} className="text-sm text-amber-700">{t("mapping.oneOf", { count: group.length, fields: group.join(", ") })}</p>
             ))}
             {mappingError ? <p role="alert" className="text-sm text-red-700">{mappingError}</p> : null}
             <div className="flex gap-2">

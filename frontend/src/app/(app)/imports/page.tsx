@@ -43,7 +43,7 @@ export default async function ImportsPage() {
       case "CONTAINERS":
         return t("resultContainers", { created: r.containers_created ?? 0, updated: r.containers_updated ?? 0, dated: r.containers_dated ?? 0 });
       case "COSTS":
-        return t("resultCosts", { count: r.costs_created ?? 0, amount: money(r.money?.total_base ?? "0", base, locale) });
+        return t("resultCosts", { count: r.costs_created ?? 0, amount: money(r.money?.total_base ?? "0", base, locale), vat: r.money?.by_type?.some((x) => x.cost_type === "IMPORT_VAT") ? "yes" : "no" });
       default:
         return t("result", { pos: r.purchase_orders_created ?? 0, lines: r.lines_created ?? 0, containers: r.containers_created ?? 0, loads: r.loads_created ?? 0 });
     }

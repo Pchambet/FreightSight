@@ -526,7 +526,7 @@ export async function validateImport(
   importId: string,
   mapping: Record<string, string>,
   options: { defaultCostType?: CostType | null; labelTypes?: Record<string, CostType>; forceDuplicates?: boolean } = {},
-): Promise<ActionResult<ImportJobResponse>> {
+): Promise<ActionResult<ImportJobResponse> | { ok: false; error: string; oneOf: string[] }> {
   await protectAction();
   const { data, error } = await api.POST("/api/v1/imports/{import_id}/validate", {
     params: { path: { import_id: importId } },
@@ -537,29 +537,43 @@ export async function validateImport(
       force_duplicates: options.forceDuplicates ?? false,
     },
   });
-  if (error || !data) return await fail(error, "importWizard.mapping.failed");
+  if (error || !data) {
+    const p = error as (Problem & { one_of?: string[] }) | undefined;
+    // Columns that go together (a credit column needs its account): the screen names them by their headers.
+    if (p?.code === "MAPPING_INCOMPLETE" && p.one_of?.length) return { ok: false, error: "", oneOf: p.one_of };
+    if (p?.code === "INVOICE_LINE_ALREADY_RECORDED" && !p.errors?.length) {
+      const t = await getTranslations("importWizard.review");
+      return { ok: false, error: t("lineRecordedMeanwhile") };
+    }
+    return await fail(error, "importWizard.mapping.failed");
+  }
   return { ok: true, data };
 }
 
 /**
- * On PREVIEW_CHANGED the figures moved between the preview and the commit (a cost entered meanwhile):
- * nothing was written, and `report` is the new preview — the job carries it too — to show and have
- * validated again, never committed behind the person's back.
+ * The commit names the preview the person read (`previewKey`, from the job): what is written is that
+ * preview and nothing else. On PREVIEW_CHANGED the books moved in between, or another tab previewed
+ * the file again with other choices: nothing was written, and `report` is the new preview, with the
+ * key that commits it — shown first, never committed behind the person's back.
  */
 export type ImportCommitResult =
   | { ok: true; data: ImportJobResponse }
-  | { ok: false; error: string; code?: string; report?: Schemas["ImportReport"] };
+  | { ok: false; error: string; code?: string; report?: Schemas["ImportReport"]; previewKey?: string };
 
-export async function commitImport(importId: string, onError: "skip_rows" | "abort"): Promise<ImportCommitResult> {
+export async function commitImport(importId: string, onError: "skip_rows" | "abort", previewKey: string | null): Promise<ImportCommitResult> {
   await protectAction();
   const { data, error } = await api.POST("/api/v1/imports/{import_id}/commit", {
     params: { path: { import_id: importId } },
-    body: { on_error: onError },
+    body: { on_error: onError, ...(previewKey ? { preview_key: previewKey } : {}) },
   });
   if (error || !data) {
     const t = await getTranslations();
-    const p = error as (Problem & { report?: Schemas["ImportReport"] }) | undefined;
-    return { ok: false, error: await problemMessage(error, t("importWizard.review.failed")), code: p?.code ?? undefined, report: p?.code === "PREVIEW_CHANGED" ? p.report : undefined };
+    const p = error as (Problem & { report?: Schemas["ImportReport"]; preview_key?: string }) | undefined;
+    // A line of the file written elsewhere since the preview (the database's last word): a new
+    // preview shows which one, where a generic « this invoice already has this cost » would not.
+    if (p?.code === "INVOICE_LINE_ALREADY_RECORDED" && !p.errors?.length) return { ok: false, error: t("importWizard.review.lineRecordedMeanwhile"), code: p.code };
+    const changed = p?.code === "PREVIEW_CHANGED";
+    return { ok: false, error: await problemMessage(error, t("importWizard.review.failed")), code: p?.code ?? undefined, report: changed ? p.report : undefined, previewKey: changed ? p.preview_key : undefined };
   }
   // An import can date containers, create costs, match waiting invoices and fill sale prices.
   for (const path of ["/containers", "/purchase-orders", "/imports", "/invoices", "/skus", "/cost-audit", "/overview"]) revalidatePath(path);
@@ -584,6 +598,11 @@ export async function undoImport(importId: string): Promise<ActionResult<{ costs
     const documents = [...new Set((p?.errors ?? []).map((e) => e.message.split("|")).filter((x) => x[0] === "@pushed_cost").map((x) => x[1]).filter(Boolean))];
     if (p?.code === "COSTS_PUSHED_TO_ERP" && documents.length) {
       return { ok: false, error: t("pushed", { count: documents.length, documents: list(documents) }) };
+    }
+    // A later file of the same ledger recognised some of these lines and left them to this one.
+    const later = (p as { files?: string[] } | undefined)?.files?.filter(Boolean) ?? [];
+    if (p?.code === "IMPORT_RELIED_ON") {
+      return { ok: false, error: later.length ? t("reliedOn", { count: later.length, files: list(later) }) : t("reliedOnUnnamed") };
     }
     if (p?.code === "IMPORT_PERIOD_CLOSED" && p.months?.length) {
       return { ok: false, error: t("periodClosed", { count: p.months.length, months: list(p.months.map((m) => monthTitle(m, locale))) }) };

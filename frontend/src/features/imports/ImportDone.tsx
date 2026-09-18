@@ -30,12 +30,18 @@ export default function ImportDone({ job, baseCurrency, onAnother }: { job: Impo
       if (r.invoices_matched) lines.push(t("invoicesMatched", { count: r.invoices_matched }));
       if (r.po_split) lines.push(t("poSplit", { count: r.po_split }));
       break;
-    case "COSTS":
-      lines.push(t("costs", { created: r.costs_created ?? 0, amount: money(r.money?.total_base ?? "0", baseCurrency, locale) }));
+    case "COSTS": {
+      // The total leaves out the import VAT the file brought: tracked, never a landed cost.
+      lines.push(t("costs", { created: r.costs_created ?? 0, amount: money(r.money?.total_base ?? "0", baseCurrency, locale), vat: r.money?.by_type?.some((x) => x.cost_type === "IMPORT_VAT") ? "yes" : "no" }));
       if (r.costs_skipped) lines.push(t("costsSkipped", { count: r.costs_skipped }));
       if (r.estimates_replaced) lines.push(t("estimatesReplaced", { count: r.estimates_replaced }));
-      if (r.credit_notes_skipped?.length) lines.push(t("creditNotes", { count: r.credit_notes_skipped.length }));
+      // A credit note that cancels a cost still counted asks for that cost to go; the others only for a look.
+      const credits = r.credit_notes_skipped ?? [];
+      const reversing = credits.filter((c) => c.reverses_cost_id).length;
+      if (reversing) lines.push(t("creditReverses", { count: reversing }));
+      if (credits.length > reversing) lines.push(t("creditNotes", { count: credits.length - reversing }));
       break;
+    }
     default:
       lines.push(t("summary", { pos: r.purchase_orders_created ?? 0, lines: r.lines_created ?? 0, containers: r.containers_created ?? 0, loads: r.loads_created ?? 0 }));
   }

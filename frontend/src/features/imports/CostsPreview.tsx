@@ -61,9 +61,14 @@ export default function CostsPreview({
                 <caption className="sr-only">{t("byType")}</caption>
                 <thead className="bg-slate-50"><tr><th className={th}>{t("th.type")}</th><th className={thRight}>{t("th.rows")}</th><th className={thRight}>{t("th.amount", { currency: baseCurrency })}</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">
-                  {m.by_type.map((r) => (
-                    <tr key={r.cost_type}><td className={td}>{costType(r.cost_type)}</td><td className={tdRight}>{r.rows}</td><td className={tdRight}>{eur(r.total_base)}</td></tr>
-                  ))}
+                  {m.by_type.map((r) =>
+                    // Import VAT is tracked, never a landed cost: listed, outside the total above.
+                    r.cost_type === "IMPORT_VAT" ? (
+                      <tr key={r.cost_type} className="text-slate-500"><td className={td}>{costType(r.cost_type)}<span className="text-xs"> — {t("vatApart")}</span></td><td className={tdRight}>{r.rows}</td><td className={tdRight}>{eur(r.total_base)}</td></tr>
+                    ) : (
+                      <tr key={r.cost_type}><td className={td}>{costType(r.cost_type)}</td><td className={tdRight}>{r.rows}</td><td className={tdRight}>{eur(r.total_base)}</td></tr>
+                    ),
+                  )}
                 </tbody>
               </table>
             </ScrollRegion>
@@ -133,6 +138,7 @@ export default function CostsPreview({
             {credits.slice(0, 12).map((c) => (
               <li key={c.row} className="tabular-nums">
                 {t("creditLine", { row: c.row, date: c.cost_date ? dateShort(c.cost_date, locale) : "—", vendor: c.vendor || "—", invoice: c.invoice_number || "—", amount: money(unsigned(c.amount), c.currency, locale) })}
+                {c.reverses_cost_id ? <span className="font-medium text-amber-800"> · {t("reversesCost")}</span> : null}
               </li>
             ))}
             {credits.length > 12 ? <li>{t("creditsMore", { count: credits.length - 12 })}</li> : null}

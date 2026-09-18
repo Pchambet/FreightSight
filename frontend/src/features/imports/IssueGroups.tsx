@@ -26,6 +26,8 @@ const REMEDY: Record<string, { key: string; href?: string | ((rows: Issue[]) => 
   ARRIVAL_UNKNOWN: { key: "arrival" },
   PO_UNKNOWN: { key: "ordersThenAgain", href: "/imports/new?kind=PURCHASE_ORDERS" },
   INVOICE_ALREADY_RECORDED: { key: "alreadyInBooks" },
+  INVOICE_LINE_ALREADY_RECORDED: { key: "alreadyInBooks" },
+  TARGET_AMBIGUOUS: { key: "oneContainer" },
   DUPLICATE_COST: { key: "maybeSecondInvoice" },
   INVOICE_IN_INBOX: {
     key: "inInbox",
@@ -94,9 +96,13 @@ export function useIssueSentence(kind: ImportKind, fieldName: (field: string) =>
       case "REVERSED_IN_FILE":
         return { ...out, amount: money(p.amount, p.currency, locale) };
       case "CREDIT_NOTE_SKIPPED":
-        // « Un avoir de 100 € »: the file writes it negative, the sentence says what it is.
-        return { ...out, amount: money(unsigned(p.amount), p.currency, locale) };
+        // « Un avoir de 100 € »: the file writes it negative, the sentence says what it is — and
+        // whether it cancels a cost still counted.
+        return { ...out, amount: money(unsigned(p.amount), p.currency, locale), reverses: p.reverses_cost_id ? "yes" : "no" };
+      case "VAT_NOT_A_COST":
+        return { ...out, on: i.field === "account" ? "account" : "label" };
       case "INVOICE_ALREADY_RECORDED":
+      case "INVOICE_LINE_ALREADY_RECORDED":
         return { ...out, recorded: recorded(true) };
       case "DUPLICATE_COST":
         return { ...out, recorded: recorded(false), type: typeName(p.cost_type ?? "") };

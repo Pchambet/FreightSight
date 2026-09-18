@@ -397,7 +397,7 @@
     },
     "resultProducts": "{created, plural, one {# sheet created} other {# sheets created}}, {updated} updated",
     "resultContainers": "{created, plural, one {# container created} other {# containers created}}, {updated} updated, {dated} dated",
-    "resultCosts": "{count, plural, one {# cost} other {# costs}} for {amount}",
+    "resultCosts": "{count, plural, =0 {No cost} one {# cost for {amount}} other {# costs for {amount}}}{vat, select, yes {, not counting import VAT} other {}}",
     "undoneOn": "Undone on {date}",
     "undo": {
       "action": "Undo this import",
@@ -408,7 +408,9 @@
       "done": "Import undone: {costs, plural, one {# cost deleted} other {# costs deleted}}, {estimates, plural, one {# estimate reopened} other {# estimates reopened}}.",
       "failed": "Could not undo this import",
       "pushed": "{count, plural, one {An ERP document carries costs of this import} other {ERP documents carry costs of this import}} ({documents}): forget {count, plural, one {it} other {them}} first, or correct in the ERP with an adjustment document.",
-      "periodClosed": "{count, plural, one {{months} is closed} other {{months} are closed}}: reopen {count, plural, one {it} other {them}} first to undo this import."
+      "periodClosed": "{count, plural, one {{months} is closed} other {{months} are closed}}: reopen {count, plural, one {it} other {them}} first to undo this import.",
+      "reliedOn": "{count, plural, one {File {files}, imported later, relies on rows of this one: undo it first.} other {Files {files}, imported later, rely on rows of this one: undo them first.}}",
+      "reliedOnUnnamed": "A file imported later relies on rows of this one: undo it first."
     },
     "history": "Import history"
   },
@@ -450,7 +452,7 @@
       "defaultType": "Default cost type (optional)",
       "defaultTypeNone": "None: rows without a readable type are errors",
       "defaultTypeHint": "Every row whose type reads neither from a column nor from the label takes this type. Those rows only give findings to check.",
-      "oneOf": "At least one of these columns: {fields}"
+      "oneOf": "{count, plural, one {Match the {fields} column as well.} other {At least one of these columns: {fields}}}"
     },
     "review": {
       "card": "What the import will do",
@@ -486,7 +488,8 @@
       "estimatesReplaced": "Estimates replaced",
       "newUpdatedMasculine": "{created} new, {updated} updated",
       "changed": "The figures changed since the preview ({before} → {after}): nothing was written. Read the updated preview below, then import.",
-      "rowsCount": "{count, plural, one {# row} other {# rows}}"
+      "rowsCount": "{count, plural, one {# row} other {# rows}}",
+      "lineRecordedMeanwhile": "A line of this file was just recorded elsewhere: preview again to see which one."
     },
     "done": {
       "card": "Import committed",
@@ -500,12 +503,13 @@
       "shipments": "{shipments, plural, one {# shipment created} other {# shipments created}}, {loads, plural, one {# load} other {# loads}}.",
       "invoicesMatched": "{count, plural, one {# waiting invoice found its container.} other {# waiting invoices found their container.}}",
       "poSplit": "{count, plural, one {# order is spread over several containers: its loads need checking.} other {# orders are spread over several containers: their loads need checking.}}",
-      "costs": "{created, plural, one {# cost created} other {# costs created}} for {amount}.",
+      "costs": "{created, plural, =0 {No cost created} one {# cost created for {amount}} other {# costs created for {amount}}}{vat, select, yes {, not counting the import VAT tracked apart} other {}}.",
       "costsSkipped": "{count, plural, one {# row already imported skipped.} other {# rows already imported skipped.}}",
       "estimatesReplaced": "{count, plural, one {# estimate replaced by its actual.} other {# estimates replaced by their actual.}}",
       "creditNotes": "{count, plural, one {# credit note left out: check it does not refund a finding.} other {# credit notes left out: check none refunds a finding.}}",
       "next": "Import next: {kind}",
-      "prepareAudit": "See what the audit still needs"
+      "prepareAudit": "See what the audit still needs",
+      "creditReverses": "{count, plural, one {# credit note cancels a cost still counted: delete that cost.} other {# credit notes cancel costs still counted: delete those costs.}}"
     },
     "kinds": {
       "legend": "Kind of file",
@@ -552,7 +556,8 @@
         "inInbox": "Confirm or reject it first: importing it here would count it twice.",
         "ordersThenAgain": "Import the orders, then this file again: the containers will be loaded.",
         "noTarget": "Add a container, B/L or order column to the file, or import the container tracking first.",
-        "maybeSecondInvoice": "A cost of the same type is already on this freight: these rows are left out as possible double entries. If they really are other invoices (a second call, a supplement), import them anyway."
+        "maybeSecondInvoice": "A cost of the same type is already on this freight: these rows are left out as possible double entries. If they really are other invoices (a second call, a supplement), import them anyway.",
+        "oneContainer": "Add a container column, or split the line: one cost per container."
       },
       "remedyLink": {
         "importContainers": "Import the container tracking",
@@ -591,7 +596,9 @@
       "creditsTitle": "{count, plural, one {# credit note left out} other {# credit notes left out}} ({amount})",
       "creditsHint": "A cost carries no negative amount: these rows are not imported. Check that none refunds a finding of the audit, or it would claim a sum already refunded.",
       "creditLine": "Row {row} · {date} · {vendor} · invoice {invoice} · {amount}",
-      "creditsMore": "and {count} more"
+      "creditsMore": "and {count} more",
+      "vatApart": "tracked apart, not a landed cost",
+      "reversesCost": "cancels a cost still counted"
     },
     "row": {
       "invoiceNo": "invoice {number}",
@@ -603,7 +610,7 @@
         "AMOUNT_CURRENCY_MISMATCH": "The amount is in {amount}, the currency column says {currency}: fix one of the two.",
         "TARGET_FROM_LABEL": "Attached to {value}, read in the label: check it is the right one.",
         "ZERO_AMOUNT": "Zero amount: not a cost, the row is ignored.",
-        "CREDIT_NOTE_SKIPPED": "Credit note of {amount} left out: a cost is never negative. Check it does not refund a finding.",
+        "CREDIT_NOTE_SKIPPED": "{reverses, select, yes {Credit note of {amount} left out: it cancels a cost still counted. Delete that cost.} other {Credit note of {amount} left out: a cost is never negative. Check it does not refund a finding.}}",
         "REVERSED_IN_FILE": "Cancelled by row {row} ({amount} the other way): both rows are left out.",
         "INVOICE_IN_INBOX": "Invoice {invoice_number} is waiting for review among the uploaded invoices.",
         "SEVERAL_ESTIMATES": "{estimates} \"{type}\" estimates are open on this freight: which one this row replaces is unknown. Enter this cost by hand on the sheet.",
@@ -632,10 +639,16 @@
       },
       "COSTS": {
         "DATE_IN_FUTURE": "Cost date still to come (\"{value}\"): a cost is imported once invoiced.",
-        "NO_TARGET": "This row names no known container, B/L or order, or names several{hasLabel, select, yes { (label: \"{value}\")} other {}}.",
+        "NO_TARGET": "This row names no known container, B/L or order{hasLabel, select, yes { (label: \"{value}\")} other {}}.",
         "FX_RATE_UNAVAILABLE": "No {currency} rate known on {date}: the row cannot be converted. Enter this cost by hand with its rate.",
         "INVOICE_ALREADY_RECORDED": "This invoice is already in the books ({recorded}): the row is left out.",
-        "DUPLICATE_COST": "A \"{type}\" cost is already recorded on this freight ({recorded}): the row is left out."
+        "DUPLICATE_COST": "A \"{type}\" cost is already recorded on this freight ({recorded}): the row is left out.",
+        "VAT_NOT_A_COST": "{on, select, account {Account {account}: VAT, not a cost. The row is left out.} other {\"{label}\": VAT, not a cost. The row is left out.}}",
+        "NOT_A_CHARGE_ACCOUNT": "Account {account}: not an expense account. The row is left out.",
+        "AMOUNT_INCLUDES_VAT": "\"{value}\": amount including tax. A cost is read before tax: give the line before tax.",
+        "TARGET_AMBIGUOUS": "\"{value}\" names several containers ({container_numbers}): which one this cost belongs to is unknown.",
+        "AMOUNT_PRECISION": "{field}: \"{value}\" has more than two decimals.",
+        "INVOICE_LINE_ALREADY_RECORDED": "This invoice line is already recorded ({recorded}): the row is left out."
       },
       "PRODUCTS": {
         "NEGATIVE": "{field}: negative value ({value}), the row is left out.",
@@ -2621,7 +2634,9 @@
       "CLOCKS_RUNNING": "{count, plural, one {# container still has a clock running: discharged without gate-out, or out without return.} other {# containers still have a clock running: discharged without gate-out, or out without return.}}",
       "NO_SALE_PRICE": "{count, plural, one {# SKU without a sale price: no margin for it.} other {# SKUs without a sale price: no margin for them.}}",
       "NO_ASSUMED_COEFFICIENT": "No assumed coefficient: the audit will not say the gap with your practice.",
-      "ESTIMATES_OPEN": "{count, plural, one {# estimate is still open.} other {# estimates are still open.}}"
+      "ESTIMATES_OPEN": "{count, plural, one {# estimate is still open.} other {# estimates are still open.}}",
+      "COST_ROWS_REFUSED": "{count, plural, one {# cost row refused at import is in no cost} other {# cost rows refused at import are in no cost}}: unknown container, label without a type, missing rate… Fix the file and import it again: the rows already imported are recognised.",
+      "CREDIT_NOTE_REVERSES_COST": "{count, plural, one {# credit note of the ledger cancels a cost still counted: the landed cost counts it wrongly.} other {# credit notes of the ledger cancel costs still counted: the landed cost counts them wrongly.}}"
     },
     "remedy": {
       "importContainers": "Import the container tracking file",
@@ -2639,7 +2654,8 @@
       "setTheoreticalDuty": "Complete the rates, then switch its duty to \"theoretical duty\" on the container",
       "setType": "Set the type on the container",
       "setCoefficient": "Enter the coefficient",
-      "seeCosts": "See the container's costs"
+      "seeCosts": "See the container's costs",
+      "deleteReversedCost": "Delete the cancelled cost on the sheet"
     },
     "period": "Last quarter, {from} to {to}",
     "summary": "{blocking, plural, =0 {Nothing makes the audit wrong} one {# point would make the audit wrong} other {# points would make the audit wrong}}, {limits, plural, =0 {no limit} one {# limit} other {# limits}}",

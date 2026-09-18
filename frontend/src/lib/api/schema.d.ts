@@ -1387,9 +1387,10 @@ export interface paths {
         put?: never;
         /**
          * Commit Import
-         * @description Write the file. Containers, costs and products write exactly what their preview showed:
-         *     without a preview, 409 PREVIEW_REQUIRED; when the books have moved since and the same file would
-         *     now do something else, nothing is written and 409 PREVIEW_CHANGED carries the new `report`.
+         * @description Write the file. Containers, costs and products write exactly what the preview a person approved
+         *     showed, named by its `preview_key`: without one, 409 PREVIEW_REQUIRED; when another preview of the
+         *     file replaced it, or the books have moved since and the same file would now do something else,
+         *     nothing is written and 409 PREVIEW_CHANGED carries the new `report` and its `preview_key`.
          */
         post: operations["commit_import_api_v1_imports__import_id__commit_post"];
         delete?: never;
@@ -3101,11 +3102,14 @@ export interface components {
              * @enum {string}
              */
             on_error: "skip_rows" | "abort";
+            /** Preview Key */
+            preview_key?: string | null;
         };
         /**
          * ImportCreditNote
          * @description A negative line left out of the books — costs cannot be negative — and counted, never dropped in
-         *     silence: it may refund a charge the audit would otherwise claim.
+         *     silence: it may refund a charge the audit would otherwise claim. Amounts as the file wrote them:
+         *     negative.
          */
         ImportCreditNote: {
             /** Row */
@@ -3122,6 +3126,8 @@ export interface components {
             currency: string;
             /** Amount Base */
             amount_base?: string | null;
+            /** Reverses Cost Id */
+            reverses_cost_id?: string | null;
         };
         /**
          * ImportFieldInfo
@@ -3188,6 +3194,8 @@ export interface components {
              * @enum {string}
              */
             source: "upload" | "erp_sync";
+            /** Preview Key */
+            preview_key?: string | null;
         };
         /**
          * ImportKind
@@ -4132,7 +4140,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "CONTAINERS_WITHOUT_DATE" | "CONTAINERS_WITHOUT_GOODS" | "CONTAINERS_WITHOUT_COST" | "CONTAINERS_WITHOUT_FREIGHT" | "CONTAINERS_WITHOUT_DUTY" | "INVOICES_NOT_READ" | "INVOICES_TO_REVIEW" | "COSTS_UNALLOCATED" | "SAME_INVOICE_TWICE" | "CREDIT_NOTES_SKIPPED" | "PO_SPLIT" | "LINES_WITHOUT_DUTY_RATE" | "DUTY_GAP" | "DUTY_SPREAD_ON_CIF" | "CONTAINERS_WITHOUT_ROUTE" | "CONTAINERS_WITHOUT_SIZE" | "COSTS_NOT_ON_CONTAINER" | "COSTS_TYPED_OTHER" | "CLOCKS_RUNNING" | "NO_SALE_PRICE" | "NO_ASSUMED_COEFFICIENT" | "ESTIMATES_OPEN";
+            code: "CONTAINERS_WITHOUT_DATE" | "CONTAINERS_WITHOUT_GOODS" | "CONTAINERS_WITHOUT_COST" | "CONTAINERS_WITHOUT_FREIGHT" | "CONTAINERS_WITHOUT_DUTY" | "INVOICES_NOT_READ" | "INVOICES_TO_REVIEW" | "COST_ROWS_REFUSED" | "COSTS_UNALLOCATED" | "SAME_INVOICE_TWICE" | "CREDIT_NOTE_REVERSES_COST" | "CREDIT_NOTES_SKIPPED" | "PO_SPLIT" | "LINES_WITHOUT_DUTY_RATE" | "DUTY_GAP" | "DUTY_SPREAD_ON_CIF" | "CONTAINERS_WITHOUT_ROUTE" | "CONTAINERS_WITHOUT_SIZE" | "COSTS_NOT_ON_CONTAINER" | "COSTS_TYPED_OTHER" | "CLOCKS_RUNNING" | "NO_SALE_PRICE" | "NO_ASSUMED_COEFFICIENT" | "ESTIMATES_OPEN";
             /**
              * Severity
              * @enum {string}
