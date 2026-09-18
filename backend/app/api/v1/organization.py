@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, status
@@ -46,6 +47,19 @@ def _check_settings(settings: dict[str, object] | None) -> None:
             f"tracking_provider_default must be one of: {', '.join(provider_names())}",
             code="UNKNOWN_PROVIDER",
         )
+    # The coefficient the company applies from memory ("FOB x 1,15"), which the audit compares the
+    # measured one with. A ratio between 1 and 3: 15 would be a percentage typed by mistake.
+    assumed = settings.get("assumed_coefficient")
+    if assumed is not None:
+        try:
+            ratio = Decimal(str(assumed))
+        except ArithmeticError:
+            ratio = Decimal(0)
+        if not Decimal(1) <= ratio <= Decimal(3):
+            raise Unprocessable(
+                "assumed_coefficient is a ratio between 1 and 3, such as 1.15",
+                code="ASSUMED_COEFFICIENT_INVALID",
+            )
 
 
 def _organization(t: TenantDep) -> schemas.OrganizationResponse:

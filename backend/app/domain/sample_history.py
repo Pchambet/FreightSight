@@ -173,6 +173,17 @@ ACTUALS: dict[CostType, tuple[str, ...]] = {
 #: The duty paid against the theoretical one: customs values the goods slightly differently.
 DUTY_DRIFT = ("1.000", "1.012", "0.994", "1.021", "1.000", "1.007")
 
+#: Three things that go wrong in a real year, placed so that the audit has something to find:
+#: a terminal handling billed twice by two invoices (voyage 5), a haulier's own invoice for a second
+#: delivery that puts the haulage of one box at three times the going rate of its route (voyage 13 —
+#: nobody quoted it, so it is a question, not a claim), and a clearance the forwarder never invoiced
+#: (voyage 9, whose estimate still stands). Everything else about those boxes is as clean as the
+#: rest; the invoices above their quotes are the dataset's ordinary surcharges, as on the variance
+#: screen.
+DUPLICATE_THC_ON = 5
+OUTLIER_DRAYAGE_ON, OUTLIER_DRAYAGE_EXTRA = 13, Decimal("1000.00")
+NEVER_INVOICED_ON, NEVER_INVOICED_TYPE = 9, CostType.CUSTOMS_BROKERAGE
+
 
 def container_number(prefix: str, serial: int) -> str:
     """An ISO 6346 number with its real check digit, so nothing downstream has reason to doubt it."""
@@ -482,6 +493,8 @@ def _invoice(
         )
     )
     for estimate in list(estimates):
+        if index == NEVER_INVOICED_ON and estimate.cost_type is NEVER_INVOICED_TYPE:
+            continue  # the forwarder forgot this one: its estimate stands, and the audit says so
         if estimate.cost_type is CostType.OCEAN_FREIGHT:
             amount = estimate.amount + FREIGHT_SURPRISES[nth % len(FREIGHT_SURPRISES)]
         elif estimate.cost_type is CostType.CUSTOMS_DUTY:
@@ -502,6 +515,41 @@ def _invoice(
             vendor=forwarder,
             invoice_number=number,
             supersedes=estimate,
+        )
+    if index == DUPLICATE_THC_ON:
+        # The terminal billed the handling to the forwarder, who re-billed it; then the terminal's own
+        # invoice reached the importer too. Same box, same charge, two invoice numbers, 2 € apart.
+        _cost(
+            db,
+            org,
+            rates,
+            container,
+            CostType.THC,
+            Decimal("260.00"),
+            "EUR",
+            billed_on + timedelta(days=9),
+            status=CostStatus.ACTUAL,
+            vendor="TERMINAL PORTUAIRE",
+            invoice_number=f"TH-2026-{400 + index}",
+            notes="Manutention facturée directement par le terminal",
+        )
+    if index == OUTLIER_DRAYAGE_ON:
+        # The truck found the warehouse closed and came back the next day; the haulier billed the
+        # second run directly. Nobody quoted it, so it is not "above the quote": it is a haulage
+        # three times the going rate of its route, and the audit can only ask.
+        _cost(
+            db,
+            org,
+            rates,
+            container,
+            CostType.DRAYAGE,
+            OUTLIER_DRAYAGE_EXTRA,
+            "EUR",
+            billed_on + timedelta(days=12),
+            status=CostStatus.ACTUAL,
+            vendor="TRANSPORTS LEMAIRE",
+            invoice_number=f"TR-2026-{500 + index}",
+            notes="Seconde présentation — entrepôt fermé à l'arrivée du camion",
         )
 
 

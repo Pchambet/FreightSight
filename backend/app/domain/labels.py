@@ -16,6 +16,10 @@ from __future__ import annotations
 HEADERS_FR: dict[str, str] = {
     "period": "Période",
     "period_status": "État de la période",
+    "finding": "Constat",
+    "confidence": "Certitude",
+    "basis": "Conteneurs comparés",
+    "details": "Détail",
     "cost_basis": "Base du coût",
     "closed_at": "Clôturé le",
     "containers": "Conteneurs",
@@ -164,7 +168,22 @@ DRIFT_REASON_FR = {
     "joined_period": "Date d'arrivée modifiée : entré dans le mois",
 }
 
+#: The audit's findings, and how sure each one is.
+FINDING_FR = {
+    "DUPLICATE_CHARGE": "Prestation facturée deux fois",
+    "ABOVE_QUOTE": "Facture au-dessus de la cotation",
+    "OUTLIER_CHARGE": "Montant hors norme pour la route",
+    "ESTIMATE_NEVER_INVOICED": "Estimé jamais facturé",
+    "UNALLOCATED_COST": "Coût non ventilé",
+    "DUTY_RATE_MISSING": "Droits ventilés sans taux sur une ligne",
+}
+#: How sure the rule is — not what to do about it: an invoice above its quote is a fact, whether the
+#: surcharge turns out to be owed or not.
+CONFIDENCE_FR = {"sure": "Établi", "to_check": "À vérifier"}
+
 VALUES_FR: dict[str, dict[str, str]] = {
+    "finding": FINDING_FR,
+    "confidence": CONFIDENCE_FR,
     "period_status": {"open": "Ouverte", "closed": "Clôturée"},
     "cost_basis": {"last": "Dernier arrivage", "average": "Moyenne pondérée"},
     "drift_reason": DRIFT_REASON_FR,

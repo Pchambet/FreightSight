@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Request, Response, status
@@ -10,18 +12,27 @@ from fastapi import APIRouter, Request, Response, status
 from app.api.v1 import schemas
 from app.api.v1.deps import WriterDep
 from app.api.v1.landed_costs import _serialize
+from app.api.v1.reports import _audit_schema
 from app.core.auth import DbDep
-from app.core.errors import NotFound, TooManyRequests
+from app.core.errors import NotFound, TooManyRequests, Unprocessable
 from app.core.ratelimit import SlidingWindow, client_address
 from app.core.tenancy import TenantDep, TenantSession
-from app.domain.audit.service import CONTAINER_SHARED, PURCHASE_ORDER_SHARED, SHARE_REVOKED, record
+from app.domain.audit.service import (
+    AUDIT_SHARED,
+    CONTAINER_SHARED,
+    PURCHASE_ORDER_SHARED,
+    SHARE_REVOKED,
+    record,
+)
 from app.domain.costing import report as rpt
 from app.domain.costing.service import compute
 from app.domain.models import Container, PurchaseOrder, SharedReport
+from app.domain.reporting.audit import Audit, audit_report
 from app.domain.sample_registry import has_sample_data
 from app.domain.shares import service as shares
 
 router = APIRouter(tags=["shares"])
+ZERO = Decimal("0.00")
 
 
 def _summaries(t: TenantSession, found: list[SharedReport]) -> list[schemas.ShareSummary]:
@@ -38,6 +49,27 @@ def _summaries(t: TenantSession, found: list[SharedReport]) -> list[schemas.Shar
     return out
 
 
+def _frozen_report(report: rpt.Report, redact: bool) -> dict[str, Any]:
+    frozen = _serialize(report).model_dump(mode="json")
+    for cost in frozen["costs"]:
+        # Free text written for colleagues never leaves, whatever the sender chose.
+        cost["notes"] = cost["close_reason"] = None
+        if redact:
+            # Taken out of the snapshot, not hidden by the page: what is not stored cannot be read.
+            cost["vendor"] = cost["invoice_number"] = None
+    return frozen
+
+
+def _frozen_audit(found: Audit, redact: bool) -> dict[str, Any]:
+    frozen = _audit_schema(found).model_dump(mode="json")
+    if redact:
+        for finding in frozen["findings"]:
+            finding["vendor"] = finding["invoice_number"] = None
+            for key in ("first_invoice", "first_vendor"):
+                finding["params"].pop(key, None)
+    return frozen
+
+
 def _share(
     t: TenantSession,
     actor: UUID | None,
@@ -47,16 +79,11 @@ def _share(
     subject_id: UUID,
     label: str,
     shipment_reference: str | None,
-    report: rpt.Report,
+    report: rpt.Report | None = None,
+    audit: Audit | None = None,
+    action: str,
 ) -> schemas.ShareCreated:
     now = datetime.now(UTC)
-    frozen = _serialize(report).model_dump(mode="json")
-    for cost in frozen["costs"]:
-        # Free text written for colleagues never leaves, whatever the sender chose.
-        cost["notes"] = cost["close_reason"] = None
-        if payload.redact_vendors:
-            # Taken out of the snapshot, not hidden by the page: what is not stored cannot be read.
-            cost["vendor"] = cost["invoice_number"] = None
     snapshot = {
         "issuer": {"name": t.org.name},
         "subject_type": subject_type,
@@ -67,8 +94,10 @@ def _share(
         # Said on the document itself: a report sent from a demo company must not pass for a real file.
         "sample_data": has_sample_data(t.db, t.org_id),
         "redacted": payload.redact_vendors,
-        "report": frozen,
+        "report": _frozen_report(report, payload.redact_vendors) if report is not None else None,
+        "audit": _frozen_audit(audit, payload.redact_vendors) if audit is not None else None,
     }
+    landed = report.landed if report is not None else (audit.completeness.landed if audit else ZERO)
     created = shares.create(
         t.db,
         t.org_id,
@@ -83,7 +112,7 @@ def _share(
         t.db,
         t.org_id,
         actor_user_id=actor,
-        action=CONTAINER_SHARED if subject_type == "container" else PURCHASE_ORDER_SHARED,
+        action=action,
         entity_type=subject_type,
         entity_id=subject_id,
         after={
@@ -99,7 +128,7 @@ def _share(
         token=created.token,
         path=f"/r/{created.token}",
         expires_at=created.share.expires_at,
-        landed=report.landed,
+        landed=landed,
         generated_at=now,
     )
 
@@ -125,6 +154,7 @@ def share_container(
         label=container.container_number,
         shipment_reference=container.shipment.reference if container.shipment else None,
         report=report,
+        action=CONTAINER_SHARED,
     )
 
 
@@ -145,7 +175,33 @@ def share_purchase_order(
         label=order.po_number,
         shipment_reference=None,
         report=report,
+        action=PURCHASE_ORDER_SHARED,
     )
+
+
+@router.post("/reports/audit/share", response_model=schemas.ShareCreated, status_code=status.HTTP_201_CREATED)
+def share_audit(payload: schemas.AuditShareCreate, t: TenantDep, p: WriterDep) -> schemas.ShareCreated:
+    """Freeze the audit of a period as it stands and return a link to it: the document of the paid
+    offer, sent to somebody who has no account. The subject of the share is the organization itself."""
+    if payload.period_to < payload.period_from:
+        raise Unprocessable("period_to comes before period_from", code="PERIOD_INVALID")
+    found = audit_report(t.db, compute(t.db, t.org), t.org, payload.period_from, payload.period_to)
+    return _share(
+        t,
+        p.user_id,
+        payload,
+        subject_type="audit",
+        subject_id=t.org_id,
+        label=f"{payload.period_from.isoformat()}..{payload.period_to.isoformat()}",
+        shipment_reference=None,
+        audit=found,
+        action=AUDIT_SHARED,
+    )
+
+
+@router.get("/reports/audit/shares", response_model=list[schemas.ShareSummary])
+def audit_shares(t: TenantDep) -> list[schemas.ShareSummary]:
+    return _summaries(t, shares.shares_of(t.db, t.org_id, "audit", t.org_id))
 
 
 @router.get("/containers/{container_id}/shares", response_model=list[schemas.ShareSummary])

@@ -834,6 +834,121 @@ class InvoiceConfirmResponse(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+# ---------------------------------------------------------------------------- audit
+
+
+class AuditFinding(BaseModel):
+    """One measured fact about the period's invoices, never an accusation: the rule that produced it,
+    how sure it is, how much money it is about, and the objects behind it."""
+
+    model_config = ConfigDict(from_attributes=True)
+    #: DUPLICATE_CHARGE | ABOVE_QUOTE | OUTLIER_CHARGE | ESTIMATE_NEVER_INVOICED | UNALLOCATED_COST |
+    #: DUTY_RATE_MISSING
+    code: str
+    #: sure: a fact (a duplicate line, an invoice above its quote, an estimate nobody invoiced).
+    #: to_check: a statistical question (a charge far above the median of its route). A screen says
+    #: "to claim" only on the first, "to check" on the second.
+    confidence: Literal["sure", "to_check"]
+    #: The money the finding is about: what was billed twice, the excess over the quote or the median,
+    #: the estimate still standing. Never a promised saving.
+    amount: Money
+    container_id: UUID | None
+    container_number: str | None
+    cost_type: CostType | None
+    vendor: str | None
+    invoice_number: str | None
+    cost_ids: list[UUID]
+    #: Statistical rules only: how many other containers the charge was compared with.
+    basis: int | None = None
+    #: The moving parts of the sentence, as raw strings: quoted/invoiced/share_pct, amount/median/
+    #: ratio/route, days/landed_on, reason, lines, first_invoice/first_vendor/first_amount.
+    params: dict[str, str] = Field(default_factory=dict)
+
+
+class AuditMargin(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    sku: str
+    description: str | None
+    quantity: Qty
+    unit_fob: Qty
+    unit_landed: Qty
+    #: Landed minus purchase over the period's volume: the euros a price set on the purchase price
+    #: leaves out. Present whether or not the article has a selling price.
+    approach_costs: Money
+    sale_price: Qty | None = None
+    margin_on_fob_pct: Decimal | None = None
+    margin_real_pct: Decimal | None = None
+    points_lost: Decimal | None = None
+
+
+class AuditDemurrageLine(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    container_id: UUID
+    container_number: str
+    paid: Money
+    #: Only with a DEMURRAGE rate card and a first risk alert on record (`rule` says which case).
+    avoided: Money | None
+    quantity: Qty
+    per_unit: Qty | None
+    rule: str
+
+
+class AuditCoefficient(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    key: str
+    label: str
+    fob: Money
+    landed: Money
+    coefficient: Qty | None
+
+
+class AuditCompleteness(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    containers: int
+    fob: Money
+    landed: Money
+    estimated: Money
+    estimated_share_pct: Decimal | None
+    invoices_to_review: int
+    containers_without_cost: int
+    fx_sources: dict[str, int]
+
+
+class AuditHeadline(BaseModel):
+    """The first page. Each figure is the sum of its section: the screen adds nothing."""
+
+    model_config = ConfigDict(from_attributes=True)
+    #: Sum of `margins[].approach_costs` over the articles that have a selling price.
+    margin_overstated: Money
+    priced_skus: int
+    unpriced_skus: int
+    #: Sum of the findings a claim can be made about (DUPLICATE_CHARGE, ABOVE_QUOTE, OUTLIER_CHARGE),
+    #: the sure ones and the doubtful ones apart.
+    recoverable_sure: Money
+    recoverable_to_check: Money
+    #: Sum of `demurrage[].paid`.
+    demurrage_paid: Money
+
+
+class AuditReport(BaseModel):
+    base_currency: str
+    period_from: date
+    period_to: date
+    headline: AuditHeadline
+    #: Heaviest approach costs first.
+    margins: list[AuditMargin]
+    #: Sure first, then by amount.
+    findings: list[AuditFinding]
+    demurrage: list[AuditDemurrageLine]
+    coefficient_by_month: list[AuditCoefficient]
+    coefficient_by_supplier: list[AuditCoefficient]
+    #: landed / fob over the period, and what the organization applies from memory
+    #: (`settings.assumed_coefficient`), when it said so.
+    coefficient: Qty | None
+    assumed_coefficient: Qty | None
+    completeness: AuditCompleteness
+
+
 # ---------------------------------------------------------------------------- shared reports
 
 
@@ -842,6 +957,11 @@ class ShareCreate(BaseModel):
     #: Leave the forwarders' names, their invoice numbers and the notes out of the snapshot itself.
     #: Hiding them on a screen would leave them readable in the response by anyone holding the link.
     redact_vendors: bool = False
+
+
+class AuditShareCreate(ShareCreate):
+    period_from: date
+    period_to: date
 
 
 class ShareOpen(BaseModel):
@@ -863,7 +983,7 @@ class ShareCreated(BaseModel):
 class ShareSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
-    subject_type: Literal["container", "purchase_order"]
+    subject_type: Literal["container", "purchase_order", "audit"]
     subject_label: str
     created_at: datetime
     created_by_name: str | None = None
@@ -883,7 +1003,7 @@ class SharedReportPublic(BaseModel):
     """What a link opens: the report as it stood when the link was made, and nothing else."""
 
     issuer: ShareIssuer
-    subject_type: Literal["container", "purchase_order"]
+    subject_type: Literal["container", "purchase_order", "audit"]
     subject_label: str
     shipment_reference: str | None
     #: The language of the company that sent it, not of whoever opens it.
@@ -894,7 +1014,9 @@ class SharedReportPublic(BaseModel):
     sample_data: bool = False
     #: Vendors, invoice numbers and notes were left out of this snapshot (they are null in `report`).
     redacted: bool = False
-    report: LandedCostReport
+    #: One of the two is filled: a container's or an order's report, or a period's audit.
+    report: LandedCostReport | None = None
+    audit: AuditReport | None = None
 
 
 # ---------------------------------------------------------------------------- period close

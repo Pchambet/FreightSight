@@ -11,7 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query
 
 from app.api.v1 import schemas
-from app.core.errors import NotFound
+from app.core.errors import NotFound, Unprocessable
 from app.core.money import q2
 from app.core.tenancy import TenantDep
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
@@ -19,6 +19,7 @@ from app.domain.costing.report import estimate_allocations
 from app.domain.costing.service import compute
 from app.domain.models import CostType, RateBasis, RateCard
 from app.domain.reporting import service as reporting
+from app.domain.reporting.audit import Audit, audit_report
 from app.domain.reporting.overview import overview as build_overview
 from app.domain.reporting.skus import sku_report
 
@@ -238,6 +239,36 @@ def overview(
             for line in found.skus
         ],
         at_risk=[schemas.DndAtRiskLine.model_validate(line) for line in found.at_risk],
+    )
+
+
+@router.get("/audit", response_model=schemas.AuditReport)
+def audit(t: TenantDep, period_from: date, period_to: date) -> schemas.AuditReport:
+    """The audit of a period: the margin a purchase-price pricing overstates, what is worth a claim
+    to the forwarders, what demurrage cost, the measured coefficient against the assumed one, and
+    how complete the figures are. One computation; every section's total is the platform's."""
+    if period_to < period_from:
+        raise Unprocessable("period_to comes before period_from", code="PERIOD_INVALID")
+    found = audit_report(t.db, compute(t.db, t.org), t.org, period_from, period_to)
+    return _audit_schema(found)
+
+
+def _audit_schema(found: Audit) -> schemas.AuditReport:
+    return schemas.AuditReport(
+        base_currency=found.base_currency,
+        period_from=found.period_from,
+        period_to=found.period_to,
+        headline=schemas.AuditHeadline.model_validate(found.headline),
+        margins=[schemas.AuditMargin.model_validate(m) for m in found.margins],
+        findings=[schemas.AuditFinding.model_validate(f) for f in found.findings],
+        demurrage=[schemas.AuditDemurrageLine.model_validate(d) for d in found.demurrage],
+        coefficient_by_month=[schemas.AuditCoefficient.model_validate(b) for b in found.coefficient_by_month],
+        coefficient_by_supplier=[
+            schemas.AuditCoefficient.model_validate(b) for b in found.coefficient_by_supplier
+        ],
+        coefficient=found.coefficient,
+        assumed_coefficient=found.assumed_coefficient,
+        completeness=schemas.AuditCompleteness.model_validate(found.completeness),
     )
 
 

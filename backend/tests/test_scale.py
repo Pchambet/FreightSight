@@ -113,12 +113,15 @@ def test_the_screens_of_a_five_year_importer_answer_within_budget(
     assert client.get("/api/v1/organization").status_code == 200  # creates the organization
     seed(db, org_id)
     box = client.get("/api/v1/containers").json()[0]["id"]
+    today = datetime.now(UTC).date()
+    quarter = f"period_from={today - timedelta(days=91)}&period_to={today}"  # ~15 boxes, a year of peers
     budgets = {
         "/api/v1/containers": 6.0,
         f"/api/v1/landed-costs/containers/{box}": 4.0,
         "/api/v1/reports/landed-cost?group_by=month": 4.0,
         "/api/v1/reports/overview": 8.0,
         "/api/v1/reports/skus": 5.0,
+        f"/api/v1/reports/audit?{quarter}": 8.0,
         "/api/v1/periods": 5.0,
         "/api/v1/search?q=scal0000": 2.0,
     }

@@ -1933,6 +1933,77 @@
         }
       }
     },
+    "/api/v1/reports/audit": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Audit",
+        "description": "The audit of a period: the margin a purchase-price pricing overstates, what is worth a claim\nto the forwarders, what demurrage cost, the measured coefficient against the assumed one, and\nhow complete the figures are. One computation; every section's total is the platform's.",
+        "operationId": "audit_api_v1_reports_audit_get",
+        "parameters": [
+          {
+            "name": "period_from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Period From"
+            }
+          },
+          {
+            "name": "period_to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Period To"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reports/skus": {
       "get": {
         "tags": [
@@ -4523,6 +4594,89 @@
         }
       }
     },
+    "/api/v1/exports/audit-findings.csv": {
+      "get": {
+        "tags": [
+          "exports"
+        ],
+        "summary": "Audit Findings Csv",
+        "description": "The findings of a period's audit, one per line: what to claim, what to check, and on which\ncontainer and invoice \u2014 the list a buyer takes to the forwarder.",
+        "operationId": "audit_findings_csv_api_v1_exports_audit_findings_csv_get",
+        "parameters": [
+          {
+            "name": "period_from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Period From"
+            }
+          },
+          {
+            "name": "period_to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Period To"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "fr",
+                "en"
+              ],
+              "type": "string",
+              "default": "fr",
+              "title": "Locale"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/costs": {
       "get": {
         "tags": [
@@ -6901,6 +7055,121 @@
         }
       }
     },
+    "/api/v1/reports/audit/share": {
+      "post": {
+        "tags": [
+          "shares"
+        ],
+        "summary": "Share Audit",
+        "description": "Freeze the audit of a period as it stands and return a link to it: the document of the paid\noffer, sent to somebody who has no account. The subject of the share is the organization itself.",
+        "operationId": "share_audit_api_v1_reports_audit_share_post",
+        "parameters": [
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuditShareCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/audit/shares": {
+      "get": {
+        "tags": [
+          "shares"
+        ],
+        "summary": "Audit Shares",
+        "operationId": "audit_shares_api_v1_reports_audit_shares_get",
+        "parameters": [
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShareSummary"
+                  },
+                  "title": "Response Audit Shares Api V1 Reports Audit Shares Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/containers/{container_id}/shares": {
       "get": {
         "tags": [
@@ -7682,6 +7951,163 @@
         ],
         "title": "AllocationMethod"
       },
+      "AuditCoefficient": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "fob": {
+            "type": "string",
+            "title": "Fob"
+          },
+          "landed": {
+            "type": "string",
+            "title": "Landed"
+          },
+          "coefficient": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coefficient"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "fob",
+          "landed",
+          "coefficient"
+        ],
+        "title": "AuditCoefficient"
+      },
+      "AuditCompleteness": {
+        "properties": {
+          "containers": {
+            "type": "integer",
+            "title": "Containers"
+          },
+          "fob": {
+            "type": "string",
+            "title": "Fob"
+          },
+          "landed": {
+            "type": "string",
+            "title": "Landed"
+          },
+          "estimated": {
+            "type": "string",
+            "title": "Estimated"
+          },
+          "estimated_share_pct": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Share Pct"
+          },
+          "invoices_to_review": {
+            "type": "integer",
+            "title": "Invoices To Review"
+          },
+          "containers_without_cost": {
+            "type": "integer",
+            "title": "Containers Without Cost"
+          },
+          "fx_sources": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Fx Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "containers",
+          "fob",
+          "landed",
+          "estimated",
+          "estimated_share_pct",
+          "invoices_to_review",
+          "containers_without_cost",
+          "fx_sources"
+        ],
+        "title": "AuditCompleteness"
+      },
+      "AuditDemurrageLine": {
+        "properties": {
+          "container_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Container Id"
+          },
+          "container_number": {
+            "type": "string",
+            "title": "Container Number"
+          },
+          "paid": {
+            "type": "string",
+            "title": "Paid"
+          },
+          "avoided": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avoided"
+          },
+          "quantity": {
+            "type": "string",
+            "title": "Quantity"
+          },
+          "per_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Unit"
+          },
+          "rule": {
+            "type": "string",
+            "title": "Rule"
+          }
+        },
+        "type": "object",
+        "required": [
+          "container_id",
+          "container_number",
+          "paid",
+          "avoided",
+          "quantity",
+          "per_unit",
+          "rule"
+        ],
+        "title": "AuditDemurrageLine"
+      },
       "AuditEntryResponse": {
         "properties": {
           "id": {
@@ -7775,6 +8201,252 @@
         ],
         "title": "AuditEntryResponse"
       },
+      "AuditFinding": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "sure",
+              "to_check"
+            ],
+            "title": "Confidence"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          },
+          "container_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Id"
+          },
+          "container_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Number"
+          },
+          "cost_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CostType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor"
+          },
+          "invoice_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Number"
+          },
+          "cost_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Cost Ids"
+          },
+          "basis": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basis"
+          },
+          "params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Params"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "confidence",
+          "amount",
+          "container_id",
+          "container_number",
+          "cost_type",
+          "vendor",
+          "invoice_number",
+          "cost_ids"
+        ],
+        "title": "AuditFinding",
+        "description": "One measured fact about the period's invoices, never an accusation: the rule that produced it,\nhow sure it is, how much money it is about, and the objects behind it."
+      },
+      "AuditHeadline": {
+        "properties": {
+          "margin_overstated": {
+            "type": "string",
+            "title": "Margin Overstated"
+          },
+          "priced_skus": {
+            "type": "integer",
+            "title": "Priced Skus"
+          },
+          "unpriced_skus": {
+            "type": "integer",
+            "title": "Unpriced Skus"
+          },
+          "recoverable_sure": {
+            "type": "string",
+            "title": "Recoverable Sure"
+          },
+          "recoverable_to_check": {
+            "type": "string",
+            "title": "Recoverable To Check"
+          },
+          "demurrage_paid": {
+            "type": "string",
+            "title": "Demurrage Paid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "margin_overstated",
+          "priced_skus",
+          "unpriced_skus",
+          "recoverable_sure",
+          "recoverable_to_check",
+          "demurrage_paid"
+        ],
+        "title": "AuditHeadline",
+        "description": "The first page. Each figure is the sum of its section: the screen adds nothing."
+      },
+      "AuditMargin": {
+        "properties": {
+          "sku": {
+            "type": "string",
+            "title": "Sku"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "quantity": {
+            "type": "string",
+            "title": "Quantity"
+          },
+          "unit_fob": {
+            "type": "string",
+            "title": "Unit Fob"
+          },
+          "unit_landed": {
+            "type": "string",
+            "title": "Unit Landed"
+          },
+          "approach_costs": {
+            "type": "string",
+            "title": "Approach Costs"
+          },
+          "sale_price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sale Price"
+          },
+          "margin_on_fob_pct": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Margin On Fob Pct"
+          },
+          "margin_real_pct": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Margin Real Pct"
+          },
+          "points_lost": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points Lost"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sku",
+          "description",
+          "quantity",
+          "unit_fob",
+          "unit_landed",
+          "approach_costs"
+        ],
+        "title": "AuditMargin"
+      },
       "AuditPage": {
         "properties": {
           "entries": {
@@ -7809,6 +8481,135 @@
         ],
         "title": "AuditPage",
         "description": "A page of history, newest first. `next_cursor` is null when there is nothing older."
+      },
+      "AuditReport": {
+        "properties": {
+          "base_currency": {
+            "type": "string",
+            "title": "Base Currency"
+          },
+          "period_from": {
+            "type": "string",
+            "format": "date",
+            "title": "Period From"
+          },
+          "period_to": {
+            "type": "string",
+            "format": "date",
+            "title": "Period To"
+          },
+          "headline": {
+            "$ref": "#/components/schemas/AuditHeadline"
+          },
+          "margins": {
+            "items": {
+              "$ref": "#/components/schemas/AuditMargin"
+            },
+            "type": "array",
+            "title": "Margins"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/AuditFinding"
+            },
+            "type": "array",
+            "title": "Findings"
+          },
+          "demurrage": {
+            "items": {
+              "$ref": "#/components/schemas/AuditDemurrageLine"
+            },
+            "type": "array",
+            "title": "Demurrage"
+          },
+          "coefficient_by_month": {
+            "items": {
+              "$ref": "#/components/schemas/AuditCoefficient"
+            },
+            "type": "array",
+            "title": "Coefficient By Month"
+          },
+          "coefficient_by_supplier": {
+            "items": {
+              "$ref": "#/components/schemas/AuditCoefficient"
+            },
+            "type": "array",
+            "title": "Coefficient By Supplier"
+          },
+          "coefficient": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coefficient"
+          },
+          "assumed_coefficient": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assumed Coefficient"
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/AuditCompleteness"
+          }
+        },
+        "type": "object",
+        "required": [
+          "base_currency",
+          "period_from",
+          "period_to",
+          "headline",
+          "margins",
+          "findings",
+          "demurrage",
+          "coefficient_by_month",
+          "coefficient_by_supplier",
+          "coefficient",
+          "assumed_coefficient",
+          "completeness"
+        ],
+        "title": "AuditReport"
+      },
+      "AuditShareCreate": {
+        "properties": {
+          "expires_in_days": {
+            "type": "integer",
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Expires In Days",
+            "default": 30
+          },
+          "redact_vendors": {
+            "type": "boolean",
+            "title": "Redact Vendors",
+            "default": false
+          },
+          "period_from": {
+            "type": "string",
+            "format": "date",
+            "title": "Period From"
+          },
+          "period_to": {
+            "type": "string",
+            "format": "date",
+            "title": "Period To"
+          }
+        },
+        "type": "object",
+        "required": [
+          "period_from",
+          "period_to"
+        ],
+        "title": "AuditShareCreate"
       },
       "Body_create_import_api_v1_imports_post": {
         "properties": {
@@ -14150,7 +14951,8 @@
             "type": "string",
             "enum": [
               "container",
-              "purchase_order"
+              "purchase_order",
+              "audit"
             ],
             "title": "Subject Type"
           },
@@ -14239,7 +15041,8 @@
             "type": "string",
             "enum": [
               "container",
-              "purchase_order"
+              "purchase_order",
+              "audit"
             ],
             "title": "Subject Type"
           },
@@ -14283,7 +15086,24 @@
             "default": false
           },
           "report": {
-            "$ref": "#/components/schemas/LandedCostReport"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LandedCostReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "audit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuditReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -14294,8 +15114,7 @@
           "shipment_reference",
           "locale",
           "generated_at",
-          "expires_at",
-          "report"
+          "expires_at"
         ],
         "title": "SharedReportPublic",
         "description": "What a link opens: the report as it stood when the link was made, and nothing else."

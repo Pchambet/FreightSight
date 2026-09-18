@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from app.core.tenancy import SHARE_TOKEN_GUC
 from app.domain.models import SharedReport, SharedReportView, User
 
-SubjectType = Literal["container", "purchase_order"]
+SubjectType = Literal["container", "purchase_order", "audit"]
 #: The setting the token policy of `shared_reports` reads (migration 0025).
 TOKEN_GUC = SHARE_TOKEN_GUC
 

@@ -61,7 +61,9 @@ def test_what_is_waiting_for_somebody_today(seeded: TestClient) -> None:
     todo = seeded.get("/api/v1/reports/overview").json()["todo"]
     assert todo["invoices_to_review"] == 1 and todo["invoices_failed"] == 0
     assert todo["containers_without_cost"] == 0 and todo["containers_without_loads"] == 0
-    assert todo["estimates_awaiting_invoice"] == 10  # two landed boxes, five estimates each
+    # two landed boxes, five estimates each — and the clearance of voyage 9 that nobody invoiced,
+    # left standing on purpose for the audit to find (sample_history.NEVER_INVOICED_ON)
+    assert todo["estimates_awaiting_invoice"] == 11
     assert (todo["containers_overdue"], todo["containers_at_risk"]) == (1, 1)
 
     at_risk = seeded.get("/api/v1/reports/dnd").json()["at_risk"]

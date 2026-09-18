@@ -40,6 +40,7 @@ from app.domain.models import (
     Shipment,
 )
 from app.domain.periods import service as periods
+from app.domain.reporting.audit import audit_report
 from app.domain.reporting.service import arrival_date
 from app.domain.reporting.skus import sku_report
 
@@ -621,3 +622,33 @@ def sku_costs_csv(
 
 def month_start(period: str) -> date:
     return date(int(period[:4]), int(period[5:7]), 1)
+
+
+@router.get("/audit-findings.csv")
+def audit_findings_csv(
+    t: TenantDep, period_from: date, period_to: date, locale: Locale = "fr"
+) -> StreamingResponse:
+    """The findings of a period's audit, one per line: what to claim, what to check, and on which
+    container and invoice — the list a buyer takes to the forwarder."""
+    found = audit_report(t.db, compute(t.db, t.org), t.org, period_from, period_to)
+    _, mark = dialect(locale)
+    header = ["finding", "confidence", "amount_base", "container_number", "cost_type", "vendor",
+              "invoice_number", "basis", "details"]  # fmt: skip
+
+    def rows() -> Iterator[list[Any]]:
+        for finding in found.findings:
+            details = " ; ".join(f"{k}={v}" for k, v in finding.params.items())
+            yield [
+                finding.code,
+                finding.confidence,
+                number(finding.amount, mark),
+                finding.container_number,
+                finding.cost_type,
+                finding.vendor,
+                finding.invoice_number,
+                finding.basis,
+                details,
+            ]
+
+    name = f"freightsight-audit-{period_from.isoformat()}-{period_to.isoformat()}.csv"
+    return csv_response(rows(), header, locale, name)
