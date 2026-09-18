@@ -257,3 +257,28 @@ def test_a_flood_is_answered_without_the_database() -> None:
     assert [window.allow("1.2.3.4", now=t) for t in (0, 1, 2, 3)] == [True, True, True, False]
     assert window.allow("5.6.7.8", now=3) is True  # somebody else is not held back
     assert window.allow("1.2.3.4", now=61) is True  # and the window slides
+
+
+def test_an_organization_creates_at_most_so_many_links_an_hour_and_another_is_not_held_back(
+    client: TestClient, sample: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A loop sharing links holds the one API process everybody waits on. The limit is counted per
+    organization, before the report is computed, and a subject that does not exist uses none of it."""
+    from app.api.v1 import shares as shares_api
+    from app.core.ratelimit import SlidingWindow
+
+    monkeypatch.setattr(shares_api, "_created", SlidingWindow(limit=2, seconds=3600))
+    box = sample["container_ids"][0]
+    assert client.post(f"/api/v1/containers/{uuid.uuid4()}/share", json={}).status_code == 404
+    assert [client.post(f"/api/v1/containers/{box}/share", json={}).status_code for _ in range(2)] == [
+        201,
+        201,
+    ]
+    third = client.post(f"/api/v1/containers/{box}/share", json={})
+    assert (third.status_code, third.json()["code"]) == (429, "RATE_LIMITED")
+    period = {"period_from": "2026-01-01", "period_to": "2026-03-31"}
+    assert client.post("/api/v1/reports/audit/share", json=period).status_code == 429  # the same hour
+    elsewhere = client.post(
+        "/api/v1/reports/audit/share", json=period, headers={"X-Org-Id": str(uuid.uuid4())}
+    )
+    assert elsewhere.status_code == 201  # another organization's hour is its own

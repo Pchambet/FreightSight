@@ -27,12 +27,24 @@ from app.domain.audit.service import (
 from app.domain.costing import report as rpt
 from app.domain.costing.service import compute
 from app.domain.models import Container, PurchaseOrder, SharedReport
-from app.domain.reporting.audit import PUBLIC_PARAMS, Audit, audit_report
+from app.domain.reporting.audit import PUBLIC_PARAMS, Audit, audit_report, check_period
 from app.domain.sample_registry import has_sample_data
 from app.domain.shares import service as shares
 
 router = APIRouter(tags=["shares"])
 ZERO = Decimal("0.00")
+
+#: Links one organization may create in an hour. A person shares a handful a day; a loop sharing a
+#: thousand would hold the one API process every other customer is waiting on, and fill a table.
+LINKS_PER_HOUR = 60
+_created = SlidingWindow(limit=LINKS_PER_HOUR, seconds=3600)
+
+
+def _room_for_a_link(t: TenantSession) -> None:
+    """Checked once the subject is known to exist and before its report is computed, which is the
+    expensive part: a refused link costs nothing, and a 404 does not use up the hour."""
+    if not _created.allow(str(t.org_id)):
+        raise TooManyRequests("Too many links created in the last hour", code="RATE_LIMITED")
 
 
 def _summaries(t: TenantSession, found: list[SharedReport]) -> list[schemas.ShareSummary]:
@@ -148,6 +160,7 @@ def share_container(
     """Freeze this container's landed-cost report as it stands and return a link to it. The token is
     in this answer and nowhere else: only its hash is kept."""
     container = t.get_or_404(Container, container_id, "Container")
+    _room_for_a_link(t)
     report = rpt.container_report(compute(t.db, t.org), t.org.base_currency, container_id)
     return _share(
         t,
@@ -169,6 +182,7 @@ def share_purchase_order(
     po_id: UUID, payload: schemas.ShareCreate, t: TenantDep, p: WriterDep
 ) -> schemas.ShareCreated:
     order = t.get_or_404(PurchaseOrder, po_id, "Purchase order")
+    _room_for_a_link(t)
     report = rpt.purchase_order_report(compute(t.db, t.org), t.org.base_currency, po_id)
     return _share(
         t,
@@ -188,6 +202,8 @@ def share_audit(payload: schemas.AuditShareCreate, t: TenantDep, p: WriterDep) -
     """Freeze the audit of a period as it stands and return a link to it: the document of the paid
     offer, sent to somebody who has no account. The subject of the share is the organization itself.
     With `redact_vendors`, forwarders, invoice numbers and suppliers are left out of the snapshot."""
+    check_period(payload.period_from, payload.period_to)
+    _room_for_a_link(t)
     found = audit_report(t.db, compute(t.db, t.org), t.org, payload.period_from, payload.period_to)
     return _share(
         t,
