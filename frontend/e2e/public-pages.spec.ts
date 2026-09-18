@@ -108,16 +108,27 @@ test("a shared report link that does not exist answers a real 404, out of search
 });
 
 test("the public pages answer without the Clerk middleware, so a cookie-less client is never sent to a handshake", async ({ request }) => {
-  // On a Clerk development instance the middleware answers a document request that carries no Clerk
-  // cookie with a redirect to Clerk's handshake, and a client that keeps no cookies (a search
-  // engine, a link preview) looped on it forever on these pages (seen on production, 18 Sept 2026).
-  // The middleware marks every response it handles with x-clerk-auth-status.
-  for (const path of ["/", "/securite", "/design-partner", `/r/${"x".repeat(43)}`]) {
-    const response = await request.get(path, { headers: { accept: "text/html" }, maxRedirects: 0 });
+  // On a Clerk development instance the middleware answers a request that asks for HTML without a
+  // Clerk cookie with a redirect to Clerk's handshake, and a client that keeps no cookies looped on
+  // it forever: a search engine on the pages and on robots.txt, a link preview on the page it
+  // previews (seen on production, 18 Sept 2026). The middleware marks every response it handles with
+  // x-clerk-auth-status. Asked the way a crawler asks: a browser's Accept, no cookie.
+  const asCrawler = { headers: { accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "user-agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" }, maxRedirects: 0 };
+  const pages = ["/", "/securite", "/design-partner"];
+  const images: string[] = [];
+  for (const path of pages) {
+    const html = await (await request.get(path, asCrawler)).text();
+    const og = html.match(/property="og:image" content="([^"]+)"/)?.[1];
+    expect(og, `${path} has an og:image`).toBeTruthy();
+    const url = new URL(og!);
+    images.push(url.pathname + url.search);
+  }
+  for (const path of [...pages, ...images, "/robots.txt", "/sitemap.xml", `/r/${"x".repeat(43)}`]) {
+    const response = await request.get(path, asCrawler);
     expect(response.headers()["x-clerk-auth-status"], path).toBeUndefined();
     expect(response.status(), path).not.toBe(307);
   }
   // What the check relies on: on an application page, the middleware does run.
-  const signIn = await request.get("/sign-in", { headers: { accept: "text/html" }, maxRedirects: 0 });
+  const signIn = await request.get("/sign-in", asCrawler);
   expect(signIn.headers()["x-clerk-auth-status"]).toBeDefined();
 });
