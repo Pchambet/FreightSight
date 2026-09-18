@@ -14,6 +14,7 @@ import AllocationPanel from "@/features/costs/AllocationPanel";
 import CostBreakdown from "@/features/costs/CostBreakdown";
 import EstimatePanel from "@/features/estimates/EstimatePanel";
 import CostLedger from "@/features/costs/CostLedger";
+import OpenOnHash from "@/components/shared/OpenOnHash";
 import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
 import { purchaseOrderDetailStep } from "@/features/workflow/steps";
 import { api } from "@/lib/api/client";
@@ -162,11 +163,13 @@ export default async function PurchaseOrderPage({ params }: Params) {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection title={t("sections.ledger")} hint={t("sections.ledgerHint")}>
+        <CollapsibleSection id="journal" title={t("sections.ledger")} hint={t("sections.ledgerHint")}>
           <div className="p-5">
             <CostLedger report={report} currency={cur} revalidate={revalidate} />
           </div>
         </CollapsibleSection>
+        {/* « #journal », « #chargements »: where a preparation item's fix is made, opened on arrival. */}
+        <OpenOnHash />
       </div>
     </>
   );

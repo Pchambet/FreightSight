@@ -58,12 +58,12 @@ function remedy(item: Item): { key: string; href: string } | null {
     case "CONTAINERS_WITHOUT_SIZE":
       return { key: "setType", href: onFirst("/containers") };
     case "COSTS_TYPED_OTHER":
-      return { key: "seeCosts", href: onFirst("/containers") };
+      return { key: "seeCosts", href: `${onFirst("/containers")}#journal` };
     case "CREDIT_NOTES_SKIPPED":
     case "COST_ROWS_REFUSED":
       return { key: "openImport", href: onFirst("/imports") };
     case "CREDIT_NOTE_REVERSES_COST":
-      return { key: "deleteReversedCost", href: onFirst("/containers") };
+      return { key: "deleteReversedCost", href: `${onFirst("/containers")}#journal` };
     case "PO_SPLIT":
       return { key: "openOrder", href: onFirst("/purchase-orders") };
     case "NO_SALE_PRICE":

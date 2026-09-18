@@ -13,6 +13,7 @@ import AllocationPanel from "@/features/costs/AllocationPanel";
 import CostBreakdown from "@/features/costs/CostBreakdown";
 import UnitCostHighlight from "@/features/costs/UnitCostHighlight";
 import CostLedger from "@/features/costs/CostLedger";
+import OpenOnHash from "@/components/shared/OpenOnHash";
 import AddCostForm from "@/features/costs/AddCostForm";
 import LoadsEditor from "@/features/containers/LoadsEditor";
 import TrackingPanel from "@/features/containers/TrackingPanel";
@@ -190,11 +191,13 @@ export default async function ContainerPage({ params }: Params) {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection title={t("sections.ledger")} hint={t("sections.ledgerHint")}>
+        <CollapsibleSection id="journal" title={t("sections.ledger")} hint={t("sections.ledgerHint")}>
           <div className="p-5">
             <CostLedger report={report} currency={cur} revalidate={revalidate} />
           </div>
         </CollapsibleSection>
+        {/* « #journal », « #chargements »: where a preparation item's fix is made, opened on arrival. */}
+        <OpenOnHash />
 
         {erpConnected ? (
           <CollapsibleSection title={t("sections.erp")}>
