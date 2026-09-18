@@ -59,10 +59,10 @@ test("the demurrage calculator computes and reads its state from the URL", async
   await expect(page.locator("#dd-c")).toHaveValue("2");
   await expect(total).toHaveText(/1\D?060/);
 
-  // One calculator, no id twice. On production the calculator's streamed Suspense copy was left
-  // hidden after </main> with the same ids (18 Sept 2026) — a race on network timing, reproduced in
-  // a real browser on a local production build but never in this headless run, so this guards the
-  // invariant rather than replays that bug. The calculator has no Suspense boundary any more.
+  // One calculator, no id twice. The calculator's own Suspense boundary left a hidden copy with the
+  // same ids after </main> when the page loaded in a background tab: React 19.2 reveals a streamed
+  // segment on an animation frame, which a hidden tab never gets. This run's page is visible, so it
+  // guards the invariant rather than replays that case; the calculator has no Suspense boundary now.
   await expect(page.locator('div[hidden][id^="S:"]')).toHaveCount(0);
   const repeated = await page.evaluate(() => {
     const seen = new Map<string, number>();

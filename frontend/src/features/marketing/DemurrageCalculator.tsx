@@ -46,9 +46,11 @@ const noSubscription = () => () => {};
 /**
  * Rendered on the server with the default figures; a shared link's figures are read from the address
  * once the page runs in a browser, and the calculator starts again from them. Read with
- * useSearchParams, the calculator needed a Suspense boundary of its own, streamed in a second pass
- * that the browser never stitched in: production pages carried a second, hidden calculator with the
- * same ids (seen 18 Sept 2026, `div#S:0[hidden]` after `</main>`).
+ * useSearchParams, the calculator needed a Suspense boundary of its own, streamed in a second pass;
+ * React 19.2 reveals such a segment on an animation frame, which a tab loaded in the background never
+ * gets, so hydration took the boundary over and a hidden copy of the calculator, with the same ids,
+ * stayed after `</main>` (`div#S:0[hidden]`). Harmless to a reader — the visible copy comes first —
+ * but a boundary the calculator never needed.
  */
 export default function DemurrageCalculator() {
   const search = useSyncExternalStore(noSubscription, () => window.location.search, () => "");
