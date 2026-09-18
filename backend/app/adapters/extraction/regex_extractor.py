@@ -38,6 +38,10 @@ INVOICE_NO_RE = re.compile(
     r"(?=[A-Z0-9/-]*\d)([A-Z0-9][A-Z0-9/-]{3,24})",
     re.IGNORECASE,
 )
+#: What precedes "facture" when the words that follow are its date, not its number: « Date facture :
+#: 12/03/2026 », « Échéance facture ». Read as a number, two invoices of one day become one document.
+_DATED_WORDS_RE = re.compile(r"(?:DATE|[EÉ]CH[EÉ]ANCE|DU|DATED)\W{0,3}$", re.IGNORECASE)
+_DATE_LIKE_RE = re.compile(r"^\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}$|^\d{4}-\d{1,2}-\d{1,2}$")
 # French invoices group thousands with a space, often a non-breaking one.
 DATE_RE = re.compile(r"\b(\d{2})[/.-](\d{2})[/.-](\d{4})\b|\b(\d{4})-(\d{2})-(\d{2})\b")
 AMOUNT_RE = re.compile(r"(?<![\d.,])\d{1,3}(?:[\u00a0 .,]\d{3})*(?:[.,]\d{1,2})?(?![\d])")
@@ -560,8 +564,13 @@ class RegexExtractor:
         subtotal = self._labelled(lines, upper_lines, SUBTOTAL_WORDS)
         vat = self._vat(lines, upper_lines, total, subtotal)
         invoice_number = None
-        if match := INVOICE_NO_RE.search(text):
-            invoice_number = match.group(1).strip(" .:")
+        for match in INVOICE_NO_RE.finditer(text):
+            candidate = match.group(1).strip(" .:")
+            before = text[max(0, match.start() - 12) : match.start()]
+            if _DATE_LIKE_RE.match(candidate) or _DATED_WORDS_RE.search(before):
+                continue  # the date of the invoice, not its number
+            invoice_number = candidate
+            break
 
         charges = self._table(laid_out, currency) or self._by_keyword(lines, upper_lines, currency)
 

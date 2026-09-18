@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import Unprocessable
 from app.core.money import q2, q4, to_base
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
-from app.domain.costing.entry import same_invoice
+from app.domain.costing.entry import DUTY_GUARD, normalize_invoice_number, normalize_vendor, same_invoice
 from app.domain.costing.service import Computation
 from app.domain.models import Container, Cost, CostStatus, Invoice, InvoiceStatus, Organization
 from app.domain.reporting.service import (
@@ -134,6 +134,15 @@ class Rules:
     freight_window_days: int
     not_compared: tuple[str, ...]
     estimate_stale_after_days: int
+    #: How the figures were made, stated only by documents computed that way (a link sent before
+    #: these rules existed must not claim them): customs duty spread by each line's rate when the
+    #: rates explain what was paid within this per cent; demurrage and detention counted with the box
+    #: that arrived in the period; no box of unknown route or length compared; one invoice entered
+    #: twice never called a charge billed twice.
+    duty_explained_pct: Decimal | None = None
+    demurrage_by_arrival: bool | None = None
+    outlier_needs_route_and_size: bool | None = None
+    same_invoice_never_duplicate: bool | None = None
 
 
 RULES = Rules(
@@ -148,6 +157,10 @@ RULES = Rules(
     freight_window_days=FREIGHT_WINDOW.days,
     not_compared=tuple(sorted(NOT_COMPARED)),
     estimate_stale_after_days=ESTIMATE_STALE_AFTER.days,
+    duty_explained_pct=DUTY_GUARD * 100,
+    demurrage_by_arrival=True,
+    outlier_needs_route_and_size=True,
+    same_invoice_never_duplicate=True,
 )
 
 
@@ -238,6 +251,11 @@ class Completeness:
     containers_without_cost: int
     #: Where the exchange rates of the period's costs came from: ecb, ecb_latest, manual, same.
     fx_sources: dict[str, int]
+    #: The period's boxes "far above the route" could not compare: no route, or no length.
+    containers_not_compared: int | None = None
+    #: Boxes of the organization, loaded or charged, that fall in no period at all: no arrival date.
+    #: Whatever they cost is in no audit until someone dates them.
+    containers_without_date: int | None = None
 
 
 @dataclass
@@ -306,8 +324,10 @@ def audit_report(
     # One euro, one finding: what the rules on invoices have already found is taken out of the charges
     # before the statistical rule looks at them, or a duplicate would come back as "far above the
     # route" and an invoice above its estimate would be claimed twice.
-    claims = _duplicates(comp, every, boxes, costs_in) + _above_quote(
-        comp, every, costs_in, org.base_currency
+    claims = (
+        _duplicates(comp, every, boxes, costs_in)
+        + _double_entries(comp, every, costs_in)
+        + _above_quote(comp, every, costs_in, org.base_currency)
     )
     findings = (
         claims
@@ -465,19 +485,21 @@ def _duplicates(
                 if second.id in repeated:
                     continue
                 if same_invoice(first.vendor, first.invoice_number, second.vendor, second.invoice_number):
-                    # Two lines of one invoice are that invoice's business — and the same invoice
-                    # entered twice, a statement and its PDF, is a double entry of ours, not a
-                    # charge billed twice: preparing the audit says so, the audit never claims it.
-                    continue
+                    continue  # one invoice entered twice is ours to fix, not a charge billed twice
                 if not _close(first, second):
                     continue
-                same_vendor = _name(first.vendor) is not None and _name(first.vendor) == _name(second.vendor)
+                same_vendor = bool(normalize_vendor(first.vendor)) and normalize_vendor(
+                    first.vendor
+                ) == normalize_vendor(second.vendor)
                 identical = (first.amount, first.currency) == (second.amount, second.currency)
+                # Without a number on both, nothing says these are two invoices rather than one typed
+                # twice: a question, whatever the amounts.
+                numbered = bool(first.invoice_number) and bool(second.invoice_number)
                 finding = _finding(
                     comp,
                     every,
                     "DUPLICATE_CHARGE",
-                    "sure" if same_vendor or identical else "to_check",
+                    "sure" if numbered and (same_vendor or identical) else "to_check",
                     min(first.amount_base, second.amount_base),
                     second,
                     first_invoice=first.invoice_number or "",
@@ -500,8 +522,53 @@ def _close(a: Cost, b: Cost) -> bool:
     return larger > 0 and abs(x - y) <= larger * DUPLICATE_TOLERANCE
 
 
-def _name(vendor: str | None) -> str | None:
-    return " ".join(vendor.split()).casefold() or None if vendor else None
+def _double_entries(
+    comp: Computation, every: dict[UUID, Container], costs_in: dict[UUID, Cost]
+) -> list[Finding]:
+    """The same invoice recorded twice — a statement keyed in and its PDF confirmed, two spellings of
+    one forwarder, once on a box and once on its bill of lading. Not the forwarder's doing and nothing
+    to claim: a double entry of ours, which the landed cost counts twice until one of the two goes."""
+    lands_on: dict[UUID, set[UUID]] = defaultdict(set)
+    for allocation in comp.result.allocations:
+        lands_on[allocation.cost_id].add(comp.load_rows[allocation.load_id].container_id)
+    groups: dict[tuple[str, str], list[Cost]] = defaultdict(list)
+    for cost in costs_in.values():
+        number = normalize_invoice_number(cost.invoice_number)
+        if cost.status is CostStatus.ACTUAL and number and cost.cost_type.value not in EXCLUDED_FROM_LANDED:
+            groups[(number, cost.cost_type.value)].append(cost)
+    found: list[Finding] = []
+    for costs in groups.values():
+        costs.sort(key=lambda c: (c.cost_date, c.created_at))
+        repeated: set[UUID] = set()
+        for i, first in enumerate(costs):
+            for second in costs[i + 1 :]:
+                if second.id in repeated:
+                    continue
+                if not same_invoice(first.vendor, first.invoice_number, second.vendor, second.invoice_number):
+                    continue
+                boxes_first = lands_on[first.id] | ({first.container_id} if first.container_id else set())
+                boxes_second = lands_on[second.id] | ({second.container_id} if second.container_id else set())
+                if not boxes_first & boxes_second:
+                    continue  # one number on two freights: two invoices that happen to share it
+                # A forwarder's invoice numbers are its own, one per document; with its name on both
+                # copies the pair is one invoice. Without it, a number and a freight are all it rests
+                # on, and a short number is in every forwarder's range: a question.
+                named = bool(normalize_vendor(first.vendor)) and bool(normalize_vendor(second.vendor))
+                finding = _finding(
+                    comp,
+                    every,
+                    "DOUBLE_ENTRY",
+                    "sure" if named else "to_check",
+                    min(first.amount_base, second.amount_base),
+                    second,
+                    first_invoice=first.invoice_number or "",
+                    first_vendor=first.vendor or "",
+                    first_amount=f"{first.amount_base:.2f}",
+                )
+                finding.cost_ids = [first.id, second.id]
+                found.append(finding)
+                repeated.add(second.id)
+    return found
 
 
 def _above_quote(
@@ -862,6 +929,24 @@ def _completeness(
             Invoice.org_id == org.id, Invoice.status == InvoiceStatus.NEEDS_REVIEW
         )
     )
+    undated = {c.id for c in comp.containers.values() if arrival_date(c) is None}
+    charged_only = {
+        cost.container_id
+        for cost in comp.cost_rows.values()
+        if cost.container_id is not None and cost.container_id not in comp.containers
+    }
+    if charged_only:
+        undated |= {
+            c.id
+            for c in db.scalars(
+                select(Container).where(
+                    Container.org_id == org.id,
+                    Container.archived_at.is_(None),
+                    Container.id.in_(charged_only),
+                )
+            )
+            if arrival_date(c) is None
+        }
     return Completeness(
         containers=len(boxes),
         fob=fob,
@@ -871,4 +956,6 @@ def _completeness(
         invoices_to_review=int(to_review or 0),
         containers_without_cost=sum(1 for c in boxes if c not in costed),
         fx_sources=dict(Counter(cost.fx_source for cost in costs_in.values())),
+        containers_not_compared=sum(1 for c in boxes.values() if _route(c)[0] == UNKNOWN or not _size(c)),
+        containers_without_date=len(undated),
     )

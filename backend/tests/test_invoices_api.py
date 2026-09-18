@@ -610,8 +610,8 @@ def test_several_estimates_are_left_alone_and_the_confirmation_says_so(
 
     body = client.post(f"/api/v1/invoices/{invoice_id}/confirm").json()
     assert body["superseded_estimate_ids"] == []
-    assert "2 open estimates" in body["notes"][0]
-    assert "pick one by hand" in body["notes"][0]
+    # A code the front end words in each language: the lines it came from, how many, of what type.
+    assert body["notes"] == [f"@several_estimates|{freight['line_no']}|2|OCEAN_FREIGHT"]
 
     created = {c["id"]: c for c in client.get("/api/v1/costs").json()}[body["cost_ids"][0]]
     assert created["supersedes_cost_id"] is None  # both estimates are still standing

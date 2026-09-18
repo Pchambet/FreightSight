@@ -84,12 +84,12 @@ douane dedans, puisque ce sont des barèmes, pas juste le fret :
 
 | Ligne | FOB unitaire | Coût rendu unitaire (estimé, avant facture) |
 |-------|--------------|----------------------------------------------|
-| PO-2026-014 · pneu | **14,00 €** | **~17,72 €** |
-| PO-2026-015 · tapis | **20,00 €** | **~25,71 €** |
+| PO-2026-014 · pneu | **14,00 €** | **~17,83 €** |
+| PO-2026-015 · tapis | **20,00 €** | **~25,94 €** |
 
 ### Réflexe dirigeant
-> « Je croyais acheter le pneu à 14 €. En entrepôt c'est déjà 17,72 € **avant même** la facture Transitex,
-> droits de douane compris. À 20 € de vente, ma marge n'est pas 6 € — c'est plutôt **2,15 €**. »
+> « Je croyais acheter le pneu à 14 €. En entrepôt c'est déjà 17,83 € **avant même** la facture Transitex,
+> droits de douane compris. À 20 € de vente, ma marge n'est pas 6 € — c'est plutôt **2,17 €**. »
 
 ### Explorer (optionnel, 3 min)
 - Ouvrir **Ventilation détaillée** → changer la méthode du **fret maritime** (aperçu « et si ») → le coût unitaire bouge
@@ -158,13 +158,13 @@ Ouvrir la facture → encart **Relire les lignes**
 
 | Référence | FOB | Rendu **estimé** (avant Transitex) | Rendu **réel** (après Transitex) |
 |-----------|-----|-------------------------------------|-------------------------------------|
-| Pneu PO-2026-014 | 14,00 € | ~17,72 € | **17,98 €** |
-| Tapis PO-2026-015 | 20,00 € | ~25,71 € | **26,16 €** |
+| Pneu PO-2026-014 | 14,00 € | ~17,83 € | **17,98 €** |
+| Tapis PO-2026-015 | 20,00 € | ~25,94 € | **26,16 €** |
 
 Jauge **Postes facturés** : **5/5**, 100 % — plus aucun estimé sur ce conteneur.
 
 ### Conclusion pour RoulezBio
-> « À 20 € de vente, la marge tient tout juste à 1,86 €. Il faudrait plutôt **22 €**, ou renégocier le
+> « À 20 € de vente, la marge tient tout juste à 2,02 €. Il faudrait plutôt **22 €**, ou renégocier le
 > FOB avec Zhejiang Kaiyuan. »
 
 ### Suite logique dans l'outil (actes 6 à 10)
@@ -172,7 +172,7 @@ Jauge **Postes facturés** : **5/5**, 100 % — plus aucun estimé sur ce conten
 | Acte | Écran | Ce que vous vérifiez |
 |------|-------|----------------------|
 | **6** | `/reports` | Coût rendu par fournisseur · coût unitaire `TYR-20555R16-91V` · section **À risque maintenant** (MSCU) · tarif surestaries 85 €/jour |
-| **7** | `/reports/variance` (mois en cours) | Estimé 5 642,50 € → réel 6 058,79 € → écart **+416,29 €**, détaillé par type de coût (camionnage en baisse de 54 €, le reste en hausse) |
+| **7** | `/reports/variance` (mois en cours) | Estimé 5 845,10 € → réel 6 058,79 € → écart **+213,69 €**, détaillé par type de coût (camionnage en baisse de 54 €, le reste en hausse ; les droits de 11,79 € seulement, l'estimé comptait déjà le fret dans la valeur CIF) |
 | **8** | `/purchase-orders` → PO-2026-014 | Ventilation split MSCU / TGHU · postes facturés 5/5 sur MSCU après Transitex, encore estimés sur TGHU |
 | **9** | `/alerts` | Au moins **1 alerte** surestarie MSCU (cloche en haut à droite) |
 | **10** | `/audit` | `Facture confirmée` avec n° FA-2026-0912 · statuts traduits · pas d'UUID bruts |
@@ -186,7 +186,7 @@ Jauge **Postes facturés** : **5/5**, 100 % — plus aucun estimé sur ce conten
 - Déjà **sorti du terminal** — risque plus faible
 - 1 200 pneus seuls — autre profil de ventilation (mix pneus/tapis différent, fret et droits calculés sur
   ce seul chargement)
-- Comparez le **coût unitaire pneu** MSCU (17,98 €, réel) vs TGHU (~18,40 €, encore estimé — cette
+- Comparez le **coût unitaire pneu** MSCU (17,98 €, réel) vs TGHU (~18,54 €, encore estimé — cette
   facture ne concerne que MSCU) : même SKU, coût rendu différent selon le conteneur **et** selon que la
   facture est arrivée ou non
 

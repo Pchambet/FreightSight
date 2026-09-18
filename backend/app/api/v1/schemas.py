@@ -832,9 +832,13 @@ class InvoiceLineCreate(BaseModel):
 
 
 class InvoiceConfirmRequest(BaseModel):
-    """Confirm again after looking at what the duplicate check found."""
+    """Confirm again after looking at what a check found. Each flag answers one check only, and both
+    may be sent together; what was overruled is written into the confirmation's notes."""
 
+    #: DUPLICATE_COST: another cost of this type already covers this freight, and it is not this charge.
     force: bool = False
+    #: INVOICE_ALREADY_RECORDED: a cost already carries this invoice's number, and it is not this invoice.
+    force_recorded: bool = False
 
 
 class InvoiceContainerLink(BaseModel):
@@ -963,6 +967,10 @@ class AuditCompleteness(BaseModel):
     #: How many of the period's costs took their exchange rate from each source: ecb, ecb_latest,
     #: manual, same (no conversion).
     fx_sources: dict[str, int]
+    #: The period's boxes "far above the route" could not compare (no route or no length), and the
+    #: organization's boxes that fall in no period (no arrival date). Null in links sent before.
+    containers_not_compared: int | None = None
+    containers_without_date: int | None = None
 
 
 class AuditHeadline(BaseModel):
@@ -1008,6 +1016,15 @@ class AuditRules(BaseModel):
     not_compared: list[CostType]
     #: ESTIMATE_NEVER_INVOICED: still an estimate this many days after landing, on `as_of`.
     estimate_stale_after_days: int
+    #: How the figures were made — present, and so stated, only in documents computed that way; a link
+    #: sent before they existed has them null. Duty spread by each line's rate when the rates explain
+    #: the duty paid within this per cent (by customs value otherwise); demurrage and detention counted
+    #: with the box that arrived in the period, whatever the invoice date; boxes of unknown route or
+    #: length compared with nothing; one invoice entered twice never called a charge billed twice.
+    duty_explained_pct: Decimal | None = None
+    demurrage_by_arrival: bool | None = None
+    outlier_needs_route_and_size: bool | None = None
+    same_invoice_never_duplicate: bool | None = None
 
 
 class AuditReport(BaseModel):

@@ -24,6 +24,7 @@ from app.domain.audit.service import (
 )
 from app.domain.costing import entry
 from app.domain.costing.service import recompute_org
+from app.domain.invoices.checks import invoice_line_recorded, recorded_note, same_line_on_file
 from app.domain.models import (
     AllocationMethod,
     Container,
@@ -62,6 +63,56 @@ def _check_splits(splits: list[dict[str, Any]]) -> None:
 
 
 _UNSET = object()
+
+
+def _refuse_a_line_already_recorded(t: TenantSession, cost: Cost) -> None:
+    """The same invoice line keyed in twice — "TRANSITEX / F-0412" then "Transitex SAS / F0412" on one
+    box, or once on the box and once on its bill of lading — counts twice in the landed cost. Refused
+    by name: before this it was a database error when spelled the same, and nothing at all otherwise.
+    Spelled the same to the letter, an estimate carrying the number is refused too: the database's
+    own index does not tell the two statuses apart."""
+    target = cost.container_id or cost.shipment_id or cost.po_id or cost.po_line_id
+    if not cost.invoice_number or target is None:
+        return
+    with t.db.no_autoflush:  # the pending row itself must not reach the index before we have looked
+        found = same_line_on_file(
+            t.db,
+            t.org_id,
+            vendor=cost.vendor,
+            invoice_number=cost.invoice_number,
+            cost_type=cost.cost_type,
+            currency=cost.currency,
+            target_id=target,
+            exclude=cost.id,
+        )
+        if cost.status is CostStatus.ACTUAL:
+            found += [
+                c
+                for c in invoice_line_recorded(
+                    t.db,
+                    t.org_id,
+                    vendor=cost.vendor,
+                    invoice_number=cost.invoice_number,
+                    cost_type=cost.cost_type,
+                    scope=cost.scope,
+                    target_id=target,
+                    exclude=cost.id,
+                )
+                if c not in found
+            ]
+    if found:
+        raise Unprocessable(
+            "This invoice line is already recorded on this freight",
+            code="INVOICE_LINE_ALREADY_RECORDED",
+            errors=[
+                {
+                    "field": "invoice_number",
+                    "code": "INVOICE_LINE_ALREADY_RECORDED",
+                    "message": recorded_note(c),
+                }
+                for c in found
+            ],
+        )
 
 
 def _supersede(t: TenantSession, cost: Cost, estimate_id: UUID | None, *, status: CostStatus) -> None:
@@ -148,6 +199,7 @@ def create_cost(payload: schemas.CostCreate, t: TenantDep, fx: FxDep, p: WriterD
     )
     entry.check_method(method, payload.cost_type)
     cost.allocation_method = method
+    _refuse_a_line_already_recorded(t, cost)
     t.add(cost)
     t.db.flush()
     record(
@@ -174,6 +226,7 @@ def get_cost(cost_id: UUID, t: TenantDep) -> Cost:
 def update_cost(cost_id: UUID, payload: schemas.CostUpdate, t: TenantDep, fx: FxDep, p: WriterDep) -> Cost:
     cost = t.get_or_404(Cost, cost_id, "Cost")
     before = snapshot(cost, COST_FIELDS)
+    before_type = cost.cost_type
     changes = payload.model_dump(exclude_unset=True)
     splits = changes.pop("manual_splits", None)
     manual_rate = changes.pop("fx_rate", None)
@@ -201,6 +254,25 @@ def update_cost(cost_id: UUID, payload: schemas.CostUpdate, t: TenantDep, fx: Fx
         entry.check_method(cost.allocation_method, cost.cost_type)
     if any(k in changes for k in ("amount", "currency", "cost_date")) or manual_rate is not None:
         entry.apply_fx(t.db, fx, t.org, cost, manual_rate)
+    if cost.cost_type is not before_type:
+        # A duty re-typed as freight kept its duty method and was spread by duty rates in the second
+        # pass, after the customs value it belongs to had been taken. The method follows the type when
+        # nobody chose one; and whatever the method, it has to suit the new type.
+        target = cost.container_id or cost.shipment_id or cost.po_id or cost.po_line_id
+        duty_moved = CostType.CUSTOMS_DUTY in (before_type, cost.cost_type)
+        if (
+            duty_moved
+            and payload.allocation_method is None
+            and cost.allocation_method is not AllocationMethod.MANUAL
+        ):
+            assert target is not None
+            with t.db.no_autoflush:
+                cost.allocation_method = entry.default_method(
+                    t.db, t.org, cost.scope, target, cost.cost_type, cost.amount_base, exclude=cost.id
+                )
+        entry.check_method(cost.allocation_method, cost.cost_type)
+    if {"invoice_number", "vendor", "cost_type", "currency", "status"} & changes.keys():
+        _refuse_a_line_already_recorded(t, cost)
     t.db.flush()
     record(
         t.db,

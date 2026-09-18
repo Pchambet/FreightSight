@@ -176,6 +176,7 @@ FINDING_FR = {
     "ESTIMATE_NEVER_INVOICED": "Estimé jamais facturé",
     "UNALLOCATED_COST": "Coût non ventilé",
     "DUTY_RATE_MISSING": "Droits ventilés sans taux sur une ligne",
+    "DOUBLE_ENTRY": "Facture saisie deux fois",
 }
 #: How sure the rule is — not what to do about it: an invoice above its estimate is a fact, whether the
 #: surcharge turns out to be owed or not.

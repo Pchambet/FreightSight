@@ -216,7 +216,13 @@ def confirm(
     invoice = _get(t, invoice_id)
     try:
         result = confirm_invoice(
-            t.db, fx, t.org, invoice, created_by=p.user_id, force=bool(payload and payload.force)
+            t.db,
+            fx,
+            t.org,
+            invoice,
+            created_by=p.user_id,
+            force=bool(payload and payload.force),
+            force_recorded=bool(payload and payload.force_recorded),
         )
     except Exception:
         # All or nothing, said out loud: a refusal halfway through leaves no half-written costs
@@ -235,6 +241,10 @@ def confirm(
             "vendor": invoice.vendor,
             "cost_ids": [c.id for c in result.costs],
             "total_amount": invoice.total_amount,
+            # what a person overruled to confirm it, if anything: a duplicate, an invoice on record
+            "notes": [
+                note for note in result.notes if note.startswith(("@forced_duplicate", "@forced_recorded"))
+            ],
         },
     )
     t.db.commit()

@@ -26,7 +26,7 @@ from uuid import UUID
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.domain.costing.entry import normalize_invoice_number, normalize_vendor
+from app.domain.costing.entry import normalize_invoice_number, normalize_vendor, same_invoice
 from app.domain.fx.service import FxService
 from app.domain.invoices.ports import ExtractedLine, ExtractionContext, FreightInvoice
 from app.domain.models import Container, Cost, CostScope, CostStatus, CostType, PurchaseOrderLine
@@ -204,6 +204,82 @@ def invoice_recorded(
         elif places and db.scalar(select(Cost.id).where(Cost.id == cost.id, or_(*places))) is not None:
             found.append(cost)
     return found
+
+
+def invoice_line_recorded(
+    db: Session,
+    org_id: UUID,
+    *,
+    vendor: str | None,
+    invoice_number: str | None,
+    cost_type: CostType,
+    scope: CostScope,
+    target_id: UUID,
+    exclude: UUID | None = None,
+) -> list[Cost]:
+    """The live invoiced costs that are this very line already: the same invoice (`same_invoice`),
+    the same type, on the same freight — the box, or the bill of lading it travelled under. What a
+    person keys in twice by hand, under two spellings, counts twice in the landed cost; this is where
+    it is stopped."""
+    number = normalize_invoice_number(invoice_number)
+    where = _same_freight(db, org_id, scope, target_id)
+    if not number or where is None:
+        return []
+    candidates = db.scalars(
+        select(Cost).where(
+            Cost.org_id == org_id,
+            Cost.status == CostStatus.ACTUAL,
+            Cost.closed_at.is_(None),
+            Cost.cost_type == cost_type,
+            Cost.invoice_number.is_not(None),
+            func.regexp_replace(func.upper(Cost.invoice_number), "[^A-Z0-9]", "", "g") == number,
+            where,
+            *([Cost.id != exclude] if exclude is not None else []),
+        )
+    )
+    return [c for c in candidates if same_invoice(vendor, invoice_number, c.vendor, c.invoice_number)]
+
+
+def same_line_on_file(
+    db: Session,
+    org_id: UUID,
+    *,
+    vendor: str | None,
+    invoice_number: str | None,
+    cost_type: CostType,
+    currency: str,
+    target_id: UUID,
+    exclude: UUID | None = None,
+) -> list[Cost]:
+    """The costs `uq_costs_invoice_line` would refuse this one next to: the same forwarder and number
+    to the letter, the same type, currency and target, whatever their status. Asked before writing,
+    so that what the database refuses is a refusal with the line on file named — never a server
+    error, and never an override a person is offered and cannot use."""
+    if not vendor or not invoice_number:
+        return []  # the index leaves unnumbered costs alone, and a missing vendor never equals another
+    target = func.coalesce(Cost.container_id, Cost.shipment_id, Cost.po_id, Cost.po_line_id)
+    return list(
+        db.scalars(
+            select(Cost).where(
+                Cost.org_id == org_id,
+                Cost.vendor == vendor,
+                Cost.invoice_number == invoice_number,
+                Cost.cost_type == cost_type,
+                Cost.currency == currency,
+                target == target_id,
+                *([Cost.id != exclude] if exclude is not None else []),
+            )
+        )
+    )
+
+
+def recorded_note(cost: Cost) -> str:
+    """Machine-readable description of a cost that already carries an invoice, for the screen to
+    write its sentence from: type, forwarder, number, amount in base currency, scope, day entered."""
+    return (
+        f"@recorded|{cost.cost_type.value}|{cost.vendor or ''}|{cost.invoice_number or ''}|"
+        f"{cost.amount_base}|{cost.scope.value}|{cost.created_at.date().isoformat()}"
+    )
 
 
 def check(

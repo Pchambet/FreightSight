@@ -213,6 +213,30 @@ def test_a_tariff_card_supplies_the_rate_by_heading(client: TestClient, org: Org
     assert created["CUSTOMS_DUTY"]["amount"] == "450.00"  # 4.5 % of the 10 000 FOB, no freight yet
 
 
+def test_the_freight_estimated_in_the_same_call_is_in_the_customs_value(
+    client: TestClient, org: Organization
+) -> None:
+    """A freight card and a tariff rate, estimated together: the duty is taken on the value the freight
+    just estimated makes — 4.5 % of 13 000, not of the goods alone."""
+    container_id = seed_container(client, hs_code="40111000")
+    add_card(client, cost_type="CUSTOMS_DUTY", amount="0.0450", hs_code="4011")
+    add_card(client, cost_type="OCEAN_FREIGHT", amount="3000.00")
+
+    created = {c["cost_type"]: c for c in estimates(client, container_id)["created"]}
+    assert (created["OCEAN_FREIGHT"]["amount"], created["CUSTOMS_DUTY"]["amount"]) == ("3000.00", "585.00")
+
+
+def test_a_bill_of_lading_card_waits_for_the_box_to_travel_under_one(
+    client: TestClient, org: Organization
+) -> None:
+    """A card priced per bill of lading, on a box on none: the estimate had nowhere to go."""
+    container_id = seed_container(client)
+    add_card(client, cost_type="DRAYAGE", scope="SHIPMENT", amount="450.00")
+    result = estimates(client, container_id)
+    assert result["created"] == []
+    assert result["skipped"]["DRAYAGE"] == "a SHIPMENT rate card needs the container to be on a shipment"
+
+
 def test_no_rate_anywhere_says_so_instead_of_inventing_one(client: TestClient, org: Organization) -> None:
     container_id = seed_container(client)
     result = estimates(client, container_id)

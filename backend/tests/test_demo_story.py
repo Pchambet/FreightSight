@@ -52,13 +52,13 @@ def test_estimate_figures_quoted_in_the_demo_script(client: TestClient) -> None:
 
     mscu = client.get(f"/api/v1/landed-costs/containers/{containers['MSCU4821990']}").json()
     by_sku = {ln["sku"]: ln for ln in mscu["lines"]}
-    assert by_sku["TYR-20555R16-91V"]["unit_landed_cost"] == "17.7168"  # "~17,72 €"
-    assert by_sku["MAT-EVA-6040-GY"]["unit_landed_cost"] == "25.7098"  # "~25,71 €"
-    assert mscu["totals"]["landed"] == "26142.50"
+    assert by_sku["TYR-20555R16-91V"]["unit_landed_cost"] == "17.8305"  # "~17,83 €"
+    assert by_sku["MAT-EVA-6040-GY"]["unit_landed_cost"] == "25.9444"  # "~25,94 €"
+    assert mscu["totals"]["landed"] == "26345.10"
     assert mscu["completeness"] == "0.00"  # nothing invoiced yet
 
     tghu = client.get(f"/api/v1/landed-costs/containers/{containers['TGHU7245081']}").json()
-    assert tghu["lines"][0]["unit_landed_cost"] == "18.3967"  # "~18,40 €" — different container mix
+    assert tghu["lines"][0]["unit_landed_cost"] == "18.5354"  # "~18,54 €" — different container mix
 
 
 def test_confirming_the_whole_invoice_produces_a_real_variance(
@@ -115,7 +115,7 @@ def test_confirming_the_whole_invoice_produces_a_real_variance(
     )
     assert report["totals"]["estimated"] == "0.00"  # every estimate on this container was superseded
     assert report["totals"]["landed"] == "26558.79"
-    assert report["totals"]["variance"] == "416.29"
+    assert report["totals"]["variance"] == "213.69"
     assert report["completeness"] == "1.00"
 
     by_sku = {ln["sku"]: ln for ln in report["lines"]}
@@ -124,8 +124,8 @@ def test_confirming_the_whole_invoice_produces_a_real_variance(
 
     # TGHU never saw this invoice: it is exactly where it was before, still an estimate.
     tghu = client.get(f"/api/v1/landed-costs/containers/{containers['TGHU7245081']}").json()
-    assert tghu["totals"]["allocated"] == "5276.00"
-    assert tghu["totals"]["estimated"] == "5276.00"
+    assert tghu["totals"]["allocated"] == "5442.50"
+    assert tghu["totals"]["estimated"] == "5442.50"
 
     # Scène 7 (docs/demo-commercial.md): /reports/variance is no longer the always-empty screen the
     # audit found (Finding 4 / B35) — the invoice date sample_data.py chooses (a few days before
@@ -133,9 +133,14 @@ def test_confirming_the_whole_invoice_produces_a_real_variance(
     period = datetime.now(UTC).date().strftime("%Y-%m")
     variance = client.get(f"/api/v1/reports/variance?period={period}").json()
     assert variance["pairs"] == 5
-    assert variance["estimated"] == "5642.50"
+    assert variance["estimated"] == "5845.10"
     assert variance["actual"] == "6058.79"
-    assert variance["variance"] == "416.29"
+    assert variance["variance"] == "213.69"
+    # The duty estimate was taken on the customs value with the estimated freight in it, so the duty
+    # moves only by what the dearer real freight adds to that value: 11.79 €, not the freight's whole
+    # share of it.
+    by_type = {row["key"]: row["variance"] for row in variance["by_cost_type"]}
+    assert (by_type["OCEAN_FREIGHT"], by_type["CUSTOMS_DUTY"]) == ("215.40", "11.79")
 
 
 def test_demo_invoice_arithmetic_holds() -> None:

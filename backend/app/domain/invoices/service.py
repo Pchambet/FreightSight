@@ -22,7 +22,14 @@ from app.domain.costing.service import Computation, compute, recompute_org
 from app.domain.documents.ports import DocumentStore
 from app.domain.documents.service import store_document
 from app.domain.fx.service import FxService
-from app.domain.invoices.checks import CREDIT_NOTE_NOTE, check, duplicate_cost_note, invoice_recorded
+from app.domain.invoices.checks import (
+    CREDIT_NOTE_NOTE,
+    check,
+    duplicate_cost_note,
+    invoice_recorded,
+    recorded_note,
+    same_line_on_file,
+)
 from app.domain.invoices.ports import (
     DocumentExtractor,
     ExtractionContext,
@@ -207,6 +214,7 @@ def confirm(
     *,
     created_by: UUID | None = None,
     force: bool = False,
+    force_recorded: bool = False,
 ) -> Confirmation:
     """Turn the accepted lines into costs, all of them or none.
 
@@ -214,7 +222,9 @@ def confirm(
     do not exist either. The rate is the one of the invoice date, fixed on the cost like any other.
 
     `force` is the answer to the duplicate check below, and only to that: it says a person looked at
-    the cost we found and decided this invoice is not the same charge.
+    the cost we found and decided this invoice is not the same charge. `force_recorded` answers the
+    other one — "this invoice is already in the books" — when a person has checked that the number
+    only happens to match: both are written into the confirmation's notes.
     """
     if invoice.status is InvoiceStatus.CONFIRMED:
         raise Unprocessable("This invoice has already been confirmed", code="ALREADY_CONFIRMED")
@@ -272,29 +282,6 @@ def confirm(
             ],
         )
 
-    # The same document already in the books — its statement imported, or its PDF confirmed under a
-    # neighbouring spelling — is refused outright: no person can mean to count one invoice twice.
-    freight = [(line.scope, line.target_id) for line in accepted if line.scope and line.target_id]
-    recorded = invoice_recorded(db, org.id, invoice.vendor, invoice.invoice_number, freight)
-    if recorded:
-        raise Unprocessable(
-            "This invoice is already recorded; reopen or delete what carries it before confirming it again",
-            code="INVOICE_ALREADY_RECORDED",
-            errors=[
-                {
-                    "field": "invoice",
-                    "code": "INVOICE_ALREADY_RECORDED",
-                    "message": (
-                        f"@recorded|{cost.cost_type.value}|{cost.vendor or ''}|{cost.invoice_number or ''}|"
-                        f"{cost.amount_base}|{cost.scope.value}|{cost.created_at.date().isoformat()}"
-                    ),
-                }
-                for cost in recorded
-            ],
-        )
-
-    notes: list[str] = _duplicate_notes(db, org, accepted, force=force)
-
     # Lines of one type, on one target, in one currency are one cost: the freight and its bunker
     # surcharge, the origin and destination handlings. One cost per line would be two costs with the
     # same invoice, forwarder, type and target — which the database refuses, rightly — and the
@@ -304,11 +291,49 @@ def confirm(
         assert line.scope is not None and line.target_id is not None and line.cost_type is not None
         groups.setdefault((line.scope, line.target_id, line.cost_type, line.currency), []).append(line)
 
+    # The same document already in the books — its statement imported, or its PDF confirmed under a
+    # neighbouring spelling — is refused: no person can mean to count one invoice twice. A person may
+    # still say it is another document under the same number (`force_recorded`), except where it is
+    # the very line on file, to the letter: that one the database itself refuses, and an override
+    # offered there could only end in an error.
+    freight = [(line.scope, line.target_id) for line in accepted if line.scope and line.target_id]
+    recorded = invoice_recorded(db, org.id, invoice.vendor, invoice.invoice_number, freight)
+    exact = [
+        cost
+        for scope, target_id, cost_type, currency in groups
+        for cost in same_line_on_file(
+            db,
+            org.id,
+            vendor=invoice.vendor,
+            invoice_number=invoice.invoice_number,
+            cost_type=cost_type,
+            currency=currency,
+            target_id=target_id,
+        )
+    ]
+    if exact or (recorded and not force_recorded):
+        on_file = recorded + [cost for cost in exact if cost not in recorded]
+        raise Unprocessable(
+            "This invoice is already recorded; reopen or delete what carries it before confirming it again",
+            code="INVOICE_ALREADY_RECORDED",
+            errors=[
+                {"field": "invoice", "code": "INVOICE_ALREADY_RECORDED", "message": recorded_note(cost)}
+                for cost in on_file
+            ],
+            forceable=not exact,
+        )
+
+    notes: list[str] = _duplicate_notes(db, org, accepted, force=force)
+    if recorded:
+        notes.append(f"@forced_recorded|{invoice.invoice_number or ''}|{invoice.vendor or ''}")
+
     cost_date = invoice.invoice_date or datetime.now(UTC).date()
     comp: Computation | None = None  # computed once, and only if a duty needs its method
     costs: list[Cost] = []
     superseded: list[UUID] = []
-    for (scope, target_id, cost_type, currency), lines in groups.items():
+    # Duty last: the customs value it is weighed against includes this invoice's own freight.
+    ordered = sorted(groups.items(), key=lambda group: group[0][2] is CostType.CUSTOMS_DUTY)
+    for (scope, target_id, cost_type, currency), lines in ordered:
         model, foreign_key, what = SCOPE_MODEL[scope]
         target = db.scalar(
             select(model).where(model.id == target_id, model.org_id == org.id)  # type: ignore[attr-defined]
@@ -353,10 +378,7 @@ def confirm(
         elif len(candidates) > 1:
             # Several: which one this invoice settles is a judgement, and guessing would silently
             # drop a real estimate out of the landed cost. Say so and leave them alone.
-            notes.append(
-                f"Line {numbers}: {len(candidates)} open estimates of type "
-                f"{cost_type.value} on this target; none was replaced, pick one by hand."
-            )
+            notes.append(f"@several_estimates|{numbers}|{len(candidates)}|{cost_type.value}")
         db.add(cost)
         db.flush()
         for line in lines:

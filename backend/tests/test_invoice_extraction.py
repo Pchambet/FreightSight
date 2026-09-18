@@ -80,6 +80,15 @@ def test_a_french_forwarder_invoice_is_read_in_full() -> None:
     }
 
 
+def test_the_date_of_the_invoice_is_not_taken_for_its_number() -> None:
+    """« Date facture : 12/03/2026 » above the number: read as the number, every invoice of one day
+    from one forwarder would be the same document to the guard against double entry."""
+    for dated in ("Date facture : 12/03/2026", "Date facture : 2026/03/12"):
+        lines = [*FRENCH_ONE_CONTAINER[:2], "FACTURE", dated, "N° facture : FA-2026-0912",
+                 *FRENCH_ONE_CONTAINER[4:]]  # fmt: skip
+        assert read(lines).invoice_number == "FA-2026-0912", dated
+
+
 def test_the_charge_is_the_rightmost_amount_on_the_line() -> None:
     """« THC 2 x 137,50  275,00 » is a charge of 275, not of 2 or of 137.50."""
     assert trailing_amount("THC destination Le Havre    2    137,50    275,00") == Decimal("275.00")

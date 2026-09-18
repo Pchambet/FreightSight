@@ -8049,6 +8049,28 @@
             },
             "type": "object",
             "title": "Fx Sources"
+          },
+          "containers_not_compared": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Containers Not Compared"
+          },
+          "containers_without_date": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Containers Without Date"
           }
         },
         "type": "object",
@@ -8745,6 +8767,51 @@
           "estimate_stale_after_days": {
             "type": "integer",
             "title": "Estimate Stale After Days"
+          },
+          "duty_explained_pct": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duty Explained Pct"
+          },
+          "demurrage_by_arrival": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Demurrage By Arrival"
+          },
+          "outlier_needs_route_and_size": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outlier Needs Route And Size"
+          },
+          "same_invoice_never_duplicate": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Same Invoice Never Duplicate"
           }
         },
         "type": "object",
@@ -11424,11 +11491,16 @@
             "type": "boolean",
             "title": "Force",
             "default": false
+          },
+          "force_recorded": {
+            "type": "boolean",
+            "title": "Force Recorded",
+            "default": false
           }
         },
         "type": "object",
         "title": "InvoiceConfirmRequest",
-        "description": "Confirm again after looking at what the duplicate check found."
+        "description": "Confirm again after looking at what a check found. Each flag answers one check only, and both\nmay be sent together; what was overruled is written into the confirmation's notes."
       },
       "InvoiceConfirmResponse": {
         "properties": {

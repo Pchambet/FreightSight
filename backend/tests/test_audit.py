@@ -4,6 +4,7 @@ Then the six-month dataset, whose flaws were put there on purpose, and the audit
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -14,6 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.money import q2
+from app.domain.models import Cost
 from app.domain.reporting.audit import PUBLIC_PARAMS
 from app.domain.sample_history import DUPLICATE_THC_ON, NEVER_INVOICED_ON, OUTLIER_DRAYAGE_ON, VOYAGES
 
@@ -131,6 +133,45 @@ def test_two_providers_a_little_apart_is_a_question_and_identical_amounts_a_fact
     )
     head = audit(client)["headline"]
     assert (head["recoverable_sure"], head["recoverable_to_check"]) == ("255.00", "260.00")
+
+
+def test_a_charge_twice_without_invoice_numbers_is_a_question(client: TestClient) -> None:
+    """Two THC of 260 € from one terminal, no number on either: billed twice, or one bill typed twice?
+    Nothing says which, so it is asked, never claimed as a fact."""
+    box = landed(client, "MSCU4821990", "2026-03-10")
+    cost(client, box, "THC", "260.00", vendor="TERMINAL PORTUAIRE")
+    cost(client, box, "THC", "260.00", vendor="TERMINAL PORTUAIRE")
+    (found,) = findings(client, "DUPLICATE_CHARGE")
+    assert (found["confidence"], found["amount"]) == ("to_check", "260.00")
+
+
+def test_one_invoice_recorded_twice_is_a_double_entry_of_ours_and_nothing_to_claim(
+    client: TestClient, db: Session
+) -> None:
+    """Two spellings of one invoice, kept from before the entry refused them: not the forwarder billing
+    twice but the company's own books counting once too often. Said so, claimed from nobody — and
+    certain only when both copies name the forwarder, whose numbers are its own."""
+    box = landed(client, "MSCU4821990", "2026-03-10")
+    cost(client, box, "THC", "260.00", vendor="TRANSITEX", invoice_number="F-0412")
+    twin = cost(client, box, "THC", "260.00", vendor="TRANSITEX", invoice_number="F-0413")
+    other = landed(client, "TGHU7245081", "2026-03-12")
+    cost(client, other, "DRAYAGE", "425.00", vendor="TRANSITEX", invoice_number="F-0500")
+    unnamed = cost(client, other, "DRAYAGE", "425.00", invoice_number="F-0501")
+    # What the entry now refuses, written the way older rows were: straight into the table.
+    for made, vendor, number in ((twin, "Transitex SAS", "F0412"), (unnamed, None, "f 0500")):
+        row = db.get(Cost, uuid.UUID(made["id"]))
+        assert row is not None
+        row.vendor, row.invoice_number = vendor, number
+    db.flush()
+
+    found = {f["container_number"]: f for f in findings(client, "DOUBLE_ENTRY")}
+    assert {n: (f["confidence"], f["recoverable"], f["amount"]) for n, f in found.items()} == {
+        "MSCU4821990": ("sure", False, "260.00"),
+        "TGHU7245081": ("to_check", False, "425.00"),
+    }
+    assert found["MSCU4821990"]["params"]["first_invoice"] == "F-0412"
+    assert findings(client, "DUPLICATE_CHARGE") == []
+    assert audit(client)["headline"]["recoverable_sure"] == "0.00"
 
 
 # ------------------------------------------------------------------------------- above the estimate
@@ -390,6 +431,32 @@ def test_the_first_page_is_the_sum_of_its_sections_and_the_sections_are_the_repo
     assert body["completeness"]["containers"] > 0 and "ecb" in body["completeness"]["fx_sources"]
     assert body["rules"]["outlier_min_basis"] == 4 and "DEMURRAGE" in body["rules"]["not_compared"]
     assert body["as_of"] == days_ago(0)
+
+
+def test_the_audit_says_which_boxes_it_could_not_compare_or_date_and_by_which_rules_it_went(
+    client: TestClient,
+) -> None:
+    """What the document could not look at is part of what it says, and so are its rules."""
+    routed = landed(client, "MSCU4821990", "2026-03-10")
+    route(client, [routed])
+    landed(client, "TGHU7245081", "2026-03-12", iso_type=None)  # no length, no route: not compared
+    po = client.post(
+        "/api/v1/purchase-orders", json={"po_number": "PO-UNDATED", "currency": "EUR", "lines": [LINE]}
+    ).json()
+    loaded = client.post("/api/v1/containers", json={"container_number": "TCLU1234565"}).json()
+    loads = [{"po_line_id": po["lines"][0]["id"], "quantity": "100"}]
+    assert client.put(f"/api/v1/containers/{loaded['id']}/loads", json=loads).status_code == 200
+    charged = client.post("/api/v1/containers", json={"container_number": "CSQU3054383"}).json()
+    cost(client, charged["id"], "THC", "100.00")
+
+    body = audit(client)
+    completeness = body["completeness"]
+    assert (completeness["containers_not_compared"], completeness["containers_without_date"]) == (1, 2)
+    assert body["rules"]["duty_explained_pct"] == "20.00"
+    assert all(
+        body["rules"][flag] is True
+        for flag in ("demurrage_by_arrival", "outlier_needs_route_and_size", "same_invoice_never_duplicate")
+    )
 
 
 def test_detention_invoiced_after_the_quarter_belongs_to_the_quarter_the_box_arrived_in(

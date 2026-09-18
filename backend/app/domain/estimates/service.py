@@ -180,6 +180,9 @@ def estimate_container(
             continue
         if card.cost_type is CostType.CUSTOMS_DUTY:
             continue  # duty comes from the tariff rates below, not from a flat card
+        if card.scope is CostScope.SHIPMENT and container.shipment_id is None:
+            skipped[card.cost_type.value] = "a SHIPMENT rate card needs the container to be on a shipment"
+            continue
         if (card.cost_type, card.scope) in existing:
             skipped[card.cost_type.value] = "a cost of this type already exists"
             continue
@@ -204,6 +207,11 @@ def estimate_container(
             )
         )
 
+    if created:
+        # Duty is taken on the customs value, and the freight just estimated is part of it: without
+        # this, a box whose freight card is applied in the same call got the duty of its goods alone.
+        db.flush()
+        comp = compute(db, org)
     if (CostType.CUSTOMS_DUTY, CostScope.CONTAINER) not in existing:
         duty = theoretical_duty(
             comp, container.id, [c for c in cards if c.cost_type is CostType.CUSTOMS_DUTY]

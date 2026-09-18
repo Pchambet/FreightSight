@@ -55,6 +55,7 @@ def default_method(
     cost_type: CostType,
     amount_base: Decimal | None = None,
     comp: Computation | None = None,
+    exclude: UUID | None = None,
 ) -> AllocationMethod:
     """The method written on a new cost when nobody chose one. Written on the cost, never implicit at
     compute time, and the same for every door a cost comes in by.
@@ -63,6 +64,9 @@ def default_method(
     rates can be trusted to do it: every loaded line has one, at least one is above zero (all zeros
     leave nothing to spread on), and they explain the duty paid within `DUTY_GUARD`. Otherwise by
     customs value, which is never unallocated and never puts a whole duty on one line.
+
+    `exclude` is the cost the method is for when it is already on file — re-typed as duty, it would
+    otherwise count among the duty already paid, and be weighed twice.
     """
     if cost_type is not CostType.CUSTOMS_DUTY:
         return org.default_allocation_method
@@ -74,8 +78,24 @@ def default_method(
     theoretical = sum(
         ((ld.duty_rate or Decimal(0)) * comp.result.cif.get(ld.id, ld.fob) for ld in loads), Decimal(0)
     )
-    if amount_base is not None and abs(amount_base - theoretical) > theoretical * DUTY_GUARD:
-        return AllocationMethod.BY_CIF_VALUE
+    if amount_base is not None:
+        # Customs may bill a box's duty in two goes; the rates explain what was paid in all, so the
+        # invoiced duty already on these lines counts with this one. An estimate does not: this very
+        # cost is usually what replaces it.
+        on_these = {ld.id for ld in loads}
+        already = sum(
+            (
+                a.amount_base
+                for a in comp.result.allocations
+                if a.load_id in on_these
+                and a.cost_id != exclude
+                and comp.cost_rows[a.cost_id].cost_type is CostType.CUSTOMS_DUTY
+                and comp.cost_rows[a.cost_id].status is CostStatus.ACTUAL
+            ),
+            Decimal(0),
+        )
+        if abs(amount_base + already - theoretical) > theoretical * DUTY_GUARD:
+            return AllocationMethod.BY_CIF_VALUE
     return AllocationMethod.BY_THEORETICAL_DUTY
 
 

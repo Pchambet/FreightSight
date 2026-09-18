@@ -57,11 +57,11 @@ soit ce document qui n'a pas été régénéré après un changement du moteur �
 | # | Écran | Bouton à cliquer | Ce que tu montres |
 |---|---|---|---|
 | 1 | `/containers` | **Ouvrir MSCU4821990** | KPIs, conteneur à risque surestaries |
-| 2 | Fiche MSCU | **Voir les coûts unitaires** | FOB 14 € → estimé **~17,72 €** (pneu) — *le chiffre qui fait tilt* |
+| 2 | Fiche MSCU | **Voir les coûts unitaires** | FOB 14 € → estimé **~17,83 €** (pneu) — *le chiffre qui fait tilt* |
 | 3 | Même fiche, scroll | Bloc **Ventilation détaillée** (repliable, optionnel) | « Et si » : changer la méthode fret → coût unitaire bouge |
 | 4 | `/invoices` | **Déposer une facture** | Glisser `facture-transitex-demo.pdf`, **confirmer les 5 lignes** |
 | 5 | Après confirmation | **Coûts unitaires · MSCU4821990** | FOB 14 € → **17,98 €** (pneu) — le vrai coût, écart réel affiché |
-| 6 | `/reports/variance` | (mois en cours) | Écart réel du mois : +416,29 € sur ce conteneur, poste par poste |
+| 6 | `/reports/variance` | (mois en cours) | Écart réel du mois : +213,69 € sur ce conteneur, poste par poste |
 | 7 | `/reports` | **Exports CSV** + carte Surestaries | Export ouvert dans Excel ; tarif journalier 85 €/j affiché |
 | 8 | Fiche MSCU (option Odoo) | Section **Écriture dans l'ERP** | Push brouillon → **Ouvrir dans Odoo** |
 
@@ -95,14 +95,14 @@ scènes 1–2–5.
 
 **Montre (en haut de page, sans scroller) :**
 - Encart **Prochaine étape** → **Voir les coûts unitaires**
-- Bandeau vert **Coût rendu par ligne** : pneu PO-2026-014 — FOB **14,00 €** → rendu **~17,72 €**
+- Bandeau vert **Coût rendu par ligne** : pneu PO-2026-014 — FOB **14,00 €** → rendu **~17,83 €**
   (estimé à partir des barèmes fret/THC/dédouanement/camionnage/droits de douane, pas encore de facture)
-- Tapis PO-2026-015 — FOB **20,00 €** → rendu **~25,71 €**
+- Tapis PO-2026-015 — FOB **20,00 €** → rendu **~25,94 €**
 
 **Tu dis :**
-> « Ce pneu, vous le croyez à 14 €. Rendu entrepôt, c'est déjà 17,72 € — et ça inclut les 4,5 % de droits
+> « Ce pneu, vous le croyez à 14 €. Rendu entrepôt, c'est déjà 17,83 € — et ça inclut les 4,5 % de droits
 > de douane calculés sur la valeur CIF, comme en douane, pas seulement le fret. Si vous le vendez 20 €,
-> votre marge n'est pas 6 € — c'est 2,15 €. »
+> votre marge n'est pas 6 € — c'est 2,17 €. »
 
 **Valeur :** **marge / pricing** — le chiffre que le dirigeant comprend en 10 secondes.
 
@@ -155,8 +155,8 @@ conteneur (section repliable) et dire que l'extraction est en bêta, la ventilat
 **Où :** bouton **Coûts unitaires · MSCU4821990** après confirmation.
 
 **Montre :**
-- Pneu : FOB 14 € → rendu **17,98 €** (après facture réelle — était 17,72 € estimé)
-- Tapis PO-2026-015 : 20 € → **26,16 €** (était 25,71 € estimé)
+- Pneu : FOB 14 € → rendu **17,98 €** (après facture réelle — était 17,83 € estimé)
+- Tapis PO-2026-015 : 20 € → **26,16 €** (était 25,94 € estimé)
 - Jauge **Postes facturés** : 5/5, 100 % — plus aucun estimé sur ce conteneur
 
 **Tu dis :**
@@ -172,8 +172,10 @@ conteneur (section repliable) et dire que l'extraction est en bêta, la ventilat
 
 **Où :** `/reports/variance`, mois en cours.
 
-**Montre :** estimé 5 642,50 € · réel 6 058,79 € · écart **+416,29 €** sur MSCU4821990, détaillé par type
-de coût (fret +215,40 €, THC +18,00 €, dédouanement +22,50 €, camionnage **-54,00 €**, droits +214,39 €).
+**Montre :** estimé 5 845,10 € · réel 6 058,79 € · écart **+213,69 €** sur MSCU4821990, détaillé par type
+de coût (fret +215,40 €, THC +18,00 €, dédouanement +22,50 €, camionnage **-54,00 €**, droits +11,79 €).
+Les droits bougent peu : l'estimé les calculait déjà sur la valeur CIF, fret estimé compris ; ils ne
+suivent que ce que le fret réel, plus cher, ajoute à cette valeur.
 
 **Tu dis :**
 > « C'est le tableau que votre comptabilité analytique n'a pas aujourd'hui : pas juste “plus cher”, mais

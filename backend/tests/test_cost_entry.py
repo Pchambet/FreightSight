@@ -131,6 +131,55 @@ def test_default_zeros_that_do_not_explain_the_duty_paid_are_not_trusted_to_spli
     assert typed(client, near, DUTY, "52.00")["allocation_method"] == "BY_THEORETICAL_DUTY"  # 45 + 15.6 %
 
 
+def test_an_invoice_s_duty_is_weighed_against_the_customs_value_its_own_freight_makes(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """Duty 250 € printed above freight 3 000 € on one invoice. The customs value includes the
+    freight: 10 % of (1 000 + 1 500) is 250, the rates explain the duty and the jack at 0 % pays none.
+    Weighed before the freight, 250 against 100 would look unexplained, and the jack would pay half."""
+    box = container_with(client, "MSCU4821990", [("TYRE", "0.10"), ("JACK", "0")])
+    invoice_id, lines = read_invoice(client, db, org, FRENCH_ONE_CONTAINER)
+    by_type = {line["cost_type"]: line for line in lines}
+    accept(client, invoice_id, by_type["OCEAN_FREIGHT"], cost_type=DUTY, amount="250.00")  # line 1
+    accept(client, invoice_id, by_type["DRAYAGE"], cost_type="OCEAN_FREIGHT", amount="3000.00")  # line 4
+    confirmed = client.post(f"/api/v1/invoices/{invoice_id}/confirm")
+    assert confirmed.status_code == 200, confirmed.text
+
+    on_box = client.get("/api/v1/costs", params={"target_id": box}).json()
+    (duty,) = [c for c in on_box if c["cost_type"] == DUTY]
+    assert duty["allocation_method"] == "BY_THEORETICAL_DUTY"
+    assert duty_by_sku(client, box) == {"TYRE": Decimal("250.00"), "JACK": Decimal("0.00")}
+
+
+def test_a_duty_billed_in_two_goes_is_weighed_with_what_was_already_paid(client: TestClient) -> None:
+    """Customs bill a box's duty in two goes, 100 € then 20 €: the rates explain the 120 € paid in all.
+    The second, weighed alone against 120 €, would look unexplained and be spread onto the jack."""
+    box = container_with(client, "MSCU4821990", [("TYRE", "0.12"), ("JACK", "0")])
+    assert typed(client, box, DUTY, "100.00")["allocation_method"] == "BY_THEORETICAL_DUTY"
+    assert typed(client, box, DUTY, "20.00")["allocation_method"] == "BY_THEORETICAL_DUTY"
+    assert duty_by_sku(client, box) == {"TYRE": Decimal("120.00"), "JACK": Decimal("0.00")}
+
+
+def test_a_cost_retyped_to_or_from_duty_takes_the_method_of_what_it_became(client: TestClient) -> None:
+    """A duty typed as freight by mistake and corrected, or the other way round: the method was the old
+    type's, and a freight spread by duty rates loads the whole of it onto the rated line."""
+    box = container_with(client, "MSCU4821990", [("TYRE", "0.045"), ("JACK", "0")])
+    duty = typed(client, box, DUTY, "45.00")
+    assert duty["allocation_method"] == "BY_THEORETICAL_DUTY"
+
+    as_freight = client.patch(f"/api/v1/costs/{duty['id']}", json={"cost_type": "OCEAN_FREIGHT"})
+    assert as_freight.status_code == 200, as_freight.text
+    assert as_freight.json()["allocation_method"] == "BY_VALUE"
+    back = client.patch(f"/api/v1/costs/{duty['id']}", json={"cost_type": DUTY})
+    assert back.status_code == 200, back.text
+    assert back.json()["allocation_method"] == "BY_THEORETICAL_DUTY"
+
+    # A method somebody chose stays theirs when the new type leaves it valid.
+    counted = typed(client, box, "THC", "100.00", allocation_method="BY_QUANTITY")
+    retyped = client.patch(f"/api/v1/costs/{counted['id']}", json={"cost_type": "DRAYAGE"})
+    assert retyped.json()["allocation_method"] == "BY_QUANTITY"
+
+
 # ---------------------------------------------------------------------------- one invoice, many lines
 
 
@@ -202,14 +251,98 @@ def test_an_invoice_already_in_the_books_is_refused_whatever_its_spelling_and_ty
         assert (refused.status_code, refused.json()["code"]) == (422, "INVOICE_ALREADY_RECORDED")
     (seen,) = refused.json()["errors"]
     assert seen["message"].startswith("@recorded|OCEAN_FREIGHT|Transitex|FA 2026 0912|3830.00|CONTAINER|")
+    assert refused.json()["forceable"] is True  # a neighbouring spelling: a person may say otherwise
 
 
-def test_the_same_invoice_entered_twice_is_never_a_charge_billed_twice(client: TestClient) -> None:
-    """A double entry of ours is not the forwarder's doing: the audit does not claim it."""
+def test_a_copy_of_a_confirmed_invoice_is_refused_even_when_forced_and_never_fails(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """The same PDF sent twice: the same forwarder and number to the letter, the same line on the same
+    box. Not a neighbouring spelling a person may overrule but the very line on file, which the
+    database refuses anyway: no override is offered, and forcing it is the same refusal, not a
+    server error."""
     box = container_with(client, "MSCU4821990", [("TYRE", "0.045")])
-    typed(client, box, "THC", "260.00", vendor="TRANSITEX", invoice_number="F-0412")
-    typed(client, box, "THC", "260.00", vendor="Transitex SAS", invoice_number="F0412")
-    audit = client.get(
-        "/api/v1/reports/audit", params={"period_from": "2026-03-01", "period_to": "2026-03-31"}
+    first_id, lines = read_invoice(client, db, org, FRENCH_ONE_CONTAINER)
+    accept(client, first_id, next(line for line in lines if line["cost_type"] == "OCEAN_FREIGHT"))
+    assert client.post(f"/api/v1/invoices/{first_id}/confirm").status_code == 200
+
+    duplicata = [
+        line.replace("Acme Import SAS", "Acme Import SAS - DUPLICATA") for line in FRENCH_ONE_CONTAINER
+    ]
+    copy_id, copy_lines = read_invoice(client, db, org, duplicata)
+    accept(client, copy_id, next(line for line in copy_lines if line["cost_type"] == "OCEAN_FREIGHT"))
+    for payload in (None, {"force_recorded": True}, {"force": True, "force_recorded": True}):
+        refused = client.post(f"/api/v1/invoices/{copy_id}/confirm", json=payload)
+        assert refused.status_code == 422, refused.text
+        assert (refused.json()["code"], refused.json()["forceable"]) == ("INVOICE_ALREADY_RECORDED", False)
+    assert [c["cost_type"] for c in client.get("/api/v1/costs", params={"target_id": box}).json()] == [
+        "OCEAN_FREIGHT"
+    ]
+
+
+def test_a_line_spelled_to_the_letter_like_one_on_file_is_refused_whatever_its_status(
+    client: TestClient,
+) -> None:
+    """An estimate typed with the forwarder's number, then the invoice typed with the same: the
+    database's own index does not tell the statuses apart. Refused by name, not a server error."""
+    box = container_with(client, "MSCU4821990", [("TYRE", "0.045")])
+    typed(client, box, "THC", "260.00", status="ESTIMATE", vendor="TRANSITEX", invoice_number="Q-7")
+    body = {"scope": "CONTAINER", "target_id": box, "cost_type": "THC", "amount": "265.00",
+            "currency": "EUR", "cost_date": "2026-03-12", "vendor": "TRANSITEX",
+            "invoice_number": "Q-7"}  # fmt: skip
+    refused = client.post("/api/v1/costs", json=body)
+    assert (refused.status_code, refused.json()["code"]) == (422, "INVOICE_LINE_ALREADY_RECORDED")
+
+
+def test_a_person_may_say_it_is_another_invoice_and_their_word_is_kept(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    """Two documents under one number — a forwarder that starts its numbering again every year — are
+    the reviewer's call: confirmed on their word, which the confirmation and the history both keep.
+    The duplicate check's own override may come with it; each opens only its own door."""
+    box = container_with(client, "MSCU4821990", [("TYRE", "0.045")])
+    typed(client, box, "OCEAN_FREIGHT", "3830.00", vendor="Transitex", invoice_number="FA 2026 0912")
+    invoice_id, lines = read_invoice(client, db, org, FRENCH_ONE_CONTAINER)
+    accept(client, invoice_id, next(line for line in lines if line["cost_type"] == "THC"))
+
+    confirmed = client.post(
+        f"/api/v1/invoices/{invoice_id}/confirm", json={"force": True, "force_recorded": True}
     )
-    assert [f for f in audit.json()["findings"] if f["code"] == "DUPLICATE_CHARGE"] == []
+    assert confirmed.status_code == 200, confirmed.text
+    word = "@forced_recorded|FA-2026-0912|TRANSITEX SAS"
+    assert word in confirmed.json()["notes"]
+    history = client.get("/api/v1/audit-log", params={"entity_id": invoice_id}).json()["entries"]
+    (entry,) = [e for e in history if e["action"] == "invoice.confirmed"]
+    assert entry["after"]["notes"] == [word]
+
+
+def test_the_same_invoice_line_keyed_in_twice_is_refused_on_the_box_and_on_its_bill_of_lading(
+    client: TestClient,
+) -> None:
+    """« TRANSITEX / F-0412 » keyed in on Monday, « Transitex SAS / F0412 » on Tuesday: one charge,
+    counted twice in the landed cost. Refused by name with what is already there — on the box, and on
+    the bill of lading it travelled under."""
+    box = container_with(client, "MSCU4821990", [("TYRE", "0.045")])
+    voyage = client.post("/api/v1/shipments", json={"reference": "BL-1"}).json()
+    assert client.patch(f"/api/v1/containers/{box}", json={"shipment_id": voyage["id"]}).status_code == 200
+    first = typed(client, box, "THC", "260.00", vendor="TRANSITEX", invoice_number="F-0412")
+
+    again = {"scope": "CONTAINER", "target_id": box, "cost_type": "THC", "amount": "260.00",
+             "currency": "EUR", "cost_date": "2026-03-12", "vendor": "Transitex SAS",
+             "invoice_number": "F0412"}  # fmt: skip
+    on_the_bill = {**again, "scope": "SHIPMENT", "target_id": voyage["id"], "invoice_number": "f 0412"}
+    for body in (again, on_the_bill):
+        refused = client.post("/api/v1/costs", json=body)
+        assert (refused.status_code, refused.json()["code"]) == (422, "INVOICE_LINE_ALREADY_RECORDED")
+        (seen,) = refused.json()["errors"]
+        assert seen["message"].startswith("@recorded|THC|TRANSITEX|F-0412|260.00|CONTAINER|")
+
+    # Another line of the same invoice, and another forwarder's 0412, are other charges.
+    typed(client, box, "DRAYAGE", "425.00", vendor="Transitex SAS", invoice_number="F0412")
+    typed(client, box, "THC", "260.00", vendor="SCHELDE NV", invoice_number="F-0412")
+    # Renumbering a cost into the line already there is the same double entry; editing that line
+    # itself is not a double entry of itself.
+    other = typed(client, box, "THC", "260.00", vendor="TRANSITEX", invoice_number="F-0413")
+    renumbered = client.patch(f"/api/v1/costs/{other['id']}", json={"invoice_number": "F 0412"})
+    assert (renumbered.status_code, renumbered.json()["code"]) == (422, "INVOICE_LINE_ALREADY_RECORDED")
+    assert client.patch(f"/api/v1/costs/{first['id']}", json={"vendor": "Transitex SAS"}).status_code == 200

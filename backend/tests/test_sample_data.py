@@ -35,7 +35,7 @@ def test_sample_data_seeds_the_reference_case(client: TestClient) -> None:
     assert cnt2["dnd_risk"] == "LOW"
 
     # Everything here is an ESTIMATE (rate cards), not yet an invoice — see sample_data.py.
-    assert cnt1["allocated_base"] == "5642.50"
+    assert cnt1["allocated_base"] == "5845.10"
     assert cnt1["po_numbers"] == ["PO-2026-014", "PO-2026-015"]
     assert cnt1["cost_types_present"] == [
         "CUSTOMS_BROKERAGE",
@@ -48,28 +48,28 @@ def test_sample_data_seeds_the_reference_case(client: TestClient) -> None:
     report = client.get(f"/api/v1/landed-costs/containers/{cnt1['id']}").json()
     assert report["warnings"] == []
     assert report["totals"]["fob"] == "20500.00"
-    assert report["totals"]["allocated"] == "5642.50"
-    assert report["totals"]["landed"] == "26142.50"
+    assert report["totals"]["allocated"] == "5845.10"
+    assert report["totals"]["landed"] == "26345.10"
     assert report["totals"]["vat"] == "0.00"
     # Nothing has been invoiced yet: every euro on this container is still an estimate, so the
     # completeness gauge the front shows the presenter as "postes facturés" reads 0, honestly.
-    assert report["totals"]["estimated"] == "5642.50"
+    assert report["totals"]["estimated"] == "5845.10"
     assert report["totals"]["actual"] == "0.00"
     assert report["totals"]["variance"] == "0.00"
     assert report["completeness"] == "0.00"
     by_sku = {ln["sku"]: ln for ln in report["lines"]}
     # The duty goes by each line's own rate: the tyre at 4.5 % carries less of it than the mat at 6.5 %.
-    assert by_sku["TYR-20555R16-91V"]["unit_landed_cost"] == "17.7168"
-    assert by_sku["MAT-EVA-6040-GY"]["unit_landed_cost"] == "25.7098"
+    assert by_sku["TYR-20555R16-91V"]["unit_landed_cost"] == "17.8305"
+    assert by_sku["MAT-EVA-6040-GY"]["unit_landed_cost"] == "25.9444"
 
     report2 = client.get(f"/api/v1/landed-costs/containers/{cnt2['id']}").json()
     assert report2["totals"]["fob"] == "16800.00"
-    assert report2["totals"]["allocated"] == "5276.00"
-    assert report2["lines"][0]["unit_landed_cost"] == "18.3967"
+    assert report2["totals"]["allocated"] == "5442.50"
+    assert report2["lines"][0]["unit_landed_cost"] == "18.5354"
 
     po_id = client.get("/api/v1/purchase-orders").json()[0]["id"]
     po = client.get(f"/api/v1/landed-costs/purchase-orders/{po_id}").json()
-    assert po["totals"]["allocated"] == "8063.62" and po["totals"]["landed"] == "35363.62"
+    assert po["totals"]["allocated"] == "8315.40" and po["totals"]["landed"] == "35615.40"
 
     integrity = client.get("/api/v1/reports/integrity").json()
     assert integrity["ok"] and integrity["costs_checked"] == 10
