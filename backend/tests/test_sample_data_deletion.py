@@ -4,6 +4,7 @@ nothing of the user's own is ever deleted along."""
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -20,6 +21,7 @@ from app.domain.models import (
     CostAllocation,
     Document,
     Invoice,
+    Product,
     PurchaseOrder,
     PurchaseOrderLine,
     RateCard,
@@ -31,7 +33,7 @@ from app.domain.models import (
 from app.jobs import handlers
 
 EVERYTHING = (
-    Alert, Container, ContainerLoad, Cost, CostAllocation, Document, Invoice, PurchaseOrder,
+    Alert, Container, ContainerLoad, Cost, CostAllocation, Document, Invoice, Product, PurchaseOrder,
     PurchaseOrderLine, RateCard, SampleObject, Shipment, SkuCostHistory, Supplier,
 )  # fmt: skip
 
@@ -111,6 +113,28 @@ def test_my_own_data_next_to_the_demo_is_left_alone(client: TestClient, db: Sess
     assert [po["po_number"] for po in client.get("/api/v1/purchase-orders").json()] == ["PO-MINE"]
     assert [c["container_number"] for c in client.get("/api/v1/containers").json()] == ["TCLU1234565"]
     assert len(client.get("/api/v1/products").json()["products"]) == 1  # a product sheet typed by hand stays
+
+
+def test_the_demo_catalogue_goes_but_not_a_sheet_of_mine_nor_one_my_orders_carry(client: TestClient) -> None:
+    """The six-month demo brings a product sheet per article. Mine, typed before, is not overwritten
+    and stays; a demo sheet whose article I have since ordered myself is mine now, like a supplier."""
+    mine = client.post("/api/v1/products", json={"sku": "TYR-20555R16-91V", "sale_price": "27.50"})
+    assert mine.status_code == 201, mine.text
+    assert client.post("/api/v1/organization/sample-data", params={"profile": "history"}).status_code == 201
+    sheets = {p["sku"]: p for p in client.get("/api/v1/products").json()["products"]}
+    assert len(sheets) == 8 and Decimal(sheets["TYR-20555R16-91V"]["sale_price"]) == Decimal("27.50")
+    assert Decimal(sheets["BOX-ROOF-420L"]["sale_price"]) == Decimal("119.00")
+    assert sheets["JACK-HYD-2T"]["sale_price"] is None  # a sheet, and no price: said, not guessed
+    ordered = client.post(
+        "/api/v1/purchase-orders",
+        json={"po_number": "PO-MINE", "currency": "EUR",
+              "lines": [{"line_no": 1, "sku": "BAT-12V-70AH", "quantity": "10", "unit_price": "30"}]},
+    )  # fmt: skip
+    assert ordered.status_code == 201, ordered.text
+
+    assert client.delete("/api/v1/organization/sample-data").status_code == 200
+    left = sorted(p["sku"] for p in client.get("/api/v1/products").json()["products"])
+    assert left == ["BAT-12V-70AH", "TYR-20555R16-91V"]
 
 
 def test_a_cost_from_an_invoice_i_uploaded_stops_the_deletion(

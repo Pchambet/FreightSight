@@ -11,7 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query
 
 from app.api.v1 import schemas
-from app.core.errors import NotFound, Unprocessable
+from app.core.errors import NotFound
 from app.core.money import q2
 from app.core.tenancy import TenantDep
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
@@ -204,6 +204,10 @@ def demurrage_and_detention(
                 paid=line.paid,
                 avoided=line.avoided,
                 rule=line.rule,
+                rule_code=line.rule_code,
+                days=line.days,
+                daily_rate=line.daily_rate,
+                days_over=line.days_over,
             )
             for line in report.lines
         ],
@@ -246,9 +250,8 @@ def overview(
 def audit(t: TenantDep, period_from: date, period_to: date) -> schemas.AuditReport:
     """The audit of a period: the margin a purchase-price pricing overstates, what is worth a claim
     to the forwarders, what demurrage cost, the measured coefficient against the assumed one, and
-    how complete the figures are. One computation; every section's total is the platform's."""
-    if period_to < period_from:
-        raise Unprocessable("period_to comes before period_from", code="PERIOD_INVALID")
+    how complete the figures are. One computation; every section's total is the platform's. A period
+    that ends before it starts, or outside the years 2000 to 2100, is refused with PERIOD_INVALID."""
     found = audit_report(t.db, compute(t.db, t.org), t.org, period_from, period_to)
     return _audit_schema(found)
 
@@ -258,6 +261,7 @@ def _audit_schema(found: Audit) -> schemas.AuditReport:
         base_currency=found.base_currency,
         period_from=found.period_from,
         period_to=found.period_to,
+        as_of=found.as_of,
         headline=schemas.AuditHeadline.model_validate(found.headline),
         margins=[schemas.AuditMargin.model_validate(m) for m in found.margins],
         findings=[schemas.AuditFinding.model_validate(f) for f in found.findings],
@@ -269,6 +273,7 @@ def _audit_schema(found: Audit) -> schemas.AuditReport:
         coefficient=found.coefficient,
         assumed_coefficient=found.assumed_coefficient,
         completeness=schemas.AuditCompleteness.model_validate(found.completeness),
+        rules=schemas.AuditRules.model_validate(found.rules),
     )
 
 

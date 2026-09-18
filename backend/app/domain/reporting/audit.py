@@ -4,20 +4,23 @@ This is the document the paid offer is made of — "your last quarter, audited" 
 report a CFO puts in front of the owner. One rule governs it: **a finding is never an accusation and
 never a promised saving.** Every line is a measured fact, with the objects behind it and the rule
 that produced it; the total is called "amounts to check", not "savings". Each finding carries,
-separately, how much money it is about (`amount`) and how sure the rule is (`confidence`): a duplicate
-invoice line, an invoice above the quote it replaced, an estimate nobody invoiced are facts; a charge
-that is merely far above the median of its route is a question, and says so.
+separately, how much money it is about (`amount`) and how sure the rule is (`confidence`): the same
+provider billing a charge twice, an invoice above the estimate it replaced in the same currency, an
+estimate nobody invoiced are facts; a charge merely far above the median of its route, or two
+providers billing neighbouring amounts, is a question, and says so.
 
 Everything here comes from one computation of the engine (`Computation`), the same the screens use,
 and the figures of the sections it shares with other reports are those reports' figures for the same
-dates — tested against them.
+dates — tested against them. The thresholds travel with the result (`Rules`): the document states its
+own method from them, and a copy sent by link keeps the rules it was computed under.
 """
 
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from statistics import median
 from typing import Literal
@@ -26,39 +29,124 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.money import q2, q4
+from app.core.errors import Unprocessable
+from app.core.money import q2, q4, to_base
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
 from app.domain.costing.service import Computation
 from app.domain.models import Container, Cost, CostStatus, Invoice, InvoiceStatus, Organization
-from app.domain.reporting.service import Bucket, _route, arrival_date, dnd_report, landed_cost_report
+from app.domain.reporting.service import (
+    AvoidedRule,
+    Bucket,
+    _route,
+    arrival_date,
+    dnd_report,
+    landed_cost_report,
+)
 from app.domain.reporting.skus import SkuSummary, sku_report
 
 ZERO = Decimal("0.00")
+TENTH = Decimal("0.1")
 Confidence = Literal["sure", "to_check"]
 
 #: A charge of the same type, on the same container, from another invoice, this close in amount is
-#: the same charge billed twice — and not "two handlings": those come on one invoice as one line.
+#: the same charge billed twice — and not "two handlings": those come on one invoice as one line. It
+#: is a fact when one provider billed it twice or the two amounts are identical; two providers a
+#: little apart is a question (a terminal's handling re-billed by the forwarder is the case to raise,
+#: but two different services can have neighbouring flat fees).
 DUPLICATE_TOLERANCE = Decimal("0.02")
-#: An invoice is "above its quote" from five per cent and fifty euros: below that it is a bunker
-#: surcharge or a rounding, and a claim for it would cost more than it brings.
+#: Every payment carries its own bank fees, and "other" is anything: two of them are not a duplicate.
+NEVER_DUPLICATE = frozenset({"BANK_FEES", "OTHER"})
+#: An invoice is above its estimate from five per cent and fifty euros: below that it is a surcharge
+#: or a rounding, and a claim for it would cost more than it brings. Measured in the currency both
+#: were written in, so that the exchange rate moving between booking and invoice is never presented
+#: as a price somebody charged.
 ABOVE_QUOTE_MIN_SHARE = Decimal("0.05")
 ABOVE_QUOTE_MIN_AMOUNT = Decimal("50.00")
 #: A charge is out of the ordinary from one and a half times the median of the same charge on the
-#: same route, and at least a hundred euros above it — measured on at least four other containers
-#: of the last twelve months, since a median of three is not a norm.
+#: same route for the same size of box, and at least a hundred euros above it — measured on at least
+#: four other containers of the last twelve months, since a median of three is not a norm.
 OUTLIER_RATIO = Decimal("1.5")
 OUTLIER_MIN_EXCESS = Decimal("100.00")
 OUTLIER_MIN_BASIS = 4
 OUTLIER_LOOKBACK = timedelta(days=365)
-#: Charges that follow the value of the goods, not the route: a box of tyres and a box of engines
-#: pay very different duty on the same voyage, and the route's median says nothing about either.
-VALUE_BASED = {"CUSTOMS_DUTY", "IMPORT_VAT", "INSURANCE"}
+#: Freight follows a market that can triple in a quarter, so a year's median measures the market and
+#: not the provider: freight is compared only with the boxes that landed within this many days of it.
+FREIGHT = frozenset({"OCEAN_FREIGHT", "AIR_FREIGHT"})
+FREIGHT_WINDOW = timedelta(days=45)
+#: Never compared from one box to the next: duty, VAT and insurance follow the value of the goods;
+#: demurrage, detention and storage the days a box stayed (they have their own section); bank fees and
+#: "other" are anything.
+NOT_COMPARED = frozenset(
+    {"CUSTOMS_DUTY", "IMPORT_VAT", "INSURANCE", "DEMURRAGE", "DETENTION", "WAREHOUSING", "BANK_FEES", "OTHER"}
+)
+#: The length of a box, from the first character of its ISO 6346 size-type code (22G1, 45G1, L5G1),
+#: or of the usual shorthand (20GP, 40HC). A 40' among 20' would stand out on everything.
+SIZES = {"2": "20", "4": "40", "L": "45"}
 #: A forwarder invoices within the month. An estimate still standing two months after the goods
 #: landed is an invoice nobody chased, or a cost that was never billed and inflates the landed cost.
 ESTIMATE_STALE_AFTER = timedelta(days=60)
+#: The dates an audit can be about. Outside them a date is a typing mistake — and year 1 cannot even
+#: have twelve months looked back from it.
+EARLIEST, LATEST = date(2000, 1, 1), date(2100, 12, 31)
 
 #: The findings a claim can be made about. The others are about the quality of the figures.
-RECOVERABLE = ("DUPLICATE_CHARGE", "ABOVE_QUOTE", "OUTLIER_CHARGE")
+RECOVERABLE = frozenset({"DUPLICATE_CHARGE", "ABOVE_QUOTE", "OUTLIER_CHARGE"})
+#: The params that name nobody. A copy sent with the providers' names left out keeps these and only
+#: these, so that a rule which one day puts a name in its params is left out by default, not leaked.
+PUBLIC_PARAMS = frozenset(
+    {
+        "amount",
+        "currency",
+        "days",
+        "first_amount",
+        "fx_effect",
+        "invoiced",
+        "landed_on",
+        "lines",
+        "median",
+        "po_numbers",
+        "quoted",
+        "ratio",
+        "reason",
+        "route",
+        "same_vendor",
+        "share_pct",
+        "size",
+        "skus",
+    }
+)
+
+
+@dataclass(frozen=True)
+class Rules:
+    """The thresholds an audit was produced with, amounts in the organization's base currency."""
+
+    duplicate_tolerance_pct: Decimal
+    never_duplicate: tuple[str, ...]
+    above_quote_min_pct: Decimal
+    above_quote_min_amount: Decimal
+    outlier_ratio: Decimal
+    outlier_min_excess: Decimal
+    outlier_min_basis: int
+    outlier_lookback_days: int
+    freight_window_days: int
+    not_compared: tuple[str, ...]
+    estimate_stale_after_days: int
+
+
+RULES = Rules(
+    duplicate_tolerance_pct=DUPLICATE_TOLERANCE * 100,
+    never_duplicate=tuple(sorted(NEVER_DUPLICATE)),
+    above_quote_min_pct=ABOVE_QUOTE_MIN_SHARE * 100,
+    above_quote_min_amount=ABOVE_QUOTE_MIN_AMOUNT,
+    outlier_ratio=OUTLIER_RATIO,
+    outlier_min_excess=OUTLIER_MIN_EXCESS,
+    outlier_min_basis=OUTLIER_MIN_BASIS,
+    outlier_lookback_days=OUTLIER_LOOKBACK.days,
+    freight_window_days=FREIGHT_WINDOW.days,
+    not_compared=tuple(sorted(NOT_COMPARED)),
+    estimate_stale_after_days=ESTIMATE_STALE_AFTER.days,
+)
 
 
 @dataclass
@@ -76,6 +164,12 @@ class Finding:
     basis: int | None = None
     #: The moving parts of the rule, as raw strings, for the sentence the screen writes.
     params: dict[str, str] = field(default_factory=dict)
+    #: A claim can be made about it, and it counts in the first page's recoverable sums; otherwise it
+    #: is about the quality of the figures.
+    recoverable: bool = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.recoverable = self.code in RECOVERABLE
 
 
 @dataclass
@@ -83,12 +177,20 @@ class Margin:
     sku: str
     description: str | None
     quantity: Decimal
+    fob: Decimal
+    landed: Decimal
     unit_fob: Decimal
     unit_landed: Decimal
-    #: Purchase-to-landed, in euros over the period's volume: what a price set on the purchase price
-    #: overstates the margin by. Present with or without a selling price.
+    #: Landed minus purchase over the period's volume: what a price computed on the purchase price
+    #: leaves out. Present with or without a selling price.
     approach_costs: Decimal
+    #: Landed minus purchase times the coefficient the company says it applies, over the same volume:
+    #: what its own calculation leaves out. None when it gave no coefficient; negative when that
+    #: coefficient is more prudent than the facts. Needs no selling price.
+    gap_vs_assumed: Decimal | None = None
     sale_price: Decimal | None = None
+    #: With a selling price in the base currency: the margin read on the purchase price, the real one,
+    #: and the points between them.
     margin_on_fob_pct: Decimal | None = None
     margin_real_pct: Decimal | None = None
     points_lost: Decimal | None = None
@@ -100,10 +202,15 @@ class DemurrageLine:
     container_number: str
     paid: Decimal
     avoided: Decimal | None
+    #: Why `avoided` is what it is, with its moving parts (see reporting.service.DndLine).
+    rule_code: AvoidedRule
+    days: int | None
+    daily_rate: Decimal | None
+    #: Days the box stayed on the terminal past its last free day, when both dates are known.
+    days_over: int | None
     quantity: Decimal
     #: What the demurrage added to every unit that was in the box.
     per_unit: Decimal | None
-    rule: str
 
 
 @dataclass
@@ -123,6 +230,8 @@ class Completeness:
     #: Part of the landed cost that still rests on estimates rather than invoices.
     estimated: Decimal
     estimated_share_pct: Decimal | None
+    #: Invoices waiting for a person on the day of the audit, in the whole organization: until they
+    #: are read, any of them may still change the period's figures.
     invoices_to_review: int
     containers_without_cost: int
     #: Where the exchange rates of the period's costs came from: ecb, ecb_latest, manual, same.
@@ -131,11 +240,14 @@ class Completeness:
 
 @dataclass
 class Headline:
-    #: Margin overstated by pricing on the purchase price, over the priced articles of the period.
+    #: Sum of `approach_costs` over the articles with a selling price: the margin a calculation on the
+    #: purchase price announces and the goods do not make.
     margin_overstated: Decimal
     priced_skus: int
     unpriced_skus: int
-    #: What the sure findings a claim can be made about add up to, and what the doubtful ones do.
+    #: Sum of `gap_vs_assumed` over every article of the period; None without a coefficient.
+    gap_vs_assumed: Decimal | None
+    #: What the recoverable findings add up to, the sure ones and the doubtful ones apart.
     recoverable_sure: Decimal
     recoverable_to_check: Decimal
     demurrage_paid: Decimal
@@ -146,6 +258,8 @@ class Audit:
     base_currency: str
     period_from: date
     period_to: date
+    #: The day it was computed: estimates are judged open *today*, invoices to review are today's.
+    as_of: date
     headline: Headline
     margins: list[Margin]
     findings: list[Finding]
@@ -155,25 +269,48 @@ class Audit:
     coefficient: Decimal | None
     assumed_coefficient: Decimal | None
     completeness: Completeness
+    rules: Rules
+
+
+def check_period(period_from: date, period_to: date) -> None:
+    """Refuse a period that ends before it starts, or lies outside any year a business could mean."""
+    if period_to < period_from:
+        raise Unprocessable("period_to comes before period_from", code="PERIOD_INVALID")
+    if period_from < EARLIEST or period_to > LATEST:
+        raise Unprocessable(
+            f"an audit covers dates between {EARLIEST.isoformat()} and {LATEST.isoformat()}",
+            code="PERIOD_INVALID",
+        )
 
 
 def audit_report(
-    db: Session, comp: Computation, org: Organization, period_from: date, period_to: date
+    db: Session,
+    comp: Computation,
+    org: Organization,
+    period_from: date,
+    period_to: date,
+    *,
+    today: date | None = None,
 ) -> Audit:
+    check_period(period_from, period_to)
+    as_of = today or datetime.now(UTC).date()
     every = {row.container_id: row.container for row in comp.load_rows.values()}
     boxes = _period_containers(comp, period_from, period_to)
     costs_in = _costs_of(comp, boxes)
     quantities = _quantities(comp, boxes)
+    assumed = _assumed(org)
 
-    margins = _margins(db, comp, org, period_from, period_to)
-    # One euro, one finding: what the sure rules have already found is taken out of the charges
+    margins = _margins(db, comp, org, period_from, period_to, assumed)
+    # One euro, one finding: what the rules on invoices have already found is taken out of the charges
     # before the statistical rule looks at them, or a duplicate would come back as "far above the
-    # route" and an invoice above its quote would be claimed twice.
-    sure = _duplicates(comp, every, boxes, costs_in) + _above_quote(comp, every, costs_in)
+    # route" and an invoice above its estimate would be claimed twice.
+    claims = _duplicates(comp, every, boxes, costs_in) + _above_quote(
+        comp, every, costs_in, org.base_currency
+    )
     findings = (
-        sure
-        + _outliers(comp, every, boxes, period_to, _claimed(sure))
-        + _stale_estimates(comp, every, boxes, period_to)
+        claims
+        + _outliers(comp, every, boxes, period_to, _claimed(claims))
+        + _stale_estimates(comp, every, boxes, as_of)
         + _unallocated(comp, every, costs_in)
         + _duty_without_rate(comp, every, costs_in)
     )
@@ -189,18 +326,16 @@ def audit_report(
         base_currency=org.base_currency,
         period_from=period_from,
         period_to=period_to,
+        as_of=as_of,
         headline=Headline(
             margin_overstated=q2(sum((m.approach_costs for m in priced), ZERO)),
             priced_skus=len(priced),
             unpriced_skus=len(margins) - len(priced),
-            recoverable_sure=q2(
-                sum((f.amount for f in findings if f.code in RECOVERABLE and f.confidence == "sure"), ZERO)
+            gap_vs_assumed=(
+                q2(sum((m.gap_vs_assumed or ZERO for m in margins), ZERO)) if assumed is not None else None
             ),
-            recoverable_to_check=q2(
-                sum(
-                    (f.amount for f in findings if f.code in RECOVERABLE and f.confidence == "to_check"), ZERO
-                )
-            ),
+            recoverable_sure=_recoverable(findings, "sure"),
+            recoverable_to_check=_recoverable(findings, "to_check"),
             demurrage_paid=q2(sum((line.paid for line in demurrage), ZERO)),
         ),
         margins=margins,
@@ -209,9 +344,14 @@ def audit_report(
         coefficient_by_month=[_coefficient(b) for b in monthly.buckets],
         coefficient_by_supplier=[_coefficient(b) for b in by_supplier.buckets],
         coefficient=q4(monthly.totals.landed / monthly.totals.fob) if monthly.totals.fob else None,
-        assumed_coefficient=_assumed(org),
+        assumed_coefficient=assumed,
         completeness=_completeness(db, comp, org, boxes, costs_in, monthly.totals.fob, monthly.totals.landed),
+        rules=RULES,
     )
+
+
+def _recoverable(findings: list[Finding], confidence: Confidence) -> Decimal:
+    return q2(sum((f.amount for f in findings if f.recoverable and f.confidence == confidence), ZERO))
 
 
 # ------------------------------------------------------------------------------- what is in the period
@@ -262,6 +402,15 @@ def _number(comp: Computation, every: dict[UUID, Container], cost: Cost) -> tupl
     return None, None
 
 
+def _lines_of(comp: Computation, load_ids: Iterable[UUID]) -> tuple[str, str]:
+    """The articles and the orders behind some loads, by the names a person knows them by: a shared
+    document has nothing to click on."""
+    lines = [comp.load_rows[load_id].po_line for load_id in load_ids if load_id in comp.load_rows]
+    skus = sorted({line.sku for line in lines if line.sku})
+    orders = sorted({comp.pos[line.po_id].po_number for line in lines if line.po_id in comp.pos})
+    return ", ".join(skus), ", ".join(orders)
+
+
 def _finding(
     comp: Computation,
     every: dict[UUID, Container],
@@ -295,75 +444,117 @@ def _duplicates(
     """The same charge on the same container from two invoices, this close in amount."""
     groups: dict[tuple[UUID, str], list[Cost]] = defaultdict(list)
     for cost in costs_in.values():
+        kind = cost.cost_type.value
         if (
             cost.status is CostStatus.ACTUAL
             and cost.container_id in boxes
-            and cost.cost_type.value not in EXCLUDED_FROM_LANDED
+            and kind not in EXCLUDED_FROM_LANDED
+            and kind not in NEVER_DUPLICATE
         ):
-            groups[(cost.container_id, cost.cost_type.value)].append(cost)
+            groups[(cost.container_id, kind)].append(cost)
     found: list[Finding] = []
     for (container_id, _), costs in groups.items():
         costs.sort(key=lambda c: (c.cost_date, c.created_at))
+        # A charge billed three times is two duplicates, not three pairs: once a cost has been found
+        # to repeat an earlier one, it is not found again.
+        repeated: set[UUID] = set()
         for i, first in enumerate(costs):
             for second in costs[i + 1 :]:
+                if second.id in repeated:
+                    continue
                 if (first.vendor, first.invoice_number) == (second.vendor, second.invoice_number):
                     continue  # two lines of one invoice are that invoice's business
-                larger = max(first.amount_base, second.amount_base)
-                if larger == 0 or abs(first.amount_base - second.amount_base) > larger * DUPLICATE_TOLERANCE:
+                if not _close(first, second):
                     continue
+                same_vendor = _name(first.vendor) is not None and _name(first.vendor) == _name(second.vendor)
+                identical = (first.amount, first.currency) == (second.amount, second.currency)
                 finding = _finding(
                     comp,
                     every,
                     "DUPLICATE_CHARGE",
-                    "sure",
+                    "sure" if same_vendor or identical else "to_check",
                     min(first.amount_base, second.amount_base),
                     second,
                     first_invoice=first.invoice_number or "",
                     first_vendor=first.vendor or "",
                     first_amount=f"{first.amount_base:.2f}",
+                    same_vendor="true" if same_vendor else "false",
                 )
                 finding.container_number = boxes[container_id].container_number
                 finding.cost_ids = [first.id, second.id]
                 found.append(finding)
+                repeated.add(second.id)
     return found
 
 
+def _close(a: Cost, b: Cost) -> bool:
+    """Within the tolerance — in the currency both were billed in when they share one: two invoices in
+    dollars a month apart differ in euros by the exchange rate alone."""
+    x, y = (a.amount, b.amount) if a.currency == b.currency else (a.amount_base, b.amount_base)
+    larger = max(x, y)
+    return larger > 0 and abs(x - y) <= larger * DUPLICATE_TOLERANCE
+
+
+def _name(vendor: str | None) -> str | None:
+    return " ".join(vendor.split()).casefold() or None if vendor else None
+
+
 def _above_quote(
-    comp: Computation, every: dict[UUID, Container], costs_in: dict[UUID, Cost]
+    comp: Computation, every: dict[UUID, Container], costs_in: dict[UUID, Cost], base_currency: str
 ) -> list[Finding]:
-    """An invoice above the quote it replaced: the estimate is the forwarder's own figure."""
+    """An invoice above the estimate it replaced — a forwarder's quote typed at booking or the
+    company's own rate card: either way, what was expected.
+
+    Compared in the currency both were written in. Between the booking and the invoice the exchange
+    rate moves, and that part of the difference in euros is nobody's price: it is given apart
+    (`fx_effect`), and the finding is the price difference at the invoice's own rate. An estimate and
+    an invoice in two different currencies cannot be taken apart that way: they are compared in the
+    base currency, and the finding is a question.
+    """
     found: list[Finding] = []
     for actual, estimate in comp.superseded:
         if actual.id not in costs_in or actual.cost_type.value in EXCLUDED_FROM_LANDED:
             continue
-        excess = actual.amount_base - estimate.amount_base
-        if estimate.amount_base <= 0 or excess < ABOVE_QUOTE_MIN_AMOUNT:
+        in_base = actual.amount_base - estimate.amount_base
+        confidence: Confidence
+        if actual.currency == estimate.currency:
+            if estimate.amount <= 0:
+                continue
+            share = (actual.amount - estimate.amount) / estimate.amount
+            excess = to_base(actual.amount - estimate.amount, actual.fx_rate)
+            quoted, invoiced, currency, confidence = estimate.amount, actual.amount, actual.currency, "sure"
+        else:
+            if estimate.amount_base <= 0:
+                continue
+            share = in_base / estimate.amount_base
+            excess = in_base
+            quoted, invoiced, currency = estimate.amount_base, actual.amount_base, base_currency
+            confidence = "to_check"
+        if excess < ABOVE_QUOTE_MIN_AMOUNT or share < ABOVE_QUOTE_MIN_SHARE:
             continue
-        if excess < estimate.amount_base * ABOVE_QUOTE_MIN_SHARE:
-            continue
-        found.append(
-            _finding(
-                comp,
-                every,
-                "ABOVE_QUOTE",
-                "sure",
-                excess,
-                actual,
-                quoted=f"{estimate.amount_base:.2f}",
-                invoiced=f"{actual.amount_base:.2f}",
-                share_pct=f"{(excess / estimate.amount_base * 100).quantize(Decimal('0.1'))}",
-            )
-        )
+        params = {
+            "quoted": f"{quoted:.2f}",
+            "invoiced": f"{invoiced:.2f}",
+            "currency": currency,
+            "share_pct": f"{(share * 100).quantize(TENTH)}",
+        }
+        if in_base != excess:  # what the exchange rate added (or took off) on top of the price
+            params["fx_effect"] = f"{in_base - excess:.2f}"
+        found.append(_finding(comp, every, "ABOVE_QUOTE", confidence, excess, actual, **params))
     return found
 
 
 def _claimed(findings: list[Finding]) -> dict[tuple[UUID, str], Decimal]:
-    """What the sure findings already account for, per container and type of charge."""
+    """What the findings on invoices already account for, per container and type of charge."""
     claimed: dict[tuple[UUID, str], Decimal] = defaultdict(Decimal)
     for finding in findings:
         if finding.container_id is not None and finding.cost_type is not None:
             claimed[(finding.container_id, finding.cost_type)] += finding.amount
     return claimed
+
+
+def _size(container: Container) -> str:
+    return SIZES.get((container.iso_type or "").strip().upper()[:1], "")
 
 
 def _outliers(
@@ -373,21 +564,23 @@ def _outliers(
     period_to: date,
     claimed: dict[tuple[UUID, str], Decimal],
 ) -> list[Finding]:
-    """A charge far above the same charge on the same route, over the last twelve months.
+    """A charge far above the same charge on the same route, for the same size of box.
 
-    Compared per container (the charges of one type on one box are added up, less what a sure
-    finding already claims) and only when there are enough other boxes to call the middle of them a
-    norm. What comes out is a question — the box may have been heavier, the route congested — and
-    the finding says so.
+    Compared per container (the charges of one type on one box are added up, less what a finding on
+    invoices already claims), with the boxes of the last twelve months — of the 45 days around it for
+    freight — and only when there are enough of them to call their middle a norm. What comes out is a
+    question — the box may have been heavier, the route congested — and the finding says so.
     """
     since = period_to - OUTLIER_LOOKBACK
     per_box_type: dict[tuple[UUID, str], Decimal] = defaultdict(Decimal)
-    route_of: dict[UUID, str] = {}
+    group_of: dict[UUID, tuple[str, str]] = {}
+    landed_of: dict[UUID, date] = {}
     number_of: dict[UUID, str] = {}
     for cost in comp.cost_rows.values():
         if cost.status is not CostStatus.ACTUAL or cost.container_id is None:
             continue
-        if cost.cost_type.value in EXCLUDED_FROM_LANDED or cost.cost_type.value in VALUE_BASED:
+        kind = cost.cost_type.value
+        if kind in EXCLUDED_FROM_LANDED or kind in NOT_COMPARED:
             continue
         container = every.get(cost.container_id)
         if container is None:
@@ -395,26 +588,31 @@ def _outliers(
         landed_on = arrival_date(container)
         if landed_on is None or not (since <= landed_on <= period_to):
             continue
-        per_box_type[(cost.container_id, cost.cost_type.value)] += cost.amount_base
-        route_of[cost.container_id] = _route(container)[0]
+        per_box_type[(cost.container_id, kind)] += cost.amount_base
+        group_of[cost.container_id] = (_route(container)[0], _size(container))
+        landed_of[cost.container_id] = landed_on
         number_of[cost.container_id] = container.container_number
     for key in per_box_type:
-        per_box_type[key] -= claimed.get(key, ZERO)
+        per_box_type[key] = max(per_box_type[key] - claimed.get(key, ZERO), ZERO)
 
     found: list[Finding] = []
     for (container_id, cost_type), amount in per_box_type.items():
         if container_id not in boxes:
             continue
+        window = FREIGHT_WINDOW if cost_type in FREIGHT else None
         peers = [
             other
             for (other_id, other_type), other in per_box_type.items()
             if other_type == cost_type
             and other_id != container_id
-            and route_of[other_id] == route_of[container_id]
+            and group_of[other_id] == group_of[container_id]
+            and (window is None or abs(landed_of[other_id] - landed_of[container_id]) <= window)
         ]
         if len(peers) < OUTLIER_MIN_BASIS:
             continue
         norm = Decimal(median(peers))
+        if norm <= 0:
+            continue  # the middle of charges billed at nothing is no norm, and nothing is "times" it
         excess = amount - norm
         if amount <= norm * OUTLIER_RATIO or excess < OUTLIER_MIN_EXCESS:
             continue
@@ -429,6 +627,15 @@ def _outliers(
             ),
             key=lambda c: -c.amount_base,
         )
+        route, size = group_of[container_id]
+        params = {
+            "amount": f"{amount:.2f}",
+            "median": f"{q2(norm):.2f}",
+            "ratio": f"{(amount / norm).quantize(TENTH)}",
+            "route": route,
+        }
+        if size:
+            params["size"] = size
         found.append(
             Finding(
                 code="OUTLIER_CHARGE",
@@ -441,26 +648,23 @@ def _outliers(
                 invoice_number=costs[0].invoice_number if costs else None,
                 cost_ids=[c.id for c in costs],
                 basis=len(peers),
-                params={
-                    "amount": f"{amount:.2f}",
-                    "median": f"{q2(norm):.2f}",
-                    "ratio": f"{(amount / norm).quantize(Decimal('0.1'))}",
-                    "route": route_of[container_id],
-                },
+                params=params,
             )
         )
     return found
 
 
 def _stale_estimates(
-    comp: Computation, every: dict[UUID, Container], boxes: dict[UUID, Container], period_to: date
+    comp: Computation, every: dict[UUID, Container], boxes: dict[UUID, Container], as_of: date
 ) -> list[Finding]:
+    """An estimate still standing, two months after its goods landed. Judged on the day of the audit
+    and not on the period's end: the estimate is open today, and that is what makes it a finding."""
     found: list[Finding] = []
     for cost in comp.cost_rows.values():
         if cost.status is not CostStatus.ESTIMATE or cost.container_id not in boxes:
             continue
         landed_on = arrival_date(boxes[cost.container_id])
-        if landed_on is None or period_to - landed_on < ESTIMATE_STALE_AFTER:
+        if landed_on is None or as_of - landed_on < ESTIMATE_STALE_AFTER:
             continue
         found.append(
             _finding(
@@ -470,7 +674,7 @@ def _stale_estimates(
                 "sure",
                 cost.amount_base,
                 cost,
-                days=str((period_to - landed_on).days),
+                days=str((as_of - landed_on).days),
                 landed_on=landed_on.isoformat(),
             )
         )
@@ -485,9 +689,10 @@ def _unallocated(
         cost = costs_in.get(missing.cost_id)
         if cost is None:
             continue
-        found.append(
-            _finding(comp, every, "UNALLOCATED_COST", "sure", cost.amount_base, cost, reason=missing.code)
-        )
+        params = {"reason": missing.code}
+        if missing.load_ids:  # the lines a weight, a volume or a value is missing on
+            params["skus"], params["po_numbers"] = _lines_of(comp, missing.load_ids)
+        found.append(_finding(comp, every, "UNALLOCATED_COST", "sure", cost.amount_base, cost, **params))
     return found
 
 
@@ -499,6 +704,7 @@ def _duty_without_rate(
         cost = costs_in.get(note.cost_id)
         if cost is None or note.code != "DUTY_RATE_PARTIAL":
             continue
+        skus, orders = _lines_of(comp, note.load_ids)
         found.append(
             _finding(
                 comp,
@@ -508,6 +714,8 @@ def _duty_without_rate(
                 cost.amount_base,
                 cost,
                 lines=str(len(note.load_ids)),
+                skus=skus,
+                po_numbers=orders,
             )
         )
     return found
@@ -517,8 +725,16 @@ def _duty_without_rate(
 
 
 def _margins(
-    db: Session, comp: Computation, org: Organization, period_from: date, period_to: date
+    db: Session,
+    comp: Computation,
+    org: Organization,
+    period_from: date,
+    period_to: date,
+    assumed: Decimal | None,
 ) -> list[Margin]:
+    """Each article over the period: what its approach costs are, what the company's own coefficient
+    leaves out of them when it gave one, and — with a selling price — its margin as read on the
+    purchase price and as it is."""
     articles: list[SkuSummary] = sku_report(db, comp, org, period_from=period_from, period_to=period_to)
     found: list[Margin] = []
     for article in articles:
@@ -526,17 +742,20 @@ def _margins(
             sku=article.sku,
             description=article.description,
             quantity=article.quantity,
+            fob=article.fob,
+            landed=article.landed,
             unit_fob=article.unit_fob,
             unit_landed=article.unit_landed,
             approach_costs=q2(article.landed - article.fob),
+            gap_vs_assumed=q2(article.landed - article.fob * assumed) if assumed is not None else None,
         )
         price = article.sale_price
         # A price in another currency than the books gives no margin here either (see sku_report).
         if price is not None and article.margin_unit is not None and price > 0:
             margin.sale_price = price
-            margin.margin_on_fob_pct = ((price - article.unit_fob) / price * 100).quantize(Decimal("0.1"))
-            margin.margin_real_pct = ((price - article.unit_landed) / price * 100).quantize(Decimal("0.1"))
-            margin.points_lost = (margin.margin_on_fob_pct - margin.margin_real_pct).quantize(Decimal("0.1"))
+            margin.margin_on_fob_pct = ((price - article.unit_fob) / price * 100).quantize(TENTH)
+            margin.margin_real_pct = ((price - article.unit_landed) / price * 100).quantize(TENTH)
+            margin.points_lost = margin.margin_on_fob_pct - margin.margin_real_pct
         found.append(margin)
     found.sort(key=lambda m: -m.approach_costs)
     return found
@@ -557,9 +776,12 @@ def _demurrage(
                 container_number=line.container_number,
                 paid=line.paid,
                 avoided=line.avoided,
+                rule_code=line.rule_code,
+                days=line.days,
+                daily_rate=line.daily_rate,
+                days_over=line.days_over,
                 quantity=quantity,
                 per_unit=q4(line.paid / quantity) if quantity and line.paid else None,
-                rule=line.rule,
             )
         )
     return lines
@@ -589,11 +811,16 @@ def _coefficient(bucket: Bucket) -> CoefficientBucket:
 
 
 def _assumed(org: Organization) -> Decimal | None:
+    """The coefficient the company says it applies — if what is stored is one. The settings route
+    refuses anything else at the door; this does not rely on it."""
     raw = (org.settings or {}).get("assumed_coefficient")
+    if raw is None or isinstance(raw, bool):
+        return None
     try:
-        return q4(Decimal(str(raw))) if raw is not None else None
+        ratio = Decimal(str(raw))
     except ArithmeticError:
         return None
+    return q4(ratio) if ratio.is_finite() and Decimal(1) <= ratio <= Decimal(3) else None
 
 
 def _completeness(
@@ -623,7 +850,7 @@ def _completeness(
         fob=fob,
         landed=landed,
         estimated=q2(estimated),
-        estimated_share_pct=(estimated / landed * 100).quantize(Decimal("0.1")) if landed else None,
+        estimated_share_pct=(estimated / landed * 100).quantize(TENTH) if landed else None,
         invoices_to_review=int(to_review or 0),
         containers_without_cost=sum(1 for c in boxes if c not in costed),
         fx_sources=dict(Counter(cost.fx_source for cost in costs_in.values())),

@@ -55,7 +55,8 @@ def _check_settings(settings: dict[str, object] | None) -> None:
             ratio = Decimal(str(assumed))
         except ArithmeticError:
             ratio = Decimal(0)
-        if not Decimal(1) <= ratio <= Decimal(3):
+        # NaN and infinities are Decimals too, and comparing a NaN raises instead of saying no.
+        if isinstance(assumed, bool) or not ratio.is_finite() or not Decimal(1) <= ratio <= Decimal(3):
             raise Unprocessable(
                 "assumed_coefficient is a ratio between 1 and 3, such as 1.15",
                 code="ASSUMED_COEFFICIENT_INVALID",
@@ -79,7 +80,16 @@ def update_organization(
     payload: schemas.OrganizationUpdate, t: TenantDep, p: PrincipalDep, _: WriterDep
 ) -> schemas.OrganizationResponse:
     changes = payload.model_dump(exclude_unset=True)
-    _check_settings(changes.get("settings"))
+    sent = changes.pop("settings", None)
+    if sent:
+        # Settings are merged, not replaced: a key sent is written, a key sent as null is removed, a
+        # key not sent is kept. Two screens that each save their own setting must not erase each
+        # other's — the coefficient of the audit page wiping the tracking provider of the settings.
+        # (`settings: null` changes nothing: the column cannot be empty, and "forget every setting"
+        # is not something a form should be able to say by accident.)
+        _check_settings({k: v for k, v in sent.items() if v is not None})
+        merged = {**(t.org.settings or {}), **sent}
+        changes["settings"] = {k: v for k, v in merged.items() if v is not None}
     before = {k: getattr(t.org, k) for k in changes}
     for k, v in changes.items():
         setattr(t.org, k, v)

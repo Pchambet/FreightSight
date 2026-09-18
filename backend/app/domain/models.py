@@ -1053,7 +1053,7 @@ class SharedReport(Timestamped, OrgScoped, Base):
     __tablename__ = "shared_reports"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
-    subject_type: Mapped[str] = mapped_column(String, nullable=False)  # container | purchase_order
+    subject_type: Mapped[str] = mapped_column(String, nullable=False)  # container | purchase_order | audit
     subject_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     subject_label: Mapped[str] = mapped_column(String, nullable=False)
     token_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False, unique=True)

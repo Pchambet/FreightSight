@@ -14,6 +14,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from sqlalchemy import select
@@ -277,13 +278,28 @@ def sku_history(db: Session, org: Organization, sku: str) -> list[SkuCostHistory
 # ---------------------------------------------------------------------------- demurrage
 
 
+#: Why an avoided demurrage figure is what it is (see DndLine).
+AvoidedRule = Literal["DND_AVOIDED_ESTIMATED", "DND_AVOIDED_NO_RATE", "DND_AVOIDED_NO_ALERT"]
+
+
 @dataclass
 class DndLine:
     container_id: UUID
     container_number: str
     paid: Decimal
     avoided: Decimal | None
+    #: The same as `rule_code` and its values, in an English sentence: kept until the screens read the
+    #: code, never to be shown.
     rule: str
+    #: Why `avoided` is what it is. DND_AVOIDED_ESTIMATED: `days` between the first risk alert and the
+    #: pickup, times `daily_rate`. DND_AVOIDED_NO_RATE: no DEMURRAGE rate card, so no figure.
+    #: DND_AVOIDED_NO_ALERT: no risk alert or no pickup on record, nothing to estimate.
+    rule_code: AvoidedRule
+    days: int | None = None
+    daily_rate: Decimal | None = None
+    #: Days the box stayed on the terminal past its last free day, when both dates are known: the
+    #: demurrage days that were paid for.
+    days_over: int | None = None
 
 
 @dataclass
@@ -375,10 +391,14 @@ def dnd_report(
             continue
 
         avoided: Decimal | None = None
+        days: int | None = None
+        code: AvoidedRule
         if alert is None or picked_up is None:
+            code = "DND_AVOIDED_NO_ALERT"
             rule = "no risk alert and no pickup recorded: nothing to estimate"
             not_estimable += 1
         elif daily_rate is None:
+            code = "DND_AVOIDED_NO_RATE"
             rule = (
                 "not estimable: add a DEMURRAGE rate card (its amount is read as a daily rate) "
                 "and this becomes a number"
@@ -387,11 +407,13 @@ def dnd_report(
         else:
             days = max((picked_up.date() - alert.created_at.date()).days, 0)
             avoided = q2(Decimal(days) * daily_rate)
+            code = "DND_AVOIDED_ESTIMATED"
             rule = f"{days} day(s) between the first risk alert and pickup x {daily_rate} per day"
             estimable += 1
             total_avoided += avoided
 
         total_paid += paid
+        last_free = container.last_free_day
         lines.append(
             DndLine(
                 container_id=container_id,
@@ -399,6 +421,14 @@ def dnd_report(
                 paid=q2(paid),
                 avoided=avoided,
                 rule=rule,
+                rule_code=code,
+                days=days,
+                daily_rate=daily_rate if code == "DND_AVOIDED_ESTIMATED" else None,
+                days_over=(
+                    max((picked_up.date() - last_free).days, 0)
+                    if picked_up is not None and last_free is not None
+                    else None
+                ),
             )
         )
 

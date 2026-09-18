@@ -30,6 +30,8 @@ MESSAGES = Path(__file__).resolve().parents[2] / "frontend" / "messages" / "fr.j
         (labels.METHOD_FR, "method"),
         (labels.MILESTONE_FR, "milestone"),
         (labels.RISK_FR, "risk"),
+        (labels.FINDING_FR, "finding"),
+        (labels.CONFIDENCE_FR, "confidence"),
     ],
 )
 def test_the_csv_uses_the_same_words_as_the_screens(ours: dict[str, str], namespace: str) -> None:

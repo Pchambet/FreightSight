@@ -159,8 +159,6 @@ TRACKING_STATE_FR: dict[str, str] = {
 ROW_TYPE_FR: dict[str, str] = {"LINE": "Ligne", "UNALLOCATED": "Non ventilé"}
 PERIOD_BASIS_FR: dict[str, str] = {"arrival_date": "date d'arrivée", "cost_date": "date du coût"}
 
-#: Which column holds which vocabulary. Translating by column, never by value: a supplier called
-#: "MANUAL" or a part number "OTHER" is somebody's data and stays as typed.
 #: Why a container's landed cost is no longer the one its month was closed at.
 DRIFT_REASON_FR = {
     "costs": "Coûts ou chargements modifiés",
@@ -171,16 +169,74 @@ DRIFT_REASON_FR = {
 #: The audit's findings, and how sure each one is.
 FINDING_FR = {
     "DUPLICATE_CHARGE": "Prestation facturée deux fois",
-    "ABOVE_QUOTE": "Facture au-dessus de la cotation",
+    # "Estimé", not "cotation": the estimate is often the company's own rate card, and a forwarder
+    # told it billed above a quote it never gave stops reading there.
+    "ABOVE_QUOTE": "Facture au-dessus de l'estimé",
     "OUTLIER_CHARGE": "Montant hors norme pour la route",
     "ESTIMATE_NEVER_INVOICED": "Estimé jamais facturé",
     "UNALLOCATED_COST": "Coût non ventilé",
     "DUTY_RATE_MISSING": "Droits ventilés sans taux sur une ligne",
 }
-#: How sure the rule is — not what to do about it: an invoice above its quote is a fact, whether the
+#: How sure the rule is — not what to do about it: an invoice above its estimate is a fact, whether the
 #: surcharge turns out to be owed or not.
 CONFIDENCE_FR = {"sure": "Établi", "to_check": "À vérifier"}
+#: The moving parts of a finding, as the "Détail" column of the findings file names them.
+FINDING_PARAM_FR = {
+    "first_invoice": "Première facture",
+    "first_vendor": "Premier prestataire",
+    "first_amount": "Premier montant",
+    "same_vendor": "Même prestataire",
+    "quoted": "Estimé",
+    "invoiced": "Facturé",
+    "currency": "Devise",
+    "share_pct": "Écart en %",
+    "fx_effect": "Effet de change",
+    "amount": "Facturé",
+    "median": "Médiane de la route",
+    "ratio": "Multiple de la médiane",
+    "route": "Route",
+    "size": "Longueur du conteneur (pieds)",
+    "days": "Jours depuis l'arrivée",
+    "landed_on": "Arrivé le",
+    "reason": "Raison",
+    "lines": "Lignes sans taux",
+    "skus": "Références",
+    "po_numbers": "Commandes",
+}
+#: The params that are decimal numbers: written with the decimal comma, like every other cell.
+DECIMAL_PARAMS = frozenset(
+    {"first_amount", "quoted", "invoiced", "share_pct", "fx_effect", "amount", "median", "ratio"}
+)
+YES_NO_FR = {"true": "oui", "false": "non"}
+#: Why the engine could not spread a cost (its `Unallocated.code`).
+UNALLOCATED_REASON_FR = {
+    "MISSING_BASIS": "Base de ventilation manquante (poids, volume ou valeur)",
+    "MISSING_DUTY_RATE": "Taux de droits manquant",
+    "INVALID_MANUAL_SPLIT": "Répartition manuelle invalide",
+    "NO_TARGET": "Aucun chargement visé",
+    "ALL_WEIGHTS_ZERO": "Toutes les bases de ventilation sont nulles",
+    "ALLOCATION_ERROR": "Ventilation impossible",
+}
 
+
+def finding_details_fr(params: dict[str, str]) -> str:
+    """A finding's params as the French file shows them: « Cotation : 2890,68 ; Facturé : 3199,95 »."""
+    shown = []
+    for key, value in params.items():
+        if not value:
+            continue  # an invoice without a number is not "Première facture : "
+        if key in DECIMAL_PARAMS:
+            value = value.replace(".", ",")
+        elif key == "reason":
+            value = UNALLOCATED_REASON_FR.get(value, value)
+        elif key == "same_vendor":
+            value = YES_NO_FR.get(value, value)
+        shown.append(f"{FINDING_PARAM_FR.get(key, key)} : {value}")
+    return " ; ".join(shown)
+
+
+#: Which column holds which vocabulary. Translating by column, never by value: a supplier called
+#: "MANUAL" or a part number "OTHER" is somebody's data and stays as typed.
 VALUES_FR: dict[str, dict[str, str]] = {
     "finding": FINDING_FR,
     "confidence": CONFIDENCE_FR,

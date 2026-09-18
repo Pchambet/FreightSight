@@ -37,7 +37,10 @@ def test_every_article_that_travelled_is_listed_with_its_weighted_unit_cost(seed
     )
     assert Decimal(tyre["unit_landed"]) > Decimal(tyre["unit_fob"]) > 0
     assert tyre["arrivals"] >= 8 and tyre["has_estimates"] is True  # two of its boxes are not invoiced
-    assert tyre["product_id"] is None and tyre["margin_unit"] is None
+    # the demo's catalogue prices the tyre; the jack has a sheet and no price, so no margin either
+    assert tyre["product_id"] is not None and Decimal(tyre["sale_price"]) == Decimal("24.90")
+    jack = skus["JACK-HYD-2T"]
+    assert jack["product_id"] is not None and jack["sale_price"] is None and jack["margin_unit"] is None
 
 
 def test_an_arrival_is_a_container_and_its_cost_types_add_up(seeded: TestClient) -> None:

@@ -11,6 +11,7 @@ Those are refused by name rather than deleted along.
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -30,6 +31,7 @@ from app.domain.models import (
     Invoice,
     InvoiceLine,
     Organization,
+    Product,
     PurchaseOrder,
     PurchaseOrderLine,
     RateCard,
@@ -55,6 +57,9 @@ REGISTERED = {
     "invoice": Invoice,
     "alert": Alert,
 }
+#: Registered one by one by the dataset that creates them (`register`), never swept up by
+#: `register_everything`: an organization with no order can already hold its own product sheets.
+NAMED = {"product": Product}
 
 
 @dataclass(frozen=True)
@@ -82,12 +87,18 @@ def register_everything(db: Session, org_id: UUID) -> int:
     return added
 
 
+def register(db: Session, org_id: UUID, kind: str, object_ids: Iterable[UUID]) -> None:
+    """Mark as the demo's what the dataset created where the user may already have things of that kind."""
+    db.add_all(SampleObject(org_id=org_id, kind=kind, object_id=object_id) for object_id in object_ids)
+    db.flush()
+
+
 def has_sample_data(db: Session, org_id: UUID) -> bool:
     return db.scalar(select(SampleObject.id).where(SampleObject.org_id == org_id).limit(1)) is not None
 
 
 def _ids(db: Session, org_id: UUID) -> dict[str, set[UUID]]:
-    found: dict[str, set[UUID]] = {kind: set() for kind in REGISTERED}
+    found: dict[str, set[UUID]] = {kind: set() for kind in (*REGISTERED, *NAMED)}
     rows = db.execute(select(SampleObject.kind, SampleObject.object_id).where(SampleObject.org_id == org_id))
     for kind, object_id in rows:
         found.setdefault(kind, set()).add(object_id)
@@ -235,6 +246,13 @@ def delete_sample_data(db: Session, store: DocumentStore, org: Organization) -> 
         delete(SkuCostHistory).where(
             SkuCostHistory.org_id == org.id, SkuCostHistory.sku.not_in(still_ordered)
         )
+    )
+    # And, like a supplier, a demo product sheet whose article the user's own orders now carry.
+    remove(
+        "products",
+        delete(Product).where(
+            Product.org_id == org.id, Product.id.in_(ids["product"]), Product.sku.not_in(still_ordered)
+        ),
     )
     db.execute(delete(SampleObject).where(SampleObject.org_id == org.id))
     db.flush()

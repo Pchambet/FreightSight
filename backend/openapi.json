@@ -1939,7 +1939,7 @@
           "reports"
         ],
         "summary": "Audit",
-        "description": "The audit of a period: the margin a purchase-price pricing overstates, what is worth a claim\nto the forwarders, what demurrage cost, the measured coefficient against the assumed one, and\nhow complete the figures are. One computation; every section's total is the platform's.",
+        "description": "The audit of a period: the margin a purchase-price pricing overstates, what is worth a claim\nto the forwarders, what demurrage cost, the measured coefficient against the assumed one, and\nhow complete the figures are. One computation; every section's total is the platform's. A period\nthat ends before it starts, or outside the years 2000 to 2100, is refused with PERIOD_INVALID.",
         "operationId": "audit_api_v1_reports_audit_get",
         "parameters": [
           {
@@ -4600,7 +4600,7 @@
           "exports"
         ],
         "summary": "Audit Findings Csv",
-        "description": "The findings of a period's audit, one per line: what to claim, what to check, and on which\ncontainer and invoice \u2014 the list a buyer takes to the forwarder.",
+        "description": "The findings of a period's audit, one per line: what to claim, what to check, and on which\ncontainer and invoice \u2014 the list a buyer takes to the forwarder. A period that ends before it\nstarts, or outside the years 2000 to 2100, is refused with PERIOD_INVALID, as on the screen.",
         "operationId": "audit_findings_csv_api_v1_exports_audit_findings_csv_get",
         "parameters": [
           {
@@ -7061,7 +7061,7 @@
           "shares"
         ],
         "summary": "Share Audit",
-        "description": "Freeze the audit of a period as it stands and return a link to it: the document of the paid\noffer, sent to somebody who has no account. The subject of the share is the organization itself.",
+        "description": "Freeze the audit of a period as it stands and return a link to it: the document of the paid\noffer, sent to somebody who has no account. The subject of the share is the organization itself.\nWith `redact_vendors`, forwarders, invoice numbers and suppliers are left out of the snapshot.",
         "operationId": "share_audit_api_v1_reports_audit_share_post",
         "parameters": [
           {
@@ -8076,6 +8076,48 @@
             ],
             "title": "Avoided"
           },
+          "rule_code": {
+            "type": "string",
+            "enum": [
+              "DND_AVOIDED_ESTIMATED",
+              "DND_AVOIDED_NO_RATE",
+              "DND_AVOIDED_NO_ALERT"
+            ],
+            "title": "Rule Code"
+          },
+          "days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "daily_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Rate"
+          },
+          "days_over": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Over"
+          },
           "quantity": {
             "type": "string",
             "title": "Quantity"
@@ -8090,10 +8132,6 @@
               }
             ],
             "title": "Per Unit"
-          },
-          "rule": {
-            "type": "string",
-            "title": "Rule"
           }
         },
         "type": "object",
@@ -8102,9 +8140,12 @@
           "container_number",
           "paid",
           "avoided",
+          "rule_code",
+          "days",
+          "daily_rate",
+          "days_over",
           "quantity",
-          "per_unit",
-          "rule"
+          "per_unit"
         ],
         "title": "AuditDemurrageLine"
       },
@@ -8299,6 +8340,10 @@
             },
             "type": "object",
             "title": "Params"
+          },
+          "recoverable": {
+            "type": "boolean",
+            "title": "Recoverable"
           }
         },
         "type": "object",
@@ -8311,7 +8356,10 @@
           "cost_type",
           "vendor",
           "invoice_number",
-          "cost_ids"
+          "cost_ids",
+          "basis",
+          "params",
+          "recoverable"
         ],
         "title": "AuditFinding",
         "description": "One measured fact about the period's invoices, never an accusation: the rule that produced it,\nhow sure it is, how much money it is about, and the objects behind it."
@@ -8329,6 +8377,17 @@
           "unpriced_skus": {
             "type": "integer",
             "title": "Unpriced Skus"
+          },
+          "gap_vs_assumed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gap Vs Assumed"
           },
           "recoverable_sure": {
             "type": "string",
@@ -8348,6 +8407,7 @@
           "margin_overstated",
           "priced_skus",
           "unpriced_skus",
+          "gap_vs_assumed",
           "recoverable_sure",
           "recoverable_to_check",
           "demurrage_paid"
@@ -8376,6 +8436,14 @@
             "type": "string",
             "title": "Quantity"
           },
+          "fob": {
+            "type": "string",
+            "title": "Fob"
+          },
+          "landed": {
+            "type": "string",
+            "title": "Landed"
+          },
           "unit_fob": {
             "type": "string",
             "title": "Unit Fob"
@@ -8387,6 +8455,17 @@
           "approach_costs": {
             "type": "string",
             "title": "Approach Costs"
+          },
+          "gap_vs_assumed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gap Vs Assumed"
           },
           "sale_price": {
             "anyOf": [
@@ -8441,11 +8520,19 @@
           "sku",
           "description",
           "quantity",
+          "fob",
+          "landed",
           "unit_fob",
           "unit_landed",
-          "approach_costs"
+          "approach_costs",
+          "gap_vs_assumed",
+          "sale_price",
+          "margin_on_fob_pct",
+          "margin_real_pct",
+          "points_lost"
         ],
-        "title": "AuditMargin"
+        "title": "AuditMargin",
+        "description": "An article over the period."
       },
       "AuditPage": {
         "properties": {
@@ -8497,6 +8584,11 @@
             "type": "string",
             "format": "date",
             "title": "Period To"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date",
+            "title": "As Of"
           },
           "headline": {
             "$ref": "#/components/schemas/AuditHeadline"
@@ -8560,6 +8652,9 @@
           },
           "completeness": {
             "$ref": "#/components/schemas/AuditCompleteness"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/AuditRules"
           }
         },
         "type": "object",
@@ -8567,6 +8662,7 @@
           "base_currency",
           "period_from",
           "period_to",
+          "as_of",
           "headline",
           "margins",
           "findings",
@@ -8575,9 +8671,84 @@
           "coefficient_by_supplier",
           "coefficient",
           "assumed_coefficient",
-          "completeness"
+          "completeness",
+          "rules"
         ],
-        "title": "AuditReport"
+        "title": "AuditReport",
+        "description": "Frozen into the snapshot of every audit sent by link, and validated again at each opening: once\na link exists, this changes only by adding fields that may be absent."
+      },
+      "AuditRules": {
+        "properties": {
+          "duplicate_tolerance_pct": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Duplicate Tolerance Pct"
+          },
+          "never_duplicate": {
+            "items": {
+              "$ref": "#/components/schemas/CostType"
+            },
+            "type": "array",
+            "title": "Never Duplicate"
+          },
+          "above_quote_min_pct": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Above Quote Min Pct"
+          },
+          "above_quote_min_amount": {
+            "type": "string",
+            "title": "Above Quote Min Amount"
+          },
+          "outlier_ratio": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Outlier Ratio"
+          },
+          "outlier_min_excess": {
+            "type": "string",
+            "title": "Outlier Min Excess"
+          },
+          "outlier_min_basis": {
+            "type": "integer",
+            "title": "Outlier Min Basis"
+          },
+          "outlier_lookback_days": {
+            "type": "integer",
+            "title": "Outlier Lookback Days"
+          },
+          "freight_window_days": {
+            "type": "integer",
+            "title": "Freight Window Days"
+          },
+          "not_compared": {
+            "items": {
+              "$ref": "#/components/schemas/CostType"
+            },
+            "type": "array",
+            "title": "Not Compared"
+          },
+          "estimate_stale_after_days": {
+            "type": "integer",
+            "title": "Estimate Stale After Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "duplicate_tolerance_pct",
+          "never_duplicate",
+          "above_quote_min_pct",
+          "above_quote_min_amount",
+          "outlier_ratio",
+          "outlier_min_excess",
+          "outlier_min_basis",
+          "outlier_lookback_days",
+          "freight_window_days",
+          "not_compared",
+          "estimate_stale_after_days"
+        ],
+        "title": "AuditRules",
+        "description": "The thresholds the audit was produced with, for the page that states its method. Amounts are in\nthe base currency. A copy sent by link keeps the rules it was computed under."
       },
       "AuditShareCreate": {
         "properties": {
@@ -10254,6 +10425,48 @@
           "rule": {
             "type": "string",
             "title": "Rule"
+          },
+          "rule_code": {
+            "type": "string",
+            "enum": [
+              "DND_AVOIDED_ESTIMATED",
+              "DND_AVOIDED_NO_RATE",
+              "DND_AVOIDED_NO_ALERT"
+            ],
+            "title": "Rule Code"
+          },
+          "days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "daily_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Rate"
+          },
+          "days_over": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Over"
           }
         },
         "type": "object",
@@ -10262,7 +10475,11 @@
           "container_number",
           "paid",
           "avoided",
-          "rule"
+          "rule",
+          "rule_code",
+          "days",
+          "daily_rate",
+          "days_over"
         ],
         "title": "DndReportLine"
       },

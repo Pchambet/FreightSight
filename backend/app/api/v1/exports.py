@@ -28,7 +28,7 @@ from app.core.tenancy import TenantDep
 from app.domain.costing import report as rpt
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
 from app.domain.costing.service import compute
-from app.domain.labels import VALUES_FR, header_fr
+from app.domain.labels import VALUES_FR, finding_details_fr, header_fr
 from app.domain.models import (
     Container,
     ContainerLoad,
@@ -629,7 +629,8 @@ def audit_findings_csv(
     t: TenantDep, period_from: date, period_to: date, locale: Locale = "fr"
 ) -> StreamingResponse:
     """The findings of a period's audit, one per line: what to claim, what to check, and on which
-    container and invoice — the list a buyer takes to the forwarder."""
+    container and invoice — the list a buyer takes to the forwarder. A period that ends before it
+    starts, or outside the years 2000 to 2100, is refused with PERIOD_INVALID, as on the screen."""
     found = audit_report(t.db, compute(t.db, t.org), t.org, period_from, period_to)
     _, mark = dialect(locale)
     header = ["finding", "confidence", "amount_base", "container_number", "cost_type", "vendor",
@@ -637,7 +638,11 @@ def audit_findings_csv(
 
     def rows() -> Iterator[list[Any]]:
         for finding in found.findings:
-            details = " ; ".join(f"{k}={v}" for k, v in finding.params.items())
+            details = (
+                finding_details_fr(finding.params)
+                if locale == "fr"
+                else " ; ".join(f"{k}={v}" for k, v in finding.params.items())
+            )
             yield [
                 finding.code,
                 finding.confidence,

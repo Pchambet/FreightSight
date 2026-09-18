@@ -52,6 +52,7 @@ from app.domain.models import (
     CostType,
     Incoterm,
     Organization,
+    Product,
     PurchaseOrder,
     PurchaseOrderLine,
     RateBasis,
@@ -61,6 +62,7 @@ from app.domain.models import (
     TrackingState,
 )
 from app.domain.sample_data import SampleData
+from app.domain.sample_registry import register
 from app.domain.tracking.state import derive_dnd
 
 FREE_DAYS_DEMURRAGE = 7
@@ -106,9 +108,22 @@ _ARTICLE_ROWS = (
     ("CHAIN-SNOW-9MM", "Chaînes à neige 9 mm", "73158200", "parts", "11.20", "3.8", "0.006", "0.027"),
 )
 # fmt: on
+
 ARTICLES: dict[str, _Article] = {
     sku: _Article(sku, label, hs, supplier, Decimal(price), Decimal(kg), Decimal(cbm), Decimal(duty))
     for sku, label, hs, supplier, price, kg, cbm, duty in _ARTICLE_ROWS
+}
+
+#: What the importer sells each article for, before VAT, in euros: the catalogue a real importer keeps,
+#: and what turns a landed unit cost into a margin. Two articles have a sheet and no price, on purpose:
+#: a report has to say what it cannot measure rather than leave it out.
+SALE_PRICES_EUR: dict[str, Decimal] = {
+    "TYR-20555R16-91V": Decimal("24.90"),
+    "TYR-22545R17-94W": Decimal("32.90"),
+    "MAT-EVA-6040-GY": Decimal("34.90"),
+    "WIP-BLADE-600": Decimal("4.90"),
+    "BAT-12V-70AH": Decimal("69.00"),
+    "BOX-ROOF-420L": Decimal("119.00"),
 }
 
 #: What a container is filled with. Quantities are those of a 40'HC that closes by volume or by weight.
@@ -232,6 +247,7 @@ def seed_history(db: Session, fx: FxService, store: DocumentStore, org: Organiza
     db.flush()
 
     lines = _purchase_orders(db, org, rates, suppliers, today)
+    _catalogue(db, org)
 
     db.add_all(
         [
@@ -328,6 +344,31 @@ def seed_history(db: Session, fx: FxService, store: DocumentStore, org: Organiza
         cost_count=cost_count,
         shipment_reference=first.reference if first is not None else "",
     )
+
+
+def _catalogue(db: Session, org: Organization) -> None:
+    """One product sheet per article. A catalogue can be filled before any order exists, so a sheet
+    already there is the user's and is left as it is; the others are registered as the demo's one by
+    one, never swept up with everything else."""
+    existing = set(db.scalars(select(Product.sku).where(Product.org_id == org.id)))
+    sheets = [
+        Product(
+            org_id=org.id,
+            sku=article.sku,
+            description=article.description,
+            hs_code=article.hs_code,
+            duty_rate=article.duty_rate,
+            unit_weight_kg=article.weight_kg,
+            unit_volume_cbm=article.volume_cbm,
+            sale_price=SALE_PRICES_EUR.get(article.sku),
+            sale_currency="EUR" if article.sku in SALE_PRICES_EUR else None,
+        )
+        for article in ARTICLES.values()
+        if article.sku not in existing
+    ]
+    db.add_all(sheets)
+    db.flush()
+    register(db, org.id, "product", [sheet.id for sheet in sheets])
 
 
 def _filled(voyage: _Voyage, index: int) -> list[tuple[str, int]]:
@@ -492,6 +533,7 @@ def _invoice(
             Cost.status == CostStatus.ESTIMATE,
         )
     )
+    billed: dict[CostType, Decimal] = {}
     for estimate in list(estimates):
         if index == NEVER_INVOICED_ON and estimate.cost_type is NEVER_INVOICED_TYPE:
             continue  # the forwarder forgot this one: its estimate stands, and the audit says so
@@ -500,8 +542,9 @@ def _invoice(
         elif estimate.cost_type is CostType.CUSTOMS_DUTY:
             amount = estimate.amount * Decimal(DUTY_DRIFT[nth % len(DUTY_DRIFT)])
         else:
-            billed = ACTUALS[estimate.cost_type]
-            amount = Decimal(billed[nth % len(billed)])
+            grid = ACTUALS[estimate.cost_type]
+            amount = Decimal(grid[nth % len(grid)])
+        billed[estimate.cost_type] = amount
         _cost(
             db,
             org,
@@ -517,15 +560,16 @@ def _invoice(
             supersedes=estimate,
         )
     if index == DUPLICATE_THC_ON:
-        # The terminal billed the handling to the forwarder, who re-billed it; then the terminal's own
-        # invoice reached the importer too. Same box, same charge, two invoice numbers, 2 € apart.
+        # The forwarder re-billed the terminal's handling at cost, as a disbursement; then the
+        # terminal's own invoice reached the importer too. Same box, same charge, same amount, two
+        # providers and two invoice numbers: a fact, not a resemblance.
         _cost(
             db,
             org,
             rates,
             container,
             CostType.THC,
-            Decimal("260.00"),
+            billed[CostType.THC],
             "EUR",
             billed_on + timedelta(days=9),
             status=CostStatus.ACTUAL,

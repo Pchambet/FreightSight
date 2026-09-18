@@ -845,12 +845,14 @@ class AuditFinding(BaseModel):
     #: DUPLICATE_CHARGE | ABOVE_QUOTE | OUTLIER_CHARGE | ESTIMATE_NEVER_INVOICED | UNALLOCATED_COST |
     #: DUTY_RATE_MISSING
     code: str
-    #: sure: a fact (a duplicate line, an invoice above its quote, an estimate nobody invoiced).
-    #: to_check: a statistical question (a charge far above the median of its route). A screen says
-    #: "to claim" only on the first, "to check" on the second.
+    #: sure: a fact — one provider billing a charge twice or two identical amounts, an invoice above the
+    #: estimate it replaced in the same currency, an estimate nobody invoiced. to_check: a question —
+    #: two providers billing neighbouring amounts, an estimate and an invoice in two currencies, a
+    #: charge far above the median of its route.
     confidence: Literal["sure", "to_check"]
-    #: The money the finding is about: what was billed twice, the excess over the quote or the median,
-    #: the estimate still standing. Never a promised saving.
+    #: The money the finding is about: what was billed twice, the excess over the estimate (at the
+    #: invoice's own rate, exchange effect apart) or over the median, the estimate still standing.
+    #: Never a promised saving.
     amount: Money
     container_id: UUID | None
     container_number: str | None
@@ -859,26 +861,46 @@ class AuditFinding(BaseModel):
     invoice_number: str | None
     cost_ids: list[UUID]
     #: Statistical rules only: how many other containers the charge was compared with.
-    basis: int | None = None
-    #: The moving parts of the sentence, as raw strings: quoted/invoiced/share_pct, amount/median/
-    #: ratio/route, days/landed_on, reason, lines, first_invoice/first_vendor/first_amount.
-    params: dict[str, str] = Field(default_factory=dict)
+    basis: int | None
+    #: The moving parts of the sentence, as raw strings. DUPLICATE_CHARGE: first_invoice,
+    #: first_vendor, first_amount (base currency), same_vendor ("true" | "false"). ABOVE_QUOTE: quoted,
+    #: invoiced and currency (the currency both were written in, or the base currency when they
+    #: differ), share_pct, and fx_effect when the exchange rate moved: the part of the difference in
+    #: base currency that is the rate's, not the price's. OUTLIER_CHARGE: amount, median, ratio,
+    #: route, size ("20" | "40" | "45" when known). ESTIMATE_NEVER_INVOICED: days (on `as_of`),
+    #: landed_on. UNALLOCATED_COST: reason (an engine code) and, when lines lack a basis, skus and
+    #: po_numbers. DUTY_RATE_MISSING: lines, skus, po_numbers. Lists are joined with ", ". A copy sent
+    #: with names left out keeps only the params that name nobody (reporting.audit.PUBLIC_PARAMS).
+    params: dict[str, str]
+    #: DUPLICATE_CHARGE, ABOVE_QUOTE and OUTLIER_CHARGE: a claim can be made, and the amount counts in
+    #: the first page's recoverable sums. The others are about the quality of the figures.
+    recoverable: bool
 
 
 class AuditMargin(BaseModel):
+    """An article over the period."""
+
     model_config = ConfigDict(from_attributes=True)
     sku: str
     description: str | None
     quantity: Qty
+    #: Purchase and landed value of the period's volume, and per unit.
+    fob: Money
+    landed: Money
     unit_fob: Qty
     unit_landed: Qty
-    #: Landed minus purchase over the period's volume: the euros a price set on the purchase price
-    #: leaves out. Present whether or not the article has a selling price.
+    #: landed - fob: what a price computed on the purchase price leaves out. Always present.
     approach_costs: Money
-    sale_price: Qty | None = None
-    margin_on_fob_pct: Decimal | None = None
-    margin_real_pct: Decimal | None = None
-    points_lost: Decimal | None = None
+    #: landed - fob x `AuditReport.assumed_coefficient`: what the company's own calculation leaves
+    #: out. Null without a coefficient; negative when the coefficient is more prudent than the facts.
+    #: Needs no selling price.
+    gap_vs_assumed: Money | None
+    #: The four below only with a selling price in the base currency; null otherwise.
+    sale_price: Qty | None
+    margin_on_fob_pct: Decimal | None
+    margin_real_pct: Decimal | None
+    #: margin_on_fob_pct - margin_real_pct, from the two rounded figures.
+    points_lost: Decimal | None
 
 
 class AuditDemurrageLine(BaseModel):
@@ -886,11 +908,16 @@ class AuditDemurrageLine(BaseModel):
     container_id: UUID
     container_number: str
     paid: Money
-    #: Only with a DEMURRAGE rate card and a first risk alert on record (`rule` says which case).
+    #: Only with a DEMURRAGE rate card and a first risk alert on record: `rule_code` says which case,
+    #: as on the demurrage report (DndReportLine).
     avoided: Money | None
+    rule_code: Literal["DND_AVOIDED_ESTIMATED", "DND_AVOIDED_NO_RATE", "DND_AVOIDED_NO_ALERT"]
+    days: int | None
+    daily_rate: Money | None
+    days_over: int | None
+    #: Units that travelled in the box, and what the demurrage added to each.
     quantity: Qty
     per_unit: Qty | None
-    rule: str
 
 
 class AuditCoefficient(BaseModel):
@@ -909,8 +936,12 @@ class AuditCompleteness(BaseModel):
     landed: Money
     estimated: Money
     estimated_share_pct: Decimal | None
+    #: Invoices waiting for a person on `as_of`, in the whole organization: until read, any of them
+    #: may still change the period's figures.
     invoices_to_review: int
     containers_without_cost: int
+    #: How many of the period's costs took their exchange rate from each source: ecb, ecb_latest,
+    #: manual, same (no conversion).
     fx_sources: dict[str, int]
 
 
@@ -918,24 +949,58 @@ class AuditHeadline(BaseModel):
     """The first page. Each figure is the sum of its section: the screen adds nothing."""
 
     model_config = ConfigDict(from_attributes=True)
-    #: Sum of `margins[].approach_costs` over the articles that have a selling price.
+    #: Sum of `margins[].approach_costs` over the articles that have a selling price (`priced_skus`):
+    #: the margin a calculation on the purchase price announces and the goods do not make.
     margin_overstated: Money
     priced_skus: int
     unpriced_skus: int
-    #: Sum of the findings a claim can be made about (DUPLICATE_CHARGE, ABOVE_QUOTE, OUTLIER_CHARGE),
-    #: the sure ones and the doubtful ones apart.
+    #: Sum of `margins[].gap_vs_assumed` over every article of the period, priced or not. Null without
+    #: `assumed_coefficient`; negative when the coefficient is more prudent than the facts.
+    gap_vs_assumed: Money | None
+    #: Sum of the findings with `recoverable`, the sure ones and the doubtful ones apart.
     recoverable_sure: Money
     recoverable_to_check: Money
     #: Sum of `demurrage[].paid`.
     demurrage_paid: Money
 
 
+class AuditRules(BaseModel):
+    """The thresholds the audit was produced with, for the page that states its method. Amounts are in
+    the base currency. A copy sent by link keeps the rules it was computed under."""
+
+    model_config = ConfigDict(from_attributes=True)
+    #: DUPLICATE_CHARGE: two invoices within this per cent of each other, in their own currency when
+    #: they share one; never for these types.
+    duplicate_tolerance_pct: Decimal
+    never_duplicate: list[CostType]
+    #: ABOVE_QUOTE: from this per cent (in the currency both were written in) and this amount (the
+    #: excess at the invoice's rate) above the estimate.
+    above_quote_min_pct: Decimal
+    above_quote_min_amount: Money
+    #: OUTLIER_CHARGE: above ratio x the median of the same charge on the same route for the same size
+    #: of box, and min_excess above it, measured on at least min_basis other containers of the last
+    #: lookback_days — of the freight_window_days around it for freight; never for `not_compared`.
+    outlier_ratio: Decimal
+    outlier_min_excess: Money
+    outlier_min_basis: int
+    outlier_lookback_days: int
+    freight_window_days: int
+    not_compared: list[CostType]
+    #: ESTIMATE_NEVER_INVOICED: still an estimate this many days after landing, on `as_of`.
+    estimate_stale_after_days: int
+
+
 class AuditReport(BaseModel):
+    """Frozen into the snapshot of every audit sent by link, and validated again at each opening: once
+    a link exists, this changes only by adding fields that may be absent."""
+
     base_currency: str
     period_from: date
     period_to: date
+    #: The day it was computed: estimates are judged still open on that day, invoices to review too.
+    as_of: date
     headline: AuditHeadline
-    #: Heaviest approach costs first.
+    #: Largest `overstated` first.
     margins: list[AuditMargin]
     #: Sure first, then by amount.
     findings: list[AuditFinding]
@@ -947,6 +1012,7 @@ class AuditReport(BaseModel):
     coefficient: Qty | None
     assumed_coefficient: Qty | None
     completeness: AuditCompleteness
+    rules: AuditRules
 
 
 # ---------------------------------------------------------------------------- shared reports
@@ -1587,9 +1653,18 @@ class DndReportLine(BaseModel):
     container_id: UUID
     container_number: str
     paid: Money
-    #: Null when nothing can be estimated honestly; `rule` says why.
+    #: Null when nothing can be estimated honestly; `rule_code` says why.
     avoided: Money | None
+    #: Deprecated: `rule_code` and its values in an English sentence, kept until the screens read the
+    #: code. Never show it.
     rule: str
+    #: DND_AVOIDED_ESTIMATED (`days` between the first risk alert and the pickup x `daily_rate`),
+    #: DND_AVOIDED_NO_RATE (no DEMURRAGE rate card), DND_AVOIDED_NO_ALERT (no alert or no pickup).
+    rule_code: Literal["DND_AVOIDED_ESTIMATED", "DND_AVOIDED_NO_RATE", "DND_AVOIDED_NO_ALERT"]
+    days: int | None
+    daily_rate: Money | None
+    #: Days past the last free day at pickup — the demurrage days paid for — when both are known.
+    days_over: int | None
 
 
 class DndAtRiskLine(BaseModel):

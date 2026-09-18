@@ -14,7 +14,7 @@ from app.api.v1.deps import WriterDep
 from app.api.v1.landed_costs import _serialize
 from app.api.v1.reports import _audit_schema
 from app.core.auth import DbDep
-from app.core.errors import NotFound, TooManyRequests, Unprocessable
+from app.core.errors import NotFound, TooManyRequests
 from app.core.ratelimit import SlidingWindow, client_address
 from app.core.tenancy import TenantDep, TenantSession
 from app.domain.audit.service import (
@@ -27,7 +27,7 @@ from app.domain.audit.service import (
 from app.domain.costing import report as rpt
 from app.domain.costing.service import compute
 from app.domain.models import Container, PurchaseOrder, SharedReport
-from app.domain.reporting.audit import Audit, audit_report
+from app.domain.reporting.audit import PUBLIC_PARAMS, Audit, audit_report
 from app.domain.sample_registry import has_sample_data
 from app.domain.shares import service as shares
 
@@ -63,10 +63,14 @@ def _frozen_report(report: rpt.Report, redact: bool) -> dict[str, Any]:
 def _frozen_audit(found: Audit, redact: bool) -> dict[str, Any]:
     frozen = _audit_schema(found).model_dump(mode="json")
     if redact:
+        # Out of the snapshot itself: the forwarders and their invoice numbers on every finding, any
+        # param not known to name nobody, and the suppliers the goods come from — whom an importer
+        # buys from is as much its own business as whom it ships with. Prices and margins stay: they
+        # are what the document is about, and the sender is told so before sending.
         for finding in frozen["findings"]:
             finding["vendor"] = finding["invoice_number"] = None
-            for key in ("first_invoice", "first_vendor"):
-                finding["params"].pop(key, None)
+            finding["params"] = {k: v for k, v in finding["params"].items() if k in PUBLIC_PARAMS}
+        frozen["coefficient_by_supplier"] = []
     return frozen
 
 
@@ -182,9 +186,8 @@ def share_purchase_order(
 @router.post("/reports/audit/share", response_model=schemas.ShareCreated, status_code=status.HTTP_201_CREATED)
 def share_audit(payload: schemas.AuditShareCreate, t: TenantDep, p: WriterDep) -> schemas.ShareCreated:
     """Freeze the audit of a period as it stands and return a link to it: the document of the paid
-    offer, sent to somebody who has no account. The subject of the share is the organization itself."""
-    if payload.period_to < payload.period_from:
-        raise Unprocessable("period_to comes before period_from", code="PERIOD_INVALID")
+    offer, sent to somebody who has no account. The subject of the share is the organization itself.
+    With `redact_vendors`, forwarders, invoice numbers and suppliers are left out of the snapshot."""
     found = audit_report(t.db, compute(t.db, t.org), t.org, payload.period_from, payload.period_to)
     return _share(
         t,
