@@ -275,8 +275,9 @@ export async function confirmInvoice(invoiceId: string, force = false, forceReco
     const t = await getTranslations();
     const code = error && typeof error === "object" ? (error as { code?: string | null }).code ?? undefined : undefined;
     const message = await problemMessage(error, t("invoices.detail.failed"));
-    // An API that does not say (params.forceable absent) keeps the override, as before it said.
-    const forceable = (error as Problem | null | undefined)?.params?.forceable !== "false";
+    // A top-level boolean on the problem, like `existing_id`. An API that does not say keeps the
+    // override, as before it said.
+    const forceable = (error as (Problem & { forceable?: boolean }) | null | undefined)?.forceable !== false;
     return { ok: false, error: message, code: code ?? undefined, forceable };
   }
   revalidatePath(`/invoices/${invoiceId}`);
