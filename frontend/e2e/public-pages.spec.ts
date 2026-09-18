@@ -106,3 +106,18 @@ test("a shared report link that does not exist answers a real 404, out of search
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/plus valable|no longer valid/);
   await expect(page.locator('meta[name="robots"]').first()).toHaveAttribute("content", /noindex/);
 });
+
+test("the public pages answer without the Clerk middleware, so a cookie-less client is never sent to a handshake", async ({ request }) => {
+  // On a Clerk development instance the middleware answers a document request that carries no Clerk
+  // cookie with a redirect to Clerk's handshake, and a client that keeps no cookies (a search
+  // engine, a link preview) looped on it forever on these pages (seen on production, 18 Sept 2026).
+  // The middleware marks every response it handles with x-clerk-auth-status.
+  for (const path of ["/", "/securite", "/design-partner", `/r/${"x".repeat(43)}`]) {
+    const response = await request.get(path, { headers: { accept: "text/html" }, maxRedirects: 0 });
+    expect(response.headers()["x-clerk-auth-status"], path).toBeUndefined();
+    expect(response.status(), path).not.toBe(307);
+  }
+  // What the check relies on: on an application page, the middleware does run.
+  const signIn = await request.get("/sign-in", { headers: { accept: "text/html" }, maxRedirects: 0 });
+  expect(signIn.headers()["x-clerk-auth-status"]).toBeDefined();
+});

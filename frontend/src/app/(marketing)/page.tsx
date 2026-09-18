@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ArrowRight, Check, FileSpreadsheet, Receipt, Sigma } from "lucide-react";
 import DemurrageCalculator from "@/features/marketing/DemurrageCalculator";
@@ -30,10 +28,10 @@ export const metadata: Metadata = {
 const btnPrimary = "inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium py-2.5 px-5 rounded-md";
 const btnGhost = "inline-flex items-center gap-2 text-sm font-medium py-2.5 px-5 rounded-md border border-slate-300 hover:bg-slate-50";
 
-export default async function LandingPage({ searchParams }: { searchParams: Promise<{ preview?: string }> }) {
-  const [a, sp] = await Promise.all([auth(), searchParams]);
-  if (a.isAuthenticated && a.orgId && !sp.preview) redirect(site.appHome);
-
+// No session check here: the public pages run outside the Clerk middleware so that a visitor with no
+// cookie — a search engine, a link preview — gets the page itself (see proxy.ts). Someone signed in
+// finds "Ouvrir l'application" in the header instead of being redirected.
+export default function LandingPage() {
   return (
     <main>
       {/* Hero */}

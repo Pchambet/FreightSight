@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Ship } from "lucide-react";
+import AccountLink from "@/features/marketing/AccountLink";
 import MobileNav from "@/features/marketing/MobileNav";
 import { site } from "@/lib/site";
 
@@ -16,7 +17,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     <div lang="fr" className="min-h-screen bg-white text-slate-900">
       <header className="relative border-b border-slate-200 bg-white/90 backdrop-blur sticky top-0 z-20 print:hidden">
         <div className="max-w-6xl mx-auto px-5 h-14 flex items-center gap-6">
-          <Link href="/?preview=1" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <div className="bg-blue-600 p-1.5 rounded-md"><Ship className="w-4 h-4 text-white" /></div>
             <span className="text-lg font-semibold tracking-tight">Freight<span className="text-blue-600">Sight</span></span>
           </Link>
@@ -26,7 +27,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-2 text-sm">
-            <Link href="/sign-in" className="hidden md:inline-flex px-3 py-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900">Se connecter</Link>
+            <AccountLink className="hidden md:inline-flex px-3 py-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900" />
             <a href={site.bookingUrl} className="inline-flex items-center whitespace-nowrap bg-slate-900 hover:bg-slate-800 text-white font-medium py-1.5 px-3.5 rounded-md">Réserver 20 minutes</a>
             <MobileNav items={NAV} />
           </div>

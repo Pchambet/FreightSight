@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import AccountLink from "@/features/marketing/AccountLink";
 import { Menu, X } from "lucide-react";
 
 type NavItem = { href: string; label: string };
@@ -41,9 +42,7 @@ export default function MobileNav({ items }: { items: NavItem[] }) {
                 {n.label}
               </Link>
             ))}
-            <Link href="/sign-in" onClick={() => setOpen(false)} className="px-2 py-2.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900">
-              Se connecter
-            </Link>
+            <AccountLink onClick={() => setOpen(false)} className="px-2 py-2.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900" />
           </nav>
         </div>
       )}
