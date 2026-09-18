@@ -676,7 +676,8 @@
       "OUTLIER_CHARGE": "Montant hors norme pour la route",
       "ESTIMATE_NEVER_INVOICED": "Estimé jamais facturé",
       "UNALLOCATED_COST": "Coût non ventilé",
-      "DUTY_RATE_MISSING": "Droits ventilés sans taux sur une ligne"
+      "DUTY_RATE_MISSING": "Droits ventilés sans taux sur une ligne",
+      "DOUBLE_ENTRY": "Facture saisie deux fois"
     },
     "confidence": {
       "sure": "Établi",
@@ -2276,7 +2277,9 @@
         "fxAdded": "Le change y ajoute {fx}, qui ne relèvent pas du prestataire.",
         "fxRemoved": "Le change en retranche {fx}.",
         "outlierSized": "{amount} contre une médiane de {median} pour la même prestation sur {basis} autres conteneurs de {size} pieds de la route {route} (× {ratio}). Peut s'expliquer : conteneur plus lourd, attente, second passage.",
-        "aboveQuoteMixed": "Estimé et facture dans deux devises : comparés en euros au taux de chaque pièce, {quoted} contre {invoiced} (+{share} %). À vérifier : l'écart mêle prix et change."
+        "aboveQuoteMixed": "Estimé et facture dans deux devises : comparés en euros au taux de chaque pièce, {quoted} contre {invoiced} (+{share} %). À vérifier : l'écart mêle prix et change.",
+        "doubleEntry": "Déjà enregistrée : facture {invoice} de {vendor}, pour {amount}. Le coût de revient la compte deux fois : supprimez l'une des deux saisies.",
+        "doubleEntryRedacted": "La même facture est déjà enregistrée, pour {amount} : le coût de revient la compte deux fois."
       },
       "demurrage": {
         "title": "Surestaries et détention",

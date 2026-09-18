@@ -91,6 +91,12 @@ export default async function AuditSheet({ audit, header, locale }: { audit: Aud
         return p.first_invoice || p.first_vendor
           ? t(p.same_vendor === "true" ? "because.duplicateSameVendor" : "because.duplicate", { vendor: p.first_vendor || "—", invoice: p.first_invoice || "—", amount: eur(p.first_amount) })
           : t("because.duplicateRedacted", { amount: eur(p.first_amount) });
+      case "DOUBLE_ENTRY":
+        // Not a forwarder billing twice: the company's own books hold one invoice twice, under two
+        // spellings — the landed cost counts it twice until one entry goes.
+        return p.first_invoice || p.first_vendor
+          ? t("because.doubleEntry", { vendor: p.first_vendor || "—", invoice: p.first_invoice || "—", amount: eur(p.first_amount) })
+          : t("because.doubleEntryRedacted", { amount: eur(p.first_amount) });
       case "ABOVE_QUOTE": {
         // An estimate and an invoice in two currencies are compared in euros at each document's own
         // rate: the gap mixes price and exchange, which is why the rule only says "to check".

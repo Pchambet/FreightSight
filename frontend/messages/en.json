@@ -676,7 +676,8 @@
       "OUTLIER_CHARGE": "Out-of-line amount for the route",
       "ESTIMATE_NEVER_INVOICED": "Estimate never invoiced",
       "UNALLOCATED_COST": "Unallocated cost",
-      "DUTY_RATE_MISSING": "Duty allocated without a rate on a line"
+      "DUTY_RATE_MISSING": "Duty allocated without a rate on a line",
+      "DOUBLE_ENTRY": "Invoice entered twice"
     },
     "confidence": {
       "sure": "Established",
@@ -2276,7 +2277,9 @@
         "fxAdded": "The exchange rate adds {fx} to it, which is not the provider's doing.",
         "fxRemoved": "The exchange rate takes {fx} off it.",
         "outlierSized": "{amount} against a median of {median} for the same service on {basis} other {size}-foot containers of the {route} route (× {ratio}). May have an explanation: a heavier box, waiting time, a second delivery attempt.",
-        "aboveQuoteMixed": "Estimate and invoice in two currencies: compared in euros at each document's rate, {quoted} against {invoiced} (+{share}%). To check: the gap mixes price and exchange rate."
+        "aboveQuoteMixed": "Estimate and invoice in two currencies: compared in euros at each document's rate, {quoted} against {invoiced} (+{share}%). To check: the gap mixes price and exchange rate.",
+        "doubleEntry": "Already recorded: invoice {invoice} from {vendor}, for {amount}. The landed cost counts it twice: delete one of the two entries.",
+        "doubleEntryRedacted": "The same invoice is already recorded, for {amount}: the landed cost counts it twice."
       },
       "demurrage": {
         "title": "Demurrage and detention",
