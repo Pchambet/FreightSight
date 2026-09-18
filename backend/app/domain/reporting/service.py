@@ -33,6 +33,8 @@ from app.domain.models import (
     Organization,
     SkuCostHistory,
 )
+from app.domain.tracking.calendar import local_date
+from app.domain.tracking.state import port_zone
 
 ZERO = Decimal("0.00")
 UNKNOWN = "unknown"
@@ -413,7 +415,10 @@ def dnd_report(
             )
             not_estimable += 1
         else:
-            days = max((picked_up.date() - alert.created_at.date()).days, 0)
+            # Counted in the port's calendar, like the free days they are measured against: a box
+            # collected at 00:14 in Le Havre was collected that day, whatever day it was in UTC.
+            where = port_zone(container, org)
+            days = max((local_date(picked_up, where) - local_date(alert.created_at, where)).days, 0)
             avoided = q2(Decimal(days) * daily_rate)
             code = "DND_AVOIDED_ESTIMATED"
             rule = f"{days} day(s) between the first risk alert and pickup x {daily_rate} per day"
@@ -433,7 +438,7 @@ def dnd_report(
                 days=days,
                 daily_rate=daily_rate if code == "DND_AVOIDED_ESTIMATED" else None,
                 days_over=(
-                    max((picked_up.date() - last_free).days, 0)
+                    max((local_date(picked_up, port_zone(container, org)) - last_free).days, 0)
                     if picked_up is not None and last_free is not None
                     else None
                 ),
@@ -447,7 +452,7 @@ def dnd_report(
         ContainerMilestone.GATE_IN_EMPTY_RETURN,
     }
     risky = {DndRisk.MEDIUM, DndRisk.HIGH, DndRisk.INCURRING}
-    today = datetime.now(UTC).date()
+    now = datetime.now(UTC)
     for container in containers.values():
         if container.archived_at is not None:
             continue
@@ -458,6 +463,7 @@ def dnd_report(
         if not _in_period(container, period_from, period_to):
             continue
         lfd = container.last_free_day
+        today = local_date(now, port_zone(container, org))  # the last free day's own calendar
         # A code, not a sentence. This one reached the report a CFO reads, in English and with an
         # ISO date, because it was written here as prose. The screen has `last_free_day` and today's
         # date already, so it can say it in the reader's language and their date format.

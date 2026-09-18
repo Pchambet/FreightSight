@@ -469,6 +469,22 @@ def test_the_audit_says_which_boxes_it_could_not_compare_or_date_and_by_which_ru
     )
 
 
+def test_demurrage_days_are_the_port_s_days_whatever_the_hour_in_utc(client: TestClient) -> None:
+    """Unloaded at 00:30 in Le Havre on 10 March, collected at 00:30 on 19 March: seven free days end on
+    the 16th, and the box was three days over — not two, as it would be counting in UTC, where both
+    instants fall on the evening before."""
+    box = landed(client, "MSCU4821990", "2026-03-10")
+    route(client, [box])
+    patch = {"discharged_at": "2026-03-09T23:30:00Z", "gate_out_at": "2026-03-18T23:30:00Z",
+             "empty_returned_at": "2026-03-20T10:00:00Z", "free_days_demurrage": 7}  # fmt: skip
+    assert client.patch(f"/api/v1/containers/{box}", json=patch).status_code == 200
+    card = {"cost_type": "DEMURRAGE", "amount": "85.00", "currency": "EUR"}
+    assert client.post("/api/v1/organization/rate-cards", json=card).status_code == 201
+    cost(client, box, "DEMURRAGE", "255.00", vendor="TERMINAL", invoice_number="SUR-1")
+    (line,) = [d for d in audit(client)["demurrage"] if d["paid"] == "255.00"]
+    assert line["days_over"] == 3
+
+
 def test_detention_invoiced_after_the_quarter_belongs_to_the_quarter_the_box_arrived_in(
     client: TestClient,
 ) -> None:
