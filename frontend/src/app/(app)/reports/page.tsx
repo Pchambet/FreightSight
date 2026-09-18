@@ -10,7 +10,6 @@ import { COST_FAMILIES, foldFamilies, type CostFamily } from "@/components/chart
 import { Money } from "@/components/shared/Money";
 import Panel from "@/components/ui/Panel";
 import { monthLabel, monthTitle } from "@/features/overview/period";
-import { parseDndRule } from "@/features/reports/dndRule";
 import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
 import { reportsHubStep } from "@/features/workflow/steps";
 import { api, type DndAnalysis, type LandedCostAnalysis } from "@/lib/api/client";
@@ -43,23 +42,16 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const familyLabels = Object.fromEntries(COST_FAMILIES.map((f) => [f, tfam(f)])) as Record<CostFamily, string>;
   const ratio = (v: number) => new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
   const csvQuery = new URLSearchParams({ locale, ...(period.period_from ? { period_from: period.period_from } : {}), ...(period.period_to ? { period_to: period.period_to } : {}) }).toString();
-  // `DndLine.rule` (paid/avoided, `dnd.lines`) is still a free-text English sentence from the
-  // backend — parsed by `parseDndRule`'s pattern matching (needs_other_lane, see dndRule.ts).
-  const dndRuleText = (raw: string) => {
-    const rule = parseDndRule(raw);
-    switch (rule.kind) {
-      case "noAlert":
-        return t("dndRule.noAlert");
-      case "noRateCard":
+  // Why a line's "avoided" is what it is, from the API's rule code and its own figures — no longer a
+  // parse of an English sentence (audit B30).
+  const dndRuleText = (l: { rule_code: string; days?: number | null; daily_rate?: string | null }) => {
+    switch (l.rule_code) {
+      case "DND_AVOIDED_ESTIMATED":
+        return l.days != null && l.daily_rate != null ? t("dndRule.estimable", { days: l.days, rate: money(l.daily_rate, cur, locale) }) : t("dndRule.unknown");
+      case "DND_AVOIDED_NO_RATE":
         return t("dndRule.noRateCard", { demurrage: tt("DEMURRAGE") });
-      case "estimable":
-        return t("dndRule.estimable", { days: rule.days, rate: money(rule.dailyRate, cur, locale) });
-      case "lfdOver":
-        return t("dndRule.lfdOver", { date: dateShort(rule.date, locale) });
-      case "lfdLeft":
-        return t("dndRule.lfdLeft", { date: dateShort(rule.date, locale), days: rule.days });
-      case "riskNoLfd":
-        return t("dndRule.riskNoLfd", { risk: trisk.has(rule.risk.toUpperCase() as never) ? trisk(rule.risk.toUpperCase() as never) : rule.risk });
+      case "DND_AVOIDED_NO_ALERT":
+        return t("dndRule.noAlert");
       default:
         return t("dndRule.unknown");
     }
@@ -187,7 +179,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <thead className="bg-slate-50"><tr><th className={th}>{t("th.container")}</th><th className={thRight}>{t("th.paid")}</th><th className={thRight}>{t("th.avoided")}</th><th className={th}>{t("th.rule")}</th></tr></thead>
               <tbody className="divide-y divide-slate-200">
                 {!d || d.lines.length === 0 ? <tr><td colSpan={4} className="px-5 py-6 text-center text-sm text-slate-500">{t("dndEmpty")}</td></tr> : d.lines.map((l) => (
-                  <tr key={l.container_id}><td className={td}><Link href={`/container/${l.container_id}`} className="font-mono text-blue-600 hover:underline">{l.container_number}</Link></td><td className={tdRight}><Money amount={l.paid} currency={cur} /></td><td className={tdRight}>{l.avoided != null ? <Money amount={l.avoided} currency={cur} /> : <span className="text-slate-400">{t("notEstimable")}</span>}</td><td className={`${td} text-xs text-slate-500 whitespace-normal max-w-md`}>{dndRuleText(l.rule)}</td></tr>
+                  <tr key={l.container_id}><td className={td}><Link href={`/container/${l.container_id}`} className="font-mono text-blue-600 hover:underline">{l.container_number}</Link></td><td className={tdRight}><Money amount={l.paid} currency={cur} /></td><td className={tdRight}>{l.avoided != null ? <Money amount={l.avoided} currency={cur} /> : <span className="text-slate-400">{t("notEstimable")}</span>}</td><td className={`${td} text-xs text-slate-500 whitespace-normal max-w-md`}>{dndRuleText(l)}</td></tr>
                 ))}
               </tbody>
             </table>

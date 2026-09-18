@@ -38,7 +38,8 @@
     "search": "Rechercher",
     "collapse": "Réduire le menu",
     "expand": "Déplier le menu",
-    "periods": "Clôtures"
+    "periods": "Clôtures",
+    "costAudit": "Audit des coûts"
   },
   "help": {
     "subject": "Aide FreightSight — {org}",
@@ -655,7 +656,20 @@
       "container_shared": "Rapport du conteneur partagé",
       "purchase_order_shared": "Rapport de la commande partagé",
       "share_revoked": "Lien de partage retiré",
-      "period_drift_acknowledged": "Écart de clôture comptabilisé"
+      "period_drift_acknowledged": "Écart de clôture comptabilisé",
+      "audit_shared": "Audit partagé"
+    },
+    "finding": {
+      "DUPLICATE_CHARGE": "Prestation facturée deux fois",
+      "ABOVE_QUOTE": "Facture au-dessus de l'estimé",
+      "OUTLIER_CHARGE": "Montant hors norme pour la route",
+      "ESTIMATE_NEVER_INVOICED": "Estimé jamais facturé",
+      "UNALLOCATED_COST": "Coût non ventilé",
+      "DUTY_RATE_MISSING": "Droits ventilés sans taux sur une ligne"
+    },
+    "confidence": {
+      "sure": "Établi",
+      "to_check": "À vérifier"
     }
   },
   "errors": {
@@ -766,7 +780,9 @@
     "PERIOD_NOT_CLOSED": "Ce mois n'est pas clos.",
     "FORBIDDEN_ROLE": "Votre rôle dans cette société ne permet pas cette action.",
     "SHARE_NOT_FOUND": "Ce lien de partage n'existe pas ou n'est plus valable.",
-    "RATE_LIMITED": "Trop de demandes en peu de temps. Réessayez dans un instant."
+    "RATE_LIMITED": "Trop de demandes en peu de temps. Réessayez dans un instant.",
+    "PERIOD_INVALID": "La période n'est pas valide : la date de début doit précéder la date de fin, entre 2000 et 2100.",
+    "ASSUMED_COEFFICIENT_INVALID": "Le coefficient appliqué est un rapport entre 1 et 3, comme 1,15, et non un pourcentage."
   },
   "timeline": {
     "title": "Chronologie",
@@ -2009,10 +2025,20 @@
     "mail": {
       "action": "Préparer l'e-mail",
       "subject": "Coût de revient rendu – {label}",
-      "body": "Bonjour,\n\nVoici le coût de revient rendu de {label}, par référence, avec le détail des frais :\n{url}\n\nLe lien s'ouvre sans compte et reste valable jusqu'au {date}. Le rapport s'imprime ou s'enregistre en PDF depuis la page.\n\nBien cordialement,"
+      "body": "Bonjour,\n\nVoici le coût de revient rendu de {label}, par référence, avec le détail des frais :\n{url}\n\nLe lien s'ouvre sans compte et reste valable jusqu'au {date}. Le rapport s'imprime ou s'enregistre en PDF depuis la page.\n\nBien cordialement,",
+      "auditSubject": "Audit des coûts d'importation {label}",
+      "auditBody": "Bonjour,\n\nVoici l'audit des coûts d'importation {label} : ce que les marchandises ont réellement coûté, les écarts à faire justifier par les prestataires, et la méthode :\n{url}\n\nLe lien s'ouvre sans compte et reste valable jusqu'au {date}. Le document s'imprime ou s'enregistre en PDF depuis la page.\n\nBien cordialement,"
     },
     "redact": "Masquer les prestataires et les numéros de facture",
-    "redactHint": "Pour un destinataire qui n'a pas à connaître votre transitaire : ces informations ne sont pas écrites dans le rapport partagé, pas seulement cachées."
+    "redactHint": "Pour un destinataire qui n'a pas à connaître votre transitaire : ces informations ne sont pas écrites dans le rapport partagé, pas seulement cachées.",
+    "auditTitle": "Partager l'audit {label}",
+    "createdAudit": "Audit figé le {when}",
+    "openAudit": "Partager l'audit",
+    "redactAudit": "Retirer les noms des prestataires et des fournisseurs",
+    "redactAuditHint": "Pour un tiers (banque, conseil, transitaire en appel d'offres) : les noms ne sont pas écrits dans l'audit partagé. Les prix, les marges et les montants, eux, partent avec le document.",
+    "createdAuditLanded": "coût rendu de la période {landed}",
+    "introAudit": "Un lien en lecture seule, pour quelqu'un qui n'a pas de compte : votre dirigeant, votre expert-comptable, votre banque.",
+    "frozenHintAudit": "L'audit est figé au moment où vous créez le lien : si un coût change ensuite, le destinataire continue de voir les chiffres que vous lui avez envoyés. Pour envoyer les nouveaux, créez un nouveau lien."
   },
   "start": {
     "title": "Nouveau dossier",
@@ -2110,6 +2136,156 @@
       "openContainer": "Ouvrir la fiche du conteneur",
       "moreCosts": "Ajouter d'autres frais",
       "again": "Nouveau dossier"
+    }
+  },
+  "costAudit": {
+    "title": "Audit des coûts",
+    "subtitle": "Ce que vos importations ont réellement coûté sur une période, ce qui est à faire justifier par vos prestataires, et jusqu'où les chiffres sont complets. Imprimable et partageable.",
+    "export": "Constats (CSV)",
+    "print": "Imprimer ou enregistrer en PDF",
+    "shareLabel": "du {from} au {to}",
+    "presets": {
+      "label": "Période auditée",
+      "lastQuarter": "Dernier trimestre clos",
+      "thisQuarter": "Trimestre en cours",
+      "sixMonths": "6 derniers mois",
+      "twelveMonths": "12 derniers mois",
+      "from": "Du",
+      "to": "Au",
+      "apply": "Appliquer"
+    },
+    "assumed": {
+      "title": "Le coefficient que vous appliquez",
+      "subtitle": "C'est contre lui que l'audit mesure votre coefficient réel. Modifiable à tout moment.",
+      "subtitleMissing": "Par combien multipliez-vous le prix d'achat pour couvrir le transport et la douane ? Sans ce chiffre, l'audit ne peut pas dire si vos prix couvrent vos frais.",
+      "label": "Coefficient appliqué",
+      "hint": "Un rapport entre 1 et 3 : 1,15 veut dire que vous comptez 15 % de frais sur le prix d'achat. Laissez vide pour ne pas comparer.",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "saved": "Coefficient enregistré.",
+      "cleared": "Coefficient retiré.",
+      "invalid": "Un coefficient s'écrit comme 1,15 : un chiffre, une virgule, jusqu'à quatre décimales.",
+      "failed": "Impossible d'enregistrer le coefficient"
+    },
+    "sheet": {
+      "kicker": "FreightSight · audit",
+      "title": "Audit des coûts d'importation",
+      "period": "Du {from} au {to}",
+      "computedOn": "Calculé le {date}",
+      "validUntil": "Lien valable jusqu'au {date}",
+      "sample": "Données d'exemple : cet audit provient d'une société de démonstration, ses chiffres sont ceux d'un importateur fictif.",
+      "essentials": {
+        "title": "L'essentiel",
+        "margin": "Ce que le prix d'achat ne dit pas",
+        "marginSub": "de frais d'approche sur {priced, plural, one {la référence} other {les # références}} dont le prix de vente est connu : autant de marge en moins que ne l'annonce un calcul sur le prix d'achat.{unpriced, plural, =0 {} one { # référence sans prix de vente n'est pas comptée.} other { # références sans prix de vente ne sont pas comptées.}}",
+        "marginNone": "Aucune référence de la période n'a de prix de vente : renseignez-les dans leur fiche produit pour chiffrer la marge réelle.",
+        "claims": "À faire justifier par vos prestataires",
+        "claimsSub": "établis, et {toCheck} à vérifier. Une question à poser au prestataire, pas une économie promise.",
+        "demurrage": "Surestaries et détention payées",
+        "demurrageSub": "{count, plural, =0 {Aucun conteneur concerné.} one {Sur # conteneur.} other {Sur # conteneurs.}}",
+        "coefficient": "Coefficient d'approche réel",
+        "coefficientNoAssumed": "Coût rendu divisé par le prix d'achat sur la période. Indiquez ci-dessus le coefficient que vous appliquez : l'audit dira s'il couvre vos frais.",
+        "gapUncovered": "Frais non couverts par votre coefficient",
+        "gapCovered": "Marge de sécurité de votre coefficient",
+        "gapUncoveredSub": "Vous appliquez {assumed}, vos importations vous ont coûté {real} : des prix fixés sur votre coefficient laissent ce montant de frais d'approche sans couverture sur la période, toutes références confondues.",
+        "gapCoveredSub": "Vous appliquez {assumed}, vos importations vous ont coûté {real} : votre coefficient a couvert tous vos frais d'approche sur la période, avec ce montant de marge."
+      },
+      "margins": {
+        "title": "La marge réelle, référence par référence",
+        "subtitle": "Frais d'approche sur le volume de la période, et marge lue sur le prix d'achat contre marge réelle au coût rendu. Les références les plus chargées en frais d'abord.",
+        "subtitleUnpriced": "Frais d'approche sur le volume de la période : ce qu'un prix fixé sur le prix d'achat ne couvre pas. Sans prix de vente, la marge n'est pas chiffrée.",
+        "none": "Aucune référence arrivée sur la période.",
+        "noPrice": "prix de vente non renseigné",
+        "points": "−{points} pts",
+        "th": {
+          "sku": "Référence",
+          "quantity": "Qté",
+          "unitFob": "Achat unit.",
+          "unitLanded": "Rendu unit.",
+          "approach": "Frais d'approche",
+          "salePrice": "Prix de vente",
+          "onFob": "Marge sur FOB",
+          "real": "Marge réelle",
+          "lost": "Écart",
+          "gap": "Écart / coef. {assumed}"
+        }
+      },
+      "claims": {
+        "title": "À faire justifier par vos prestataires",
+        "subtitle": "« Établi » : le fait est mesuré, par exemple deux factures pour la même prestation, ou une facture au-dessus de son estimé. « À vérifier » : un montant loin de la norme de sa route, qui peut s'expliquer. Dans les deux cas, une question à poser au prestataire, pas une accusation.",
+        "none": "Aucun doublon, aucune facture au-dessus de son estimé, aucun montant hors norme sur la période."
+      },
+      "because": {
+        "duplicate": "Aussi facturé par {vendor}, facture {invoice}, pour {amount} : une refacturation à faire justifier. Vérifiez qu'un avoir n'a pas annulé l'une des deux factures.",
+        "duplicateRedacted": "La même prestation figure sur une autre facture, pour {amount}. Vérifiez qu'un avoir n'a pas annulé l'une des deux.",
+        "aboveQuote": "Estimé à {quoted}, facturé {invoiced} : +{share} %, soit {amount} au taux de la facture.",
+        "outlier": "{amount} contre une médiane de {median} pour la même prestation sur {basis} autres conteneurs de la route {route} (× {ratio}). Peut s'expliquer : conteneur plus lourd, attente, second passage.",
+        "stale": "Estimé depuis l'arrivée du {date}, jamais remplacé par une facture : {days} jours au {asOf}, date de l'audit. Facture égarée, ou frais jamais facturés qui gonflent le coût rendu.",
+        "unallocated": "Ce coût n'a pas pu être ventilé : il n'entre dans aucun coût unitaire.",
+        "dutyRate": "{lines, plural, one {# ligne sans taux de droits} other {# lignes sans taux de droits}} ({which}) : les droits ont été répartis sur la valeur en douane. Renseignez le taux dans la fiche produit.",
+        "duplicateSameVendor": "Déjà facturé par le même prestataire, facture {invoice}, pour {amount}. Vérifiez qu'un avoir n'a pas annulé l'une des deux factures.",
+        "fxAdded": "Le change y ajoute {fx}, qui ne relèvent pas du prestataire.",
+        "fxRemoved": "Le change en retranche {fx}.",
+        "outlierSized": "{amount} contre une médiane de {median} pour la même prestation sur {basis} autres conteneurs de {size} pieds de la route {route} (× {ratio}). Peut s'expliquer : conteneur plus lourd, attente, second passage.",
+        "aboveQuoteMixed": "Estimé et facture dans deux devises : comparés en euros au taux de chaque pièce, {quoted} contre {invoiced} (+{share} %). À vérifier : l'écart mêle prix et change."
+      },
+      "demurrage": {
+        "title": "Surestaries et détention",
+        "none": "Aucune surestarie ni détention payée sur la période.",
+        "perUnit": "{amount} par unité ({quantity} unités)",
+        "noRateCard": "Pour certains conteneurs, « évité » ne peut pas être chiffré sans barème de surestaries dans vos réglages.",
+        "avoidedHint": "« Évité » : ce que les conteneurs enlevés à temps après une alerte auraient coûté au tarif de votre barème ; « — » quand rien n'a été évité.",
+        "th": {
+          "container": "Conteneur",
+          "paid": "Payé",
+          "perUnit": "Par unité",
+          "avoided": "Évité",
+          "late": "Retard à l'enlèvement"
+        },
+        "late": "{days, plural, one {# jour} other {# jours}} après le dernier jour franc",
+        "avoidedHow": "{days, plural, one {# jour} other {# jours}} × {rate}"
+      },
+      "coefficient": {
+        "title": "Le coefficient d'approche, mois par mois et fournisseur par fournisseur",
+        "subtitle": "Coût rendu divisé par le prix d'achat. Un point orange marque ce qui dépasse le coefficient que vous appliquez ({assumed}).",
+        "subtitleNoAssumed": "Coût rendu divisé par le prix d'achat.",
+        "noDate": "Sans date d'arrivée",
+        "noSupplier": "Fournisseur non renseigné",
+        "above": "Au-dessus de votre coefficient",
+        "th": {
+          "month": "Mois d'arrivée",
+          "supplier": "Fournisseur",
+          "fob": "FOB",
+          "landed": "Coût rendu",
+          "coef": "Coef."
+        },
+        "suppliersRemoved": "Les fournisseurs ont été retirés de ce document par l'émetteur."
+      },
+      "quality": {
+        "title": "Méthode et complétude",
+        "containers": "Conteneurs arrivés sur la période",
+        "landed": "Coût rendu total",
+        "estimated": "Encore estimé, sans facture",
+        "withoutCost": "Conteneurs sans aucun coût",
+        "toReview": "Factures en attente de relecture, à ce jour",
+        "fx": "Taux de change des coûts",
+        "fxSource": "{source} : {count}",
+        "findings": "Constats sur la qualité des chiffres"
+      },
+      "footer": "Établi à partir des commandes et des factures de l'émetteur. Un constat « établi » est un fait mesuré ; « à vérifier » est une question à poser, pas une accusation.",
+      "method": {
+        "title": "Les règles appliquées",
+        "allocation": "Chaque coût est ventilé sur les lignes chargées selon la méthode choisie, les droits de douane sur la valeur CIF. La TVA à l'importation, récupérable, est exclue du coût de revient. Les montants en devise sont convertis au taux de la Banque centrale européenne du jour de la facture.",
+        "duplicate": "Prestation facturée deux fois : même type de frais sur un même conteneur, deux factures à {tolerance} % près dans leur devise. Établi si c'est le même prestataire ou le même montant, à vérifier sinon. Jamais pour : {never}.",
+        "aboveQuote": "Facture au-dessus de l'estimé : à partir de +{pct} % dans la devise de l'estimé et de {amount} au taux de la facture ; l'effet du change est donné à part.",
+        "outlier": "Montant hors norme : plus de {ratio} fois la médiane de la même prestation, à au moins {excess} au-dessus, sur au moins {basis} autres conteneurs de même route et de même taille, sur {days} jours ({freight} jours de part et d'autre pour le fret). Jamais comparés : {notCompared}.",
+        "stale": "Estimé jamais facturé : encore estimé {days} jours après l'arrivée de la marchandise.",
+        "once": "Un même euro n'est jamais compté par deux règles."
+      },
+      "empty": {
+        "title": "Aucune marchandise arrivée sur cette période",
+        "body": "L'audit porte sur les conteneurs arrivés entre les deux dates. Choisissez une autre période, ou renseignez la date d'arrivée de vos conteneurs."
+      }
     }
   }
 }

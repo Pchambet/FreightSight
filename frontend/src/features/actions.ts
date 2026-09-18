@@ -567,27 +567,32 @@ export async function deleteSampleData(): Promise<{ ok: true; deleted: number } 
 
 // ---------------------------------------------------------------------------- shared reports
 
-export type ShareSubject = { kind: "container" | "purchase_order"; id: string };
+/** What a link opens: one container's or one order's landed cost, or the audit of a period. */
+export type ShareSubject = { kind: "container" | "purchase_order"; id: string } | { kind: "audit"; periodFrom: string; periodTo: string };
 export type ShareSummary = Schemas["ShareSummary"];
 
 /** The token comes back this once and is stored nowhere readable: the caller shows the link at once. */
-export async function createShare(subject: ShareSubject, expiresInDays: number, redactVendors: boolean): Promise<ActionResult<{ path: string; expiresAt: string; landed: string; generatedAt: string }>> {
+export async function createShare(subject: ShareSubject, expiresInDays: number, redactVendors: boolean): Promise<ActionResult<{ path: string; expiresAt: string; landed: string | null; generatedAt: string }>> {
   await protectAction();
-  const body = { expires_in_days: Math.min(Math.max(Math.round(expiresInDays), 1), 365), redact_vendors: redactVendors };
+  const common = { expires_in_days: Math.min(Math.max(Math.round(expiresInDays), 1), 365), redact_vendors: redactVendors };
   const { data, error } =
-    subject.kind === "container"
-      ? await api.POST("/api/v1/containers/{container_id}/share", { params: { path: { container_id: subject.id } }, body })
-      : await api.POST("/api/v1/purchase-orders/{po_id}/share", { params: { path: { po_id: subject.id } }, body });
+    subject.kind === "audit"
+      ? await api.POST("/api/v1/reports/audit/share", { body: { ...common, period_from: subject.periodFrom, period_to: subject.periodTo } })
+      : subject.kind === "container"
+        ? await api.POST("/api/v1/containers/{container_id}/share", { params: { path: { container_id: subject.id } }, body: common })
+        : await api.POST("/api/v1/purchase-orders/{po_id}/share", { params: { path: { po_id: subject.id } }, body: common });
   if (error || !data) return await fail(error, "share.createFailed");
-  return { ok: true, data: { path: data.path, expiresAt: data.expires_at, landed: data.landed, generatedAt: data.generated_at } };
+  return { ok: true, data: { path: data.path, expiresAt: data.expires_at, landed: data.landed ?? null, generatedAt: data.generated_at } };
 }
 
 export async function listShares(subject: ShareSubject): Promise<ActionResult<ShareSummary[]>> {
   await protectAction();
   const { data, error } =
-    subject.kind === "container"
-      ? await api.GET("/api/v1/containers/{container_id}/shares", { params: { path: { container_id: subject.id } } })
-      : await api.GET("/api/v1/purchase-orders/{po_id}/shares", { params: { path: { po_id: subject.id } } });
+    subject.kind === "audit"
+      ? await api.GET("/api/v1/reports/audit/shares")
+      : subject.kind === "container"
+        ? await api.GET("/api/v1/containers/{container_id}/shares", { params: { path: { container_id: subject.id } } })
+        : await api.GET("/api/v1/purchase-orders/{po_id}/shares", { params: { path: { po_id: subject.id } } });
   if (error || !data) return await fail(error, "share.listFailed");
   return { ok: true, data };
 }
@@ -628,6 +633,24 @@ export async function reopenPeriod(period: string): Promise<ActionResult<null>> 
   const { error } = await api.DELETE("/api/v1/periods/{period}/close", { params: { path: { period } } });
   if (error) return await fail(error, "periods.reopenFailed");
   for (const path of ["/periods", `/periods/${period}`, "/containers"]) revalidatePath(path);
+  return { ok: true, data: null };
+}
+
+// ---------------------------------------------------------------------------- audit
+
+/**
+ * The coefficient the company applies from memory ("FOB × 1,15"), which the audit measures against.
+ * PATCH /organization merges `settings`: the one key is sent, and an empty value (null) removes it.
+ */
+export async function saveAssumedCoefficient(raw: string, revalidate: string): Promise<ActionResult<null>> {
+  await protectAction();
+  const t = await getTranslations("costAudit.assumed");
+  const typed = raw.trim().replace(",", ".");
+  if (typed !== "" && !/^\d(\.\d{1,4})?$/.test(typed)) return { ok: false, error: t("invalid") };
+  const { error } = await api.PATCH("/api/v1/organization", { body: { settings: { assumed_coefficient: typed === "" ? null : typed } } });
+  if (error) return await fail(error, "costAudit.assumed.failed");
+  revalidatePath(revalidate);
+  revalidatePath("/settings");
   return { ok: true, data: null };
 }
 

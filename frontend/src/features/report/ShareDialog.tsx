@@ -21,7 +21,9 @@ export default function ShareDialog({ subject, subjectLabel, currency, estimated
   const [open, setOpen] = useState(false);
   const [days, setDays] = useState(30);
   const [redact, setRedact] = useState(false);
-  const [created, setCreated] = useState<{ url: string; expiresAt: string; at: string; landed: string } | null>(null);
+  const [created, setCreated] = useState<{ url: string; expiresAt: string; at: string; landed: string | null } | null>(null);
+  // An audit covers a period and its links are listed across periods: each row names its own.
+  const isAudit = subject.kind === "audit";
   const [copied, setCopied] = useState(false);
   const [shares, setShares] = useState<ShareSummary[] | null>(null);
   const [pending, start] = useTransition();
@@ -52,14 +54,14 @@ export default function ShareDialog({ subject, subjectLabel, currency, estimated
     }
   };
   const mailto = created
-    ? `mailto:?subject=${encodeURIComponent(t("mail.subject", { label: subjectLabel }))}&body=${encodeURIComponent(t("mail.body", { label: subjectLabel, url: created.url, date: dateShort(created.expiresAt, locale) }))}`
+    ? `mailto:?subject=${encodeURIComponent(t(isAudit ? "mail.auditSubject" : "mail.subject", { label: subjectLabel }))}&body=${encodeURIComponent(t(isAudit ? "mail.auditBody" : "mail.body", { label: subjectLabel, url: created.url, date: dateShort(created.expiresAt, locale) }))}`
     : "#";
 
   return (
     <>
       <button ref={trigger} type="button" onClick={() => setOpen(true)} className={btnPrimary}>
         <Send className="w-4 h-4 mr-1.5" aria-hidden />
-        {t("open")}
+        {t(subject.kind === "audit" ? "openAudit" : "open")}
       </button>
       {open ? (
         <div className="fixed inset-0 z-[70] flex items-start justify-center p-4 pt-[10vh] print:hidden">
@@ -67,8 +69,8 @@ export default function ShareDialog({ subject, subjectLabel, currency, estimated
           <div ref={panel} role="dialog" aria-modal="true" aria-labelledby="share-title" className="relative w-full max-w-lg rounded-xl bg-white shadow-pop ring-1 ring-slate-900/10 animate-rise">
             <div className="flex items-start justify-between gap-3 px-5 pt-5">
               <div>
-                <h2 id="share-title" className="text-base font-semibold text-slate-900">{t("title", { label: subjectLabel })}</h2>
-                <p className="mt-1 text-sm text-slate-600">{t("intro")}</p>
+                <h2 id="share-title" className="text-base font-semibold text-slate-900">{t(isAudit ? "auditTitle" : "title", { label: subjectLabel })}</h2>
+                <p className="mt-1 text-sm text-slate-600">{t(isAudit ? "introAudit" : "intro")}</p>
               </div>
               <button type="button" onClick={() => setOpen(false)} className="p-1.5 -mr-1.5 rounded-md text-slate-500 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
                 <X className="w-4 h-4" aria-hidden />
@@ -79,7 +81,9 @@ export default function ShareDialog({ subject, subjectLabel, currency, estimated
             <div className="px-5 py-4">
               {created ? (
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                  <p className="text-sm font-medium text-emerald-950">{t("created", { when: dateTimeShortLocal(created.at, locale), landed: money(created.landed, currency, locale) })}</p>
+                  <p className="text-sm font-medium text-emerald-950">{isAudit
+                      ? `${t("createdAudit", { when: dateTimeShortLocal(created.at, locale) })}${created.landed !== null ? ` · ${t("createdAuditLanded", { landed: money(created.landed, currency, locale) })}` : ""}`
+                      : t("created", { when: dateTimeShortLocal(created.at, locale), landed: created.landed !== null ? money(created.landed, currency, locale) : "—" })}</p>
                   <div className="mt-3 flex gap-2">
                     <input readOnly value={created.url} aria-label={t("linkLabel")} onFocus={(e) => e.currentTarget.select()} className={`${input} font-mono text-xs`} />
                     <button type="button" onClick={copy} className={`${btnSecondary} shrink-0`}>
@@ -123,11 +127,11 @@ export default function ShareDialog({ subject, subjectLabel, currency, estimated
                   <label className="mt-4 flex items-start gap-2.5 text-sm text-slate-700">
                     <input type="checkbox" className="mt-0.5" checked={redact} onChange={(e) => setRedact(e.target.checked)} />
                     <span>
-                      {t("redact")}
-                      <span className="block text-xs text-slate-500">{t("redactHint")}</span>
+                      {t(isAudit ? "redactAudit" : "redact")}
+                      <span className="block text-xs text-slate-500">{t(isAudit ? "redactAuditHint" : "redactHint")}</span>
                     </span>
                   </label>
-                  <p className="mt-3 text-xs text-slate-500">{t("frozenHint")}</p>
+                  <p className="mt-3 text-xs text-slate-500">{t(isAudit ? "frozenHintAudit" : "frozenHint")}</p>
                 </>
               )}
             </div>
@@ -144,6 +148,7 @@ export default function ShareDialog({ subject, subjectLabel, currency, estimated
                     <li key={s.id} className="py-2 flex items-center gap-3 text-sm">
                       <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium ring-1 ring-inset ${s.status === "active" ? "bg-emerald-50 text-emerald-800 ring-emerald-600/20" : "bg-slate-100 text-slate-600 ring-slate-500/20"}`}>{t(`status.${s.status === "active" || s.status === "expired" || s.status === "revoked" ? s.status : "expired"}`)}</span>
                       <span className="min-w-0 flex-1 text-slate-700">
+                        {isAudit ? <span className="font-medium text-slate-900">{auditLabel(s.subject_label, locale)} · </span> : null}
                         {t("row", { created: dateShort(s.created_at, locale), expires: dateShort(s.expires_at, locale) })}
                         <span className="block text-xs text-slate-500">{s.view_count === 0 ? t("neverOpened") : t("opened", { count: s.view_count, when: s.last_viewed_at ? dateTimeShort(s.last_viewed_at, locale) : "—" })}</span>
                       </span>
@@ -174,6 +179,12 @@ export default function ShareDialog({ subject, subjectLabel, currency, estimated
       ) : null}
     </>
   );
+}
+
+/** An audit link is labelled "<from>..<to>" by the API: written as two dates. */
+function auditLabel(label: string, locale: string): string {
+  const [from, to] = label.split("..");
+  return from && to ? `${dateShort(from, locale)} – ${dateShort(to, locale)}` : label;
 }
 
 /** The moment the snapshot was taken, in the sender's own time zone (this runs in their browser). */

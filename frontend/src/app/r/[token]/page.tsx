@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Ship } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import AuditSheet from "@/features/report/AuditSheet";
 import LandedCostSheet from "@/features/report/LandedCostSheet";
 import PrintButton from "@/features/report/PrintButton";
 import type { Schemas } from "@/lib/api/client";
@@ -40,7 +41,8 @@ async function load(token: string): Promise<Shared | "busy" | null> {
 export default async function SharedReportPage({ params }: Params) {
   const { token } = await params;
   const shared = await load(token);
-  if (!shared) notFound();
+  // A snapshot carries exactly one of the two documents; one that carries neither is no document.
+  if (!shared || (shared !== "busy" && !shared.report && !shared.audit)) notFound();
   if (shared === "busy") {
     const tb = await getTranslations("sheet.busy");
     return (
@@ -67,20 +69,28 @@ export default async function SharedReportPage({ params }: Params) {
         </div>
       </header>
       <main className="px-4 py-8 print:p-0">
-        <LandedCostSheet
-          locale={locale}
-          report={shared.report}
-          header={{
-            issuer: shared.issuer.name,
-            subjectType: shared.subject_type === "purchase_order" ? "purchase_order" : "container",
-            subjectLabel: shared.subject_label,
-            shipmentReference: shared.shipment_reference,
-            generatedAt: shared.generated_at,
-            expiresAt: shared.expires_at,
-            sampleData: shared.sample_data,
-            redacted: shared.redacted,
-          }}
-        />
+        {shared.subject_type === "audit" && shared.audit ? (
+          <AuditSheet
+            locale={locale}
+            audit={shared.audit}
+            header={{ issuer: shared.issuer.name, generatedAt: shared.generated_at, expiresAt: shared.expires_at, sampleData: shared.sample_data, redacted: shared.redacted }}
+          />
+        ) : shared.report ? (
+          <LandedCostSheet
+            locale={locale}
+            report={shared.report}
+            header={{
+              issuer: shared.issuer.name,
+              subjectType: shared.subject_type === "purchase_order" ? "purchase_order" : "container",
+              subjectLabel: shared.subject_label,
+              shipmentReference: shared.shipment_reference,
+              generatedAt: shared.generated_at,
+              expiresAt: shared.expires_at,
+              sampleData: shared.sample_data,
+              redacted: shared.redacted,
+            }}
+          />
+        ) : null}
       </main>
     </div>
   );

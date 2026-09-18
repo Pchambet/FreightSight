@@ -38,7 +38,8 @@
     "search": "Search",
     "collapse": "Collapse menu",
     "expand": "Expand menu",
-    "periods": "Period close"
+    "periods": "Period close",
+    "costAudit": "Cost audit"
   },
   "help": {
     "subject": "FreightSight help — {org}",
@@ -655,7 +656,20 @@
       "container_shared": "Container report shared",
       "purchase_order_shared": "Order report shared",
       "share_revoked": "Share link withdrawn",
-      "period_drift_acknowledged": "Closing gap posted"
+      "period_drift_acknowledged": "Closing gap posted",
+      "audit_shared": "Audit shared"
+    },
+    "finding": {
+      "DUPLICATE_CHARGE": "Service invoiced twice",
+      "ABOVE_QUOTE": "Invoice above the estimate",
+      "OUTLIER_CHARGE": "Out-of-line amount for the route",
+      "ESTIMATE_NEVER_INVOICED": "Estimate never invoiced",
+      "UNALLOCATED_COST": "Unallocated cost",
+      "DUTY_RATE_MISSING": "Duty allocated without a rate on a line"
+    },
+    "confidence": {
+      "sure": "Established",
+      "to_check": "To check"
     }
   },
   "errors": {
@@ -766,7 +780,9 @@
     "PERIOD_NOT_CLOSED": "This month is not closed.",
     "FORBIDDEN_ROLE": "Your role in this company does not allow this action.",
     "SHARE_NOT_FOUND": "This share link does not exist or is no longer valid.",
-    "RATE_LIMITED": "Too many requests in a short time. Try again in a moment."
+    "RATE_LIMITED": "Too many requests in a short time. Try again in a moment.",
+    "PERIOD_INVALID": "The period is not valid: the start date must come before the end date, between 2000 and 2100.",
+    "ASSUMED_COEFFICIENT_INVALID": "The applied ratio is a ratio between 1 and 3, such as 1.15, not a percentage."
   },
   "timeline": {
     "title": "Timeline",
@@ -2009,10 +2025,20 @@
     "mail": {
       "action": "Prepare the e-mail",
       "subject": "Landed cost – {label}",
-      "body": "Hello,\n\nHere is the landed cost of {label}, per SKU, with the detail of the charges:\n{url}\n\nThe link opens without an account and stays valid until {date}. The report can be printed or saved as PDF from the page.\n\nBest regards,"
+      "body": "Hello,\n\nHere is the landed cost of {label}, per SKU, with the detail of the charges:\n{url}\n\nThe link opens without an account and stays valid until {date}. The report can be printed or saved as PDF from the page.\n\nBest regards,",
+      "auditSubject": "Import cost audit {label}",
+      "auditBody": "Hello,\n\nHere is the import cost audit {label}: what the goods really cost, the gaps to have the providers justify, and the method:\n{url}\n\nThe link opens without an account and stays valid until {date}. The document can be printed or saved as PDF from the page.\n\nBest regards,"
     },
     "redact": "Hide vendors and invoice numbers",
-    "redactHint": "For a recipient who need not know your forwarder: this information is not written into the shared report, not merely hidden."
+    "redactHint": "For a recipient who need not know your forwarder: this information is not written into the shared report, not merely hidden.",
+    "auditTitle": "Share the audit {label}",
+    "createdAudit": "Audit frozen on {when}",
+    "openAudit": "Share the audit",
+    "redactAudit": "Remove the names of providers and suppliers",
+    "redactAuditHint": "For a third party (a bank, an adviser, a forwarder in a tender): the names are not written into the shared audit. Prices, margins and amounts go with the document.",
+    "createdAuditLanded": "landed cost of the period {landed}",
+    "introAudit": "A read-only link, for someone who has no account: your manager, your accountant, your bank.",
+    "frozenHintAudit": "The audit is frozen when you create the link: if a cost changes later, the recipient still sees the figures you sent. To send the new ones, create a new link."
   },
   "start": {
     "title": "New file",
@@ -2110,6 +2136,156 @@
       "openContainer": "Open the container",
       "moreCosts": "Add more charges",
       "again": "New file"
+    }
+  },
+  "costAudit": {
+    "title": "Cost audit",
+    "subtitle": "What your imports really cost over a period, what to have your providers justify, and how complete the figures are. Printable and shareable.",
+    "export": "Findings (CSV)",
+    "print": "Print or save as PDF",
+    "shareLabel": "from {from} to {to}",
+    "presets": {
+      "label": "Audited period",
+      "lastQuarter": "Last closed quarter",
+      "thisQuarter": "Current quarter",
+      "sixMonths": "Last 6 months",
+      "twelveMonths": "Last 12 months",
+      "from": "From",
+      "to": "To",
+      "apply": "Apply"
+    },
+    "assumed": {
+      "title": "The ratio you apply",
+      "subtitle": "The audit measures your real ratio against it. Editable at any time.",
+      "subtitleMissing": "What do you multiply the purchase price by to cover transport and customs? Without this figure the audit cannot say whether your prices cover your charges.",
+      "label": "Applied ratio",
+      "hint": "A ratio between 1 and 3: 1.15 means you count 15% of charges on the purchase price. Leave blank not to compare.",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Ratio saved.",
+      "cleared": "Ratio removed.",
+      "invalid": "A ratio is written like 1.15: one digit, a point, up to four decimals.",
+      "failed": "Could not save the ratio"
+    },
+    "sheet": {
+      "kicker": "FreightSight · audit",
+      "title": "Import cost audit",
+      "period": "From {from} to {to}",
+      "computedOn": "Computed on {date}",
+      "validUntil": "Link valid until {date}",
+      "sample": "Sample data: this audit comes from a demonstration company, its figures are those of a fictional importer.",
+      "essentials": {
+        "title": "The essentials",
+        "margin": "What the purchase price does not say",
+        "marginSub": "of landing charges on {priced, plural, one {the SKU} other {the # SKUs}} whose selling price is known: that much less margin than a calculation on the purchase price shows.{unpriced, plural, =0 {} one { # SKU without a selling price is not counted.} other { # SKUs without a selling price are not counted.}}",
+        "marginNone": "No SKU of the period has a selling price: set them in their product sheet to measure the real margin.",
+        "claims": "To have your providers justify",
+        "claimsSub": "established, and {toCheck} to check. A question to put to the provider, not a promised saving.",
+        "demurrage": "Demurrage and detention paid",
+        "demurrageSub": "{count, plural, =0 {No container concerned.} one {On # container.} other {On # containers.}}",
+        "coefficient": "Real landed cost ratio",
+        "coefficientNoAssumed": "Landed cost divided by purchase price over the period. Give the ratio you apply above: the audit will say whether it covers your charges.",
+        "gapUncovered": "Charges your ratio does not cover",
+        "gapCovered": "Your ratio's safety margin",
+        "gapUncoveredSub": "You apply {assumed}, your imports cost you {real}: prices set on your ratio leave this much of landing charges uncovered over the period, all SKUs together.",
+        "gapCoveredSub": "You apply {assumed}, your imports cost you {real}: your ratio covered all your landing charges over the period, with this much to spare."
+      },
+      "margins": {
+        "title": "The real margin, SKU by SKU",
+        "subtitle": "Landing charges over the period's volume, and the margin read on the purchase price against the real margin at landed cost. The SKUs carrying the most charges first.",
+        "subtitleUnpriced": "Landing charges over the period's volume: what a price set on the purchase price does not cover. Without a selling price, the margin is not measured.",
+        "none": "No SKU arrived in the period.",
+        "noPrice": "selling price not set",
+        "points": "−{points} pts",
+        "th": {
+          "sku": "SKU",
+          "quantity": "Qty",
+          "unitFob": "Unit purchase",
+          "unitLanded": "Unit landed",
+          "approach": "Landing charges",
+          "salePrice": "Selling price",
+          "onFob": "Margin on FOB",
+          "real": "Real margin",
+          "lost": "Gap",
+          "gap": "Gap / ratio {assumed}"
+        }
+      },
+      "claims": {
+        "title": "To have your providers justify",
+        "subtitle": "“Established”: the fact is measured, for instance two invoices for the same service, or an invoice above its estimate. “To check”: an amount far from its route's norm, which may have an explanation. Either way, a question to put to the provider, not an accusation.",
+        "none": "No duplicate, no invoice above its estimate, no out-of-line amount in the period."
+      },
+      "because": {
+        "duplicate": "Also invoiced by {vendor}, invoice {invoice}, for {amount}: a re-invoicing to have justified. Check that a credit note did not cancel one of the two invoices.",
+        "duplicateRedacted": "The same service is on another invoice, for {amount}. Check that a credit note did not cancel one of the two.",
+        "aboveQuote": "Estimated at {quoted}, invoiced {invoiced}: +{share}%, that is {amount} at the invoice's rate.",
+        "outlier": "{amount} against a median of {median} for the same service on {basis} other containers of the {route} route (× {ratio}). May have an explanation: a heavier box, waiting time, a second delivery attempt.",
+        "stale": "Estimated since arrival on {date}, never replaced by an invoice: {days} days as of {asOf}, the audit's date. A lost invoice, or charges never billed that inflate the landed cost.",
+        "unallocated": "This cost could not be allocated: it is in no unit cost.",
+        "dutyRate": "{lines, plural, one {# line without a duty rate} other {# lines without a duty rate}} ({which}): duty was spread on the customs value. Set the rate in the product sheet.",
+        "duplicateSameVendor": "Already invoiced by the same provider, invoice {invoice}, for {amount}. Check that a credit note did not cancel one of the two invoices.",
+        "fxAdded": "The exchange rate adds {fx} to it, which is not the provider's doing.",
+        "fxRemoved": "The exchange rate takes {fx} off it.",
+        "outlierSized": "{amount} against a median of {median} for the same service on {basis} other {size}-foot containers of the {route} route (× {ratio}). May have an explanation: a heavier box, waiting time, a second delivery attempt.",
+        "aboveQuoteMixed": "Estimate and invoice in two currencies: compared in euros at each document's rate, {quoted} against {invoiced} (+{share}%). To check: the gap mixes price and exchange rate."
+      },
+      "demurrage": {
+        "title": "Demurrage and detention",
+        "none": "No demurrage or detention paid in the period.",
+        "perUnit": "{amount} per unit ({quantity} units)",
+        "noRateCard": "For some containers, “avoided” cannot be measured without a demurrage rate card in your settings.",
+        "avoidedHint": "“Avoided”: what containers picked up in time after an alert would have cost at your rate card's tariff; “—” when nothing was avoided.",
+        "th": {
+          "container": "Container",
+          "paid": "Paid",
+          "perUnit": "Per unit",
+          "avoided": "Avoided",
+          "late": "Late at pickup"
+        },
+        "late": "{days, plural, one {# day} other {# days}} after the last free day",
+        "avoidedHow": "{days, plural, one {# day} other {# days}} × {rate}"
+      },
+      "coefficient": {
+        "title": "The landed cost ratio, month by month and supplier by supplier",
+        "subtitle": "Landed cost divided by purchase price. An orange dot marks what exceeds the ratio you apply ({assumed}).",
+        "subtitleNoAssumed": "Landed cost divided by purchase price.",
+        "noDate": "No arrival date",
+        "noSupplier": "Supplier not set",
+        "above": "Above your ratio",
+        "th": {
+          "month": "Month of arrival",
+          "supplier": "Supplier",
+          "fob": "FOB",
+          "landed": "Landed cost",
+          "coef": "Ratio"
+        },
+        "suppliersRemoved": "The suppliers were removed from this document by its issuer."
+      },
+      "quality": {
+        "title": "Method and completeness",
+        "containers": "Containers arrived in the period",
+        "landed": "Total landed cost",
+        "estimated": "Still estimated, no invoice",
+        "withoutCost": "Containers with no cost at all",
+        "toReview": "Invoices waiting for review, to date",
+        "fx": "Exchange rates of the costs",
+        "fxSource": "{source}: {count}",
+        "findings": "Findings on the quality of the figures"
+      },
+      "footer": "Drawn up from the issuer's orders and invoices. An “established” finding is a measured fact; “to check” is a question to ask, not an accusation.",
+      "method": {
+        "title": "The rules applied",
+        "allocation": "Every cost is allocated to the loaded lines by the chosen method, customs duty on the CIF value. Import VAT, recoverable, is excluded from the landed cost. Foreign-currency amounts are converted at the European Central Bank rate of the invoice date.",
+        "duplicate": "Service invoiced twice: the same type of charge on one container, two invoices within {tolerance}% of each other in their currency. Established when it is the same provider or the same amount, to check otherwise. Never for: {never}.",
+        "aboveQuote": "Invoice above the estimate: from +{pct}% in the estimate's currency and {amount} at the invoice's rate; the exchange rate's effect is given apart.",
+        "outlier": "Out-of-line amount: more than {ratio} times the median of the same service, at least {excess} above it, on at least {basis} other containers of the same route and size, over {days} days ({freight} days either side for freight). Never compared: {notCompared}.",
+        "stale": "Estimate never invoiced: still an estimate {days} days after the goods arrived.",
+        "once": "One euro is never counted by two rules."
+      },
+      "empty": {
+        "title": "No goods arrived in this period",
+        "body": "The audit covers the containers that arrived between the two dates. Choose another period, or fill in your containers' arrival dates."
+      }
     }
   }
 }

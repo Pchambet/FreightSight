@@ -469,6 +469,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit
+         * @description The audit of a period: the margin a purchase-price pricing overstates, what is worth a claim
+         *     to the forwarders, what demurrage cost, the measured coefficient against the assumed one, and
+         *     how complete the figures are. One computation; every section's total is the platform's. A period
+         *     that ends before it starts, or outside the years 2000 to 2100, is refused with PERIOD_INVALID.
+         */
+        get: operations["audit_api_v1_reports_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/skus": {
         parameters: {
             query?: never;
@@ -1054,6 +1077,28 @@ export interface paths {
          *     (Sage, EBP, Odoo all map columns), and no vendor format is invented here.
          */
         get: operations["sku_costs_csv_api_v1_exports_sku_costs_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/audit-findings.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit Findings Csv
+         * @description The findings of a period's audit, one per line: what to claim, what to check, and on which
+         *     container and invoice — the list a buyer takes to the forwarder. A period that ends before it
+         *     starts, or outside the years 2000 to 2100, is refused with PERIOD_INVALID, as on the screen.
+         */
+        get: operations["audit_findings_csv_api_v1_exports_audit_findings_csv_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1668,6 +1713,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/audit/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share Audit
+         * @description Freeze the audit of a period as it stands and return a link to it: the document of the paid
+         *     offer, sent to somebody who has no account. The subject of the share is the organization itself.
+         *     With `redact_vendors`, forwarders, invoice numbers and suppliers are left out of the snapshot.
+         */
+        post: operations["share_audit_api_v1_reports_audit_share_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/audit/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Audit Shares */
+        get: operations["audit_shares_api_v1_reports_audit_shares_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/containers/{container_id}/shares": {
         parameters: {
             query?: never;
@@ -1900,6 +1984,69 @@ export interface components {
          * @enum {string}
          */
         AllocationMethod: "BY_VALUE" | "BY_WEIGHT" | "BY_VOLUME" | "BY_QUANTITY" | "MANUAL" | "BY_CIF_VALUE" | "BY_THEORETICAL_DUTY";
+        /** AuditCoefficient */
+        AuditCoefficient: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Fob */
+            fob: string;
+            /** Landed */
+            landed: string;
+            /** Coefficient */
+            coefficient: string | null;
+        };
+        /** AuditCompleteness */
+        AuditCompleteness: {
+            /** Containers */
+            containers: number;
+            /** Fob */
+            fob: string;
+            /** Landed */
+            landed: string;
+            /** Estimated */
+            estimated: string;
+            /** Estimated Share Pct */
+            estimated_share_pct: string | null;
+            /** Invoices To Review */
+            invoices_to_review: number;
+            /** Containers Without Cost */
+            containers_without_cost: number;
+            /** Fx Sources */
+            fx_sources: {
+                [key: string]: number;
+            };
+        };
+        /** AuditDemurrageLine */
+        AuditDemurrageLine: {
+            /**
+             * Container Id
+             * Format: uuid
+             */
+            container_id: string;
+            /** Container Number */
+            container_number: string;
+            /** Paid */
+            paid: string;
+            /** Avoided */
+            avoided: string | null;
+            /**
+             * Rule Code
+             * @enum {string}
+             */
+            rule_code: "DND_AVOIDED_ESTIMATED" | "DND_AVOIDED_NO_RATE" | "DND_AVOIDED_NO_ALERT";
+            /** Days */
+            days: number | null;
+            /** Daily Rate */
+            daily_rate: string | null;
+            /** Days Over */
+            days_over: number | null;
+            /** Quantity */
+            quantity: string;
+            /** Per Unit */
+            per_unit: string | null;
+        };
         /** AuditEntryResponse */
         AuditEntryResponse: {
             /**
@@ -1932,6 +2079,93 @@ export interface components {
             at: string;
         };
         /**
+         * AuditFinding
+         * @description One measured fact about the period's invoices, never an accusation: the rule that produced it,
+         *     how sure it is, how much money it is about, and the objects behind it.
+         */
+        AuditFinding: {
+            /** Code */
+            code: string;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "sure" | "to_check";
+            /** Amount */
+            amount: string;
+            /** Container Id */
+            container_id: string | null;
+            /** Container Number */
+            container_number: string | null;
+            cost_type: components["schemas"]["CostType"] | null;
+            /** Vendor */
+            vendor: string | null;
+            /** Invoice Number */
+            invoice_number: string | null;
+            /** Cost Ids */
+            cost_ids: string[];
+            /** Basis */
+            basis: number | null;
+            /** Params */
+            params: {
+                [key: string]: string;
+            };
+            /** Recoverable */
+            recoverable: boolean;
+        };
+        /**
+         * AuditHeadline
+         * @description The first page. Each figure is the sum of its section: the screen adds nothing.
+         */
+        AuditHeadline: {
+            /** Margin Overstated */
+            margin_overstated: string;
+            /** Priced Skus */
+            priced_skus: number;
+            /** Unpriced Skus */
+            unpriced_skus: number;
+            /** Gap Vs Assumed */
+            gap_vs_assumed: string | null;
+            /** Recoverable Sure */
+            recoverable_sure: string;
+            /** Recoverable To Check */
+            recoverable_to_check: string;
+            /** Demurrage Paid */
+            demurrage_paid: string;
+        };
+        /**
+         * AuditMargin
+         * @description An article over the period.
+         */
+        AuditMargin: {
+            /** Sku */
+            sku: string;
+            /** Description */
+            description: string | null;
+            /** Quantity */
+            quantity: string;
+            /** Fob */
+            fob: string;
+            /** Landed */
+            landed: string;
+            /** Unit Fob */
+            unit_fob: string;
+            /** Unit Landed */
+            unit_landed: string;
+            /** Approach Costs */
+            approach_costs: string;
+            /** Gap Vs Assumed */
+            gap_vs_assumed: string | null;
+            /** Sale Price */
+            sale_price: string | null;
+            /** Margin On Fob Pct */
+            margin_on_fob_pct: string | null;
+            /** Margin Real Pct */
+            margin_real_pct: string | null;
+            /** Points Lost */
+            points_lost: string | null;
+        };
+        /**
          * AuditPage
          * @description A page of history, newest first. `next_cursor` is null when there is nothing older.
          */
@@ -1944,6 +2178,99 @@ export interface components {
             labels?: {
                 [key: string]: string;
             };
+        };
+        /**
+         * AuditReport
+         * @description Frozen into the snapshot of every audit sent by link, and validated again at each opening: once
+         *     a link exists, this changes only by adding fields that may be absent.
+         */
+        AuditReport: {
+            /** Base Currency */
+            base_currency: string;
+            /**
+             * Period From
+             * Format: date
+             */
+            period_from: string;
+            /**
+             * Period To
+             * Format: date
+             */
+            period_to: string;
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            headline: components["schemas"]["AuditHeadline"];
+            /** Margins */
+            margins: components["schemas"]["AuditMargin"][];
+            /** Findings */
+            findings: components["schemas"]["AuditFinding"][];
+            /** Demurrage */
+            demurrage: components["schemas"]["AuditDemurrageLine"][];
+            /** Coefficient By Month */
+            coefficient_by_month: components["schemas"]["AuditCoefficient"][];
+            /** Coefficient By Supplier */
+            coefficient_by_supplier: components["schemas"]["AuditCoefficient"][];
+            /** Coefficient */
+            coefficient: string | null;
+            /** Assumed Coefficient */
+            assumed_coefficient: string | null;
+            completeness: components["schemas"]["AuditCompleteness"];
+            rules: components["schemas"]["AuditRules"];
+        };
+        /**
+         * AuditRules
+         * @description The thresholds the audit was produced with, for the page that states its method. Amounts are in
+         *     the base currency. A copy sent by link keeps the rules it was computed under.
+         */
+        AuditRules: {
+            /** Duplicate Tolerance Pct */
+            duplicate_tolerance_pct: string;
+            /** Never Duplicate */
+            never_duplicate: components["schemas"]["CostType"][];
+            /** Above Quote Min Pct */
+            above_quote_min_pct: string;
+            /** Above Quote Min Amount */
+            above_quote_min_amount: string;
+            /** Outlier Ratio */
+            outlier_ratio: string;
+            /** Outlier Min Excess */
+            outlier_min_excess: string;
+            /** Outlier Min Basis */
+            outlier_min_basis: number;
+            /** Outlier Lookback Days */
+            outlier_lookback_days: number;
+            /** Freight Window Days */
+            freight_window_days: number;
+            /** Not Compared */
+            not_compared: components["schemas"]["CostType"][];
+            /** Estimate Stale After Days */
+            estimate_stale_after_days: number;
+        };
+        /** AuditShareCreate */
+        AuditShareCreate: {
+            /**
+             * Expires In Days
+             * @default 30
+             */
+            expires_in_days: number;
+            /**
+             * Redact Vendors
+             * @default false
+             */
+            redact_vendors: boolean;
+            /**
+             * Period From
+             * Format: date
+             */
+            period_from: string;
+            /**
+             * Period To
+             * Format: date
+             */
+            period_to: string;
         };
         /** Body_create_import_api_v1_imports_post */
         Body_create_import_api_v1_imports_post: {
@@ -2370,6 +2697,17 @@ export interface components {
             avoided: string | null;
             /** Rule */
             rule: string;
+            /**
+             * Rule Code
+             * @enum {string}
+             */
+            rule_code: "DND_AVOIDED_ESTIMATED" | "DND_AVOIDED_NO_RATE" | "DND_AVOIDED_NO_ALERT";
+            /** Days */
+            days: number | null;
+            /** Daily Rate */
+            daily_rate: string | null;
+            /** Days Over */
+            days_over: number | null;
         };
         /**
          * DndRisk
@@ -3926,7 +4264,7 @@ export interface components {
              * Subject Type
              * @enum {string}
              */
-            subject_type: "container" | "purchase_order";
+            subject_type: "container" | "purchase_order" | "audit";
             /** Subject Label */
             subject_label: string;
             /**
@@ -3967,7 +4305,7 @@ export interface components {
              * Subject Type
              * @enum {string}
              */
-            subject_type: "container" | "purchase_order";
+            subject_type: "container" | "purchase_order" | "audit";
             /** Subject Label */
             subject_label: string;
             /** Shipment Reference */
@@ -3994,7 +4332,8 @@ export interface components {
              * @default false
              */
             redacted: boolean;
-            report: components["schemas"]["LandedCostReport"];
+            report?: components["schemas"]["LandedCostReport"] | null;
+            audit?: components["schemas"]["AuditReport"] | null;
         };
         /** ShipmentCreate */
         ShipmentCreate: {
@@ -5505,6 +5844,40 @@ export interface operations {
             };
         };
     };
+    audit_api_v1_reports_audit_get: {
+        parameters: {
+            query: {
+                period_from: string;
+                period_to: string;
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     skus_api_v1_reports_skus_get: {
         parameters: {
             query?: {
@@ -6761,6 +7134,41 @@ export interface operations {
             };
         };
     };
+    audit_findings_csv_api_v1_exports_audit_findings_csv_get: {
+        parameters: {
+            query: {
+                period_from: string;
+                period_to: string;
+                locale?: "fr" | "en";
+            };
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_costs_api_v1_costs_get: {
         parameters: {
             query?: {
@@ -7950,6 +8358,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShareCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    share_audit_api_v1_reports_audit_share_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuditShareCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    audit_shares_api_v1_reports_audit_shares_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareSummary"][];
                 };
             };
             /** @description Validation Error */
