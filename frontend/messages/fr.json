@@ -959,7 +959,8 @@
       "addedByHuman": "Ligne ajoutée à la main pendant la revue.",
       "forcedDuplicate": "Ligne {line_no} confirmée malgré un coût {type} déjà enregistré ({amount}, {vendor}, facture {invoice}).",
       "pushedCost": "Coût déjà écrit dans l'ERP : document {document} ({state}).",
-      "unverifiedTotal": "Aucun total lisible sur ce document : vérifiez que toutes les lignes de la facture figurent ci-dessous."
+      "unverifiedTotal": "Aucun total lisible sur ce document : vérifiez que toutes les lignes de la facture figurent ci-dessous.",
+      "defaultContainer": "Rattachée au conteneur {container} parce que la facture a été déposée pour lui."
     },
     "line": {
       "accepted": "Accepter",
@@ -1594,6 +1595,11 @@
         "title": "Connecter Odoo",
         "body": "Vos commandes d'achat sont lues dans Odoo, et le coût de revient y retourne en brouillon. Demande l'accès API d'Odoo (offre Custom, Odoo.sh ou on-premise).",
         "action": "Ouvrir les réglages"
+      },
+      "start": {
+        "title": "Calculer mon premier dossier",
+        "body": "Une commande collée depuis votre tableur, son conteneur, la facture du transitaire : le coût rendu par référence en dix minutes, et le rapport à envoyer.",
+        "action": "Commencer un dossier"
       }
     }
   },
@@ -1624,7 +1630,8 @@
     "action": {
       "addContainer": "Ajouter un conteneur",
       "uploadInvoice": "Déposer une facture transitaire",
-      "importOrders": "Importer des commandes (CSV, Excel)"
+      "importOrders": "Importer des commandes (CSV, Excel)",
+      "newFile": "Nouveau dossier (commande, conteneur, frais, coût rendu)"
     }
   },
   "costBreakdown": {
@@ -2006,5 +2013,103 @@
     },
     "redact": "Masquer les prestataires et les numéros de facture",
     "redactHint": "Pour un destinataire qui n'a pas à connaître votre transitaire : ces informations ne sont pas écrites dans le rapport partagé, pas seulement cachées."
+  },
+  "start": {
+    "title": "Nouveau dossier",
+    "subtitle": "Une commande, son conteneur, ses frais : le coût de revient rendu par référence en quatre étapes.",
+    "steps": "Étapes",
+    "step": {
+      "order": "La commande",
+      "container": "Le conteneur",
+      "costs": "Les frais",
+      "result": "Le coût rendu"
+    },
+    "forOrder": "Commande {order}.",
+    "forContainer": "Commande {order} · conteneur {container}.",
+    "resultSubtitle": "Voici ce que ce conteneur a réellement coûté, par référence. Imprimez-le, partagez-le, ou complétez les frais.",
+    "order": {
+      "title": "1 · La commande",
+      "subtitle": "Collez les lignes depuis votre tableur, ou reprenez une commande déjà présente.",
+      "number": "N° de commande",
+      "supplier": "Fournisseur",
+      "currency": "Devise",
+      "date": "Date de commande",
+      "fxHint": "Le taux BCE {currency} → devise de la société du jour de commande sera appliqué.",
+      "lines": "Lignes",
+      "pasteHint": "Copiez un bloc de cellules dans Excel et collez-le dans une case : la grille se remplit vers la droite et vers le bas.",
+      "col": {
+        "sku": "Référence",
+        "description": "Désignation",
+        "quantity": "Quantité",
+        "unit_price": "Prix unitaire",
+        "unit_weight_kg": "Poids unit. (kg)",
+        "unit_volume_cbm": "Volume unit. (m³)",
+        "duty_rate_pct": "Droits (%)"
+      },
+      "lineNo": "ligne {line}",
+      "removeLine": "Supprimer la ligne {line}",
+      "addLine": "Ajouter une ligne",
+      "weightHint": "Poids et volume servent à ventiler le fret au poids ou au volume ; le taux de droits sert au calcul des droits de douane. Facultatifs : sans eux, la ventilation se fait à la valeur.",
+      "pasted": "{count, plural, one {# ligne collée} other {# lignes collées}}",
+      "exists": "La commande {number} existe déjà.",
+      "useExisting": "Continuer avec la commande existante",
+      "saving": "Enregistrement…",
+      "next": "Enregistrer et passer au conteneur",
+      "importInstead": "Plusieurs commandes ? Importez un fichier",
+      "orExisting": "Ou reprendre une commande déjà présente",
+      "chooseExisting": "Choisir une commande…",
+      "continueExisting": "Continuer",
+      "needNumber": "Indiquez le numéro de la commande.",
+      "needLine": "Ajoutez au moins une ligne avec une quantité et un prix.",
+      "badLine": "Ligne {line} : quantité, prix, poids, volume ou taux illisible. Utilisez des chiffres, virgule ou point pour les décimales.",
+      "failed": "Impossible d'enregistrer la commande"
+    },
+    "container": {
+      "title": "2 · Le conteneur",
+      "subtitle": "{lines, plural, one {La ligne de la commande sera chargée} other {Les # lignes de la commande seront chargées}} dans ce conteneur.",
+      "number": "N° de conteneur",
+      "format": "ISO 6346 : 4 lettres puis 7 chiffres",
+      "arrived": "Date d'arrivée",
+      "arrivedHint": "C'est elle qui place ce dossier dans un mois de la Vue d'ensemble et des Clôtures. Modifiable ensuite.",
+      "arrivedMissing": "Sans date d'arrivée, ce conteneur ne sera dans aucun mois : absent de la Vue d'ensemble et des Clôtures.",
+      "loadsHint": "Tout ce qui reste de la commande est chargé dans ce conteneur. Si une partie a déjà été chargée ailleurs, seul le reste l'est ; vous pourrez ajuster les quantités sur la fiche du conteneur.",
+      "exists": "Le conteneur {number} existe déjà.",
+      "useExisting": "Continuer avec ce conteneur",
+      "saving": "Enregistrement…",
+      "next": "Enregistrer et passer aux frais",
+      "failed": "Impossible d'enregistrer le conteneur",
+      "loadFailed": "Le conteneur est créé mais les lignes n'ont pas pu y être chargées",
+      "nothingLeft": "Toute la commande est déjà chargée dans d'autres conteneurs."
+    },
+    "costs": {
+      "title": "3 · Les frais — la facture du transitaire",
+      "subtitle": "Déposez le PDF : il est lu ligne par ligne, chaque ligne est proposée sur ce conteneur, et vous validez.",
+      "choose": "Choisir un PDF (ou une image)…",
+      "upload": "Déposer et lire",
+      "uploading": "Envoi…",
+      "invoiceTitle": "Facture {name}",
+      "reviewSubtitle": "Retenez les lignes, complétez le type quand il manque, puis confirmez.",
+      "reading": "Lecture de la facture en cours… quelques secondes.",
+      "readingSlow": "La lecture prend plus de temps que d'habitude. Vous pouvez saisir les montants à la main ci-dessous en attendant.",
+      "readingDown": "Les tâches de fond ne répondent pas : la facture sera lue dès leur retour. Saisissez les montants à la main ci-dessous pour continuer.",
+      "readingFailed": "La facture n'a pas pu être lue (document sans texte ?). Saisissez les montants à la main ci-dessous.",
+      "manualTitle": "Ou saisir les frais à la main",
+      "manualSubtitle": "Les quatre montants qu'on connaît de tête. Le fret est souvent en dollars : le taux BCE s'applique tout seul.",
+      "currencyOf": "Devise — {cost}",
+      "manualHint": "Datés du jour d'arrivée du conteneur. Laissez vide ce que vous n'avez pas.",
+      "manualSubmit": "Enregistrer ces frais",
+      "saving": "Enregistrement…",
+      "needAmount": "Saisissez au moins un montant.",
+      "badAmount": "Un montant est illisible : chiffres seulement, virgule ou point pour les décimales.",
+      "failed": "Impossible d'enregistrer les frais",
+      "seeResult": "Voir le coût rendu",
+      "seeResultHint": "Vous pourrez revenir ajouter des frais."
+    },
+    "result": {
+      "print": "Imprimer ou enregistrer en PDF",
+      "openContainer": "Ouvrir la fiche du conteneur",
+      "moreCosts": "Ajouter d'autres frais",
+      "again": "Nouveau dossier"
+    }
   }
 }

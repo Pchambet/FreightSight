@@ -959,7 +959,8 @@
       "addedByHuman": "Line added by hand during review.",
       "forcedDuplicate": "Line {line_no} was confirmed despite an existing {type} cost ({amount}, {vendor}, invoice {invoice}).",
       "pushedCost": "Cost already written into the ERP: document {document} ({state}).",
-      "unverifiedTotal": "No readable total on this document: check that every line of the invoice is listed below."
+      "unverifiedTotal": "No readable total on this document: check that every line of the invoice is listed below.",
+      "defaultContainer": "Attached to container {container} because the invoice was uploaded for it."
     },
     "line": {
       "accepted": "Accept",
@@ -1594,6 +1595,11 @@
         "title": "Connect Odoo",
         "body": "Your purchase orders are read from Odoo, and the landed cost goes back as a draft. Needs Odoo's API access (Custom plan, Odoo.sh or on-premise).",
         "action": "Open settings"
+      },
+      "start": {
+        "title": "Compute my first file",
+        "body": "An order pasted from your spreadsheet, its container, the forwarder's invoice: the landed cost per SKU in ten minutes, and the report to send.",
+        "action": "Start a file"
       }
     }
   },
@@ -1624,7 +1630,8 @@
     "action": {
       "addContainer": "Add a container",
       "uploadInvoice": "Upload a forwarder invoice",
-      "importOrders": "Import orders (CSV, Excel)"
+      "importOrders": "Import orders (CSV, Excel)",
+      "newFile": "New file (order, container, charges, landed cost)"
     }
   },
   "costBreakdown": {
@@ -2006,5 +2013,103 @@
     },
     "redact": "Hide vendors and invoice numbers",
     "redactHint": "For a recipient who need not know your forwarder: this information is not written into the shared report, not merely hidden."
+  },
+  "start": {
+    "title": "New file",
+    "subtitle": "An order, its container, its charges: the landed cost per SKU in four steps.",
+    "steps": "Steps",
+    "step": {
+      "order": "The order",
+      "container": "The container",
+      "costs": "The charges",
+      "result": "The landed cost"
+    },
+    "forOrder": "Order {order}.",
+    "forContainer": "Order {order} · container {container}.",
+    "resultSubtitle": "Here is what this container really cost, per SKU. Print it, share it, or add charges.",
+    "order": {
+      "title": "1 · The order",
+      "subtitle": "Paste the lines from your spreadsheet, or pick an order already present.",
+      "number": "Order no.",
+      "supplier": "Supplier",
+      "currency": "Currency",
+      "date": "Order date",
+      "fxHint": "The ECB rate {currency} → company currency of the order date will apply.",
+      "lines": "Lines",
+      "pasteHint": "Copy a block of cells in Excel and paste it into any cell: the grid fills rightwards and downwards.",
+      "col": {
+        "sku": "SKU",
+        "description": "Description",
+        "quantity": "Quantity",
+        "unit_price": "Unit price",
+        "unit_weight_kg": "Unit weight (kg)",
+        "unit_volume_cbm": "Unit volume (m³)",
+        "duty_rate_pct": "Duty (%)"
+      },
+      "lineNo": "line {line}",
+      "removeLine": "Remove line {line}",
+      "addLine": "Add a line",
+      "weightHint": "Weight and volume allow freight to be allocated by weight or volume; the duty rate drives customs duty. Optional: without them, allocation is by value.",
+      "pasted": "{count, plural, one {# line pasted} other {# lines pasted}}",
+      "exists": "Order {number} already exists.",
+      "useExisting": "Carry on with the existing order",
+      "saving": "Saving…",
+      "next": "Save and go to the container",
+      "importInstead": "Several orders? Import a file",
+      "orExisting": "Or pick an order already present",
+      "chooseExisting": "Choose an order…",
+      "continueExisting": "Continue",
+      "needNumber": "Enter the order number.",
+      "needLine": "Add at least one line with a quantity and a price.",
+      "badLine": "Line {line}: quantity, price, weight, volume or rate unreadable. Digits only, comma or dot for decimals.",
+      "failed": "Could not save the order"
+    },
+    "container": {
+      "title": "2 · The container",
+      "subtitle": "{lines, plural, one {The order's line will be loaded} other {The order's # lines will be loaded}} into this container.",
+      "number": "Container no.",
+      "format": "ISO 6346: 4 letters then 7 digits",
+      "arrived": "Arrival date",
+      "arrivedHint": "This is what places the file in a month of the overview and the period closes. Editable later.",
+      "arrivedMissing": "Without an arrival date this container belongs to no month: absent from the overview and the period closes.",
+      "loadsHint": "Whatever is left of the order is loaded into this container. If part of it was loaded elsewhere, only the rest is; quantities can be adjusted on the container's page.",
+      "exists": "Container {number} already exists.",
+      "useExisting": "Carry on with this container",
+      "saving": "Saving…",
+      "next": "Save and go to the charges",
+      "failed": "Could not save the container",
+      "loadFailed": "The container was created but the lines could not be loaded into it",
+      "nothingLeft": "The whole order is already loaded into other containers."
+    },
+    "costs": {
+      "title": "3 · The charges — the forwarder's invoice",
+      "subtitle": "Drop the PDF: it is read line by line, every line is proposed on this container, and you confirm.",
+      "choose": "Choose a PDF (or an image)…",
+      "upload": "Upload and read",
+      "uploading": "Uploading…",
+      "invoiceTitle": "Invoice {name}",
+      "reviewSubtitle": "Keep the lines, add the type where it is missing, then confirm.",
+      "reading": "Reading the invoice… a few seconds.",
+      "readingSlow": "The reading is taking longer than usual. You can type the amounts by hand below meanwhile.",
+      "readingDown": "Background jobs are not answering: the invoice will be read when they are back. Type the amounts by hand below to carry on.",
+      "readingFailed": "The invoice could not be read (a document with no text?). Type the amounts by hand below.",
+      "manualTitle": "Or type the charges by hand",
+      "manualSubtitle": "The four figures known by heart. Freight is often in dollars: the ECB rate applies by itself.",
+      "currencyOf": "Currency — {cost}",
+      "manualHint": "Dated on the container's arrival day. Leave blank what you do not have.",
+      "manualSubmit": "Save these charges",
+      "saving": "Saving…",
+      "needAmount": "Enter at least one amount.",
+      "badAmount": "An amount is unreadable: digits only, comma or dot for decimals.",
+      "failed": "Could not save the charges",
+      "seeResult": "See the landed cost",
+      "seeResultHint": "You can come back to add charges."
+    },
+    "result": {
+      "print": "Print or save as PDF",
+      "openContainer": "Open the container",
+      "moreCosts": "Add more charges",
+      "again": "New file"
+    }
   }
 }

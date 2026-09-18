@@ -213,9 +213,12 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card flex flex-col">
               <FileSpreadsheet className="w-5 h-5 text-slate-700" aria-hidden />
-              <h3 className="mt-3 font-semibold text-slate-900">{t("welcome.import.title")}</h3>
-              <p className="mt-1 text-sm text-slate-600 flex-1">{t("welcome.import.body")}</p>
-              <div className="mt-4"><Link href="/imports/new" className={btnSecondary}>{t("welcome.import.action")}</Link></div>
+              <h3 className="mt-3 font-semibold text-slate-900">{t("welcome.start.title")}</h3>
+              <p className="mt-1 text-sm text-slate-600 flex-1">{t("welcome.start.body")}</p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <Link href="/start" className={btnSecondary}>{t("welcome.start.action")}</Link>
+                <Link href="/imports/new" className="text-sm text-blue-700 hover:underline">{t("welcome.import.action")}</Link>
+              </div>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card flex flex-col">
               <Plug className="w-5 h-5 text-slate-700" aria-hidden />

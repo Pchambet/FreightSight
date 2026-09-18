@@ -1306,6 +1306,9 @@ export interface paths {
          * Upload Invoice
          * @description Accept a file and open an invoice on it. Reading happens in a job; this answers immediately.
          *
+         *     `default_container_id` is for an invoice dropped from a container's page: the lines on which
+         *     the reading finds no container or order of its own are proposed on that container, and say so.
+         *
          *     The extraction job is deferred inside this transaction: if the upload rolls back, the job never
          *     existed either.
          */
@@ -1953,6 +1956,8 @@ export interface components {
         Body_upload_invoice_api_v1_invoices_post: {
             /** File */
             file: string;
+            /** Default Container Id */
+            default_container_id?: string | null;
         };
         /**
          * ConfidenceBand
@@ -3512,6 +3517,8 @@ export interface components {
             po_number: string;
             /** Supplier Id */
             supplier_id?: string | null;
+            /** Supplier Name */
+            supplier_name?: string | null;
             /** Currency */
             currency?: string | null;
             /** Fx Rate */

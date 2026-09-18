@@ -170,11 +170,14 @@ export async function uploadInvoice(formData: FormData): Promise<ActionResult<{ 
   await protectAction();
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return await fail(null, "invoices.upload.failed");
+  const defaultContainer = formData.get("default_container_id");
   const { data, error, response } = await api.POST("/api/v1/invoices", {
     body: { file: file as unknown as string },
     bodySerializer: (b) => {
       const fd = new FormData();
       fd.append("file", b.file as unknown as File, file.name);
+      // Lines on which the reading finds neither a container nor an order are proposed on this one.
+      if (typeof defaultContainer === "string" && defaultContainer) fd.append("default_container_id", defaultContainer);
       return fd;
     },
   });
@@ -408,6 +411,7 @@ export async function unsubscribeTracking(containerId: string): Promise<ActionRe
 }
 
 export async function createContainer(containerNumber: string): Promise<ActionResult<{ id: string }>> {
+  await protectAction();
   const { data, error } = await api.POST("/api/v1/containers", {
     body: { container_number: containerNumber.trim().toUpperCase() },
   });

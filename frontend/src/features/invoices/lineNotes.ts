@@ -34,6 +34,8 @@ export function formatInvoiceNote(
         amount: money(parts[3] ?? "0", parts[4] || invoiceCurrency, locale),
         scope: parts[5] ?? "",
       });
+    case "default_container":
+      return t("defaultContainer", { container: parts[0] ?? "" });
     case "unknown_container":
       return t("unknownContainer", { container: parts[0] ?? "" });
     case "no_fx_rate":
@@ -71,7 +73,7 @@ export function formatInvoiceNote(
 
 /** A note that records a fact (where a line was attached, who added it) rather than asking for a check. */
 export function isInformativeNote(note: string): boolean {
-  return /^@(single_container|added_by_human|pushed_cost)(\||$)/.test(note);
+  return /^@(single_container|default_container|added_by_human|pushed_cost)(\||$)/.test(note);
 }
 
 export function isDuplicateCostNote(note: string): boolean {
