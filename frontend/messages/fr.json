@@ -746,12 +746,12 @@
       "apiTitle": "Données indisponibles",
       "apiBody": "Impossible de charger les données. Vérifiez que le backend tourne, puis réessayez.",
       "retry": "Réessayer",
-      "back": "Retour aux conteneurs"
+      "back": "Retour à l'accueil"
     },
     "notFound": {
       "title": "Page introuvable",
       "body": "Cette page n'existe pas ou vous n'y avez pas accès.",
-      "back": "Retour aux conteneurs"
+      "back": "Retour à l'accueil"
     },
     "ORG_LOCALE_UNKNOWN": "Langue inconnue : seuls le français et l'anglais sont écrits.",
     "PRODUCT_DEFAULTS_APPLIED": "{sku} : {fields} repris de la fiche produit.",

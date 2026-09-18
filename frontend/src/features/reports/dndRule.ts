@@ -19,7 +19,9 @@ export type DndRule =
   | { kind: "riskNoLfd"; risk: string }
   | { kind: "unknown" };
 
-export function parseDndRule(raw: string): DndRule {
+export function parseDndRule(raw: string | null | undefined): DndRule {
+  // A document that leaves the application must not fail on a field an API version no longer sends.
+  if (typeof raw !== "string") return { kind: "unknown" };
   if (raw === "no risk alert and no pickup recorded: nothing to estimate") return { kind: "noAlert" };
   if (raw.startsWith("not estimable: add a DEMURRAGE rate card")) return { kind: "noRateCard" };
 

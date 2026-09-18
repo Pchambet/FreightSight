@@ -746,12 +746,12 @@
       "apiTitle": "Data unavailable",
       "apiBody": "Could not load data. Check that the backend is running, then try again.",
       "retry": "Try again",
-      "back": "Back to containers"
+      "back": "Back to the overview"
     },
     "notFound": {
       "title": "Page not found",
       "body": "This page does not exist or you do not have access to it.",
-      "back": "Back to containers"
+      "back": "Back to the overview"
     },
     "ORG_LOCALE_UNKNOWN": "Unknown language: only French and English are written.",
     "PRODUCT_DEFAULTS_APPLIED": "{sku}: {fields} taken from the product sheet.",

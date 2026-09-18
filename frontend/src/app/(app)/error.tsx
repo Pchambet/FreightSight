@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
 import { btnPrimary, btnSecondary } from "@/components/layout/AppShell";
+import { site } from "@/lib/site";
 
 export default function AppError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const t = useTranslations("errors.page");
@@ -24,7 +25,7 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
         <p className="text-slate-500 mb-6 text-sm">{isApi ? t("apiBody") : t("body")}</p>
         <div className="flex flex-col sm:flex-row gap-2 justify-center">
           <button type="button" onClick={reset} className={btnPrimary}>{t("retry")}</button>
-          <Link href="/containers" className={btnSecondary}>{t("back")}</Link>
+          <Link href={site.appHome} className={btnSecondary}>{t("back")}</Link>
         </div>
       </div>
     </div>

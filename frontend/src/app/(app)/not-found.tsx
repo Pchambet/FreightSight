@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { SearchX } from "lucide-react";
+import { site } from "@/lib/site";
 import { btnPrimary } from "@/components/layout/AppShell";
 
 export default async function AppNotFound() {
@@ -13,7 +14,7 @@ export default async function AppNotFound() {
         </div>
         <h1 className="text-lg font-semibold mb-2">{t("title")}</h1>
         <p className="text-slate-500 mb-6 text-sm">{t("body")}</p>
-        <Link href="/containers" className={`${btnPrimary} w-full`}>{t("back")}</Link>
+        <Link href={site.appHome} className={`${btnPrimary} w-full`}>{t("back")}</Link>
       </div>
     </div>
   );
