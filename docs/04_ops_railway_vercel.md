@@ -72,13 +72,15 @@ Le démarrage échoue volontairement si `APP_ENV=prod` sans `CLERK_ISSUER` et `C
 1. **Organizations → Enable → Membership required.** Un utilisateur sans organisation est en session
    `pending` ; le front l'envoie sur `/choose-organization` (composant `TaskChooseOrganization`), le
    backend refuse le jeton (401) tant que l'organisation n'est pas choisie.
-2. **Sessions → Customize session token** : ajouter l'e-mail et le nom, absents du jeton par défaut
-   (limite 1,2 Ko de claims personnalisés) :
+2. **Sessions → Customize session token** : ajouter l'e-mail, le nom et le nom de l'organisation,
+   absents du jeton par défaut (limite 1,2 Ko de claims personnalisés ; lus par
+   `backend/app/adapters/auth_clerk.py`) :
    ```json
-   { "email": "{{user.primary_email_address}}", "name": "{{user.full_name}}" }
+   { "email": "{{user.primary_email_address}}", "name": "{{user.full_name}}", "org_name": "{{org.name}}" }
    ```
 3. Instance de développement : 100 utilisateurs maximum, domaine `*.accounts.dev`, bandeau
-   « Development ». Passer en production Clerk demande un domaine propre (CNAME `clerk.<domaine>`).
+   « Development ». Passer en production Clerk demande un domaine propre (CNAME `clerk.<domaine>`) :
+   la procédure complète, données existantes comprises, est dans `docs/domaine-bascule.md`.
 4. Après le merge de la PR de sécurisation : **faire tourner la clé secrète** qui a circulé dans un chat.
 
 ## 4. Déploiement
