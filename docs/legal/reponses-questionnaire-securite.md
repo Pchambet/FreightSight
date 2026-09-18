@@ -107,10 +107,14 @@ de l'organisation Clerk (`org:admin` → ADMIN, `org:member` → MEMBER). Un ref
 `backend/tests/test_periods.py` (test des rôles).
 
 **17 bis. Des données peuvent-elles être consultées sans compte ?**
-Une seule chose, et seulement si un utilisateur le décide : un **rapport de coût de revient partagé par
-lien**. Ce que ce lien est, exactement :
-- un **instantané figé** du rapport d'un conteneur ou d'une commande, pris au moment du partage — il ne
-  permet pas de suivre l'évolution des chiffres d'une société, et n'ouvre aucune autre donnée ;
+Une seule chose, et seulement si un utilisateur le décide : un **rapport partagé par lien** — le coût de
+revient d'un conteneur ou d'une commande, ou l'**audit d'une période** (synthèse, marges par référence,
+constats sur les factures, surestaries, coefficients d'approche, complétude des chiffres). Ce que ce lien
+est, exactement :
+- un **instantané figé** du rapport, pris au moment du partage — il ne permet pas de suivre l'évolution
+  des chiffres d'une société, et n'ouvre rien d'autre que ce qu'il contient. Un lien d'audit contient
+  les chiffres de toute la période choisie : valeurs d'achat, prix de vente et marges par référence,
+  conteneurs, factures en cause ; l'écran de partage le dit avant l'envoi ;
 - un jeton aléatoire de 256 bits, **dont seule l'empreinte SHA-256 est conservée** : une copie de la
   base ne permet pas de reconstituer un lien ; le jeton voyage dans le corps de la requête vers l'API,
   jamais dans une URL d'API, et n'est écrit dans aucun journal applicatif ni rapport d'erreur ;
@@ -120,14 +124,19 @@ lien**. Ce que ce lien est, exactement :
   permet ni de modifier, ni de prolonger, ni de supprimer quoi que ce soit ; chaque ouverture est
   comptée et visible de l'émetteur ;
 - les notes internes ne quittent jamais la société ; l'émetteur peut en plus **exclure de l'instantané**
-  les noms des prestataires et les numéros de facture (ils ne sont alors pas stockés dans le lien) ;
+  les noms des prestataires et les numéros de facture — et, pour un audit, les noms des fournisseurs
+  (ils ne sont alors pas stockés dans le lien ; pour un audit, seule une liste fermée de valeurs qui ne
+  nomment personne est conservée dans le détail des constats). Les prix, marges, références et numéros
+  de conteneur restent : ce sont les chiffres du document ;
 - la page est servie `noindex`, `no-store`, `Referrer-Policy: no-referrer`, et l'ouverture est limitée
   en débit.
 Limite connue, commune à tout produit à lien de partage : l'adresse de la page (`/r/<jeton>`) figure
 dans les journaux d'accès de l'hébergeur du site (Vercel) ; la réponse est l'expiration et la
 révocation. **VRAI AUJOURD'HUI** — `backend/migrations/versions/0025_shared_reports.py`,
-`backend/app/domain/shares/service.py`, `backend/tests/test_shares.py` (dont deux tests exécutés sous le
-rôle applicatif restreint), relecture de sécurité indépendante du 18 septembre 2026.
+`backend/app/domain/shares/service.py`, `backend/app/api/v1/shares.py`, `backend/tests/test_shares.py`
+(dont deux tests exécutés sous le rôle applicatif restreint), `backend/tests/test_audit.py` (instantané
+masqué vérifié dans la base), relectures de sécurité indépendantes du 18 septembre 2026 (partage de
+rapport, puis partage d'audit).
 
 ## Journalisation et supervision
 
