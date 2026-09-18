@@ -59,6 +59,18 @@ test("the demurrage calculator computes and reads its state from the URL", async
   await expect(page.locator("#dd-c")).toHaveValue("2");
   await expect(total).toHaveText(/1\D?060/);
 
+  // One calculator, no id twice. On production the calculator's streamed Suspense copy was left
+  // hidden after </main> with the same ids (18 Sept 2026) — a race on network timing, reproduced in
+  // a real browser on a local production build but never in this headless run, so this guards the
+  // invariant rather than replays that bug. The calculator has no Suspense boundary any more.
+  await expect(page.locator('div[hidden][id^="S:"]')).toHaveCount(0);
+  const repeated = await page.evaluate(() => {
+    const seen = new Map<string, number>();
+    document.querySelectorAll("[id]").forEach((e) => seen.set(e.id, (seen.get(e.id) ?? 0) + 1));
+    return [...seen].filter(([, n]) => n > 1).map(([id]) => id);
+  });
+  expect(repeated).toEqual([]);
+
   // Three more days, one of them at Le Havre's third tier: 275 + 425 + 130 = 830 each, 1660 in total.
   await page.locator("#dd-d").fill("11");
   await expect(total).toHaveText(/1\D?660/);

@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { Check, Link2 } from "lucide-react";
 
 /**
@@ -27,15 +26,39 @@ function perContainer(days: number, tiers: readonly number[]): number {
 
 const eur = (n: number) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
 
+type Figures = { port: PortCode; containers: number; days: number };
+
+/** A shared link's own figures (/?port=ANR&c=3&d=6#calculateur), each one only if it makes sense. */
+function fromQuery(search: string): Figures {
+  const q = new URLSearchParams(search);
+  const port = q.get("port");
+  const c = Number(q.get("c"));
+  const d = Number(q.get("d"));
+  return {
+    port: port && port in PORTS ? (port as PortCode) : "ANR",
+    containers: c >= 1 && c <= 200 ? c : 3,
+    days: d >= 1 && d <= 60 ? d : 6,
+  };
+}
+
+const noSubscription = () => () => {};
+
+/**
+ * Rendered on the server with the default figures; a shared link's figures are read from the address
+ * once the page runs in a browser, and the calculator starts again from them. Read with
+ * useSearchParams, the calculator needed a Suspense boundary of its own, streamed in a second pass
+ * that the browser never stitched in: production pages carried a second, hidden calculator with the
+ * same ids (seen 18 Sept 2026, `div#S:0[hidden]` after `</main>`).
+ */
 export default function DemurrageCalculator() {
-  // Shareable state: /?port=ANR&c=3&d=6#calculateur (read once, at first render)
-  const q = useSearchParams();
-  const qp = q.get("port");
-  const qc = Number(q.get("c"));
-  const qd = Number(q.get("d"));
-  const [port, setPort] = useState<PortCode>(qp && qp in PORTS ? (qp as PortCode) : "ANR");
-  const [containers, setContainers] = useState(qc >= 1 && qc <= 200 ? qc : 3);
-  const [days, setDays] = useState(qd >= 1 && qd <= 60 ? qd : 6);
+  const search = useSyncExternalStore(noSubscription, () => window.location.search, () => "");
+  return <Calculator key={search} initial={fromQuery(search)} />;
+}
+
+function Calculator({ initial }: { initial: Figures }) {
+  const [port, setPort] = useState<PortCode>(initial.port);
+  const [containers, setContainers] = useState(initial.containers);
+  const [days, setDays] = useState(initial.days);
   const [copied, setCopied] = useState(false);
 
   const tiers = PORTS[port].tiers;

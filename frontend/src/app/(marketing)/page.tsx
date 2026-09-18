@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense } from "react";
 import { ArrowRight, Check, FileSpreadsheet, Receipt, Sigma } from "lucide-react";
 import DemurrageCalculator from "@/features/marketing/DemurrageCalculator";
 import { BreakdownShowcase, MarginShowcase, OverviewShowcase, ReviewShowcase, TrendShowcase } from "@/features/marketing/ProductShowcase";
@@ -157,7 +156,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-5 py-20">
           <h2 className="text-3xl font-semibold tracking-tight text-balance max-w-2xl">Combien coûte un conteneur oublié à Anvers&nbsp;?</h2>
           <p className="mt-4 text-slate-300 max-w-2xl leading-relaxed">Le suivi de conteneurs ne vaut que par les euros qu&apos;il évite. FreightSight calcule le dernier jour franc de chaque conteneur et vous prévient à J-3, avec le montant en jeu.</p>
-          <div className="mt-10"><Suspense fallback={null}><DemurrageCalculator /></Suspense></div>
+          <div className="mt-10"><DemurrageCalculator /></div>
         </div>
       </section>
 
