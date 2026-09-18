@@ -66,6 +66,19 @@ export function formatInvoiceNote(
       });
     case "pushed_cost":
       return t("pushedCost", { document: parts[0] ?? "", state: parts[1] ?? "" });
+    case "forced_recorded":
+      // `@forced_recorded|number|vendor`: confirmed past INVOICE_ALREADY_RECORDED — the person said
+      // it is another invoice than the one already in the books under that number.
+      return t("forcedRecorded", { invoice: parts[0] || "—", vendor: parts[1] || "—" });
+    case "several_estimates":
+      // `@several_estimates|lines|count|type`: more than one open estimate of that type on the line's
+      // target, so none was replaced — which one this invoice settles is a person's call.
+      return t("severalEstimates", {
+        lines: parts[0] ?? "",
+        lineCount: (parts[0] ?? "").split(",").filter((x) => x.trim()).length,
+        count: Number(parts[1] ?? 0),
+        type: costType(parts[2] ?? ""),
+      });
     default:
       return note;
   }

@@ -802,7 +802,11 @@
     "PERIOD_INVALID": "The period is not valid: the start date must come before the end date, between 2000 and 2100.",
     "ASSUMED_COEFFICIENT_INVALID": "The applied ratio is a ratio between 1 and 3, such as 1.15, not a percentage.",
     "INVOICE_ALREADY_RECORDED": "This invoice is already recorded: reopen or delete what carries it before confirming it.",
-    "UNKNOWN_TARGET": "A line points to a container, order or shipment that no longer exists: give it another target, then confirm."
+    "UNKNOWN_TARGET": "A line points to a container, order or shipment that no longer exists: give it another target, then confirm.",
+    "recordedInvoice": "This invoice is already recorded ({items}): reopen or delete what carries it before confirming it.",
+    "recordedLine": "This invoice already has this cost ({items}): edit or delete the existing entry rather than add a second one.",
+    "recordedOn": "on {date}",
+    "INVOICE_LINE_ALREADY_RECORDED": "This invoice already has this cost: edit or delete the existing entry rather than add a second one."
   },
   "timeline": {
     "title": "Timeline",
@@ -997,9 +1001,7 @@
       "acceptAll": "{count, plural, one {Keep the line} other {Keep all # lines}}",
       "sumMatches": "Kept lines: {amount} = the invoice's total before tax",
       "sumGap": "Kept lines: {kept} · invoice before tax: {subtotal} · gap {gap}",
-      "alreadyRecorded": "This invoice is already recorded ({items}): reopen or delete what carries it before confirming it.",
-      "alreadyRecordedGeneric": "This invoice is already recorded: reopen or delete what carries it before confirming it.",
-      "recordedOn": "on {date}"
+      "notTheSame": "It is not the same invoice: confirm anyway"
     },
     "lineNotes": {
       "singleContainer": "Charged to {container}, the only container named on the invoice.",
@@ -1017,7 +1019,9 @@
       "forcedDuplicate": "Line {line_no} was confirmed despite an existing {type} cost ({amount}, {vendor}, invoice {invoice}).",
       "pushedCost": "Cost already written into the ERP: document {document} ({state}).",
       "unverifiedTotal": "No readable total on this document: check that every line of the invoice is listed below.",
-      "defaultContainer": "Attached to container {container} because the invoice was uploaded for it."
+      "defaultContainer": "Attached to container {container} because the invoice was uploaded for it.",
+      "forcedRecorded": "Confirmed despite invoice {invoice} from {vendor} already recorded: you said this is not a copy of it.",
+      "severalEstimates": "{lineCount, plural, one {Line {lines}} other {Lines {lines}}}: {count} open “{type}” estimates on the same target, none was replaced. Replace by hand the one this invoice settles."
     },
     "line": {
       "accepted": "Accept",

@@ -1,10 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { api, problemMessage, type ImportJobResponse, type LandedCostReport, type Problem, type Schemas } from "@/lib/api/client";
 import { protectAction } from "@/lib/auth";
-import { dateShort, money } from "@/lib/format";
 import type { AllocationMethod, ContainerMilestone, CostScope, CostStatus, CostType, ImportKind, MilestoneCode, RateBasis } from "@/lib/domain";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -55,6 +54,9 @@ export async function addCost(input: {
   status?: CostStatus;
   revalidate: string;
 }): Promise<ActionResult<{ id: string }>> {
+  // Every other action had it: without it a cost typed in a tab left on another organization was
+  // written into whichever organization the session cookie held (N2).
+  await protectAction();
   const amount = normalizeAmount(input.amount);
   if (amount === null) {
     const t = await getTranslations("costs.form");
@@ -251,45 +253,25 @@ export type ConfirmInvoiceResult =
  * duplicate refusal — offer "confirm anyway" — apart from every other reason confirming can fail.
  */
 /**
- * « Cette facture est déjà enregistrée (TRANSITEX · FA 2026 0912 · Fret maritime · 3 830,00 € · le
- * 18/09/2026) : … ». The API refuses, without a way to force it, an invoice whose normalized number
- * already carries a real cost — its statement imported, or its PDF confirmed under a neighbouring
- * spelling — and describes each such cost in `errors` as
- * `@recorded|type|vendor|number|amount in the base currency|scope|creation day`.
+ * `force` goes past a DUPLICATE_COST (the same charge already on the freight); `forceRecorded` past an
+ * INVOICE_ALREADY_RECORDED (the same invoice number already carries a real cost), for when the person
+ * knows it is another invoice — a number misread, two documents sharing one. Two separate doors: one
+ * never opens the other.
  */
-async function alreadyRecorded(error: Problem | null | undefined): Promise<string> {
-  const [t, costType, locale, org] = await Promise.all([
-    getTranslations("invoices.detail"),
-    getTranslations("domain.costType"),
-    getLocale(),
-    api.GET("/api/v1/organization"),
-  ]);
-  const base = org.data?.base_currency ?? "EUR";
-  const items = (error?.errors ?? [])
-    .map((e) => e.message.split("|"))
-    .filter((parts) => parts[0] === "@recorded")
-    .map(([, type, vendor, number, amount, , day]) =>
-      [vendor, number, costType.has(type as never) ? costType(type as never) : type, money(amount, base, locale), day ? t("recordedOn", { date: dateShort(day, locale) }) : ""]
-        .filter(Boolean)
-        .join(" · "),
-    );
-  return items.length ? t("alreadyRecorded", { items: items.join(" ; ") }) : t("alreadyRecordedGeneric");
-}
-
-export async function confirmInvoice(invoiceId: string, force = false): Promise<ConfirmInvoiceResult> {
+export async function confirmInvoice(invoiceId: string, force = false, forceRecorded = false): Promise<ConfirmInvoiceResult> {
   await protectAction();
   // The route only gained this optional body for the force-confirm case; the generated schema does
   // not carry it yet (needs_other_lane), hence `rawPost` — the response is the same
   // `InvoiceConfirmResponse` either way, cast back below.
   const raw = await rawPost("/api/v1/invoices/{invoice_id}/confirm", {
     params: { path: { invoice_id: invoiceId } },
-    ...(force ? { body: { force: true } } : {}),
+    ...(force || forceRecorded ? { body: { ...(force ? { force: true } : {}), ...(forceRecorded ? { force_recorded: true } : {}) } } : {}),
   });
   const { data, error } = raw as { data?: Schemas["InvoiceConfirmResponse"]; error?: Problem | null };
   if (error || !data) {
     const t = await getTranslations();
     const code = error && typeof error === "object" ? (error as { code?: string | null }).code ?? undefined : undefined;
-    const message = code === "INVOICE_ALREADY_RECORDED" ? await alreadyRecorded(error) : await problemMessage(error, t("invoices.detail.failed"));
+    const message = await problemMessage(error, t("invoices.detail.failed"));
     return { ok: false, error: message, code: code ?? undefined };
   }
   revalidatePath(`/invoices/${invoiceId}`);

@@ -230,8 +230,38 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
   // Set only after a confirm attempt comes back with DUPLICATE_COST: the next click on the same
   // button retries with `force: true`, the answer to that refusal and only that one.
   const [forceConfirm, setForceConfirm] = useState(false);
+  // Set after INVOICE_ALREADY_RECORDED: the sentence naming what already carries this invoice. The
+  // way past it is its own button, never the confirm button: saying "it is another invoice" is a
+  // decision about money, made in front of what it would count twice.
+  const [recorded, setRecorded] = useState<string | null>(null);
+  const [notTheSame, setNotTheSame] = useState(false);
   const router = useRouter();
   const editable = invoice.status === "NEEDS_REVIEW";
+
+  const confirm = (forceRecorded: boolean) =>
+    start(async () => {
+      const r = await confirmInvoice(invoice.id, forceConfirm, forceRecorded);
+      if (!r.ok) {
+        if (r.code === "DUPLICATE_COST") {
+          setForceConfirm(true);
+          toast.error(t("duplicateBlocked"), { duration: 10000 });
+          return;
+        }
+        if (r.code === "INVOICE_ALREADY_RECORDED") return void setRecorded(r.error);
+        toast.error(r.error ?? t("failed"));
+        return;
+      }
+      setForceConfirm(false);
+      setRecorded(null);
+      setNotTheSame(false);
+      // `@forced_duplicate|...` and `@forced_recorded|...` notes are transient — this confirmation's
+      // own record that it went past a refusal — and never land on a line's own notes, so this toast
+      // is the only place they are ever shown.
+      const forced = r.data.notes.map((n) => formatInvoiceNote(n, noteT, (k) => typeLabel(k as CostType), locale, invoice.currency ?? "EUR")).join(" ");
+      toast.success(t("confirmed", { count: r.data.costsCreated }), forced ? { description: forced, duration: 10000 } : undefined);
+      setContinueTo(r.data.containers);
+      router.refresh();
+    });
   const lines = invoice.lines ?? [];
   const acceptedCount = lines.filter((l) => l.accepted).length;
   const incomplete = lines.filter((l) => l.accepted && !(l.target_id && l.cost_type && l.scope)).length;
@@ -325,34 +355,28 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
       </ul>
       {editable ? (
         <>
+          {recorded ? (
+            <div role="alert" className="mx-5 mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 space-y-3">
+              <p>{recorded}</p>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  setNotTheSame(true);
+                  setRecorded(null);
+                  confirm(true);
+                }}
+                className={btnSecondary}
+              >
+                {t("notTheSame")}
+              </button>
+            </div>
+          ) : null}
           <div className="px-5 py-4 border-t border-slate-200 flex flex-wrap items-center gap-3">
             <button
               type="button"
               disabled={!ready || pending}
-              onClick={() =>
-                start(async () => {
-                  const r = await confirmInvoice(invoice.id, forceConfirm);
-                  if (!r.ok) {
-                    if (r.code === "DUPLICATE_COST") {
-                      setForceConfirm(true);
-                      toast.error(t("duplicateBlocked"), { duration: 10000 });
-                      return;
-                    }
-                    // Cannot be forced: the sentence names what already carries the invoice and what to do.
-                    if (r.code === "INVOICE_ALREADY_RECORDED") return void toast.error(r.error, { duration: 12000 });
-                    toast.error(r.error ?? t("failed"));
-                    return;
-                  }
-                  setForceConfirm(false);
-                  // `@forced_duplicate|...` notes are transient — this confirmation's own record
-                  // that it went ahead over a duplicate — and never land on a line's own notes, so
-                  // this toast is the only place they are ever shown.
-                  const forced = r.data.notes.map((n) => formatInvoiceNote(n, noteT, (k) => typeLabel(k as CostType), locale, invoice.currency ?? "EUR")).join(" ");
-                  toast.success(t("confirmed", { count: r.data.costsCreated }), forced ? { description: forced, duration: 10000 } : undefined);
-                  setContinueTo(r.data.containers);
-                  router.refresh();
-                })
-              }
+              onClick={() => confirm(notTheSame)}
               className={forceConfirm ? `${btnPrimary} !bg-amber-600 hover:!bg-amber-700 focus-visible:!ring-amber-500` : btnPrimary}
             >
               {pending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}

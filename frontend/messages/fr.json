@@ -802,7 +802,11 @@
     "PERIOD_INVALID": "La période n'est pas valide : la date de début doit précéder la date de fin, entre 2000 et 2100.",
     "ASSUMED_COEFFICIENT_INVALID": "Le coefficient appliqué est un rapport entre 1 et 3, comme 1,15, et non un pourcentage.",
     "INVOICE_ALREADY_RECORDED": "Cette facture est déjà enregistrée : rouvrez ou supprimez ce qui la porte avant de la confirmer.",
-    "UNKNOWN_TARGET": "Une ligne vise un conteneur, une commande ou une expédition qui n'existe plus : choisissez-lui une autre cible, puis confirmez."
+    "UNKNOWN_TARGET": "Une ligne vise un conteneur, une commande ou une expédition qui n'existe plus : choisissez-lui une autre cible, puis confirmez.",
+    "recordedInvoice": "Cette facture est déjà enregistrée ({items}) : rouvrez ou supprimez ce qui la porte avant de la confirmer.",
+    "recordedLine": "Cette facture a déjà ce coût ({items}) : modifiez ou supprimez la saisie existante plutôt que d'en ajouter une seconde.",
+    "recordedOn": "le {date}",
+    "INVOICE_LINE_ALREADY_RECORDED": "Cette facture a déjà ce coût : modifiez ou supprimez la saisie existante plutôt que d'en ajouter une seconde."
   },
   "timeline": {
     "title": "Chronologie",
@@ -997,9 +1001,7 @@
       "acceptAll": "{count, plural, one {Retenir la ligne} other {Retenir les # lignes}}",
       "sumMatches": "Lignes retenues : {amount} = total HT de la facture",
       "sumGap": "Lignes retenues : {kept} · HT de la facture : {subtotal} · écart {gap}",
-      "alreadyRecorded": "Cette facture est déjà enregistrée ({items}) : rouvrez ou supprimez ce qui la porte avant de la confirmer.",
-      "alreadyRecordedGeneric": "Cette facture est déjà enregistrée : rouvrez ou supprimez ce qui la porte avant de la confirmer.",
-      "recordedOn": "le {date}"
+      "notTheSame": "Ce n'est pas la même facture : confirmer quand même"
     },
     "lineNotes": {
       "singleContainer": "Facturé sur {container}, seul conteneur mentionné sur la facture.",
@@ -1017,7 +1019,9 @@
       "forcedDuplicate": "Ligne {line_no} confirmée malgré un coût {type} déjà enregistré ({amount}, {vendor}, facture {invoice}).",
       "pushedCost": "Coût déjà écrit dans l'ERP : document {document} ({state}).",
       "unverifiedTotal": "Aucun total lisible sur ce document : vérifiez que toutes les lignes de la facture figurent ci-dessous.",
-      "defaultContainer": "Rattachée au conteneur {container} parce que la facture a été déposée pour lui."
+      "defaultContainer": "Rattachée au conteneur {container} parce que la facture a été déposée pour lui.",
+      "forcedRecorded": "Confirmée malgré la facture {invoice} de {vendor} déjà enregistrée : vous avez indiqué que ce n'en est pas une copie.",
+      "severalEstimates": "{lineCount, plural, one {Ligne {lines}} other {Lignes {lines}}} : {count} estimés « {type} » ouverts sur la même cible, aucun n'a été remplacé. Remplacez à la main celui que cette facture solde."
     },
     "line": {
       "accepted": "Accepter",

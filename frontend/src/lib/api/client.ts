@@ -1,9 +1,10 @@
 import "server-only";
 import { auth } from "@clerk/nextjs/server";
 import createClient, { type Middleware } from "openapi-fetch";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import type { components, paths } from "./schema";
 import { env } from "@/lib/env";
+import { dateShort, money } from "@/lib/format";
 
 export type Schemas = components["schemas"];
 export type ContainerSummary = Schemas["ContainerSummary"];
@@ -92,6 +93,37 @@ export const api = createClient<paths>({
 api.use(authHeaders);
 
 /**
+ * The two refusals that name what already carries an invoice: confirming it, or typing one of its
+ * lines by hand, when the same normalized invoice already has a real cost there. Each entry of
+ * `errors` describes one such cost as
+ * `@recorded|type|vendor|number|amount in the base currency|scope|creation day`, and the sentence
+ * names each one — « Cette facture est déjà enregistrée (TRANSITEX · FA 2026 0912 · Fret maritime ·
+ * 3 830,00 € · le 18/09/2026) : … » — rather than repeat a field name per cost.
+ */
+const RECORDED = new Set(["INVOICE_ALREADY_RECORDED", "INVOICE_LINE_ALREADY_RECORDED"]);
+
+async function recordedSentence(p: Problem): Promise<string> {
+  const [t, costType, locale, org] = await Promise.all([
+    getTranslations("errors"),
+    getTranslations("domain.costType"),
+    getLocale(),
+    api.GET("/api/v1/organization"),
+  ]);
+  const base = org.data?.base_currency ?? "EUR";
+  const items = (p.errors ?? [])
+    .map((e) => e.message.split("|"))
+    .filter((parts) => parts[0] === "@recorded")
+    .map(([, type, vendor, number, amount, , day]) =>
+      [vendor, number, costType.has(type as never) ? costType(type as never) : type, money(amount, base, locale), day ? t("recordedOn", { date: dateShort(day, locale) }) : ""]
+        .filter(Boolean)
+        .join(" · "),
+    );
+  const line = p.code === "INVOICE_LINE_ALREADY_RECORDED";
+  if (!items.length) return t(line ? "INVOICE_LINE_ALREADY_RECORDED" : "INVOICE_ALREADY_RECORDED");
+  return t(line ? "recordedLine" : "recordedInvoice", { items: items.join(" ; ") });
+}
+
+/**
  * Turn a problem+json error body into one readable sentence in the user's language.
  *
  * The backend answers in English with a machine-readable `code`; the front translates the code. A
@@ -108,6 +140,7 @@ export async function problemMessage(error: unknown, fallback?: string): Promise
   if (error && typeof error === "object") {
     const p = error as Problem;
     const withRef = (message: string) => (p.request_id ? t("withRequestId", { message, id: p.request_id }) : message);
+    if (p.code && RECORDED.has(p.code)) return await recordedSentence(p);
     if (p.errors?.length) {
       return p.errors
         .map((e) => t("fieldPrefix", { field: e.field, message: has(e.code) ? t(e.code) : t("unknownField") }))
