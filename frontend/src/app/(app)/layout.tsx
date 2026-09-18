@@ -1,3 +1,4 @@
+import { NextIntlClientProvider } from "next-intl";
 import { AppShell } from "@/components/layout/AppShell";
 import OrgGuard from "@/components/layout/OrgGuard";
 import { api } from "@/lib/api/client";
@@ -15,10 +16,14 @@ async function org(): Promise<{ name?: string; unreadAlerts: number; hasSampleDa
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { orgId } = await requireAuth();
   const { name, unreadAlerts, hasSampleData } = await org();
+  // The application's client components translate on the client: they get the messages here, and
+  // only here (the root layout sends none to the public pages).
   return (
-    <AppShell orgName={name} unreadAlerts={unreadAlerts} hasSampleData={hasSampleData}>
-      {orgId ? <OrgGuard renderedFor={orgId} /> : null}
-      {children}
-    </AppShell>
+    <NextIntlClientProvider>
+      <AppShell orgName={name} unreadAlerts={unreadAlerts} hasSampleData={hasSampleData}>
+        {orgId ? <OrgGuard renderedFor={orgId} /> : null}
+        {children}
+      </AppShell>
+    </NextIntlClientProvider>
   );
 }

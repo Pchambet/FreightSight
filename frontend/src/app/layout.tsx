@@ -30,7 +30,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale} className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
-        <NextIntlClientProvider>
+        {/* No messages at the root: the public site, the sign-in pages and a shared report render their
+            words on the server, and shipping the whole dictionary (about 120 kB) to an anonymous visitor
+            would only make those pages heavier. The application's own layout provides the messages its
+            client components use; a client component outside it brings its own (see ProductShowcase). */}
+        <NextIntlClientProvider messages={null}>
           <ClerkProvider localization={locale === "fr" ? frFR : enUS} taskUrls={{ "choose-organization": "/choose-organization" }} afterSignOutUrl="/">
             {children}
             <Toaster position="top-right" richColors />
