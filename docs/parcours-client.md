@@ -17,7 +17,7 @@ quelle que soit la date à laquelle vous suivez ce parcours.
 ## Préparer l'environnement (10 min, une seule fois)
 
 ```bash
-cd /Users/pierre/Desktop/FreightSight
+cd /Users/pierre/Desktop/GitHub/FreightSight
 docker compose up -d --build          # API :8001 + Postgres + worker
 cd frontend && npm run dev            # http://localhost:3000
 docker compose ps                     # worker doit être « Up »
