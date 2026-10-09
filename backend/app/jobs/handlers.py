@@ -26,7 +26,7 @@ from app.core.settings import get_settings
 from app.core.tenancy import TenantSession, set_current_org
 from app.domain.alerts import codes
 from app.domain.alerts.notifier import Notification, Notifier, make_notifier
-from app.domain.alerts.service import REMIND_UNTIL_DAYS, raise_alert, raise_dnd_risk_alert
+from app.domain.alerts.service import REMIND_UNTIL_DAYS, raise_alert, restate_dnd_risk
 from app.domain.documents.registry import get_store
 from app.domain.fx.service import FxService
 from app.domain.invoices import service as invoices_service
@@ -37,7 +37,6 @@ from app.domain.models import (
     AlertSeverity,
     Container,
     ContainerMilestone,
-    DndRisk,
     ErpSyncStatus,
     EtaHistory,
     Invoice,
@@ -55,7 +54,7 @@ from app.domain.tracking.ports import ProviderNotConfigured, ProviderUnavailable
 from app.domain.tracking.ports import TrackingProvider as _TrackingProvider
 from app.domain.tracking.registry import get_provider
 from app.domain.tracking.service import ingest, refresh
-from app.domain.tracking.state import ETA_SHIFT_HOURS, ETA_WARNING_HOURS, derive_dnd, risk_rose
+from app.domain.tracking.state import ETA_SHIFT_HOURS, ETA_WARNING_HOURS
 
 logger = logging.getLogger(__name__)
 
@@ -586,12 +585,8 @@ def recompute_dnd_risk(db: Session, *, now: datetime | None = None) -> int:
                 )
             )
             for container in containers:
-                before = container.dnd_risk
-                derive_dnd(container, org, moment)
-                if container.dnd_risk != before:
+                if restate_dnd_risk(db, org, container, moment):
                     changed += 1
-                if risk_rose(before, container.dnd_risk) or container.dnd_risk is DndRisk.INCURRING:
-                    raise_dnd_risk_alert(db, org, container, moment)
             db.commit()
     return changed
 

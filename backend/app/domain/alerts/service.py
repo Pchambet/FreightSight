@@ -29,7 +29,7 @@ from app.domain.models import (
     RateBasis,
     RateCard,
 )
-from app.domain.tracking.state import ClockKind, DndClock, running_clock
+from app.domain.tracking.state import ClockKind, DndClock, derive_dnd, risk_rose, running_clock
 
 #: A running demurrage or detention clock is said again every day for the first fortnight, then once
 #: a week, then not at all (see `raise_dnd_risk_alert`).
@@ -190,6 +190,16 @@ def raise_dnd_risk_alert(
         container_id=container.id,
         payload=_dnd_payload(clock, container, card, confirmed=discharge_confirmed),
     )
+
+
+def restate_dnd_risk(db: Session, org: Organization, container: Container, moment: datetime) -> bool:
+    """Count the container's free days at `moment` and say it when its risk rose or a clock is costing
+    money — what every pass that learns a container's dates does. True when the risk changed."""
+    before = container.dnd_risk
+    derive_dnd(container, org, moment)
+    if risk_rose(before, container.dnd_risk) or container.dnd_risk is DndRisk.INCURRING:
+        raise_dnd_risk_alert(db, org, container, moment)
+    return container.dnd_risk != before
 
 
 def unread_count(db: Session, org_id: UUID) -> int:
