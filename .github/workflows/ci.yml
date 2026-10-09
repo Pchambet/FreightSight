@@ -27,6 +27,7 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
+              - 'docs/demo/kit-testeur/**'
               - '.github/workflows/ci.yml'
             frontend:
               - 'frontend/**'
