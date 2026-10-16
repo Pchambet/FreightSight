@@ -1031,7 +1031,8 @@
     "TOO_MANY_ROWS": "The file has more than {limit, number} rows. Split it, by quarter for instance, and import the parts one after the other.",
     "TOO_MANY_COLUMNS": "The file has more than {limit, number} columns. One stray value far to the right of the table is enough: delete the unused columns and try again.",
     "TOO_MANY_CELLS": "The file has more than {limit, number} cells. Keep only the useful columns, or split it into several files.",
-    "DUPLICATE_SKU_SAME_VALUES": "Item {sku} appears again on order {po_number} with the same quantity and price and no other container: line {line_no} was counted once. If these are two lines, number them (line number column) or add up their quantities."
+    "DUPLICATE_SKU_SAME_VALUES": "Item {sku} appears again on order {po_number} with the same quantity and price and no other container: line {line_no} was counted once. If these are two lines, number them (line number column) or add up their quantities.",
+    "CURRENCY_ASSUMED": "{rows, plural, one {One amount does not say} other {# amounts do not say}} which currency {rows, plural, one {it is} other {they are}} in (no currency column, symbol or header): {rows, plural, one {it is read} other {they are read}} in {currency}. If the statement is in another currency, add a currency column and match it."
   },
   "timeline": {
     "title": "Timeline",
