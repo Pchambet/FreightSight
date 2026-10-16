@@ -1533,7 +1533,7 @@
         "noSku": "no SKU",
         "pushed_cost_changed": "{existing} was written with amounts that have changed since ({changes}). It still carries the old figures. Redo the document in the ERP, forget the push here, then push again.",
         "pushed_cost_gone": "{existing} carries {costs}, which no longer counts on this container (deleted, closed or moved). The document still holds it. Redo the document in the ERP, forget the push here, then push again.",
-        "ambiguous_line": "{po_number} line {line_no} ({sku}) matches {count} lines of receipt {receipt}. The same product received in several lots has several lines there, and nothing says which one this order line is: splitting it by guesswork would put the cost on the wrong goods, so it is refused. Push this container by hand, or receive the order on a single line.",
+        "ambiguous_line": "{po_number} line {line_no} ({sku}) matches {count} lines of receipt {receipt}. The same product received in several lots has several lines there, and their quantities do not say which one this order line is: splitting it by guesswork would put the cost on the wrong goods, so it is refused. Push this container by hand, or receive the order on a single line.",
         "erp_currency_mismatch": "The ERP company keeps its books in {erp_currency} and this organisation works in {base_currency}. Our amounts would be read as {erp_currency} and the stock valuation would be wrong by the exchange rate, so nothing is written."
       },
       "pushedAs": "already in {name}",

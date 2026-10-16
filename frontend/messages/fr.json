@@ -1533,7 +1533,7 @@
         "noSku": "sans SKU",
         "pushed_cost_changed": "{existing} a été écrit avec des montants qui ont changé depuis ({changes}). Le document porte toujours les anciens chiffres : refaites-le dans l'ERP, oubliez le push ici, puis repoussez.",
         "pushed_cost_gone": "{existing} porte {costs}, qui ne compte plus sur ce conteneur (supprimé, clôturé ou déplacé). Le document le porte encore : refaites-le dans l'ERP, oubliez le push ici, puis repoussez.",
-        "ambiguous_line": "La ligne {line_no} de {po_number} ({sku}) correspond à {count} lignes de la réception {receipt}. Le même produit reçu en plusieurs lots y a plusieurs lignes et rien ne dit laquelle correspond à cette ligne de commande : ventiler au hasard mettrait le coût sur la mauvaise marchandise. Poussez ce conteneur à la main, ou réceptionnez la commande sur une seule ligne.",
+        "ambiguous_line": "La ligne {line_no} de {po_number} ({sku}) correspond à {count} lignes de la réception {receipt}. Le même produit reçu en plusieurs lots y a plusieurs lignes et leurs quantités ne disent pas laquelle correspond à cette ligne de commande : ventiler au hasard mettrait le coût sur la mauvaise marchandise. Poussez ce conteneur à la main, ou réceptionnez la commande sur une seule ligne.",
         "erp_currency_mismatch": "La société Odoo tient ses comptes en {erp_currency} alors que cette organisation travaille en {base_currency}. Nos montants seraient lus comme des {erp_currency} et la valorisation de stock serait fausse du taux de change : rien n'est écrit."
       },
       "pushedAs": "déjà dans {name}",

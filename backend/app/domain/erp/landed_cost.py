@@ -32,6 +32,7 @@ from app.domain.erp.ports import ErpCostLine, ErpDocument, ErpReceipt, ErpReceip
 from app.domain.labels import COST_TYPE_FR
 from app.domain.models import (
     Container,
+    ContainerLoad,
     Cost,
     CostStatus,
     ErpConnection,
@@ -232,6 +233,8 @@ def plan(
     if receipt is not None:
         blockers.extend(_currency_blockers(org, writer))
         moves = _moves_by_sku(receipt)
+        loaded = {load_id for allocations in by_cost.values() for load_id in allocations}
+        paired = _pair_by_quantity(moves, [comp.load_rows[load_id] for load_id in loaded])
         unvalued = [line for line in receipt.lines if not line.valued]
         if unvalued:
             names = ", ".join(sorted({line.product_name for line in unvalued}))
@@ -261,7 +264,7 @@ def plan(
             by_move: dict[int, PlannedLine] = {}
             for load_id, amount in allocations.items():
                 line = comp.load_rows[load_id].po_line
-                candidates = _candidate_moves(moves, line)
+                candidates = [paired[load_id]] if load_id in paired else _candidate_moves(moves, line)
                 if len(candidates) != 1:
                     if planned.pending:
                         # Only what this push would carry can block it. A cost that already went
@@ -500,6 +503,33 @@ def _candidate_moves(moves: dict[str, list[ErpReceiptLine]], line: PurchaseOrder
     return same_order or candidates
 
 
+def _pair_by_quantity(
+    moves: dict[str, list[ErpReceiptLine]], loads: Iterable[ContainerLoad]
+) -> dict[UUID, ErpReceiptLine]:
+    """`load id -> its move`, for the loads whose SKU sits on several moves that quantities settle.
+
+    The same product received in two lots is two moves of one SKU, and nothing we hold names the
+    Odoo line. What each lot does carry is its quantity: a load of 400 pieces is the move of 400 when
+    that is the only move of 400 and no other load of the group is 400 as well. Anything short of
+    that one-to-one fit is left out, so it is refused as ambiguous rather than placed by rank.
+    """
+    groups: dict[tuple[str, str], list[ContainerLoad]] = {}
+    for load in loads:
+        line = load.po_line
+        groups.setdefault((line.sku or "", line.purchase_order.po_number), []).append(load)
+    out: dict[UUID, ErpReceiptLine] = {}
+    for group in groups.values():
+        candidates = _candidate_moves(moves, group[0].po_line)
+        if len(candidates) < 2:
+            continue
+        for load in group:
+            same_quantity = [move for move in candidates if Decimal(move.quantity) == load.quantity]
+            rivals = [other for other in group if other.quantity == load.quantity]
+            if len(same_quantity) == 1 and len(rivals) == 1:
+                out[load.id] = same_quantity[0]
+    return out
+
+
 def _no_single_move(
     line: PurchaseOrderLine, candidates: list[ErpReceiptLine], receipt: ErpReceipt
 ) -> Blocker:
@@ -523,9 +553,9 @@ def _no_single_move(
         AMBIGUOUS_LINE,
         f"{line.purchase_order.po_number} line {line.line_no} ({line.sku or 'no SKU'}) matches "
         f"{len(candidates)} lines of receipt {receipt.name} (moves {moves}). The same product "
-        "received in several lots has several lines there, and nothing says which one this order "
-        "line is: splitting it by guesswork would put the cost on the wrong goods, so it is refused. "
-        "Push this container by hand, or receive the order on a single line.",
+        "received in several lots has several lines there, and their quantities do not say which one "
+        "this order line is: splitting it by guesswork would put the cost on the wrong goods, so it "
+        "is refused. Push this container by hand, or receive the order on a single line.",
         {**params, "count": str(len(candidates)), "moves": moves},
     )
 

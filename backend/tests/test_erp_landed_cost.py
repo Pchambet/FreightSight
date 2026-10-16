@@ -94,6 +94,7 @@ class WritableOdoo:
         fail_create: bool = False,
         extra_move: bool = False,
         split_move: bool = False,
+        split_quantity: float = 200.0,
         currency: str = "EUR",
         cost_lines_reversed: bool = False,
     ) -> None:
@@ -106,6 +107,7 @@ class WritableOdoo:
         # The same product received in two lots: two moves, one SKU. The ordinary case as soon as
         # there are two delivery dates, and the one that used to lose half of the split.
         self.split_move = split_move
+        self.split_quantity = split_quantity
         # What the ERP company keeps its books in. Ours pushes a bare number.
         self.currency = currency
         # Odoo returns an x2many in no contractual order; on a draft adopted from an interrupted
@@ -150,7 +152,7 @@ class WritableOdoo:
         if self.extra_move:
             moves.append(EXTRA_MOVE)
         if self.split_move:
-            moves.append(SPLIT_MOVE)
+            moves.append({**SPLIT_MOVE, "quantity": self.split_quantity})
         return moves
 
     def cost_line_rows(self) -> dict[int, dict[str, Any]]:
@@ -342,7 +344,9 @@ def seed_container(client: TestClient, *, invoiced: bool = True, sku: str | None
     return container_id
 
 
-def seed_two_lines(client: TestClient, *, amount: str = "1000.00") -> str:
+def seed_two_lines(
+    client: TestClient, *, amount: str = "1000.00", quantities: tuple[str, str] = ("100", "200")
+) -> str:
     """One order with two lines of the same SKU, both in the container.
 
     Two delivery dates or two lots, and Odoo has two receipt lines for one product: the ordinary
@@ -354,8 +358,8 @@ def seed_two_lines(client: TestClient, *, amount: str = "1000.00") -> str:
             "po_number": PO_NUMBER,
             "currency": "EUR",
             "lines": [
-                {"line_no": 1, "sku": SKU, "quantity": "100", "unit_price": "10.00"},
-                {"line_no": 2, "sku": SKU, "quantity": "200", "unit_price": "10.00"},
+                {"line_no": 1, "sku": SKU, "quantity": quantities[0], "unit_price": "10.00"},
+                {"line_no": 2, "sku": SKU, "quantity": quantities[1], "unit_price": "10.00"},
             ],
         },
     )
@@ -365,8 +369,8 @@ def seed_two_lines(client: TestClient, *, amount: str = "1000.00") -> str:
     loads = client.put(
         f"/api/v1/containers/{container_id}/loads",
         json=[
-            {"po_line_id": po.json()["lines"][0]["id"], "quantity": "100"},
-            {"po_line_id": po.json()["lines"][1]["id"], "quantity": "200"},
+            {"po_line_id": po.json()["lines"][0]["id"], "quantity": quantities[0]},
+            {"po_line_id": po.json()["lines"][1]["id"], "quantity": quantities[1]},
         ],
     )
     assert loads.status_code == 200, loads.text
@@ -771,18 +775,59 @@ def test_two_order_lines_on_one_receipt_line_are_summed_not_overwritten(
     assert odoo.written == [(3, {"additional_landed_cost": 1000.0})]
 
 
-def test_one_sku_on_two_receipt_lines_is_refused_rather_than_guessed(
+def test_two_lots_of_one_sku_are_paired_with_their_moves_by_quantity(
     client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Two lots of one product are two moves, and nothing tells us which of our lines is which.
+    """400 pieces and 200 pieces of one product, on one order, received as two moves.
 
-    Our order lines arrive through the CSV import, which carries no Odoo line id; putting the whole
-    charge on the first move — or splitting it by rank — charges the cost to the wrong goods, and
-    the document validates all the same. Refused, with both moves named.
+    Our order lines carry no Odoo line id, but each lot's quantity is its own: when every line of the
+    SKU finds exactly one move of its quantity, and no other line claims that move, the pairing is a
+    fact and not a guess. The demo's own scenario, which used to stop the push.
     """
     odoo = WritableOdoo(split_move=True)
     connect(client, odoo, monkeypatch)
     container_id = seed_two_lines(client)
+
+    body = preview(client, container_id)
+    assert body["blockers"] == []
+    assert body["pushable"] is True
+    (cost,) = body["costs"]
+    assert {line["move_id"]: line["amount"] for line in cost["lines"]} == {
+        MOVE_ID: "333.33",
+        SPLIT_MOVE["id"]: "666.67",
+    }
+
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 201
+    (document,) = odoo.documents.values()
+    written = {adjustment_id: values["additional_landed_cost"] for adjustment_id, values in odoo.written}
+    by_move = {a["move_id"][0]: written.get(a["id"]) for a in document["adjustments"]}
+    assert by_move == {MOVE_ID: 333.33, SPLIT_MOVE["id"]: 666.67}
+
+
+@pytest.mark.parametrize(
+    ("quantities", "split_quantity"),
+    [
+        (("120", "180"), 200.0),  # no line has a move of its own quantity
+        (("100", "100"), 100.0),  # two lines, two moves, one quantity: nothing tells them apart
+    ],
+)
+def test_one_sku_on_two_receipt_lines_is_refused_when_quantities_do_not_pair_them(
+    client: TestClient,
+    db: Session,
+    org: Organization,
+    monkeypatch: pytest.MonkeyPatch,
+    quantities: tuple[str, str],
+    split_quantity: float,
+) -> None:
+    """Two lots of one product are two moves, and when the quantities do not settle which of our
+    lines is which, nothing does.
+
+    Putting the whole charge on the first move — or splitting it by rank — charges the cost to the
+    wrong goods, and the document validates all the same. Refused, with both moves named.
+    """
+    odoo = WritableOdoo(split_move=True, split_quantity=split_quantity)
+    connect(client, odoo, monkeypatch)
+    container_id = seed_two_lines(client, quantities=quantities)
 
     body = preview(client, container_id)
     assert body["pushable"] is False
