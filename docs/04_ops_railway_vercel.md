@@ -166,6 +166,14 @@ clients ; une ACL mal réglée doit laisser fuir un chiffré, pas une base). Ré
 glissants + la première sauvegarde de chacun des 12 derniers mois. Une ligne de log JSON par exécution
 avec la taille, la durée et le sha256 du dump en clair.
 
+**Ce que ça laisse derrière soi :** chaque sauvegarde réussie écrit une ligne `ops.backup` dans
+`job_runs` (date, clé, taille, taille de la précédente). Le worker la relit chaque jour à 04:45 UTC
+(`ops.check_backup_freshness`) **sans identifiants Scaleway** : plus de 48 h sans sauvegarde, ou une
+sauvegarde d'un tiers plus petite que la veille, et c'est une erreur dans Sentry. Le verdict
+(`ops.backup_freshness`) est ce que lisent Paramètres → état du service et `python -m app.doctor`. Le
+service `backup` a son propre `SENTRY_DSN` (référencé dans `.railway/railway.ts`) : un échec ou une
+sauvegarde non enregistrée part en erreur, pas seulement dans un log rouge à 03:00.
+
 **⚠️ La clé de chiffrement ne doit pas vivre uniquement dans Railway.** Si le compte Railway est
 perdu, la clé l'est aussi et les sauvegardes ne servent plus à rien. Elle va dans un gestionnaire de
 mots de passe, hors du fournisseur.
@@ -179,13 +187,15 @@ aws s3 ls s3://freightsight-backups/backups/prod/ --endpoint-url https://s3.fr-p
 # 2. Créer une base cible vide (jamais la base de production directement)
 psql "$MIGRATIONS_DATABASE_URL" -c 'CREATE DATABASE restore_check'
 
-# 3. Restaurer la sauvegarde choisie dedans
+# 3. Restaurer la sauvegarde choisie dedans (redonne aussi ses droits à freightsight_app, voir plus bas)
 python -m app.restore backups/prod/2026-09-09T0300.dump.enc \
   --to "postgresql://…@…/restore_check" --yes
 
-# 4. Vérifier qu'elle contient quelque chose de crédible
+# 4. Vérifier qu'elle contient quelque chose de crédible, et que l'API pourra la lire
 psql "postgresql://…@…/restore_check" -c \
   "SELECT (SELECT count(*) FROM organizations) AS orgs, (SELECT count(*) FROM costs) AS costs"
+psql "postgresql://…@…/restore_check" -c \
+  "SELECT has_table_privilege('freightsight_app', 'containers', 'SELECT')"   # doit dire t
 
 # 5. Basculer : renommer, ou repointer DATABASE_URL sur la base restaurée
 psql "$MIGRATIONS_DATABASE_URL" -c \
@@ -195,5 +205,92 @@ psql "$MIGRATIONS_DATABASE_URL" -c \
 L'étape 4 n'est pas décorative : **une sauvegarde qu'on n'a jamais restaurée est une rumeur.** À faire
 une fois pour de vrai, et à refaire après tout changement de schéma majeur.
 
-`pg_dump` et `pg_restore` sont dans l'image (`postgresql-client-17`, la même majeure que le serveur :
+**Les droits du rôle applicatif.** Les dumps sont pris sans privilèges (`--no-privileges`) : ils
+doivent pouvoir se restaurer dans une base dont les rôles ne sont pas ceux de la source. Une copie
+restaurée ainsi n'est lisible que par son propriétaire — l'API y recevrait « permission denied » sur
+chaque table — et la fonction `SECURITY DEFINER` `tracking_resolve_subscription` y redeviendrait
+exécutable par PUBLIC. `app.restore` rejoue donc, après `pg_restore`, les droits que posent les
+migrations (`APP_GRANTS` dans `app/ops/backup.py`) ; le test `test_a_restored_dump_is_readable_by_the_application`
+compare la copie à une base migrée, droit par droit, et lit une ligne en `freightsight_app` sous RLS. Il
+tourne en CI (il échoue au lieu de s'ignorer quand `CI=true`) avec le client 18 nommé par son chemin.
+
+`pg_dump` et `pg_restore` sont dans l'image (`postgresql-client-18`, la même majeure que le serveur :
 `pg_dump` refuse un serveur plus récent que lui, donc cette version suit celle de la base).
+
+## 7. Redémarrer après une coupure
+
+Cas d'octobre 2026 : l'espace Railway est passé inactif (essai terminé, aucun abonnement), tous les
+déploiements ont été retirés, le volume Postgres est resté intact. Rien dans le code n'est en cause.
+
+**1. Ce que seul le propriétaire fait.** Tableau de bord Railway → espace « Pierre Chambet's Projects »
+→ Settings → Billing → souscrire au plan Hobby (5 $/mois, carte). Vérifier que l'état est « Active ».
+Avant de relancer, vérifier aussi qu'un dump récent existe dans le bucket Scaleway et que la clé
+`BACKUP_ENCRYPTION_KEY` est bien conservée hors de Railway.
+
+**2. Redéployer dans l'ordre** (CLI `railway` connectée ; ces commandes n'ont pas encore été jouées) :
+
+```bash
+cd ~/Desktop/GitHub/FreightSight
+P=03daf49e-8715-41ee-ae74-de3e53aa16c7
+railway link -p $P -e production
+# a. la base d'abord (image et volume intacts) ; attendre SUCCESS
+railway redeploy -s PostgresEU -e production --from-source -y
+railway deployment list -p $P -e production -s PostgresEU --json | head
+# b. l'API au dernier commit de main : le pre-deploy joue alembic, puis /readyz doit passer en 120 s
+railway redeploy -s FreightSight -e production --from-source -y
+railway logs -s FreightSight -e production          # alembic OK, puis « ready »
+# c. le worker, d. la sauvegarde (même image)
+railway redeploy -s worker -e production --from-source -y
+railway redeploy -s backup -e production --from-source -y
+```
+
+Si `--from-source` est refusé : tableau de bord → service → Deploy (dernier commit), ou le prochain push
+sur `main`. **Ne jamais lancer `railway config apply`** : appliquer `.railway/railway.ts` (par exemple
+le `SENTRY_DSN` du service `backup`) est une décision du propriétaire, à part.
+
+Les migrations ne vont qu'en avant : lire `backend/migrations/versions/` pour les révisions ajoutées
+depuis le dernier déploiement réussi (2683c91, le 28 septembre ; aucune nouvelle au 6fba532) avant
+l'étape b.
+
+**3. Sonder** (attendus entre parenthèses) :
+
+```bash
+B=https://freightsight-production.up.railway.app
+curl -s -w ' %{http_code}\n' $B/readyz                           # 200 {"status":"ready",…}
+curl -s -w ' %{http_code}\n' $B/healthz/worker                   # 200 quelques minutes après le worker ; 503 avant
+curl -s -o /dev/null -w '%{http_code}\n' $B/api/v1/me             # 401 (sans jeton)
+curl -s -o /dev/null -w '%{http_code}\n' https://freight-sight-two.vercel.app/   # 200
+```
+
+Puis : Sentry sans nouvelle erreur, une connexion Clerk sur le site Vercel qui atteint `/api/v1/me` en
+200, `railway run -s FreightSight python -m app.doctor` (lecture seule). Déclencher une sauvegarde à la
+main depuis le service `backup` plutôt que d'attendre 03:00 UTC, et vérifier le lendemain que
+`ops.backup_freshness` est vert.
+
+**4. Ce que fait le worker au réveil.** Pas de rattrapage en rafale : Procrastinate ne relance que le
+dernier tic périodique, s'il a moins de 10 minutes. Le passage surestaries tourne une fois (plus de
+20 h depuis le dernier) et chaque conteneur dont l'horloge court reçoit une alerte datée du jour ; les
+alertes J-3/J-1 tombées pendant la coupure sont perdues. Il lit les jalons d'avant la coupure : un
+conteneur enlevé ou restitué pendant la coupure peut être annoncé « surestaries en cours » dans le
+premier récapitulatif. Saisir ces dates avant que le premier passage tourne (06:00 Paris), ou prévenir
+les clients que le premier e-mail est un rattrapage. Un job resté `doing` à l'arrêt est relancé (ou
+abandonné, et la facture passe en échec) par `ops.recover_stalled_jobs` dans les 10 minutes.
+
+## 8. Postgres local : passage de 17 à 18
+
+`docker-compose.yml` lance `postgres:18`, la majeure de la CI et de la production. Les images 18
+rangent les données dans `/var/lib/postgresql/18/docker` et montent le volume sur `/var/lib/postgresql`
+(et non plus `…/data`). Un volume `pgdata` créé par l'ancien service 17 ne s'ouvre pas avec 18. Deux
+façons de passer :
+
+```bash
+# Garder ses données : dump avec l'ancienne image (avant de récupérer ce changement), puis restauration
+docker compose exec -T db pg_dump -U fs -Fc fs > ~/fs-local.dump
+docker compose down -v                    # supprime le volume 17
+docker compose up -d db                   # postgres:18, volume neuf
+docker compose exec -T db pg_restore -U fs -d fs --no-owner < ~/fs-local.dump
+docker compose up -d --build              # migrate, api, worker
+
+# Ou repartir de zéro (la base locale est jetable) : les migrations recréent tout
+docker compose down -v && docker compose up -d --build
+```
