@@ -28,7 +28,7 @@ export default function RateForm({
   base: string;
   current: string | null;
   rateDate: string | null;
-  /** The order has no date of its own: the rate needs one. */
+  /** The order has no date of its own: the day the rate is for may be given (the API does not require it). */
   needsDate: boolean;
   /** A viewer reads the rate; only a member who may edit orders gets the form. */
   canEdit: boolean;
@@ -93,7 +93,7 @@ export default function RateForm({
           {needsDate ? (
             <div>
               <label className={label} htmlFor="po-rate-date">{t("date")}</label>
-              <input id="po-rate-date" type="date" required value={date} onChange={(e) => setDate(e.target.value)} className={`${input} !w-auto`} />
+              <input id="po-rate-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${input} !w-auto`} />
             </div>
           ) : null}
           <button type="submit" disabled={pending || value.trim() === ""} className={btnPrimary}>{pending ? t("saving") : t("save")}</button>
