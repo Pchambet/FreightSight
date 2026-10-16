@@ -14,6 +14,7 @@ const current = "bg-white/10 text-white font-medium";
 /** The application's navigation, on the navy ground: the sidebar on a desk, the drawer on a phone. */
 export default function AppNav({ onNavigate, unreadAlerts = 0, onHelp }: { onNavigate?: () => void; unreadAlerts?: number; onHelp: () => void }) {
   const t = useTranslations("nav");
+  const alertsT = useTranslations("alerts");
   const pathname = usePathname();
   const settingsActive = pathname === "/settings";
   const list = useRef<HTMLDivElement>(null);
@@ -34,7 +35,8 @@ export default function AppNav({ onNavigate, unreadAlerts = 0, onHelp }: { onNav
                 const badge = n.badge && unreadAlerts > 0 ? (unreadAlerts > 99 ? "99+" : unreadAlerts) : null;
                 return (
                   <li key={n.href}>
-                    <Link href={n.href} onClick={onNavigate} aria-current={active ? "page" : undefined} className={`${row} ${active ? current : idle}`}>
+                    {/* With a badge the link's name says what the number counts: read alone, « Alertes 3 » says nothing. */}
+                    <Link href={n.href} onClick={onNavigate} aria-current={active ? "page" : undefined} aria-label={badge ? alertsT("bell", { count: unreadAlerts }) : undefined} className={`${row} ${active ? current : idle}`}>
                       <n.icon className={`w-4 h-4 shrink-0 ${active ? "text-blue-400" : "text-slate-500 group-hover:text-slate-300"}`} aria-hidden />
                       <span className="flex-1 truncate">{t(n.key)}</span>
                       {badge ? (

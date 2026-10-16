@@ -1144,7 +1144,7 @@
     "markRead": "Marquer comme lue",
     "markAllRead": "Tout marquer comme lu",
     "marked": "Alerte marquée comme lue",
-    "allMarked": "{count} alertes marquées comme lues",
+    "allMarked": "{count, plural, one {# alerte marquée comme lue} other {# alertes marquées comme lues}}",
     "failed": "Impossible de mettre à jour l'alerte",
     "openContainer": "Ouvrir le conteneur",
     "bell": "Alertes, {count, plural, one {# non lue} other {# non lues}}",

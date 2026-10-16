@@ -1144,7 +1144,7 @@
     "markRead": "Mark as read",
     "markAllRead": "Mark all as read",
     "marked": "Alert marked as read",
-    "allMarked": "{count} alerts marked as read",
+    "allMarked": "{count, plural, one {# alert marked as read} other {# alerts marked as read}}",
     "failed": "Could not update the alert",
     "openContainer": "Open the container",
     "bell": "Alerts, {count} unread",
