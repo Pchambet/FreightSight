@@ -9153,6 +9153,11 @@
             "type": "integer",
             "title": "Containers Without Charge",
             "default": 0
+          },
+          "containers_held": {
+            "type": "integer",
+            "title": "Containers Held",
+            "default": 0
           }
         },
         "type": "object",

@@ -1283,6 +1283,8 @@ class AuditMargin(BaseModel):
     #: Containers of the article with no charge at all: their goods are in none of the figures above,
     #: which measure what the others brought in. An article with nothing else is not listed.
     containers_without_charge: int = 0
+    #: Of those, the ones whose charges are entered but cannot be placed yet: never "no charge".
+    containers_held: int = 0
 
 
 class AuditDemurrageLine(BaseModel):

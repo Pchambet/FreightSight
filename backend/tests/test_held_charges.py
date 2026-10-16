@@ -139,3 +139,28 @@ def test_the_audit_counts_the_held_box_apart(client: TestClient, held: dict[str,
     assert (completeness["containers_without_cost"], completeness["containers_held"]) == (2, 1)
     (month,) = audit["coefficient_by_month"]
     assert (month["containers_without_charge"], month["containers_held"]) == (2, 1)
+
+
+def test_the_audit_margin_counts_the_held_box_apart(client: TestClient, held: dict[str, Any]) -> None:
+    """The article is charged in a third box, so it has a margin row: the held box is not "no charge"."""
+    po = order(client, "PO-EUR2", "EUR", "TAB", "4")
+    box = landed_box(client, "TGHU7245081", [(po, "4")])
+    assert client.post("/api/v1/costs", json=charge(box, "OCEAN_FREIGHT", "50.00")).status_code == 201
+    day = LANDED_ON.date().isoformat()
+    audit = client.get("/api/v1/reports/audit", params={"period_from": day, "period_to": day}).json()
+    (margin,) = audit["margins"]
+    assert (margin["containers_without_charge"], margin["containers_held"]) == (2, 1)
+
+
+def test_the_landed_cost_file_keeps_each_holding_order_apart(client: TestClient, db: Session) -> None:
+    """An order number may hold a space: two of them are never run together in one cell."""
+    first, second = order(client, "PO 77", "USD", "TAB", "2"), order(client, "PO 78", "USD", "TAB", "2")
+    box = landed_box(client, "TGHU7245081", [(first, "2"), (second, "2")])
+    assert client.post("/api/v1/costs", json=charge(box, "OCEAN_FREIGHT", "90.00")).status_code == 201
+    missing = {"fx_rate": None, "fx_date": None, "fx_source": None}
+    ids = [UUID(first["id"]), UUID(second["id"])]
+    db.execute(update(PurchaseOrder).where(PurchaseOrder.id.in_(ids)).values(**missing))
+    db.flush()
+    res = client.get("/api/v1/exports/landed-costs.csv", params={"locale": "en"})
+    rows = [row for row in csv.DictReader(io.StringIO(res.text.lstrip("﻿"))) if row["row_type"] == "LINE"]
+    assert {r["held_orders"] for r in rows} == {"PO 77, PO 78"}

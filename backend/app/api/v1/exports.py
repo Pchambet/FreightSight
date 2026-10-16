@@ -235,7 +235,7 @@ def landed_costs_csv(
                 ln.fob_missing or "",
                 "true" if ln.without_charge else "false",
                 "true" if ln.charges_held else "false",
-                " ".join(ln.held_orders),
+                ", ".join(ln.held_orders),  # an order number may hold a space
                 *[number(ln.by_cost_type.get(ct), mark) for ct in cost_types],
                 "",
                 "",

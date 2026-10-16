@@ -2341,6 +2341,11 @@ export interface components {
              * @default 0
              */
             containers_without_charge: number;
+            /**
+             * Containers Held
+             * @default 0
+             */
+            containers_held: number;
         };
         /**
          * AuditPage

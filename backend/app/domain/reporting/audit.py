@@ -215,6 +215,8 @@ class Margin:
     fob_missing_lines: int = 0
     #: The article's containers with no charge at all: in none of the figures above.
     containers_without_charge: int = 0
+    #: Of those, the ones whose charges are entered but held (`held_containers`).
+    containers_held: int = 0
 
 
 @dataclass
@@ -892,6 +894,7 @@ def _margins(
             fob_missing=article.fob_missing,
             fob_missing_lines=article.fob_missing_lines,
             containers_without_charge=article.containers_without_charge,
+            containers_held=article.containers_held,
         )
         price = article.sale_price
         # A price in another currency than the books gives no margin here either (see sku_report).
