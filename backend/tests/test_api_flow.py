@@ -143,6 +143,7 @@ def test_t5_through_the_api(client: TestClient) -> None:
         "allocated": "2766.67",
         "vat": "0.00",
         "landed": "18766.67",
+        "charged_fob": "16000.00",
         "unallocated": "0.00",
     }
     by_po = {ln["po_number"]: ln for ln in cnt1["lines"]}
