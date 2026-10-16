@@ -3979,7 +3979,7 @@
           "exports"
         ],
         "summary": "Landed Costs Csv",
-        "description": "One row per load, and the same numbers as the on-screen report \u2014 because they are its numbers.\n\nThe export used to add the allocations up a second way and forgot what every other surface of the\nproduct applies: import VAT is recoverable and does not belong in a landed cost. The file the\nfinance director reconciles against his trial balance was inflated by exactly the VAT he claims\nback. It now reads `organization_report`, so the CSV and the container report cannot diverge\nagain, and the VAT stands in a column of its own.\n\nThe period is read against the arrival date, like the landed-cost report on screen; a cost that\nnever reached a container has no arrival date, so the trailing `UNALLOCATED` rows are filed under\ntheir own date and say so in `period_basis`. Their amounts are what the sum of `allocated` is\nmissing: an export whose total is quietly short of the invoices is an export nobody can use.",
+        "description": "One row per load, and the same numbers as the on-screen report \u2014 because they are its numbers.\n\nThe export used to add the allocations up a second way and forgot what every other surface of the\nproduct applies: import VAT is recoverable and does not belong in a landed cost. The file the\nfinance director reconciles against his trial balance was inflated by exactly the VAT he claims\nback. It now reads `organization_report`, so the CSV and the container report cannot diverge\nagain, and the VAT stands in a column of its own.\n\nThe period is read against the arrival date, like the landed-cost report on screen; a cost that\nnever reached a container has no arrival date, so the trailing `UNALLOCATED` rows are filed under\ntheir own date and say so in `period_basis`. Their amounts are what the sum of `allocated` is\nmissing: an export whose total is quietly short of the invoices is an export nobody can use.\n\nA line whose container carries no charge at all has no landed figures \u2014 they would only repeat its\nFOB \u2014 and says so in `without_charge`, as the report's lines do.",
         "operationId": "landed_costs_csv_api_v1_exports_landed_costs_csv_get",
         "parameters": [
           {
@@ -4366,7 +4366,7 @@
           "exports"
         ],
         "summary": "Period Close Csv",
-        "description": "The stock valuation a closed month froze: one row per article, with the quantity, the purchase\nprice, the landed cost and the unit cost as they went into the accounts. 404 for an open month \u2014\nthe point of this file is that it never changes.",
+        "description": "The stock valuation a closed month froze: one row per article, with the quantity, the purchase\nprice, the landed cost and the unit cost as they went into the accounts. 404 for an open month \u2014\nthe point of this file is that it never changes. A container that carried no charge is in it at its\nFOB, which is what its goods are booked at; `containers_without_charge` says how many of the\narticle's containers those are.",
         "operationId": "period_close_csv_api_v1_exports_period_close_csv_get",
         "parameters": [
           {
@@ -13753,6 +13753,22 @@
             "type": "object",
             "title": "Totals"
           },
+          "coefficient": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coefficient"
+          },
+          "containers_without_charge": {
+            "type": "integer",
+            "title": "Containers Without Charge",
+            "default": 0
+          },
           "fob_missing": {
             "anyOf": [
               {
@@ -14877,6 +14893,22 @@
             },
             "type": "object",
             "title": "By Cost Type"
+          },
+          "charged_fob": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Charged Fob"
+          },
+          "containers_without_charge": {
+            "type": "integer",
+            "title": "Containers Without Charge",
+            "default": 0
           },
           "closed_at": {
             "anyOf": [

@@ -155,6 +155,9 @@ def landed_costs_csv(
     never reached a container has no arrival date, so the trailing `UNALLOCATED` rows are filed under
     their own date and say so in `period_basis`. Their amounts are what the sum of `allocated` is
     missing: an export whose total is quietly short of the invoices is an export nobody can use.
+
+    A line whose container carries no charge at all has no landed figures — they would only repeat its
+    FOB — and says so in `without_charge`, as the report's lines do.
     """
     _, mark = dialect(locale)
     comp = compute(t.db, t.org)
@@ -180,6 +183,8 @@ def landed_costs_csv(
         "unit_landed_cost",
         # Why the three cells before are empty: a line with no value is never written as 0.
         "fob_missing",
+        # Why `landed` and `unit_landed_cost` are empty: its container carries no charge at all.
+        "without_charge",
         *cost_types,
         "unallocated",
         "unallocated_reason",
@@ -210,11 +215,12 @@ def landed_costs_csv(
                 number(ln.fob, mark),
                 number(ln.allocated, mark),
                 number(ln.vat, mark),
-                number(ln.landed, mark),
+                number(None if ln.without_charge else ln.landed, mark),
                 # Four decimals here and two on screen: this is the file people multiply by a
                 # quantity, and rounding a unit cost before that multiplication loses euros.
-                number(ln.unit_landed_cost, mark, 4),
+                number(None if ln.without_charge else ln.unit_landed_cost, mark, 4),
                 ln.fob_missing or "",
+                "true" if ln.without_charge else "false",
                 *[number(ln.by_cost_type.get(ct), mark) for ct in cost_types],
                 "",
                 "",
@@ -234,6 +240,7 @@ def landed_costs_csv(
                 "",
                 "",
                 f"{cost.cost_type.value} {cost.invoice_number or ''} {cost.cost_date.isoformat()}".strip(),
+                "",
                 "",
                 "",
                 "",
@@ -469,7 +476,9 @@ PeriodParam = Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$", description="YYYY-MM")
 def period_close_csv(t: TenantDep, period: str = PeriodParam, locale: Locale = "fr") -> StreamingResponse:
     """The stock valuation a closed month froze: one row per article, with the quantity, the purchase
     price, the landed cost and the unit cost as they went into the accounts. 404 for an open month —
-    the point of this file is that it never changes."""
+    the point of this file is that it never changes. A container that carried no charge is in it at its
+    FOB, which is what its goods are booked at; `containers_without_charge` says how many of the
+    article's containers those are."""
     closed = t.db.scalar(
         t.q(PeriodClose).where(PeriodClose.period == period).options(selectinload(PeriodClose.lines))
     )
@@ -477,19 +486,24 @@ def period_close_csv(t: TenantDep, period: str = PeriodParam, locale: Locale = "
         raise NotFound("Closed period", code="PERIOD_NOT_CLOSED")
     _, mark = dialect(locale)
     header = ["period", "closed_at", "sku", "description", "quantity", "fob", "allocated", "landed",
-              "unit_landed_cost", "containers"]  # fmt: skip
+              "unit_landed_cost", "containers", "containers_without_charge"]  # fmt: skip
+    uncharged = periods.uncharged_containers(closed.lines)
 
     def rows() -> Iterator[list[Any]]:
         articles: dict[str, list[Any]] = {}
         for line in closed.lines:
             key = line.sku or line.description or ""
             nothing = Decimal(0)
-            entry = articles.setdefault(key, [line.sku, line.description, nothing, nothing, nothing, set()])
+            entry = articles.setdefault(
+                key, [line.sku, line.description, nothing, nothing, nothing, set(), set()]
+            )
             entry[2] += line.quantity
             entry[3] += line.fob
             entry[4] += line.landed
             entry[5].add(line.container_number)
-        for _, (sku, description, quantity, fob, landed, boxes) in sorted(articles.items()):
+            if line.container_id in uncharged:
+                entry[6].add(line.container_id)
+        for _, (sku, description, quantity, fob, landed, boxes, bare) in sorted(articles.items()):
             unit = landed / quantity if quantity else Decimal(0)
             yield [
                 period,
@@ -502,6 +516,7 @@ def period_close_csv(t: TenantDep, period: str = PeriodParam, locale: Locale = "
                 number(landed, mark),
                 number(unit, mark, 4),
                 " ".join(sorted(boxes)),
+                len(bare),
             ]
 
     return csv_response(rows(), header, locale, f"freightsight-cloture-{period}.csv")
@@ -574,16 +589,11 @@ def sku_costs_csv(
 
     def from_close() -> Iterator[list[Any]]:
         assert closed is not None
-        # The live rule (`charged_containers`) read on the frozen lines: a box none of whose lines bore a
-        # landed charge gives no cost price, whether its month is closed or not.
-        charged = {
-            ln.container_id
-            for ln in closed.lines
-            if any(Decimal(str(v)) for k, v in ln.by_cost_type.items() if k not in EXCLUDED_FROM_LANDED)
-        }
+        # A box the close froze with no charge gives no cost price, whether its month is closed or not.
+        uncharged = periods.uncharged_containers(closed.lines)
         articles: dict[str, list[Any]] = {}
         for line in closed.lines:
-            if line.sku and line.container_id in charged:
+            if line.sku and line.container_id not in uncharged:
                 articles.setdefault(line.sku, []).append(line)
         for sku, lines in sorted(articles.items()):
             last_day = max((ln.arrived_on for ln in lines if ln.arrived_on), default=None)

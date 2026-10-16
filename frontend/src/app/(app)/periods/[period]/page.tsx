@@ -13,6 +13,7 @@ import StatTile from "@/components/ui/StatTile";
 import AcknowledgeDrift from "@/features/periods/AcknowledgeDrift";
 import PeriodActions from "@/features/periods/PeriodActions";
 import FobMissing, { FobMissingLine } from "@/features/report/FobMissing";
+import WithoutCharge from "@/features/report/WithoutCharge";
 import { isPeriodKey, periodTitle, signedMoney } from "@/features/periods/format";
 import { api } from "@/lib/api/client";
 import { dateShort, dateTimeShort, money } from "@/lib/format";
@@ -75,9 +76,11 @@ export default async function PeriodPage({ params }: Params) {
       />
 
       <FobMissing lines={s.fob_missing_lines} href={rateHref} className="mb-6" />
+      {/* The landed cost and the coefficient count only the containers that carry a charge, as on the overview. */}
+      {s.fob_missing ? null : <WithoutCharge containers={s.containers_without_charge} href={closed ? null : "/containers?view=nocost"} className="mb-6" />}
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 mb-6">
-        <StatTile label={closed ? t("detail.frozenLanded") : t("detail.liveLanded")} hint={closed ? t("detail.frozenHint") : undefined} value={money(s.landed, currency, locale)} sub={t("detail.onFob", { fob: money(s.fob, currency, locale) })} />
+        <StatTile label={closed ? t("detail.frozenLanded") : t("detail.liveLanded")} hint={closed ? t("detail.frozenHint") : undefined} value={money(s.landed, currency, locale)} sub={t("detail.onFob", { fob: money(s.charged_fob ?? s.fob, currency, locale) })} />
         <StatTile label={t("detail.coef")} value={ratio} sub={t("detail.containers", { count: s.containers })} />
         {closed ? (
           <StatTile
@@ -102,7 +105,7 @@ export default async function PeriodPage({ params }: Params) {
           {s.fob === null ? (
             <FobMissing lines={s.fob_missing_lines} href={rateHref} />
           ) : (
-            <BreakdownBar fob={Number(s.fob)} families={foldFamilies(s.by_cost_type as Record<string, string>)} currency={currency} locale={locale} fobLabel={t("detail.fob")} familyLabels={familyLabels} ofFobLabel={t("detail.ofFob")} />
+            <BreakdownBar fob={Number(s.charged_fob ?? s.fob)} families={foldFamilies(s.by_cost_type as Record<string, string>)} currency={currency} locale={locale} fobLabel={t("detail.fob")} familyLabels={familyLabels} ofFobLabel={t("detail.ofFob")} />
           )}
         </Panel>
 

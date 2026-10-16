@@ -11,7 +11,7 @@ from app.core.money import q2, q4
 from app.domain.costing import engine
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
 from app.domain.costing.service import Computation, charged_containers, to_engine_cost
-from app.domain.costing.value import FX_RATE_MISSING, missing_code, total
+from app.domain.costing.value import FX_RATE_MISSING, coefficient, missing_code, total
 from app.domain.models import Cost, CostStatus
 
 ZERO = Decimal("0.00")
@@ -89,10 +89,15 @@ class Report:
     """
 
     base_currency: str
-    #: None, with `landed`, while one of the lines has no value (see `costing.value`).
+    #: Every line's goods, charged or not: a fact. None while one of the lines has no value (see
+    #: `costing.value`).
     fob: Decimal | None
     allocated: Decimal
     vat: Decimal
+    #: The landed cost of the lines whose container carries a charge (`charged_containers`), and the
+    #: value of their goods: a container with none would only add its FOB, so it is left out of both
+    #: and counted in `containers_without_charge`. None when none of the lines' containers carries a
+    #: charge, and while one of the charged lines has no value.
     landed: Decimal | None
     unallocated: Decimal
     #: Still only expected: live estimates no invoice has replaced yet.
@@ -118,6 +123,10 @@ class Report:
     replaced: list[tuple[Cost, Cost]] = field(default_factory=list)
     fob_missing: str | None = None
     fob_missing_lines: int = 0
+    charged_fob: Decimal | None = None
+    #: landed / charged_fob, four decimals.
+    coefficient: Decimal | None = None
+    containers_without_charge: int = 0
 
 
 def estimate_allocations(comp: Computation) -> dict[UUID, dict[UUID, Decimal]]:
@@ -246,6 +255,11 @@ def _report(comp: Computation, base_currency: str, load_filter: set[UUID], cost_
     fob = total(ln.fob for ln in lines)
     missing = sum(1 for ln in lines if ln.fob_missing)
     allocated_total = sum((ln.allocated for ln in lines), ZERO)
+    charged_lines = [ln for ln in lines if not ln.without_charge]
+    charged_fob = None if lines and not charged_lines else total(ln.fob for ln in charged_lines)
+    landed = (
+        None if charged_fob is None else q2(charged_fob + sum((ln.allocated for ln in charged_lines), ZERO))
+    )
     vat_total = sum((ln.vat for ln in lines), ZERO)
     actual_total = sum((ln.actual for ln in lines), ZERO)
     return Report(
@@ -253,7 +267,7 @@ def _report(comp: Computation, base_currency: str, load_filter: set[UUID], cost_
         fob=None if fob is None else q2(fob),
         allocated=q2(allocated_total),
         vat=q2(vat_total),
-        landed=None if fob is None else q2(fob + allocated_total),
+        landed=landed,
         unallocated=q2(sum((w.amount_base for w in warnings), ZERO)),
         estimated=q2(sum((ln.estimated for ln in lines), ZERO)),
         actual=q2(actual_total),
@@ -277,6 +291,9 @@ def _report(comp: Computation, base_currency: str, load_filter: set[UUID], cost_
         replaced=replaced,
         fob_missing=missing_code(missing),
         fob_missing_lines=missing,
+        charged_fob=None if charged_fob is None else q2(charged_fob),
+        coefficient=coefficient(landed, charged_fob),
+        containers_without_charge=len({ln.container_id for ln in lines if ln.without_charge}),
     )
 
 

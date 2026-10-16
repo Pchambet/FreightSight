@@ -1068,7 +1068,8 @@
     "CURRENCY_ASSUMED": "{rows, plural, one {One amount does not say} other {# amounts do not say}} which currency {rows, plural, one {it is} other {they are}} in (no currency column, symbol or header): {rows, plural, one {it is read} other {they are read}} in {currency}. If the statement is in another currency, add a currency column and match it.",
     "UNIT_COLUMN_UNMAPPED": "Column \"{column}\" was not read: it does not say whether it holds one unit's value or the line's total. Match it to \"{field}\" if it is one unit's, or to the line-total field (divided by the quantity). Without it, costs split by weight or volume have no basis.",
     "MAPPING_UNIT_AND_LINE_TOTAL": "{dimension, select, volume {Volume} other {Weight}}: match the per-unit column or the line-total column, not both.",
-    "PERIOD_ORDERS_WITHOUT_FX_RATE": "This month cannot be closed: some orders have no exchange rate ({orders}). The value of their goods is unknown, and the close would freeze a wrong landed cost. Set the rate on each of them, then close."
+    "PERIOD_ORDERS_WITHOUT_FX_RATE": "This month cannot be closed: some orders have no exchange rate ({orders}). The value of their goods is unknown, and the close would freeze a wrong landed cost. Set the rate on each of them, then close.",
+    "PERIOD_DRIFT_ORDERS_WITHOUT_FX_RATE": "This month's gap cannot be marked as booked: some orders have no exchange rate ({orders}). The value of their goods is unknown today, and with it the amount of the gap. Set the rate on each of them, then mark the gap."
   },
   "timeline": {
     "title": "Timeline",

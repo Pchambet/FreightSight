@@ -132,7 +132,7 @@ export default function AllocationPanel({ containerId, poId, report }: { contain
               <tr>
                 <td className={td} colSpan={poId ? 3 : 2}>{tr("total")}</td>
                 <td className={tdRight}><Money amount={shown.totals.fob} currency={cur} /></td>
-                <td className={tdRight}>{bare ? <span className="text-slate-400">—</span> : <Money amount={shown.totals.landed} currency={cur} />}</td>
+                <td className={tdRight}>{bare ? <span className="text-slate-400">—</span> : <><Money amount={shown.totals.landed} currency={cur} /><WithoutChargeLine count={shown.containers_without_charge ?? 0} /></>}</td>
                 <td className={tdRight}></td>
                 {chargeCostTypes.map((ct) => <td key={ct} className={tdRight}><Money amount={shown.by_cost_type[ct]} currency={cur} /></td>)}
                 {hasVat ? <td className={`${tdRight} text-slate-500`}><Money amount={shown.by_cost_type.IMPORT_VAT} currency={cur} /></td> : null}

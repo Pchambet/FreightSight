@@ -1068,7 +1068,8 @@
     "IMPORT_KIND_NOT_READY": "Ce type de fichier ne s'importe pas encore.",
     "DATE_IN_FUTURE": "« {value} » est une date à venir.",
     "AMOUNT_INCLUDES_VAT": "La colonne « {column} » est toutes taxes comprises : un coût de revient se lit hors taxes. Faites correspondre la colonne du montant HT.",
-    "PERIOD_ORDERS_WITHOUT_FX_RATE": "Ce mois ne peut pas être clôturé : des commandes n'ont pas de taux de change ({orders}). La valeur de leurs marchandises est inconnue, et la clôture figerait un coût de revient faux. Saisissez le taux sur chacune, puis clôturez."
+    "PERIOD_ORDERS_WITHOUT_FX_RATE": "Ce mois ne peut pas être clôturé : des commandes n'ont pas de taux de change ({orders}). La valeur de leurs marchandises est inconnue, et la clôture figerait un coût de revient faux. Saisissez le taux sur chacune, puis clôturez.",
+    "PERIOD_DRIFT_ORDERS_WITHOUT_FX_RATE": "L'écart de ce mois ne peut pas être marqué comme comptabilisé : des commandes n'ont pas de taux de change ({orders}). La valeur de leurs marchandises est inconnue aujourd'hui, et avec elle le montant de l'écart. Saisissez le taux sur chacune, puis marquez l'écart."
   },
   "timeline": {
     "title": "Chronologie",

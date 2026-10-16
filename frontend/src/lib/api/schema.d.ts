@@ -946,6 +946,9 @@ export interface paths {
          *     never reached a container has no arrival date, so the trailing `UNALLOCATED` rows are filed under
          *     their own date and say so in `period_basis`. Their amounts are what the sum of `allocated` is
          *     missing: an export whose total is quietly short of the invoices is an export nobody can use.
+         *
+         *     A line whose container carries no charge at all has no landed figures — they would only repeat its
+         *     FOB — and says so in `without_charge`, as the report's lines do.
          */
         get: operations["landed_costs_csv_api_v1_exports_landed_costs_csv_get"];
         put?: never;
@@ -1032,7 +1035,9 @@ export interface paths {
          * Period Close Csv
          * @description The stock valuation a closed month froze: one row per article, with the quantity, the purchase
          *     price, the landed cost and the unit cost as they went into the accounts. 404 for an open month —
-         *     the point of this file is that it never changes.
+         *     the point of this file is that it never changes. A container that carried no charge is in it at its
+         *     FOB, which is what its goods are booked at; `containers_without_charge` says how many of the
+         *     article's containers those are.
          */
         get: operations["period_close_csv_api_v1_exports_period_close_csv_get"];
         put?: never;
@@ -3771,6 +3776,13 @@ export interface components {
             totals: {
                 [key: string]: string | null;
             };
+            /** Coefficient */
+            coefficient?: string | null;
+            /**
+             * Containers Without Charge
+             * @default 0
+             */
+            containers_without_charge: number;
             /** Fob Missing */
             fob_missing?: string | null;
             /**
@@ -4184,6 +4196,13 @@ export interface components {
             by_cost_type: {
                 [key: string]: string;
             };
+            /** Charged Fob */
+            charged_fob?: string | null;
+            /**
+             * Containers Without Charge
+             * @default 0
+             */
+            containers_without_charge: number;
             /** Closed At */
             closed_at?: string | null;
             /** Closed By Name */

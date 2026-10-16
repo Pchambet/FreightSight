@@ -592,9 +592,17 @@ class LandedCostReport(BaseModel):
     """
 
     base_currency: str
-    #: fob, allocated, vat, landed, unallocated, estimated, actual, variance, matched_estimated,
-    #: matched_actual, unforecast_actual. `fob` and `landed` are null while `fob_missing` says why.
+    #: fob, allocated, vat, landed, charged_fob, unallocated, estimated, actual, variance,
+    #: matched_estimated, matched_actual, unforecast_actual. `fob` is every line's goods, charged or
+    #: not. `landed` is over the lines whose container carries a charge, and `charged_fob` their goods:
+    #: a container with no charge at all (its lines' `without_charge`) would only add its FOB, so it is
+    #: left out of both and counted in `containers_without_charge`. `landed` and `charged_fob` are null
+    #: when none carries a charge. `fob` and `landed` are null while `fob_missing` says why. A report
+    #: frozen into a link before `charged_fob` existed counted every line in `landed`.
     totals: dict[str, Money | None]
+    #: landed / charged_fob, four decimals. Null when either is.
+    coefficient: Qty | None = None
+    containers_without_charge: int = 0
     #: Every figure built on the goods' value, here and on every report, overview, list and export,
     #: is null rather than computed as if a line with no value were worth 0: `fob_missing` says why
     #: (FX_RATE_MISSING: an order has no exchange rate) and `fob_missing_lines` how many lines.
@@ -1386,7 +1394,8 @@ class ShareCreated(BaseModel):
     path: str
     expires_at: datetime
     #: The landed cost that was frozen, so the sender sees the figure that really left. Null when a
-    #: line of the report has no value (its `fob_missing`): the document says so rather than a figure.
+    #: line of the report has no value (its `fob_missing`), or when no container of it carries a
+    #: charge: the document says so rather than a figure.
     landed: Money | None
     generated_at: datetime
 
@@ -1440,10 +1449,19 @@ class PeriodSummary(BaseModel):
     #: Closed: the frozen figures, which never move again. Open: today's, null while a line has no
     #: value (`fob_missing`); a month holding such a line is not closed.
     containers: int
+    #: Every container's goods, charged or not.
     fob: Money | None
+    #: The landed cost of the containers that carry a charge, and the value of their goods
+    #: (`charged_fob`): a container with no charge at all would only add its FOB, so it is left out of
+    #: both and counted in `containers_without_charge` — the overview's rule for the same month. Null
+    #: when none carries one. A closed month's are read from its frozen lines, which keep their stock
+    #: value (a container with no charge at its FOB) and which containers had no charge.
     landed: Money | None
+    #: landed / charged_fob.
     coefficient: Qty | None
     by_cost_type: dict[str, Money]
+    charged_fob: Money | None = None
+    containers_without_charge: int = 0
     closed_at: datetime | None = None
     closed_by_name: str | None = None
     #: Today's landed cost of the month (equal to `landed` while it is open): never add `landed` and

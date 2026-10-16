@@ -23,6 +23,7 @@ def _serialize(r: rpt.Report) -> schemas.LandedCostReport:
             "allocated": r.allocated,
             "vat": r.vat,
             "landed": r.landed,
+            "charged_fob": r.charged_fob,
             "unallocated": r.unallocated,
             "estimated": r.estimated,
             "actual": r.actual,
@@ -44,6 +45,8 @@ def _serialize(r: rpt.Report) -> schemas.LandedCostReport:
         notes=[schemas.ReportNote(**n.__dict__) for n in r.notes],
         fob_missing=r.fob_missing,
         fob_missing_lines=r.fob_missing_lines,
+        coefficient=r.coefficient,
+        containers_without_charge=r.containers_without_charge,
     )
 
 
