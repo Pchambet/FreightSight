@@ -893,7 +893,7 @@ def _margins(
         # A price in another currency than the books gives no margin here either (see sku_report).
         # An article whose value is missing stays priced, with its margins unknown: left out, the
         # headline would add up the other articles as if they were all.
-        if price is not None and price > 0 and (article.margin_unit is not None or article.fob_missing):
+        if price is not None and article.priced:
             margin.sale_price = price
             if unit_fob is not None and article.unit_landed is not None:
                 margin.margin_on_fob_pct = ((price - unit_fob) / price * 100).quantize(TENTH)

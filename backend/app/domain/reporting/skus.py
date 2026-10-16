@@ -99,6 +99,8 @@ class SkuSummary:
     has_estimates: bool = False
     product_id: UUID | None = None
     sale_price: Decimal | None = None
+    #: A selling price above 0 in the books' currency: a margin is due, even while it cannot be told.
+    priced: bool = False
     margin_unit: Decimal | None = None
     margin_pct: Decimal | None = None
     #: The same two, against the last container that landed: the stock about to be sold.
@@ -290,6 +292,7 @@ def _summarise(summary: SkuSummary, product: Product | None, org: Organization) 
         summary.sale_price = product.sale_price
         return
     summary.sale_price = product.sale_price
+    summary.priced = product.sale_price > 0
     if summary.unit_landed is not None:
         summary.margin_unit = q4(product.sale_price - summary.unit_landed)
     if summary.last_unit_landed is not None:

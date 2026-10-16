@@ -246,3 +246,38 @@ def test_a_report_sent_by_link_says_what_it_could_not_value(
     assert opened.status_code == 200, opened.text
     report = opened.json()["report"]
     assert report["totals"]["landed"] is None and gap(report) == MISSING
+
+
+def test_the_audit_and_its_preparation_count_the_same_unpriced_articles(
+    client: TestClient, db: Session, no_rate: dict[str, Any]
+) -> None:
+    # Article A is priced in the books' currency and its value is unknown: priced, its margin unknown.
+    # C, in a second box from an order with no rate either, is priced in dollars: no margin here, so
+    # unpriced in both, whether its value is known or not.
+    order = {"po_number": "PO-C", "currency": "USD", "supplier_name": "Acme", "order_date": "2026-09-01",
+             "lines": [{"line_no": 1, "sku": "C", "quantity": "5", "unit_price": "10"}]}  # fmt: skip
+    res = client.post("/api/v1/purchase-orders", json=order)
+    assert res.status_code == 201, res.text
+    product = {"sku": "C", "sale_price": "30", "sale_currency": "USD"}
+    assert client.post("/api/v1/products", json=product).status_code == 201
+    box = client.post("/api/v1/containers", json={"container_number": "TGHU7245081"}).json()
+    moved = {"discharged_at": LANDED_ON.isoformat(), "milestone": "DISCHARGED"}
+    assert client.patch(f"/api/v1/containers/{box['id']}", json=moved).status_code == 200
+    loads = [{"po_line_id": res.json()["lines"][0]["id"], "quantity": "5"}]
+    assert client.put(f"/api/v1/containers/{box['id']}/loads", json=loads).status_code == 200
+    assert client.post("/api/v1/costs", json=charge(box["id"], "DRAYAGE", "50.00")).status_code == 201
+    db.execute(update(PurchaseOrder).where(PurchaseOrder.po_number == "PO-C").values(fx_rate=None))
+    db.flush()
+
+    dates = {"period_from": (LANDED_ON - timedelta(days=10)).date().isoformat(),
+             "period_to": LANDED_ON.date().isoformat()}  # fmt: skip
+    audit = client.get("/api/v1/reports/audit", params=dates).json()
+    assert {m["sku"]: m["sale_price"] is not None for m in audit["margins"]} == {
+        "A": True,
+        "B": True,
+        "C": False,
+    }
+    assert (audit["headline"]["priced_skus"], audit["headline"]["unpriced_skus"]) == (2, 1)
+    preparation = client.get("/api/v1/reports/audit/preparation", params=dates).json()
+    found = {item["code"]: item for item in preparation["items"]}
+    assert [e["id"] for e in found["NO_SALE_PRICE"]["examples"]] == ["C"]
