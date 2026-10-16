@@ -1731,7 +1731,7 @@
       "review": "Review each proposed line, fix if needed, then confirm to create costs.",
       "reviewAction": "Review lines",
       "backList": "Back to list",
-      "confirmed": "Invoice confirmed — costs are allocated. Open the container to see unit cost per SKU.",
+      "confirmed": "Invoice confirmed — costs are allocated. {count, plural, one {Open the container to see unit cost per SKU.} other {It covers # containers: open each one to see unit cost per SKU.}}",
       "seeUnitCosts": "Unit costs · {container}",
       "openContainer": "Container {container}",
       "extracting": "The invoice is being read. This page refreshes automatically.",

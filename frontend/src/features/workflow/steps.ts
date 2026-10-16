@@ -205,10 +205,12 @@ export function reportsHubStep(
  * `next` is the invoice waiting for review that comes after this one in drop order, and how many
  * wait: a quarter dropped at once is reviewed one invoice after the other, without going back to the
  * list between two.
+ * `containers` are every container the confirmed lines landed on, each linked once: a freight invoice
+ * often covers a whole booking, and naming only the first left the others unreachable from the page.
  */
 export function invoiceDetailStep(
   status: string,
-  container?: { id: string; number: string },
+  containers: { id: string; number: string }[],
   next?: { id: string; waiting: number },
 ): WorkflowStep | null {
   const toNext = next ? { href: `/invoices/${next.id}`, labelKey: "invoiceDetail.nextReview" } : null;
@@ -221,29 +223,27 @@ export function invoiceDetailStep(
       variant: "warning",
     };
   }
+  const unitCosts = containers.map((c) => ({ href: `/container/${c.id}#couts-unitaires`, labelKey: "invoiceDetail.seeUnitCosts", labelParams: { container: c.number } }));
   if (status === "CONFIRMED" && toNext && next) {
     return {
       descriptionKey: "invoiceDetail.confirmedNext",
       descriptionParams: { count: next.waiting },
       primary: toNext,
-      secondary: container
-        ? [{ href: `/container/${container.id}#couts-unitaires`, labelKey: "invoiceDetail.seeUnitCosts", labelParams: { container: container.number } }]
-        : [],
+      secondary: unitCosts,
       variant: "success",
     };
   }
-  if (status === "CONFIRMED" && container) {
+  if (status === "CONFIRMED" && containers.length > 0) {
+    const [first, ...others] = unitCosts;
+    // One container: its sheet is offered next to its unit costs. Several: one link each, no more.
+    const sheet = containers.length === 1
+      ? [{ href: `/container/${containers[0].id}`, labelKey: "invoiceDetail.openContainer", labelParams: { container: containers[0].number } }]
+      : [];
     return {
       descriptionKey: "invoiceDetail.confirmed",
-      primary: {
-        href: `/container/${container.id}#couts-unitaires`,
-        labelKey: "invoiceDetail.seeUnitCosts",
-        labelParams: { container: container.number },
-      },
-      secondary: [
-        { href: `/container/${container.id}`, labelKey: "invoiceDetail.openContainer", labelParams: { container: container.number } },
-        { href: "/reports", labelKey: "container.viewReports" },
-      ],
+      descriptionParams: { count: containers.length },
+      primary: first,
+      secondary: [...others, ...sheet, { href: "/reports", labelKey: "container.viewReports" }],
       variant: "success",
     };
   }

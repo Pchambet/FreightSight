@@ -1731,7 +1731,7 @@
       "review": "Relisez chaque ligne proposée, corrigez si besoin, puis confirmez pour créer les coûts.",
       "reviewAction": "Relire les lignes",
       "backList": "Retour à la liste",
-      "confirmed": "Facture confirmée — les coûts sont ventilés. Ouvrez le conteneur pour voir le coût unitaire par référence.",
+      "confirmed": "Facture confirmée — les coûts sont ventilés. {count, plural, one {Ouvrez le conteneur pour voir le coût unitaire par référence.} other {Elle porte sur # conteneurs : ouvrez chacun pour voir le coût unitaire par référence.}}",
       "seeUnitCosts": "Coûts unitaires · {container}",
       "openContainer": "Fiche {container}",
       "extracting": "La facture est en cours de lecture. La page se rafraîchit automatiquement.",
