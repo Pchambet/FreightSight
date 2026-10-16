@@ -1722,6 +1722,9 @@ class OverviewFigures(BaseModel):
     #: the orders whose missing exchange rate holds them, by number: never "no charge" on a screen.
     containers_held: int = 0
     held_orders: list[str] = Field(default_factory=list)
+    #: The goods of the containers left out (`fob` - `charged_fob`): what the fees and the coefficient
+    #: are not over. Null while either is unknown.
+    uncharged_fob: Money | None = None
     #: Estimates replaced by an invoice dated in the period, and what the invoices came to.
     variance_estimated: Money
     variance_actual: Money

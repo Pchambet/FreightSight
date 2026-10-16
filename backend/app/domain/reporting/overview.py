@@ -59,6 +59,9 @@ class Figures:
     containers_without_charge: int
     containers_held: int
     held_orders: list[str]
+    #: The goods of those containers: `fob` minus `charged_fob`, what a figure over the charged
+    #: containers leaves out. None while either is unknown.
+    uncharged_fob: Decimal | None
     variance_estimated: Decimal
     variance_actual: Decimal
     variance: Decimal
@@ -177,6 +180,7 @@ def _figures(
         containers_without_charge=totals.containers_without_charge,
         containers_held=totals.containers_held,
         held_orders=sorted(totals.held_orders),
+        uncharged_fob=_left_out(totals),
         variance_estimated=q2(estimated),
         variance_actual=q2(actual),
         variance=q2(actual - estimated),
@@ -186,6 +190,14 @@ def _figures(
         fob_missing=totals.fob_missing,
         fob_missing_lines=totals.fob_missing_lines,
     )
+
+
+def _left_out(totals: Bucket) -> Decimal | None:
+    if totals.fob is None:
+        return None
+    if not totals.charged_lines:
+        return totals.fob
+    return None if totals.charged_fob is None else q2(totals.fob - totals.charged_fob)
 
 
 def _todo(

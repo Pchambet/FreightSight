@@ -93,6 +93,7 @@ def test_the_overview_leaves_the_bare_container_out_of_landed_and_says_what_is_e
     # 2 250 € of goods, of which the 1 000 € in the charged box landed at 1 400 €: 1.40, not 1.18.
     assert basis(current) == ("2250.00", "1400.00", "1.4000", "100.00", 1)
     assert current["charged_fob"] == "1000.00" and current["containers"] == 2
+    assert current["uncharged_fob"] == "1250.00"  # what the fees and the coefficient are not over
     assert sum(b["containers_without_charge"] for b in body["by_month"]) == 1
     skus = {s["sku"]: s for s in body["skus"]}
     assert (skus["A"]["landed"], skus["A"]["unit_landed_cost"], skus["A"]["coefficient"]) == (

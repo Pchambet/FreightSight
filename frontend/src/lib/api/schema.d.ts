@@ -4141,6 +4141,8 @@ export interface components {
             containers_held: number;
             /** Held Orders */
             held_orders?: string[];
+            /** Uncharged Fob */
+            uncharged_fob?: string | null;
             /** Variance Estimated */
             variance_estimated: string;
             /** Variance Actual */

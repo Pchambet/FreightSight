@@ -14767,6 +14767,17 @@
             "type": "array",
             "title": "Held Orders"
           },
+          "uncharged_fob": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uncharged Fob"
+          },
           "variance_estimated": {
             "type": "string",
             "title": "Variance Estimated"
