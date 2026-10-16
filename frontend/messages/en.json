@@ -267,7 +267,26 @@
       "deleteConfirmConfirm": "Delete",
       "deleteConfirmCancel": "Cancel",
       "undo": "Undo",
-      "restored": "Cost restored"
+      "restored": "Cost restored",
+      "credited": "of which credits −{amount}",
+      "creditItem": "Credit {number} of {date}: −{amount}",
+      "creditNoNumber": "no number",
+      "creditFromDocument": "read from a confirmed credit note",
+      "creditAdd": "Credit",
+      "creditAddLabel": "Record a credit on this cost",
+      "creditTitle": "Credit on {type}, {amount}",
+      "creditHint": "The credit reduces this cost, never below zero. It stays in the history and can be removed.",
+      "creditAmount": "Amount ({currency})",
+      "creditNumber": "Credit note no.",
+      "creditDate": "Credit note date",
+      "creditSubmit": "Record the credit",
+      "creditCancel": "Cancel",
+      "creditSaved": "Credit recorded: the cost is now {amount}.",
+      "creditFailed": "Could not record the credit",
+      "creditRemove": "Remove the credit",
+      "creditRemoved": "Credit removed: the cost is back to {amount}.",
+      "creditRemoveFailed": "Could not remove the credit",
+      "creditAmountInvalid": "Enter an amount above zero."
     }
   },
   "unitCostHighlight": {
@@ -901,7 +920,9 @@
       "import_undone": "Import undone",
       "cost_closed": "Estimate closed without invoice",
       "cost_superseded": "Estimate replaced by the actual",
-      "purchase_order_updated": "Order updated"
+      "purchase_order_updated": "Order updated",
+      "cost_credited": "Credit recorded on a cost",
+      "cost_credit_removed": "Credit removed from a cost"
     },
     "finding": {
       "DUPLICATE_CHARGE": "Service invoiced twice",
@@ -986,8 +1007,6 @@
     "DUPLICATE_MANUAL_SPLIT": "A manual split names the same target twice: give it one line and one percentage.",
     "ZERO_BASIS_LINES": "These lines received no charge: their allocation basis is zero. Pick by quantity or by weight if they should carry some.",
     "DUTY_RATE_PARTIAL": "Duty spread on the customs value: these lines have no duty rate. Fill in their HS code for a theoretical-duty split.",
-    "CREDIT_NOTE_MANUAL": "This document was read as a credit note: enter the refund by hand, a cost cannot be negative yet.",
-    "NEGATIVE_COST_UNSUPPORTED": "A negative line cannot become a cost: untick it and enter the refund by hand.",
     "DUPLICATE_COST": "A cost of the same type is already recorded on this freight. Check it, then confirm again if this invoice is a different charge.",
     "COSTS_PUSHED_TO_ERP": "This invoice's costs are already in the ERP: correct them there with an adjustment document, or forget the push first.",
     "INVALID_STATUS": "This action is not possible given the invoice's current state.",
@@ -1069,6 +1088,17 @@
     "UNIT_COLUMN_UNMAPPED": "Column \"{column}\" was not read: it does not say whether it holds one unit's value or the line's total. Match it to \"{field}\" if it is one unit's, or to the line-total field (divided by the quantity). Without it, costs split by weight or volume have no basis.",
     "MAPPING_UNIT_AND_LINE_TOTAL": "{dimension, select, volume {Volume} other {Weight}}: match the per-unit column or the line-total column, not both.",
     "PERIOD_ORDERS_WITHOUT_FX_RATE": "This month cannot be closed: some orders have no exchange rate ({orders}). The value of their goods is unknown, and the close would freeze a wrong landed cost. Set the rate on each of them, then close.",
+    "CREDIT_WITHOUT_COST": "Line {line}: no invoiced cost of this type, in {currency}, is recorded on this target. A credit note reduces an existing cost: record the invoice it corrects first.",
+    "CREDIT_EXCEEDS_COST": "The credit of {credit} {currency} is more than what the cost still amounts to ({remaining} {currency}). A cost never goes below zero: check the amount or the cost chosen.",
+    "CREDIT_CURRENCY_MISMATCH": "The credit is in {credit_currency}; the cost it would reduce is in {cost_currency}. A credit is never converted: it reduces a cost in its own currency.",
+    "CREDIT_COST_REQUIRED": "Line {line}: {count} invoiced costs could be reduced by this credit. Choose on the line the one it corrects.",
+    "CREDIT_COST_MISMATCH": "Line {line}: the cost chosen is not an invoiced cost of this type on this target. Choose one from the line's list.",
+    "CREDIT_NOT_A_REFUND": "Line {line}: the total is a charge, not a refund, on the cost chosen. Check the signs of the amounts.",
+    "CREDIT_ALREADY_RECORDED": "Credit note {credit_number} already reduces this cost.",
+    "CREDIT_ON_ESTIMATE": "An estimate was never paid: there is nothing to refund. Record the credit on the invoiced cost.",
+    "CREDIT_FROM_INVOICE": "This credit comes from a confirmed document ({credit_number}): reopen that document to remove it.",
+    "CREDIT_NOT_FOUND": "This credit no longer exists. Reload the page.",
+    "COST_HAS_CREDITS": "{count, plural, one {A credit reduces this cost} other {# credits reduce this cost}}: remove {count, plural, one {it} other {them}} before changing its amount, currency or status, or deleting it.",
     "PERIOD_DRIFT_ORDERS_WITHOUT_FX_RATE": "This month's gap cannot be marked as booked: some orders have no exchange rate ({orders}). The value of their goods is unknown today, and with it the amount of the gap. Set the rate on each of them, then mark the gap."
   },
   "timeline": {
@@ -1243,7 +1273,7 @@
       "lowConfidenceBody": "check every line before confirming.",
       "confirmAnyway": "Confirm anyway",
       "duplicateBlocked": "At least one cost of the same type is already recorded on this freight (see the lines in red). Confirm again to record it anyway.",
-      "creditNoteBanner": "This document is a credit note: refunds cannot become costs yet. Enter the refund by hand.",
+      "creditNoteBanner": "Credit note confirmed on {date}: {count, plural, =0 {no cost reduced.} one {# cost reduced.} other {# costs reduced.}}",
       "reopenConfirmedAction": "Reopen for correction",
       "reopenConfirmedTitle": "Reopen this confirmed invoice?",
       "reopenConfirmedBody": "{count, plural, one {The cost this confirmation created will be deleted.} other {The # costs this confirmation created will be deleted.}} The invoice goes back to review; nothing else is touched.",
@@ -1264,7 +1294,11 @@
       "sumMatches": "Kept lines: {amount} = the invoice's total before tax",
       "sumGap": "Kept lines: {kept} · invoice before tax: {subtotal} · gap {gap}",
       "notTheSame": "It is not the same invoice: confirm anyway",
-      "fixHeader": "Number or provider misread? Correct the header"
+      "fixHeader": "Number or provider misread? Correct the header",
+      "creditsConfirmed": "{count, plural, one {# cost reduced by the credit} other {# costs reduced by the credit}}",
+      "reopenCreditBody": "{count, plural, one {The credit will be removed from the cost it reduces, which gets its amount back.} other {The credit will be removed from the # costs it reduces, which get their amounts back.}} The document goes back to review; nothing else is touched.",
+      "reopenCreditConfirm": "Reopen and remove the credit",
+      "reopenedCredit": "Credit note reopened: {count, plural, one {# cost got its amount back} other {# costs got their amounts back}}."
     },
     "lineNotes": {
       "singleContainer": "Charged to {container}, the only container named on the invoice.",
@@ -1274,8 +1308,8 @@
       "arithmeticMore": "Lines read exceed the total by {amount} — a line may be missing or misread.",
       "arithmeticLess": "Lines read are short of the total by {amount} — a line may be missing or misread.",
       "multiContainer": "This invoice mentions several containers — check each line is on the right one.",
-      "creditNote": "This document is a credit note: refunds cannot become costs yet, enter it by hand.",
-      "negativeLine": "Negative line ({amount}): it stays on screen, but it cannot become a cost yet.",
+      "creditNote": "This document is a credit note: each line kept reduces a cost already invoiced (same target, type and currency) instead of creating one.",
+      "negativeLine": "Negative line ({amount}): it reduces the charge of the same type on the same target in this invoice, or failing that a cost already invoiced.",
       "droppedLine": "A line could not be priced and is not shown: “{description}” ({amount}). Add it by hand if it counts.",
       "currencyGuess": "The document names several currencies: {chosen} was used (also seen: {others}). Check before confirming.",
       "addedByHuman": "Line added by hand during review.",
@@ -1304,7 +1338,13 @@
       "chooseType": "Choose the type…",
       "missingType": "type",
       "missingTarget": "target",
-      "toComplete": "to complete: {what}"
+      "toComplete": "to complete: {what}",
+      "refund": "Credit",
+      "refundTo": "Cost reduced",
+      "refundChoose": "Choose the cost reduced…",
+      "refundNone": "No invoiced cost of this type on this target",
+      "refundOption": "{date} · {invoice} · {amount} left",
+      "missingRefund": "cost reduced"
     },
     "bulk": {
       "label": "{count, plural, one {Attach the line without a target to} other {Attach the # lines without a target to}}",
@@ -1442,7 +1482,12 @@
       "products_created": "Product sheets created",
       "products_updated": "Product sheets updated",
       "costs_skipped": "Costs already on file, left as they were",
-      "cost_dates": "Cost dates"
+      "cost_dates": "Cost dates",
+      "credited": "Credit",
+      "credit_number": "Credit note no.",
+      "credit_vendor": "Credit note issuer",
+      "credit_date": "Credit note date",
+      "credit_ids": "Credits recorded"
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "Needs review",
@@ -1460,7 +1505,8 @@
     "filterLabel": "Action",
     "filterApply": "Show",
     "itemCount": "{count, plural, one {# item} other {# items}}",
-    "pair": "{name}: {value}"
+    "pair": "{name}: {value}",
+    "creditCount": "{count, plural, one {# credit} other {# credits}}"
   },
   "confidence": {
     "high": "Reliable read",

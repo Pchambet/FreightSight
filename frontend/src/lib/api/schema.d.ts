@@ -1198,6 +1198,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/costs/{cost_id}/credits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Credit
+         * @description A refund entered by hand: a credit note that came by post, a discount granted on the phone.
+         *
+         *     It reduces the cost it is entered on and is kept as its own line — never a cost of its own, and
+         *     never more than what the cost still amounts to.
+         */
+        post: operations["add_credit_api_v1_costs__cost_id__credits_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/costs/{cost_id}/credits/{credit_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Credit
+         * @description Take a credit back: the cost amounts to what it did before it. A credit read from a credit
+         *     note is taken back by reopening that credit note, which says why on the document itself.
+         */
+        delete: operations["remove_credit_api_v1_costs__cost_id__credits__credit_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/landed-costs/containers/{container_id}": {
         parameters: {
             query?: never;
@@ -2681,6 +2725,53 @@ export interface components {
             /** Notes */
             notes?: string | null;
         };
+        /**
+         * CostCreditCreate
+         * @description A refund entered by hand on an invoiced cost: a credit note, a discount granted afterwards.
+         */
+        CostCreditCreate: {
+            /** Amount */
+            amount: number | string;
+            /** Currency */
+            currency?: string | null;
+            /** Credit Number */
+            credit_number?: string | null;
+            /** Vendor */
+            vendor?: string | null;
+            /**
+             * Credit Date
+             * Format: date
+             */
+            credit_date: string;
+        };
+        /** CostCreditResponse */
+        CostCreditResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Amount */
+            amount: string;
+            /** Credit Number */
+            credit_number: string | null;
+            /** Vendor */
+            vendor: string | null;
+            /**
+             * Credit Date
+             * Format: date
+             */
+            credit_date: string;
+            /** Invoice Id */
+            invoice_id: string | null;
+            /** Created By */
+            created_by: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** CostResponse */
         CostResponse: {
             /**
@@ -2741,6 +2832,10 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Credited */
+            credited: string;
+            /** Credits */
+            credits?: components["schemas"]["CostCreditResponse"][];
         };
         /**
          * CostScope
@@ -2797,6 +2892,30 @@ export interface components {
             status?: components["schemas"]["CostStatus"] | null;
             /** Supersedes Cost Id */
             supersedes_cost_id?: string | null;
+        };
+        /**
+         * CreditCandidate
+         * @description An invoiced cost a refund line can reduce, as the review screen names it.
+         */
+        CreditCandidate: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /** Vendor */
+            vendor: string | null;
+            /** Invoice Number */
+            invoice_number: string | null;
+            /**
+             * Cost Date
+             * Format: date
+             */
+            cost_date: string;
         };
         /** DndAnalysis */
         DndAnalysis: {
@@ -3511,6 +3630,13 @@ export interface components {
             containers?: components["schemas"]["InvoiceContainerLink"][];
             /** Superseded Estimate Ids */
             superseded_estimate_ids?: string[];
+            /**
+             * Credits Created
+             * @default 0
+             */
+            credits_created: number;
+            /** Credited Cost Ids */
+            credited_cost_ids?: string[];
             /** Notes */
             notes?: string[];
         };
@@ -3563,6 +3689,8 @@ export interface components {
             accepted?: boolean | null;
             /** Description */
             description?: string | null;
+            /** Credit Cost Id */
+            credit_cost_id?: string | null;
             /**
              * Id
              * Format: uuid
@@ -3597,6 +3725,15 @@ export interface components {
             notes: string | null;
             /** Cost Id */
             cost_id: string | null;
+            /**
+             * Refund
+             * @default false
+             */
+            refund: boolean;
+            /** Credit Cost Id */
+            credit_cost_id?: string | null;
+            /** Credit Candidates */
+            credit_candidates?: components["schemas"]["CreditCandidate"][];
         };
         /**
          * InvoiceLineUpdate
@@ -3615,6 +3752,8 @@ export interface components {
             accepted?: boolean | null;
             /** Description */
             description?: string | null;
+            /** Credit Cost Id */
+            credit_cost_id?: string | null;
         };
         /**
          * InvoiceLinesUpdate
@@ -3668,6 +3807,11 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Credit Note
+             * @default false
+             */
+            credit_note: boolean;
             /** Lines */
             lines?: components["schemas"]["InvoiceLineResponse"][];
             /** Document Url */
@@ -8038,6 +8182,77 @@ export interface operations {
                 "application/json": components["schemas"]["CostClose"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_credit_api_v1_costs__cost_id__credits_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                cost_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CostCreditCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_credit_api_v1_costs__cost_id__credits__credit_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                cost_id: string;
+                credit_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

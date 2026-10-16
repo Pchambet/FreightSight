@@ -13,10 +13,25 @@ import { openHeaderEditor } from "@/features/invoices/InvoiceHeaderEditor";
 import { formatInvoiceNote, isDuplicateCostNote, isInformativeNote, splitInvoiceNotes } from "@/features/invoices/lineNotes";
 import type { InvoiceLineResponse, InvoiceResponse } from "@/lib/api/client";
 import { COST_SCOPES, COST_TYPES, type CostScope, type CostType } from "@/lib/domain";
-import { amountPlaceholder, decimalDisplay, money } from "@/lib/format";
+import { amountPlaceholder, dateShort, decimalDisplay, money } from "@/lib/format";
 
 export type Target = { id: string; label: string };
 export type Targets = Record<CostScope, Target[]>;
+
+/**
+ * A refund line — any line of a credit note, or a negative line with no charge of its type beside it
+ * — reduces an invoiced cost instead of creating one. It needs that cost named: by a person, or as
+ * the only cost of its type on its target in its currency, which the API then uses as it stands.
+ */
+function refundCost(line: InvoiceLineResponse): string | null {
+  if (line.credit_cost_id) return line.credit_cost_id;
+  const same = (line.credit_candidates ?? []).filter((c) => c.currency === line.currency);
+  return same.length === 1 ? same[0].id : null;
+}
+
+function needsRefundCost(line: InvoiceLineResponse): boolean {
+  return !!line.refund && !!line.target_id && !!line.cost_type && refundCost(line) === null;
+}
 
 function LineRow({ invoiceId, line, targets, editable, confirmed }: { invoiceId: string; line: InvoiceLineResponse; targets: Targets; editable: boolean; confirmed: boolean }) {
   const t = useTranslations("invoices.line");
@@ -58,7 +73,9 @@ function LineRow({ invoiceId, line, targets, editable, confirmed }: { invoiceId:
   const options = scope ? targets[scope] : [];
   // What still stands between this line and a cost. Read from the saved line, not from the fields
   // being edited: the marker moves when the save has held, not while a list is open.
-  const missing = editable && line.accepted ? [!line.cost_type ? t("missingType") : null, !line.scope || !line.target_id ? t("missingTarget") : null].filter(Boolean) : [];
+  const missing = editable && line.accepted ? [!line.cost_type ? t("missingType") : null, !line.scope || !line.target_id ? t("missingTarget") : null, needsRefundCost(line) ? t("missingRefund") : null].filter(Boolean) : [];
+  const candidates = line.credit_candidates ?? [];
+  const refundTo = refundCost(line);
   const amountDirty = amount !== decimalDisplay(line.amount, locale) || currency !== line.currency;
   return (
     <li data-incomplete={missing.length > 0 ? "true" : undefined} className={`px-5 py-4 border-l-2 ${missing.length > 0 ? "border-l-amber-400" : "border-l-transparent"} ${hasDuplicate ? "bg-red-50/80 ring-1 ring-inset ring-red-200" : accepted ? "" : "bg-slate-50/60"}`}>
@@ -68,6 +85,7 @@ function LineRow({ invoiceId, line, targets, editable, confirmed }: { invoiceId:
           <div className="flex items-baseline justify-between gap-3">
             <div className="text-sm font-medium text-slate-900 truncate">{line.line_no}. {line.description}</div>
             <span className="flex items-center gap-2 shrink-0">
+              {line.refund ? <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800 ring-1 ring-inset ring-emerald-600/20">{t("refund")}</span> : null}
               {missing.length > 0 ? <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-inset ring-amber-600/20">{t("toComplete", { what: missing.join(", ") })}</span> : null}
               <ConfidenceBadge value={line.confidence} band={line.confidence_band} confirmed={confirmed} />
             </span>
@@ -90,6 +108,30 @@ function LineRow({ invoiceId, line, targets, editable, confirmed }: { invoiceId:
                 {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
               {amountDirty ? <button type="button" onClick={() => save()} disabled={!dirty || pending} className={btnSecondary}>{pending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("save")}</button> : null}
+              {/* The cost this refund reduces, among the invoiced costs of its type on its target. */}
+              {line.refund && line.target_id && line.cost_type ? (
+                candidates.length ? (
+                  <label className="col-span-2 md:col-span-5 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                    <span className="font-medium">{t("refundTo")}</span>
+                    <select
+                      aria-label={t("refundTo")}
+                      value={refundTo ?? ""}
+                      disabled={pending}
+                      onChange={(e) => save({ credit_cost_id: e.target.value || null })}
+                      className={`${input} !w-auto max-w-full ${accepted && !refundTo ? "border-amber-400 bg-amber-50/50" : ""}`}
+                    >
+                      <option value="">{t("refundChoose")}</option>
+                      {candidates.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {t("refundOption", { date: dateShort(c.cost_date, locale), invoice: [c.vendor, c.invoice_number].filter(Boolean).join(" · ") || "—", amount: money(c.amount, c.currency, locale) })}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <p className="col-span-2 md:col-span-5 text-xs text-amber-700">{t("refundNone")}</p>
+                )
+              ) : null}
             </div>
           ) : (
             <div className="mt-1 text-xs text-slate-500">
@@ -263,13 +305,15 @@ export default function ReviewPanel({ invoice, targets, pageHasNextStep = false 
       // own record that it went past a refusal — and never land on a line's own notes, so this toast
       // is the only place they are ever shown.
       const forced = r.data.notes.map((n) => formatInvoiceNote(n, noteT, (k) => typeLabel(k as CostType), locale, invoice.currency ?? "EUR")).join(" ");
-      toast.success(t("confirmed", { count: r.data.costsCreated }), forced ? { description: forced, duration: 10000 } : undefined);
+      // A credit note creates no cost: it says how many it reduced instead of « no cost created ».
+      const done = [r.data.costsCreated || !r.data.creditsCreated ? t("confirmed", { count: r.data.costsCreated }) : null, r.data.creditsCreated ? t("creditsConfirmed", { count: r.data.creditsCreated }) : null].filter(Boolean).join(" · ");
+      toast.success(done, forced ? { description: forced, duration: 10000 } : undefined);
       setContinueTo(r.data.containers);
       router.refresh();
     });
   const lines = invoice.lines ?? [];
   const acceptedCount = lines.filter((l) => l.accepted).length;
-  const incomplete = lines.filter((l) => l.accepted && !(l.target_id && l.cost_type && l.scope)).length;
+  const incomplete = lines.filter((l) => l.accepted && (!(l.target_id && l.cost_type && l.scope) || needsRefundCost(l))).length;
   const ready = acceptedCount > 0 && incomplete === 0;
   // Lines without a target, accepted or not: a line is attached first and judged after.
   const unattached = lines.filter((l) => !l.target_id).map((l) => l.id);
@@ -356,7 +400,7 @@ export default function ReviewPanel({ invoice, targets, pageHasNextStep = false 
         </div>
       ) : null}
       <ul ref={listRef} className="divide-y divide-slate-200">
-        {lines.map((l) => <LineRow key={`${l.id}:${l.accepted}:${l.cost_type ?? ""}:${l.scope ?? ""}:${l.target_id ?? ""}:${l.amount}:${l.currency}`} invoiceId={invoice.id} line={l} targets={targets} editable={editable} confirmed={invoice.status === "CONFIRMED"} />)}
+        {lines.map((l) => <LineRow key={`${l.id}:${l.accepted}:${l.cost_type ?? ""}:${l.scope ?? ""}:${l.target_id ?? ""}:${l.amount}:${l.currency}:${l.credit_cost_id ?? ""}`} invoiceId={invoice.id} line={l} targets={targets} editable={editable} confirmed={invoice.status === "CONFIRMED"} />)}
       </ul>
       {editable ? (
         <>

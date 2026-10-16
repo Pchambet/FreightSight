@@ -29,6 +29,7 @@ export async function AuditEntries({ entries, labels }: { entries: AuditEntry[];
     field: (key: string) => (t.has(`fields.${key}`) ? t(`fields.${key}`) : t("otherField")),
     invoiceStatus: (code: string) => (t.has(`invoiceStatus.${code}`) ? t(`invoiceStatus.${code}`) : t("unknownValue")),
     costCount: (count: number) => t("costCount", { count }),
+    creditCount: (count: number) => t("creditCount", { count }),
     money: (amount: string) => money(amount, "EUR", locale),
     rate: (amount: string) => rate(amount, locale),
     costType: (code: string) => (costType.has(code as never) ? costType(code as never) : t("unknownValue")),

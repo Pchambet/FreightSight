@@ -267,7 +267,26 @@
       "deleteConfirmConfirm": "Supprimer",
       "deleteConfirmCancel": "Annuler",
       "undo": "Annuler",
-      "restored": "Coût rétabli"
+      "restored": "Coût rétabli",
+      "credited": "dont avoirs −{amount}",
+      "creditItem": "Avoir {number} du {date} : −{amount}",
+      "creditNoNumber": "sans n°",
+      "creditFromDocument": "lu sur un avoir confirmé",
+      "creditAdd": "Avoir",
+      "creditAddLabel": "Enregistrer un avoir sur ce coût",
+      "creditTitle": "Avoir sur {type}, {amount}",
+      "creditHint": "L'avoir réduit ce coût, sans jamais le rendre négatif. Il reste dans l'historique et peut être retiré.",
+      "creditAmount": "Montant ({currency})",
+      "creditNumber": "N° d'avoir",
+      "creditDate": "Date de l'avoir",
+      "creditSubmit": "Enregistrer l'avoir",
+      "creditCancel": "Annuler",
+      "creditSaved": "Avoir enregistré : le coût passe à {amount}.",
+      "creditFailed": "Impossible d'enregistrer l'avoir",
+      "creditRemove": "Retirer l'avoir",
+      "creditRemoved": "Avoir retiré : le coût retrouve {amount}.",
+      "creditRemoveFailed": "Impossible de retirer l'avoir",
+      "creditAmountInvalid": "Saisissez un montant supérieur à zéro."
     }
   },
   "unitCostHighlight": {
@@ -901,7 +920,9 @@
       "import_undone": "Import annulé",
       "cost_closed": "Estimé clos sans facture",
       "cost_superseded": "Estimé remplacé par le réel",
-      "purchase_order_updated": "Commande modifiée"
+      "purchase_order_updated": "Commande modifiée",
+      "cost_credited": "Avoir enregistré sur un coût",
+      "cost_credit_removed": "Avoir retiré d'un coût"
     },
     "finding": {
       "DUPLICATE_CHARGE": "Prestation facturée deux fois",
@@ -992,8 +1013,6 @@
     "DUPLICATE_MANUAL_SPLIT": "Une ventilation manuelle cite deux fois la même cible : donnez-lui une seule ligne et un seul pourcentage.",
     "ZERO_BASIS_LINES": "Ces lignes n'ont reçu aucun frais : leur base de ventilation est nulle. Choisissez « par quantité » ou « au poids » si elles doivent en porter.",
     "DUTY_RATE_PARTIAL": "Droits répartis à la valeur en douane : ces lignes n'ont pas de taux de droit. Renseignez leur code SH pour une répartition au droit théorique.",
-    "CREDIT_NOTE_MANUAL": "Ce document a été lu comme un avoir : saisissez le remboursement à la main, un coût ne peut pas encore être négatif.",
-    "NEGATIVE_COST_UNSUPPORTED": "Une ligne négative ne peut pas devenir un coût : décochez-la et saisissez le remboursement à la main.",
     "DUPLICATE_COST": "Un coût du même type est déjà enregistré sur ce fret. Vérifiez, puis confirmez à nouveau si cette facture est une charge différente.",
     "COSTS_PUSHED_TO_ERP": "Les coûts de cette facture sont déjà dans l'ERP : corrigez-les là-bas par un document d'ajustement, ou oubliez le push d'abord.",
     "INVALID_STATUS": "Cette action n'est pas possible dans l'état actuel de la facture.",
@@ -1069,6 +1088,17 @@
     "DATE_IN_FUTURE": "« {value} » est une date à venir.",
     "AMOUNT_INCLUDES_VAT": "La colonne « {column} » est toutes taxes comprises : un coût de revient se lit hors taxes. Faites correspondre la colonne du montant HT.",
     "PERIOD_ORDERS_WITHOUT_FX_RATE": "Ce mois ne peut pas être clôturé : des commandes n'ont pas de taux de change ({orders}). La valeur de leurs marchandises est inconnue, et la clôture figerait un coût de revient faux. Saisissez le taux sur chacune, puis clôturez.",
+    "CREDIT_WITHOUT_COST": "Ligne {line} : aucun coût facturé de ce type, en {currency}, n'est enregistré sur cette cible. Un avoir réduit un coût existant : enregistrez d'abord la facture qu'il corrige.",
+    "CREDIT_EXCEEDS_COST": "L'avoir de {credit} {currency} dépasse ce que le coût représente encore ({remaining} {currency}). Un coût ne devient jamais négatif : vérifiez le montant ou le coût choisi.",
+    "CREDIT_CURRENCY_MISMATCH": "L'avoir est en {credit_currency}, le coût qu'il réduirait est en {cost_currency}. Un avoir n'est jamais converti : il réduit un coût de sa propre devise.",
+    "CREDIT_COST_REQUIRED": "Ligne {line} : {count} coûts facturés peuvent être réduits par cet avoir. Choisissez sur la ligne celui qu'il corrige.",
+    "CREDIT_COST_MISMATCH": "Ligne {line} : le coût choisi n'est pas un coût facturé de ce type sur cette cible. Choisissez-en un dans la liste de la ligne.",
+    "CREDIT_NOT_A_REFUND": "Ligne {line} : le total est une dépense et non un remboursement sur le coût choisi. Vérifiez le signe des montants.",
+    "CREDIT_ALREADY_RECORDED": "L'avoir {credit_number} réduit déjà ce coût.",
+    "CREDIT_ON_ESTIMATE": "Un estimé n'a pas été payé : il n'y a rien à rembourser. Enregistrez l'avoir sur le coût facturé.",
+    "CREDIT_FROM_INVOICE": "Cet avoir vient d'un document confirmé ({credit_number}) : rouvrez ce document pour le retirer.",
+    "CREDIT_NOT_FOUND": "Cet avoir n'existe plus. Rechargez la page.",
+    "COST_HAS_CREDITS": "{count, plural, one {Un avoir réduit ce coût} other {# avoirs réduisent ce coût}} : retirez-{count, plural, one {le} other {les}} avant de modifier son montant, sa devise ou son statut, ou de le supprimer.",
     "PERIOD_DRIFT_ORDERS_WITHOUT_FX_RATE": "L'écart de ce mois ne peut pas être marqué comme comptabilisé : des commandes n'ont pas de taux de change ({orders}). La valeur de leurs marchandises est inconnue aujourd'hui, et avec elle le montant de l'écart. Saisissez le taux sur chacune, puis marquez l'écart."
   },
   "timeline": {
@@ -1243,7 +1273,7 @@
       "lowConfidenceBody": "vérifiez chaque ligne avant de confirmer.",
       "confirmAnyway": "Confirmer quand même",
       "duplicateBlocked": "Au moins un coût du même type est déjà enregistré sur ce fret (voir les lignes en rouge). Confirmez à nouveau pour l'enregistrer quand même.",
-      "creditNoteBanner": "Ce document est un avoir : les remboursements ne peuvent pas encore devenir des coûts. Saisissez le remboursement à la main.",
+      "creditNoteBanner": "Avoir confirmé le {date} : {count, plural, =0 {aucun coût réduit.} one {# coût réduit.} other {# coûts réduits.}}",
       "reopenConfirmedAction": "Rouvrir pour correction",
       "reopenConfirmedTitle": "Rouvrir cette facture confirmée ?",
       "reopenConfirmedBody": "{count, plural, one {Le coût créé par cette confirmation sera supprimé.} other {Les # coûts créés par cette confirmation seront supprimés.}} La facture repasse à relire ; rien d'autre n'est touché.",
@@ -1264,7 +1294,11 @@
       "sumMatches": "Lignes retenues : {amount} = total HT de la facture",
       "sumGap": "Lignes retenues : {kept} · HT de la facture : {subtotal} · écart {gap}",
       "notTheSame": "Ce n'est pas la même facture : confirmer quand même",
-      "fixHeader": "Le numéro ou le prestataire lu est faux ? Corriger l'en-tête"
+      "fixHeader": "Le numéro ou le prestataire lu est faux ? Corriger l'en-tête",
+      "creditsConfirmed": "{count, plural, one {# coût réduit par l'avoir} other {# coûts réduits par l'avoir}}",
+      "reopenCreditBody": "{count, plural, one {L'avoir sera retiré du coût qu'il réduit, qui retrouve son montant.} other {L'avoir sera retiré des # coûts qu'il réduit, qui retrouvent leur montant.}} Le document repasse à relire ; rien d'autre n'est touché.",
+      "reopenCreditConfirm": "Rouvrir et retirer l'avoir",
+      "reopenedCredit": "Avoir rouvert : {count, plural, one {# coût a retrouvé son montant} other {# coûts ont retrouvé leur montant}}."
     },
     "lineNotes": {
       "singleContainer": "Facturé sur {container}, seul conteneur mentionné sur la facture.",
@@ -1274,8 +1308,8 @@
       "arithmeticMore": "Les lignes lues dépassent le total de {amount} — une ligne manque peut-être ou est mal lue.",
       "arithmeticLess": "Les lignes lues sont inférieures au total de {amount} — une ligne manque peut-être ou est mal lue.",
       "multiContainer": "Cette facture mentionne plusieurs conteneurs — vérifiez que chaque ligne est sur le bon.",
-      "creditNote": "Ce document est un avoir : les remboursements ne peuvent pas encore devenir des coûts, saisissez-le à la main.",
-      "negativeLine": "Ligne négative ({amount}) : elle reste affichée, mais elle ne peut pas encore devenir un coût.",
+      "creditNote": "Ce document est un avoir : chaque ligne retenue réduit un coût déjà facturé (même cible, même type, même devise) au lieu d'en créer un.",
+      "negativeLine": "Ligne négative ({amount}) : elle réduit la dépense du même type sur la même cible dans cette facture, ou à défaut un coût déjà facturé.",
       "droppedLine": "Ligne non chiffrée, écartée de la revue : « {description} » ({amount}). Ajoutez-la à la main si elle doit compter.",
       "currencyGuess": "Plusieurs devises figurent sur le document : {chosen} a été retenue (vu aussi : {others}). Vérifiez avant de confirmer.",
       "addedByHuman": "Ligne ajoutée à la main pendant la revue.",
@@ -1304,7 +1338,13 @@
       "chooseType": "Choisir le type…",
       "missingType": "type",
       "missingTarget": "cible",
-      "toComplete": "à compléter : {what}"
+      "toComplete": "à compléter : {what}",
+      "refund": "Avoir",
+      "refundTo": "Coût réduit",
+      "refundChoose": "Choisir le coût réduit…",
+      "refundNone": "Aucun coût facturé de ce type sur cette cible",
+      "refundOption": "{date} · {invoice} · reste {amount}",
+      "missingRefund": "coût réduit"
     },
     "bulk": {
       "label": "{count, plural, one {Rattacher la ligne sans cible à} other {Rattacher les # lignes sans cible à}}",
@@ -1442,7 +1482,12 @@
       "products_created": "Fiches produit créées",
       "products_updated": "Fiches produit mises à jour",
       "costs_skipped": "Coûts déjà enregistrés, laissés tels quels",
-      "cost_dates": "Dates des coûts"
+      "cost_dates": "Dates des coûts",
+      "credited": "Avoir",
+      "credit_number": "N° d'avoir",
+      "credit_vendor": "Émetteur de l'avoir",
+      "credit_date": "Date de l'avoir",
+      "credit_ids": "Avoirs enregistrés"
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "À relire",
@@ -1460,7 +1505,8 @@
     "filterLabel": "Action",
     "filterApply": "Afficher",
     "itemCount": "{count, plural, one {# élément} other {# éléments}}",
-    "pair": "{name} : {value}"
+    "pair": "{name} : {value}",
+    "creditCount": "{count, plural, one {# avoir} other {# avoirs}}"
   },
   "confidence": {
     "high": "Lecture fiable",

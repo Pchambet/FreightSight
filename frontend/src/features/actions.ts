@@ -80,6 +80,37 @@ export async function deleteCost(costId: string, revalidate: string): Promise<Ac
   return { ok: true, data: null };
 }
 
+/** A refund entered by hand on an invoiced cost. Answers with what the cost now amounts to. */
+export async function addCostCredit(
+  costId: string,
+  input: { amount: string; credit_number: string; credit_date: string },
+  revalidate: string,
+): Promise<ActionResult<{ amount: string; currency: string }>> {
+  await protectAction();
+  const amount = normalizeAmount(input.amount);
+  if (amount === null || Number(amount) <= 0) {
+    const t = await getTranslations("costs.ledger");
+    return { ok: false, error: t("creditAmountInvalid") };
+  }
+  const { data, error } = await api.POST("/api/v1/costs/{cost_id}/credits", {
+    params: { path: { cost_id: costId } },
+    body: { amount, credit_number: input.credit_number.trim() || null, credit_date: input.credit_date },
+  });
+  if (error || !data) return await fail(error, "costs.ledger.creditFailed");
+  revalidatePath(revalidate);
+  return { ok: true, data: { amount: data.amount, currency: data.currency } };
+}
+
+export async function removeCostCredit(costId: string, creditId: string, revalidate: string): Promise<ActionResult<{ amount: string; currency: string }>> {
+  await protectAction();
+  const { data, error } = await api.DELETE("/api/v1/costs/{cost_id}/credits/{credit_id}", {
+    params: { path: { cost_id: costId, credit_id: creditId } },
+  });
+  if (error || !data) return await fail(error, "costs.ledger.creditRemoveFailed");
+  revalidatePath(revalidate);
+  return { ok: true, data: { amount: data.amount, currency: data.currency } };
+}
+
 export async function previewAllocation(input: {
   container_id?: string;
   po_id?: string;
@@ -215,7 +246,7 @@ export async function correctInvoiceHeader(
 export async function updateInvoiceLine(
   invoiceId: string,
   lineId: string,
-  patch: { amount?: string | null; currency?: string | null; cost_type?: CostType | null; scope?: CostScope | null; target_id?: string | null; accepted?: boolean | null; description?: string | null },
+  patch: { amount?: string | null; currency?: string | null; cost_type?: CostType | null; scope?: CostScope | null; target_id?: string | null; accepted?: boolean | null; description?: string | null; credit_cost_id?: string | null },
 ): Promise<ActionResult<null>> {
   await protectAction();
   const body = { ...patch };
@@ -259,7 +290,7 @@ export async function patchInvoiceLines(invoiceId: string, lineIds: string[], pa
 }
 
 export type ConfirmInvoiceResult =
-  | { ok: true; data: { costsCreated: number; containers: { id: string; container_number: string }[]; notes: string[] } }
+  | { ok: true; data: { costsCreated: number; creditsCreated: number; containers: { id: string; container_number: string }[]; notes: string[] } }
   // `forceable` answers INVOICE_ALREADY_RECORDED only: false when the API says the override cannot
   // hold (the very same vendor, number, type, currency and target are already on file — a vendor
   // does not reuse an invoice number), so the screen does not offer it.
@@ -301,6 +332,7 @@ export async function confirmInvoice(invoiceId: string, force = false, forceReco
     ok: true,
     data: {
       costsCreated: data.costs_created,
+      creditsCreated: data.credits_created ?? 0,
       containers: (data.containers ?? []).map((c) => ({ id: c.id, container_number: c.container_number })),
       notes: data.notes ?? [],
     },
@@ -362,6 +394,8 @@ export async function reopenInvoice(invoiceId: string): Promise<ActionResult<nul
   if (error) return await fail(error, "invoices.detail.failed");
   revalidatePath(`/invoices/${invoiceId}`);
   revalidatePath("/invoices");
+  // A credit note reopened gives costs their amounts back, on screens this one does not name.
+  revalidatePath("/(app)/container/[id]", "page");
   return { ok: true, data: null };
 }
 
