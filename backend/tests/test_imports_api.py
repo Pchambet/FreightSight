@@ -280,6 +280,32 @@ def test_the_same_sku_twice_on_one_order_keeps_both_quantities(client: TestClien
     assert len(client.get(f"/api/v1/purchase-orders/{po['id']}").json()["lines"]) == 2
 
 
+def test_the_same_line_said_twice_without_another_container_is_flagged(client: TestClient) -> None:
+    """Two identical rows without line_no read as one line repeated for a second container; with no
+    container, or the same one, that left 1 000 € of FOB out of the order without a word."""
+    content = b"po_number;sku;quantity;unit_price\nPO-E;A;100;10,00\nPO-E;A;100;10,00\n"
+    report = validate(client, upload(client, content, "PURCHASE_ORDERS", "same.csv"))
+    assert report["lines_created"] == 1
+    (warning,) = [w for w in report["warnings"] if w["code"] == "DUPLICATE_SKU_SAME_VALUES"]
+    assert warning["row"] == 3 and warning["params"] == {"po_number": "PO-E", "sku": "A", "line_no": 1}
+
+    same_box = (
+        b"po_number;sku;quantity;unit_price;container_number\n"
+        b"PO-F;A;100;10,00;MSCU1234567\nPO-F;A;100;10,00;MSCU1234567\n"
+    )
+    report = validate(client, upload(client, same_box, "PURCHASE_ORDERS", "same_box.csv"))
+    assert "DUPLICATE_SKU_SAME_VALUES" in codes(report["warnings"])
+
+    # the shape it was meant for: one order line repeated once per container
+    per_box = (
+        b"po_number;sku;quantity;unit_price;container_number;container_quantity\n"
+        b"PO-G;A;100;10,00;MSCU1234567;60\nPO-G;A;100;10,00;CMAU9876543;40\n"
+    )
+    report = validate(client, upload(client, per_box, "PURCHASE_ORDERS", "per_box.csv"))
+    assert report["lines_created"] == 1 and report["loads_created"] == 2
+    assert "DUPLICATE_SKU_SAME_VALUES" not in codes(report["warnings"])
+
+
 def test_a_currency_that_changes_inside_one_order_is_refused(client: TestClient) -> None:
     content = b"po_number;currency;sku;quantity;unit_price\nPO-X;USD;A;10;1,00\nPO-X;CNY;B;20;2,00\n"
     job = upload(client, content, "PURCHASE_ORDERS")

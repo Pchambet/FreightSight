@@ -982,6 +982,7 @@
     "UNIT_COLUMN_AMBIGUOUS": "La colonne « {column} » ne précise pas s'il s'agit d'une valeur par unité ou pour la ligne entière : elle est lue comme une valeur unitaire. Si c'est un total de ligne, divisez-la par la quantité avant l'import.",
     "PO_NUMBER_FORWARD_FILLED": "{rows, plural, one {# ligne sans numéro de commande a été rattachée à la commande indiquée au-dessus (colonne « {column} »).} other {# lignes sans numéro de commande ont été rattachées à la commande indiquée au-dessus (colonne « {column} »).}}",
     "DUPLICATE_SKU_NEW_LINE": "L'article {sku} apparaît une seconde fois sur la commande {po_number} avec une quantité ou un prix différents : il a été importé comme ligne {line_no} distincte.",
+    "DUPLICATE_SKU_SAME_VALUES": "L'article {sku} apparaît de nouveau sur la commande {po_number} avec la même quantité, le même prix et sans autre conteneur : la ligne {line_no} n'a été comptée qu'une fois. S'il s'agit de deux lignes, numérotez-les (colonne N° ligne) ou additionnez leurs quantités.",
     "page": {
       "title": "Une erreur est survenue",
       "body": "Quelque chose s'est mal passé. Réessayez ou retournez à l'accueil.",

@@ -595,6 +595,7 @@ def _apply_purchase_orders(
     # a genuinely second line of the same article, which used to be absorbed into the first one.
     implicit_lines: dict[tuple[str, str, int], int] = {}
     line_values: dict[tuple[str, str, int], tuple[Decimal, Decimal]] = {}
+    line_containers: dict[tuple[str, str, int], set[str | None]] = {}
     occurrences: dict[tuple[str, str], int] = {}
     next_line_no: dict[str, int] = {}
     rows = _forward_filled_rows(table, mapping, report)
@@ -669,6 +670,19 @@ def _apply_purchase_orders(
                 # The same line said twice: the shape of a file that repeats the order line once
                 # per container. Only the container part of the row has anything left to say.
                 line_no, repeated_line = implicit_lines[previous], True
+                if container_number in line_containers[previous]:
+                    # ...unless there is no other container to say: then it is either a line
+                    # written twice or two lines that happen to match, and only a person knows.
+                    r.warn(
+                        "sku",
+                        "DUPLICATE_SKU_SAME_VALUES",
+                        f"{identity!r} appears again on {po_number} with the same quantity and price "
+                        f"and no other container; read as line {line_no} once",
+                        po_number=po_number,
+                        sku=identity,
+                        line_no=line_no,
+                    )
+                line_containers[previous].add(container_number)
             else:
                 existing_line = _find_line_without_number(t, po, sku, r.text("description"), seen)
                 if existing_line is not None:
@@ -699,6 +713,7 @@ def _apply_purchase_orders(
                     )
                 implicit_lines[(po_number, identity, seen)] = line_no
                 line_values[(po_number, identity, seen)] = (quantity, unit_price)
+                line_containers[(po_number, identity, seen)] = {container_number}
                 occurrences[key] = seen + 1
 
         supplier = _get_or_create_supplier(t, r.text("supplier_name"), report)
