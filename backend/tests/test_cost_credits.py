@@ -150,8 +150,9 @@ def test_a_refund_and_its_removal_are_in_the_history_with_raw_values(client: Tes
     entries = client.get("/api/v1/audit-log", params={"entity_id": freight["id"]}).json()["entries"]
     removed, credited = entries[0], entries[1]
     assert credited["action"] == "cost.credited"
-    assert credited["before"] == {"amount": "3000.00", "amount_base": "3000.00"}
+    assert credited["before"] == {"cost_type": "OCEAN_FREIGHT", "amount": "3000.00", "amount_base": "3000.00"}
     assert credited["after"] == {
+        "cost_type": "OCEAN_FREIGHT",
         "amount": "2600.00",
         "amount_base": "2600.00",
         "credited": "400.00",

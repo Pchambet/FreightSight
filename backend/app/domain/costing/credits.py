@@ -111,8 +111,17 @@ def audit_entry(cost: Cost, credit: CostCredit, *, applied: bool) -> tuple[dict[
     """The before and after of the cost a credit was just applied to (or just taken back from), with
     the credit's own figures on the side that holds it."""
     other = cost.amount + credit.amount if applied else cost.amount - credit.amount
-    now: dict[str, Any] = {"amount": cost.amount, "amount_base": cost.amount_base}
-    then: dict[str, Any] = {"amount": other, "amount_base": to_base(other, cost.fx_rate)}
+    # The type on both sides, unchanged: it is what names a cost in the history.
+    now: dict[str, Any] = {
+        "cost_type": cost.cost_type,
+        "amount": cost.amount,
+        "amount_base": cost.amount_base,
+    }
+    then: dict[str, Any] = {
+        "cost_type": cost.cost_type,
+        "amount": other,
+        "amount_base": to_base(other, cost.fx_rate),
+    }
     held: dict[str, Any] = {
         "credited": credit.amount,
         "credit_number": credit.credit_number,
