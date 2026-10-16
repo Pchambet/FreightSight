@@ -105,6 +105,11 @@ export default async function SkuPage({ params }: Params) {
   const unrated = arrivals.find((a) => a.fob_missing);
   const rateHref = unrated ? `/purchase-orders/${unrated.po_id}#taux` : "/purchase-orders";
   const marginLanded = s.last_unit_landed ?? s.unit_landed;
+  // The purchase price the margin "on FOB" is read from is that of the same goods: the last arrival's
+  // when the real margin is the last arrival's, else the average over the counted containers. The
+  // average of every arrival beside the last one's landed cost read 45,5 % for 44,9 %.
+  const onLast = s.last_unit_landed !== null && last !== undefined && last.unit_landed === s.last_unit_landed;
+  const marginFob = onLast ? last.unit_fob : (s.unit_charged_fob ?? s.unit_fob);
   // The purchase price beside the landed one is over the same goods: the containers that carry a
   // charge. Units still at sea (dated by an ETA) are not "received".
   const charged = Number(s.charged_quantity ?? 0);
@@ -207,9 +212,9 @@ export default async function SkuPage({ params }: Params) {
           </div>
         </Panel>
 
-        <Panel title={t("margin.title")} subtitle={t("margin.subtitle")}>
-          {s.unit_fob !== null && marginLanded !== null ? (
-            <MarginHelper unitFob={Number(s.unit_fob)} unitLanded={Number(marginLanded)} marginOnLanded={s.last_unit_landed !== null ? s.last_margin_pct : s.margin_pct} salePrice={salePrice} currency={currency} />
+        <Panel title={t("margin.title")} subtitle={onLast ? t("margin.subtitle") : t("margin.subtitleAverage")}>
+          {marginFob !== null && marginLanded !== null ? (
+            <MarginHelper unitFob={Number(marginFob)} unitLanded={Number(marginLanded)} marginOnLanded={s.last_unit_landed !== null ? s.last_margin_pct : s.margin_pct} salePrice={salePrice} currency={currency} />
           ) : s.fob_missing_lines ? (
             <FobMissing lines={s.fob_missing_lines} href={rateHref} />
           ) : (

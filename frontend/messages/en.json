@@ -2233,7 +2233,8 @@
       "target": "Target margin",
       "needed": "Selling price excl. VAT to hold",
       "priceHolds": "Your current price ({price}) holds this margin.",
-      "priceShort": "Your current price ({price}) is {gap} short."
+      "priceShort": "Your current price ({price}) is {gap} short.",
+      "subtitleAverage": "Computed on the average of the counted arrivals."
     },
     "product": {
       "title": "Product sheet",

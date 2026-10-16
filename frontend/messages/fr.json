@@ -2233,7 +2233,8 @@
       "target": "Marge visée",
       "needed": "Prix de vente HT à tenir",
       "priceHolds": "Votre prix actuel ({price}) tient cette marge.",
-      "priceShort": "Votre prix actuel ({price}) est {gap} en dessous."
+      "priceShort": "Votre prix actuel ({price}) est {gap} en dessous.",
+      "subtitleAverage": "Calculée sur la moyenne des arrivages comptés."
     },
     "product": {
       "title": "Fiche produit",
