@@ -113,7 +113,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </Panel>
       ) : null}
 
-      <Card title={t("landed")} className="mb-6">
+      <Card title={t("landed")} right={<span className="text-xs text-slate-500 max-w-md text-right">{t("landedIncludesEstimates")}</span>} className="mb-6">
         <ScrollRegion label={t("landed")}>
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50"><tr><th className={th}>{t("th.label")}</th><th className={thRight}>{t("th.loads")}</th><th className={thRight}>{t("th.quantity")}</th><th className={thRight}>{t("th.fob")}</th><th className={thRight}>{t("th.allocated")}</th><th className={thRight}>{t("th.landed")}</th><th className={thRight}>{t("th.freightShare")}</th></tr></thead>
@@ -160,7 +160,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         <Card title={t("dnd")} right={<span className="text-xs text-slate-500 max-w-sm text-right">{t("dndHint", { demurrage: tt("DEMURRAGE") })}</span>}>
           <div className="px-5 py-3 flex gap-8 border-b border-slate-200 text-sm">
             <div><div className="text-xs text-slate-500 uppercase tracking-wider">{t("th.paid")}</div><div className="font-semibold tabular-nums text-red-700"><Money amount={d?.paid ?? "0.00"} currency={cur} /></div></div>
-            <div><div className="text-xs text-slate-500 uppercase tracking-wider">{t("th.avoided")}</div><div className="font-semibold tabular-nums text-emerald-700"><Money amount={d?.avoided ?? "0.00"} currency={cur} /></div></div>
+            <div><div className="text-xs text-slate-500 uppercase tracking-wider">{t("th.avoided")}</div>{/* Nothing estimable is no figure, not « 0,00 € évités » beside lines that each say "not estimable". */}
+              <div className="font-semibold tabular-nums text-emerald-700">{d && d.estimable > 0 ? <Money amount={d.avoided} currency={cur} /> : <span className="text-slate-500">—</span>}</div></div>
           </div>
           {(d?.at_risk?.length ?? 0) > 0 ? (
             <div className="px-5 py-3 border-b border-amber-200 bg-amber-50/60 text-sm">

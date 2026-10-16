@@ -1680,7 +1680,8 @@
         "title": "From purchase price to landed cost",
         "subtitle": "What each family of charges adds to the price paid to suppliers."
       }
-    }
+    },
+    "landedIncludesEstimates": "Includes charges still estimated, until their invoice replaces them."
   },
   "workflow": {
     "nextStep": "Next step",
@@ -1891,7 +1892,8 @@
       "varianceHint": "On costs estimated at shipment and later replaced by an invoice: actual minus estimated. Positive: your invoices exceed your rate cards.",
       "varianceSub": "{pairs, plural, one {# cost trued up} other {# costs trued up}}, for {estimated} estimated",
       "varianceNone": "No estimate replaced by an invoice in the period.",
-      "dndAtRisk": "{amount} running"
+      "dndAtRisk": "{amount} running",
+      "includesEstimates": "Charges still estimated are counted: a cost estimated at booking counts until its invoice replaces it. Each container's page says what is still estimated."
     },
     "structure": {
       "title": "Landing charges per month",

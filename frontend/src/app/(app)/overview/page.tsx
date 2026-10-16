@@ -270,6 +270,9 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
               href="/reports#dnd"
             />
           </div>
+          {/* The overview carries no estimated/invoiced split per period yet (needs_other_lane): until it
+              does, the basis of every figure below is said in words rather than left to be guessed. */}
+          <p className="-mt-3 mb-6 text-xs text-slate-500">{t("kpi.includesEstimates")}</p>
 
           <div className="grid gap-6 xl:grid-cols-3 mb-6 items-start">
             <Panel

@@ -1680,7 +1680,8 @@
         "title": "Du prix d'achat au coût rendu",
         "subtitle": "Ce que chaque famille de frais ajoute au prix payé aux fournisseurs."
       }
-    }
+    },
+    "landedIncludesEstimates": "Frais encore estimés compris, jusqu'à ce que leur facture les remplace."
   },
   "workflow": {
     "nextStep": "Prochaine étape",
@@ -1891,7 +1892,8 @@
       "varianceHint": "Sur les coûts estimés à l'embarquement puis remplacés par une facture : réel moins estimé. Positif : vos factures dépassent vos barèmes.",
       "varianceSub": "{pairs, plural, one {# coût recalé} other {# coûts recalés}}, pour {estimated} estimés",
       "varianceNone": "Aucun estimé remplacé par une facture sur la période.",
-      "dndAtRisk": "{amount} en cours"
+      "dndAtRisk": "{amount} en cours",
+      "includesEstimates": "Les frais encore estimés sont comptés : un coût estimé à la réservation compte jusqu'à ce que sa facture le remplace. La fiche de chaque conteneur dit ce qui reste estimé."
     },
     "structure": {
       "title": "Frais d'approche par mois",
