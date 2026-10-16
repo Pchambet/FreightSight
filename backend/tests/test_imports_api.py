@@ -340,7 +340,8 @@ def test_a_line_total_weight_or_volume_is_divided_by_the_line_quantity(client: T
     lines = {ln["sku"]: ln for ln in client.get(f"/api/v1/purchase-orders/{po['id']}").json()["lines"]}
     assert (lines["A"]["unit_weight_kg"], lines["A"]["unit_volume_cbm"]) == ("0.5000", "0.0120")
     assert (lines["B"]["unit_weight_kg"], lines["B"]["unit_volume_cbm"]) == ("5.0000", "0.0300")
-    assert (lines["C"]["unit_weight_kg"], lines["C"]["unit_volume_cbm"]) == ("16.6667", None)
+    # every stored digit: 50 kg over 3 pieces multiplies back to 50, which four decimals would not
+    assert (lines["C"]["unit_weight_kg"], lines["C"]["unit_volume_cbm"]) == ("16.66666666666667", None)
 
     # one dimension is said once: per unit or for the line, not both
     again = upload(client, content, "PURCHASE_ORDERS", "totals.csv")
