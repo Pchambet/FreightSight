@@ -44,6 +44,7 @@ from app.domain.models import (
     InvoiceStatus,
     Membership,
     Organization,
+    SampleObject,
     TrackingEvent,
     TrackingState,
     TrackingSubscription,
@@ -1200,10 +1201,18 @@ def record_backup_freshness(
 
 
 def unnotified_alerts(db: Session, org: Organization) -> list[Alert]:
+    """What the next digest says. Never the demo dataset's alerts, nor any about its boxes: those are
+    for the screen a prospect is exploring, not for their inbox."""
+    sample = select(SampleObject.object_id).where(SampleObject.org_id == org.id)
     return list(
         db.scalars(
             select(Alert)
-            .where(Alert.org_id == org.id, Alert.notified_at.is_(None))
+            .where(
+                Alert.org_id == org.id,
+                Alert.notified_at.is_(None),
+                Alert.id.not_in(sample),
+                or_(Alert.container_id.is_(None), Alert.container_id.not_in(sample)),
+            )
             .order_by(Alert.created_at)
         )
     )

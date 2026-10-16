@@ -28,6 +28,7 @@ from app.domain.models import (
     Organization,
     RateBasis,
     RateCard,
+    SampleObject,
 )
 from app.domain.tracking.state import ClockKind, DndClock, derive_dnd, risk_rose, running_clock
 
@@ -65,7 +66,16 @@ def raise_alert(
     container_id: UUID | None = None,
     payload: dict[str, Any] | None = None,
 ) -> Alert | None:
-    """Create the alert, or return None because this organization has already been told."""
+    """Create the alert, or return None because this organization has already been told — or because
+    the container is the demo dataset's.
+
+    A demo box is made up, and its clocks run like any other: left alone, it raised CRITICAL
+    "demurrage running" reminders daily for a fortnight and weekly for two months, e-mailed to a
+    prospect about a box that does not exist. The dataset raises its own alerts while it is loaded,
+    before it is registered as the demo's; nothing raises one about it afterwards.
+    """
+    if container_id is not None and _is_sample(db, org_id, container_id):
+        return None
     stmt = (
         insert(Alert)
         .values(
@@ -87,6 +97,17 @@ def raise_alert(
     if alert is not None:
         logger.info("alert %s raised for org %s: %s", kind.value, org_id, title)
     return alert
+
+
+def _is_sample(db: Session, org_id: UUID, container_id: UUID) -> bool:
+    found = db.scalar(
+        select(SampleObject.id).where(
+            SampleObject.org_id == org_id,
+            SampleObject.kind == "container",
+            SampleObject.object_id == container_id,
+        )
+    )
+    return found is not None
 
 
 def daily_rate(db: Session, org_id: UUID, clock: ClockKind) -> RateCard | None:
