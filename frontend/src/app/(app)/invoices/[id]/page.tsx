@@ -36,7 +36,10 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { id } = await params;
   const data = await load(id).catch(() => null);
   const t = await getTranslations("invoices");
-  return { title: data?.invoice.invoice_number ? `${t("title")} ${data.invoice.invoice_number}` : t("title") };
+  if (!data) return { title: t("title") };
+  // One document per tab, so the singular: « Facture MHL-26-0571 », « Avoir … » for a credit note.
+  const kind = data.invoice.credit_note ? "credit" : "invoice";
+  return { title: t("detail.pageTitle", { kind, number: data.invoice.invoice_number ?? "" }).trim() };
 }
 
 export default async function InvoicePage({ params }: Params) {
