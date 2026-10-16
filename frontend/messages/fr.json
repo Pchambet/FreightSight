@@ -1779,7 +1779,7 @@
       "skip": "Passer à la suivante"
     },
     "reports": {
-      "explore": "Le coût unitaire de {sku} est calculé — ouvrez le conteneur pour le montrer en détail.",
+      "explore": "Les coûts unitaires sont calculés : ouvrez un conteneur pour voir celui de chaque référence en détail.",
       "openContainer": "Coûts unitaires · {container}",
       "viewVariance": "Écarts estimé → réel",
       "default": "Consultez les rapports agrégés ou les écarts mensuels.",

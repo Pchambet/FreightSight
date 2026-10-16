@@ -39,7 +39,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const a: LandedCostAnalysis | undefined = lc.data;
   const d: DndAnalysis | undefined = dnd.data;
   const topContainer = containersRes.data?.find((c) => c.container_number === "MSCU4821990") ?? containersRes.data?.[0];
-  const hubStep = reportsHubStep(a?.skus ?? [], topContainer ? { id: topContainer.id, number: topContainer.container_number } : undefined);
+  const hubStep = reportsHubStep(topContainer ? { id: topContainer.id, number: topContainer.container_number } : undefined);
   const cur = a?.base_currency ?? "EUR";
   const bucketLabel = (b: { key: string; label: string }) => (groupBy === "cost_type" && tt.has(b.key as never) ? tt(b.key as never) : b.label === "unknown route" ? t("unknownRoute") : b.label);
   const familyLabels = Object.fromEntries(COST_FAMILIES.map((f) => [f, tfam(f)])) as Record<CostFamily, string>;

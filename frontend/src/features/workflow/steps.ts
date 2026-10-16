@@ -173,17 +173,12 @@ export function invoicesHubStep(review: number, latestReviewId?: string): Workfl
   };
 }
 
-const DEMO_SKU = "TYR-20555R16-91V";
-
-export function reportsHubStep(
-  skus: { sku: string }[],
-  topContainer?: { id: string; number: string },
-): WorkflowStep {
-  const topSku = skus.find((s) => s.sku === DEMO_SKU)?.sku ?? skus[0]?.sku;
+export function reportsHubStep(topContainer?: { id: string; number: string }): WorkflowStep {
   if (topContainer) {
+    // The sentence names no article: the container is not chosen by what it holds, and naming one
+    // it does not carry sent the reader to the wrong goods.
     return {
       descriptionKey: "reports.explore",
-      descriptionParams: { sku: topSku ?? "" },
       primary: {
         href: `/container/${topContainer.id}#couts-unitaires`,
         labelKey: "reports.openContainer",

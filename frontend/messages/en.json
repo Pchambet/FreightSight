@@ -1779,7 +1779,7 @@
       "skip": "Skip to the next one"
     },
     "reports": {
-      "explore": "Unit cost for {sku} is computed — open the container to show the detail.",
+      "explore": "Unit costs are computed: open a container to see each item's in detail.",
       "openContainer": "Unit costs · {container}",
       "viewVariance": "Estimated → actual variance",
       "default": "Browse aggregated reports or monthly variance.",
