@@ -294,3 +294,6 @@ docker compose up -d --build              # migrate, api, worker
 # Ou repartir de zéro (la base locale est jetable) : les migrations recréent tout
 docker compose down -v && docker compose up -d --build
 ```
+
+La restauration se plaint du rôle `freightsight_app`, absent d'un volume neuf, et sort en code 1 :
+les données sont bien là, et l'API locale se connecte en `fs`, qui n'en a pas besoin.

@@ -122,9 +122,9 @@ reconnaissent seules), *Valider (à blanc)*, lire l'aperçu — **rien n'est enc
   | Camionnage Le Havre – Carquefou | 440,00 € |
   | Débours droits de douane | 1 293,09 € |
 
-- [ ] *Retenir les 5 lignes*. Avant de confirmer, vérifiez que le bandeau au-dessus des lignes les compte
-  **toutes** comme retenues et que leur somme égale le total HT de la facture ; sinon recliquez
-  *Retenir*. Puis *Confirmer*. Rien n'est devenu un coût avant ce clic.
+- [ ] *Retenir les 5 lignes* : le bandeau au-dessus des lignes les compte toutes comme retenues, et
+  leur somme égale le total HT de la facture. Puis *Confirmer les 5 lignes*. Rien n'est devenu un
+  coût avant ce clic.
 - [ ] Ouvrir le conteneur **MSCU6702211** (le lien « Voir le conteneur » de la page de la facture y
   mène) : le **coût rendu par ligne de commande** s'affiche.
   **Parasol 3 m : 47,91 €** pour un prix d'achat de 38,50 € (+24 %) ; **coussin : 3,95 €** pour 3,20 €.
