@@ -1098,7 +1098,7 @@
     "MAPPING_UNIT_AND_LINE_TOTAL": "{dimension, select, volume {Volume} other {Weight}}: match the per-unit column or the line-total column, not both.",
     "PERIOD_ORDERS_WITHOUT_FX_RATE": "This month cannot be closed: some orders have no exchange rate ({orders}). The value of their goods is unknown, and the close would freeze a wrong landed cost. Set the rate on each of them, then close.",
     "CREDIT_WITHOUT_COST": "Line {line}: no invoiced cost of this type, in {currency}, is recorded on this target. A credit note reduces an existing cost: record the invoice it corrects first.",
-    "CREDIT_EXCEEDS_COST": "The credit of {credit} {currency} is more than what the cost still amounts to ({remaining} {currency}). A cost never goes below zero: check the amount or the cost chosen.",
+    "CREDIT_EXCEEDS_COST": "The credit of {credit} is more than what the cost still amounts to ({remaining}). A cost never goes below zero: check the amount or the cost chosen.",
     "CREDIT_CURRENCY_MISMATCH": "The credit is in {credit_currency}; the cost it would reduce is in {cost_currency}. A credit is never converted: it reduces a cost in its own currency.",
     "CREDIT_COST_REQUIRED": "Line {line}: {count} invoiced costs could be reduced by this credit. Choose on the line the one it corrects.",
     "CREDIT_COST_MISMATCH": "Line {line}: the cost chosen is not an invoiced cost of this type on this target. Choose one from the line's list.",

@@ -1098,7 +1098,7 @@
     "AMOUNT_INCLUDES_VAT": "La colonne « {column} » est toutes taxes comprises : un coût de revient se lit hors taxes. Faites correspondre la colonne du montant HT.",
     "PERIOD_ORDERS_WITHOUT_FX_RATE": "Ce mois ne peut pas être clôturé : des commandes n'ont pas de taux de change ({orders}). La valeur de leurs marchandises est inconnue, et la clôture figerait un coût de revient faux. Saisissez le taux sur chacune, puis clôturez.",
     "CREDIT_WITHOUT_COST": "Ligne {line} : aucun coût facturé de ce type, en {currency}, n'est enregistré sur cette cible. Un avoir réduit un coût existant : enregistrez d'abord la facture qu'il corrige.",
-    "CREDIT_EXCEEDS_COST": "L'avoir de {credit} {currency} dépasse ce que le coût représente encore ({remaining} {currency}). Un coût ne devient jamais négatif : vérifiez le montant ou le coût choisi.",
+    "CREDIT_EXCEEDS_COST": "L'avoir de {credit} dépasse ce que le coût représente encore ({remaining}). Un coût ne devient jamais négatif : vérifiez le montant ou le coût choisi.",
     "CREDIT_CURRENCY_MISMATCH": "L'avoir est en {credit_currency}, le coût qu'il réduirait est en {cost_currency}. Un avoir n'est jamais converti : il réduit un coût de sa propre devise.",
     "CREDIT_COST_REQUIRED": "Ligne {line} : {count} coûts facturés peuvent être réduits par cet avoir. Choisissez sur la ligne celui qu'il corrige.",
     "CREDIT_COST_MISMATCH": "Ligne {line} : le coût choisi n'est pas un coût facturé de ce type sur cette cible. Choisissez-en un dans la liste de la ligne.",

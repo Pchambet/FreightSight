@@ -146,6 +146,27 @@ async function recordedSentence(p: Problem): Promise<string> {
  */
 const ENVELOPE = new Set(["type", "title", "status", "detail", "instance", "code", "request_id", "errors", "params"]);
 
+/**
+ * The refusals whose params carry amounts as raw decimals (« 266.67 »): said with their currency, the
+ * way every other amount on screen is. A refusal without a `currency` param is in the organization's
+ * base currency: an ERP push is refused outright when the ERP keeps its books in another one.
+ */
+const MONEY_PARAMS: Record<string, string[]> = {
+  CREDIT_EXCEEDS_COST: ["credit", "remaining"],
+  ERP_SPLIT_MISMATCH: ["split", "amount"],
+};
+
+async function withMoney(code: string, values: Record<string, string | number>): Promise<Record<string, string | number>> {
+  const keys = MONEY_PARAMS[code];
+  if (!keys) return values;
+  const [locale, currency] = await Promise.all([
+    getLocale(),
+    values.currency ? String(values.currency) : api.GET("/api/v1/organization").then((r) => r.data?.base_currency),
+  ]);
+  if (!currency) return values;
+  return { ...values, ...Object.fromEntries(keys.filter((k) => k in values).map((k) => [k, money(values[k], currency, locale)])) };
+}
+
 export async function problemMessage(error: unknown, fallback?: string): Promise<string> {
   const t = await getTranslations("errors");
   const has = (code: string | null | undefined): code is string => !!code && t.has(code);
@@ -164,7 +185,7 @@ export async function problemMessage(error: unknown, fallback?: string): Promise
     const extras = Object.fromEntries(
       Object.entries(p).filter(([k, v]) => !ENVELOPE.has(k) && (typeof v === "string" || typeof v === "number")),
     ) as Record<string, string | number>;
-    if (has(p.code)) return t(p.code, { ...extras, ...(p.params ?? {}) });
+    if (has(p.code)) return t(p.code, await withMoney(p.code, { ...extras, ...(p.params ?? {}) }));
     return withRef(fallbackMessage);
   }
   return fallbackMessage;
