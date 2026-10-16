@@ -247,21 +247,27 @@ export async function updateInvoiceLine(
 
 /**
  * One forwarder invoice is nearly always about one container or one shipment, and most of its lines
- * are read right: attaching and accepting them one by one is the slowest part of a review. The patches run side by side on the server and the
- * page is revalidated once; a line that fails does not undo the others, the count says how many held.
+ * are read right: attaching and accepting them one by one is the slowest part of a review. Every line
+ * goes in one call, applied by the API under one lock, all or nothing: one call per line made the
+ * lines refuse each other (INVOICE_BUSY) and "keep the 5 lines" kept one while saying it had worked.
  */
 export async function patchInvoiceLines(invoiceId: string, lineIds: string[], patch: { scope: CostScope; target_id: string } | { accepted: boolean }): Promise<ActionResult<{ updated: number }>> {
   await protectAction();
-  const results = await Promise.all(
-    lineIds.slice(0, 200).map((lineId) =>
-      api.PATCH("/api/v1/invoices/{invoice_id}/lines/{line_id}", { params: { path: { invoice_id: invoiceId, line_id: lineId } }, body: patch }),
-    ),
-  );
+  const { data, error } = await api.PATCH("/api/v1/invoices/{invoice_id}/lines", {
+    params: { path: { invoice_id: invoiceId } },
+    body: { lines: lineIds.map((id) => ({ id, ...patch })) },
+  });
+  if (error || !data) {
+    const problem = error as Problem | undefined;
+    // The per-line refusals name line ids, which mean nothing on screen: say how many, and that none changed.
+    if (problem?.code === "INVOICE_LINES_REFUSED") {
+      const t = await getTranslations("errors");
+      return { ok: false, error: t("INVOICE_LINES_REFUSED", { count: problem.errors?.length ?? 0 }) };
+    }
+    return await fail(error, "invoices.line.failed");
+  }
   revalidatePath(`/invoices/${invoiceId}`);
-  const failed = results.find((r) => r.error);
-  const updated = results.filter((r) => !r.error).length;
-  if (failed && updated === 0) return await fail(failed.error, "invoices.line.failed");
-  return { ok: true, data: { updated } };
+  return { ok: true, data: { updated: lineIds.length } };
 }
 
 export type ConfirmInvoiceResult =
