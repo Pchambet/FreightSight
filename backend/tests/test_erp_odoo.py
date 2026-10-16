@@ -480,6 +480,23 @@ def test_a_sync_larger_than_one_import_file_goes_through_in_several(
         parsing.parse_table(content, "orders.csv")
 
 
+def test_every_file_of_a_sync_in_several_is_listed_as_the_sync(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The run names its first file, and all of them in its detail: the later ones are the sync's
+    too, never an "odoo-sync.csv" a person seems to have dropped by hand."""
+    from app.domain.imports import parsing
+
+    connect(client, FakeOdoo(), monkeypatch)
+    monkeypatch.setattr(parsing, "MAX_ROWS", 3)
+    run = client.post("/api/v1/erp/sync").json()
+
+    jobs = run["detail"]["import_job_ids"]
+    sources = {job["id"]: job["source"] for job in client.get("/api/v1/imports").json()}
+    assert {job_id: sources.get(job_id) for job_id in jobs} == {job_id: "erp_sync" for job_id in jobs}
+    assert client.get(f"/api/v1/imports/{jobs[-1]}").json()["source"] == "erp_sync"
+
+
 def test_a_failed_sync_leaves_a_run_that_says_why(
     client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
 ) -> None:
