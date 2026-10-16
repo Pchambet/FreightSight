@@ -33,7 +33,7 @@ from app.domain.costing.credits import audit_entry, creditable
 from app.domain.documents.registry import get_store
 from app.domain.invoices.service import confirm as confirm_invoice
 from app.domain.invoices.service import create_invoice, is_credit_note, reopen_confirmed, would_refund
-from app.domain.models import Container, Cost, Invoice, InvoiceLine, InvoiceStatus
+from app.domain.models import Container, Cost, CostScope, CostType, Invoice, InvoiceLine, InvoiceStatus
 from app.jobs.app import defer
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -81,14 +81,20 @@ def _containers_from_costs(db: Session, costs: list[Cost]) -> list[schemas.Invoi
 def _response(db: Session, invoice: Invoice) -> schemas.InvoiceResponse:
     summary = schemas.InvoiceSummary.model_validate(invoice).model_dump()
     summary["filename"] = invoice.document.filename if invoice.document else None
-    refunding = would_refund(invoice) if invoice.status is not InvoiceStatus.CONFIRMED else set()
+    confirmed = invoice.status is InvoiceStatus.CONFIRMED
+    # Once confirmed, a refund is a line that reduced a cost; before, one that would as things stand.
+    refunding = set() if confirmed else would_refund(invoice)
+    candidates: dict[tuple[CostScope, UUID, CostType], list[schemas.CreditCandidate]] = {}
     lines = []
     for ln in invoice.lines:
         line = schemas.InvoiceLineResponse.model_validate(ln)
-        line.refund = ln.id in refunding or ln.credit_cost_id is not None
+        line.refund = ln.credit_cost_id is not None if confirmed else ln.id in refunding
         if ln.id in refunding and ln.scope and ln.target_id and ln.cost_type:
-            found = creditable(db, invoice.org_id, ln.scope, ln.target_id, ln.cost_type)
-            line.credit_candidates = [schemas.CreditCandidate.model_validate(cost) for cost in found]
+            key = (ln.scope, ln.target_id, ln.cost_type)
+            if key not in candidates:
+                found = creditable(db, invoice.org_id, *key)
+                candidates[key] = [schemas.CreditCandidate.model_validate(cost) for cost in found]
+            line.credit_candidates = candidates[key]
         lines.append(line)
     return schemas.InvoiceResponse(
         **summary,

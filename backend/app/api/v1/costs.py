@@ -149,8 +149,9 @@ def _supersede(t: TenantSession, cost: Cost, estimate_id: UUID | None, *, status
 
 def _refuse_under_credits(cost: Cost, *, changing: bool) -> None:
     """A credited cost's amount is what is left after its credits. Typing over it, changing its
-    currency, making it an estimate or deleting it would leave a refund reducing a figure it was never
-    taken off — so the credits are taken back first, each in the history, and the cost changed after."""
+    currency or type, making it an estimate or deleting it would leave a refund reducing a figure it
+    was never taken off — so the credits are taken back first, each in the history, and the cost
+    changed after."""
     if cost.credits and changing:
         raise Unprocessable(
             "Credits have reduced this cost; take them back before changing its amount, currency or "
@@ -252,7 +253,8 @@ def update_cost(cost_id: UUID, payload: schemas.CostUpdate, t: TenantDep, fx: Fx
     splits = changes.pop("manual_splits", None)
     manual_rate = changes.pop("fx_rate", None)
     supersedes = changes.pop("supersedes_cost_id", _UNSET)
-    moved = [k for k in ("amount", "currency", "status") if k in changes and changes[k] != getattr(cost, k)]
+    keys = ("amount", "currency", "status", "cost_type")
+    moved = [k for k in keys if k in changes and changes[k] != getattr(cost, k)]
     _refuse_under_credits(cost, changing=bool(moved))
     if supersedes is not _UNSET:
         _supersede(t, cost, supersedes, status=changes.get("status") or cost.status)

@@ -16,12 +16,12 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import Unprocessable
 from app.core.money import q2, to_base
-from app.domain.costing.entry import normalize_invoice_number, same_invoice
+from app.domain.costing.entry import normalize_invoice_number, same_invoice, target_column
 from app.domain.models import Cost, CostCredit, CostScope, CostStatus, CostType
 
 
@@ -30,7 +30,6 @@ def creditable(
 ) -> list[Cost]:
     """The invoiced costs of this type on this exact target, in any currency: what a refund of that
     type on that target can reduce. An estimate is no money paid, and nothing to refund."""
-    target = func.coalesce(Cost.container_id, Cost.shipment_id, Cost.po_id, Cost.po_line_id)
     return list(
         db.scalars(
             select(Cost)
@@ -38,8 +37,7 @@ def creditable(
                 Cost.org_id == org_id,
                 Cost.status == CostStatus.ACTUAL,
                 Cost.cost_type == cost_type,
-                Cost.scope == scope,
-                target == target_id,
+                target_column(scope) == target_id,
             )
             .order_by(Cost.cost_date, Cost.created_at)
         )

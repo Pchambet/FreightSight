@@ -274,6 +274,8 @@ def confirm(
 
     refunding = refund_lines(invoice, accepted)
     charges = [line for line in accepted if line.id not in refunding]
+    for line in charges:
+        line.credit_cost_id = None  # named while it was a refund; it is a charge now
 
     # Lines of one type, on one target, in one currency are one cost: the freight and its bunker
     # surcharge, the origin and destination handlings. One cost per line would be two costs with the
@@ -428,25 +430,32 @@ def refund_lines(invoice: Invoice, lines: list[InvoiceLine]) -> set[UUID]:
     """
     if is_credit_note(invoice):
         return {line.id for line in lines}
-
-    def key(line: InvoiceLine) -> tuple[object, ...]:
-        return (line.scope, line.target_id, line.cost_type, line.currency)
-
-    sums: dict[tuple[object, ...], Decimal] = {}
-    for line in lines:
-        sums[key(line)] = sums.get(key(line), Decimal(0)) + line.amount
-    return {line.id for line in lines if sums[key(line)] < 0}
+    sums = _sums(lines)
+    return {line.id for line in lines if sums[_key(line)] < 0}
 
 
 def would_refund(invoice: Invoice) -> set[UUID]:
     """The lines that would refund if they were confirmed with what is accepted now — each line counted
     as accepted, so that the review screen can ask which cost a refund reduces before it is ticked."""
-    accepted = [line for line in invoice.lines if line.accepted]
+    if is_credit_note(invoice):
+        return {line.id for line in invoice.lines}
+    sums = _sums([line for line in invoice.lines if line.accepted])
     return {
         line.id
         for line in invoice.lines
-        if line.id in refund_lines(invoice, accepted if line.accepted else [*accepted, line])
+        if sums.get(_key(line), Decimal(0)) + (Decimal(0) if line.accepted else line.amount) < 0
     }
+
+
+def _key(line: InvoiceLine) -> tuple[object, ...]:
+    return (line.scope, line.target_id, line.cost_type, line.currency)
+
+
+def _sums(lines: list[InvoiceLine]) -> dict[tuple[object, ...], Decimal]:
+    sums: dict[tuple[object, ...], Decimal] = {}
+    for line in lines:
+        sums[_key(line)] = sums.get(_key(line), Decimal(0)) + line.amount
+    return sums
 
 
 def _apply_refunds(
@@ -465,8 +474,12 @@ def _apply_refunds(
     by name: no cost to reduce, several to choose from, or a cost in another currency.
     """
     # A credit note printed with positive figures says « avoir » at its head and nowhere else; printed
-    # with minus signs, it says so on every line, and a positive line on it is a fee kept back.
-    sign = 1 if is_credit_note(invoice) and all(line.amount > 0 for line in invoice.lines) else -1
+    # with minus signs — its total, or every line — a positive line on it is a fee kept back. The
+    # reading said which, from the whole document.
+    printed_negative = any(
+        note.startswith(f"{CREDIT_NOTE_NOTE}|negative") for note in _reading_notes(invoice)
+    )
+    sign = 1 if is_credit_note(invoice) and not printed_negative else -1
     groups: dict[tuple[CostScope, UUID, CostType, str], list[InvoiceLine]] = {}
     for line in lines:
         assert line.scope is not None and line.target_id is not None and line.cost_type is not None
@@ -489,6 +502,17 @@ def _apply_refunds(
                     f"The cost named on line {line.line_no} is not an invoiced {cost_type.value} there",
                     code="CREDIT_COST_MISMATCH",
                     params={"line": str(line.line_no)},
+                )
+            if cost.currency != line.currency:
+                # Added to lines in the cost's currency, it would be read at their rate: refused.
+                raise Unprocessable(
+                    f"Line {line.line_no} is in {line.currency}; the cost it names is in {cost.currency}",
+                    code="CREDIT_CURRENCY_MISMATCH",
+                    params={
+                        "line": str(line.line_no),
+                        "credit_currency": line.currency,
+                        "cost_currency": cost.currency,
+                    },
                 )
             planned.setdefault(cost.id, (cost, []))[1].append(line)
 
@@ -596,7 +620,9 @@ def reopen_confirmed(db: Session, org: Organization, invoice: Invoice) -> Reopen
             ],
         )
     # What a credit note took off comes back. The refund line keeps the cost it named, so that
-    # confirming the document again reduces the same one.
+    # confirming the document again reduces the same one. A reduced cost already in the ERP is not a
+    # reason to refuse: the cost stays on file, and the ERP preview says its amount has changed since,
+    # as for any cost corrected after it was pushed.
     removed_credits: list[tuple[Cost, CostCredit]] = []
     taken = select(CostCredit).where(CostCredit.org_id == org.id, CostCredit.invoice_id == invoice.id)
     for credit in list(db.scalars(taken)):

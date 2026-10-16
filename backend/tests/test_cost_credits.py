@@ -206,7 +206,7 @@ def test_a_credited_cost_keeps_its_net_amount_until_its_credits_are_taken_back(
     taken off; deleting it would take the refund with it, unseen."""
     freight = charge(client, box)
     credit(client, freight["id"], "400.00")
-    for change in ({"amount": "3000.00"}, {"currency": "USD"}, {"status": "ESTIMATE"}):
+    for change in ({"amount": "3000.00"}, {"currency": "USD"}, {"status": "ESTIMATE"}, {"cost_type": "THC"}):
         res = client.patch(f"/api/v1/costs/{freight['id']}", json=change)
         assert (res.status_code, res.json()["code"]) == (422, "COST_HAS_CREDITS"), change
         assert res.json()["params"] == {"credit_number": "AV-1", "count": "1"}
@@ -452,6 +452,12 @@ def test_a_credit_note_printed_with_positive_figures_is_still_a_refund(
     (line,) = note["lines"]
     assert (line["amount"], line["cost_type"], line["refund"]) == ("360.00", "DEMURRAGE", True)
     accept(client, note)
+    # a line a person added and left out — a rounding — does not turn the document's figures round
+    client.post(f"/api/v1/invoices/{note['id']}/lines", json={"description": "Arrondi", "amount": "0.01"})
+    invoice = db.get(Invoice, uuid.UUID(note["id"]))
+    assert invoice is not None
+    invoice.lines[-1].amount = Decimal("-0.01")
+    db.commit()
     assert client.post(f"/api/v1/invoices/{note['id']}/confirm").status_code == 200
     assert cost_of(client, demurrage["id"])["amount"] == "240.00"
 
@@ -472,6 +478,58 @@ def test_choosing_another_target_forgets_the_cost_a_refund_line_named(
     assert same.json()["lines"][0]["credit_cost_id"] == freight["id"]
     moved = client.patch(url, json={"cost_type": "THC"})
     assert moved.json()["lines"][0]["credit_cost_id"] is None
+
+
+def test_two_currencies_never_add_up_on_one_cost(
+    client: TestClient, db: Session, org: Organization, box: str
+) -> None:
+    """A refund in dollars named on a cost in euros would be taken off it as euros."""
+    freight = charge(client, box)
+    note = upload_and_read(client, db, org, CREDIT_NOTE_MINUS_GLUED)
+    added = client.post(
+        f"/api/v1/invoices/{note['id']}/lines",
+        json={"description": "Fret USD", "amount": "100.00", "currency": "USD", "cost_type": "OCEAN_FREIGHT",
+              "scope": "CONTAINER", "target_id": box},
+    ).json()["lines"][-1]  # fmt: skip
+    line = db.get(InvoiceLine, uuid.UUID(added["id"]))
+    assert line is not None
+    line.amount = Decimal("-100.00")
+    db.commit()
+    accept(client, client.get(f"/api/v1/invoices/{note['id']}").json(), credit_cost_id=freight["id"])
+    res = client.post(f"/api/v1/invoices/{note['id']}/confirm")
+    assert res.status_code == 422
+    assert (res.json()["code"], res.json()["params"]) == (
+        "CREDIT_CURRENCY_MISMATCH",
+        {"line": "2", "credit_currency": "USD", "cost_currency": "EUR"},
+    )
+    assert cost_of(client, freight["id"])["amount"] == "3000.00"
+
+
+def test_a_line_corrected_into_a_charge_forgets_the_cost_it_named(
+    client: TestClient, db: Session, org: Organization, box: str
+) -> None:
+    """Read as -2 450 with a cost named, then corrected to +2 450 on a bill: it is a charge, and is
+    shown and confirmed as one."""
+    freight = charge(client, box)
+    from invoice_fixtures import FRENCH_ONE_CONTAINER
+
+    bill = upload_and_read(client, db, org, FRENCH_ONE_CONTAINER)
+    invoice = db.get(Invoice, uuid.UUID(bill["id"]))
+    assert invoice is not None
+    invoice.invoice_number = "FA-2026-1001"
+    first = db.get(InvoiceLine, uuid.UUID(bill["lines"][0]["id"]))
+    assert first is not None
+    first.amount, first.credit_cost_id = Decimal("-150.00"), uuid.UUID(freight["id"])
+    db.commit()
+    url = f"/api/v1/invoices/{bill['id']}/lines/{first.id}"
+    assert client.get(f"/api/v1/invoices/{bill['id']}").json()["lines"][0]["refund"] is True
+    corrected = client.patch(url, json={"amount": "150.00", "accepted": True}).json()["lines"][0]
+    assert corrected["refund"] is False
+    res = client.post(f"/api/v1/invoices/{bill['id']}/confirm", json={"force": True})
+    assert res.status_code == 200, res.text
+    assert (res.json()["costs_created"], res.json()["credits_created"]) == (1, 0)
+    assert res.json()["invoice"]["lines"][0]["credit_cost_id"] is None
+    assert cost_of(client, freight["id"])["amount"] == "3000.00"
 
 
 # ---------------------------------------------------------------------------- refunds inside an invoice
