@@ -99,6 +99,7 @@ class WritableOdoo:
         currency: str = "EUR",
         cost_lines_reversed: bool = False,
         split_order: bool = True,
+        other_order_receipt: bool = False,
     ) -> None:
         self.valued = valued
         self.receipts = receipts
@@ -112,6 +113,8 @@ class WritableOdoo:
         self.split_quantity = split_quantity
         # False: the second lot came in on no purchase order line, so it names no order at all.
         self.split_order = split_order
+        # P00099 came in on a receipt of its own, WH/IN/00008, found only when that order is asked for.
+        self.other_order_receipt = other_order_receipt
         # What the ERP company keeps its books in. Ours pushes a bare number.
         self.currency = currency
         # Odoo returns an x2many in no contractual order; on a draft adopted from an interrupted
@@ -224,9 +227,14 @@ class _Models:
             case ("res.users", "read"):
                 return [{"id": 2, "name": "Mitchell Admin", "company_id": [1, "YourCompany"]}]
             case ("purchase.order", "search_read"):
+                if self.odoo.other_order_receipt and "P00099" in args[0][0][2]:
+                    return [*FIXTURE["purchase_orders"], {"id": 99, "name": "P00099", "picking_ids": [23]}]
                 return FIXTURE["purchase_orders"]
             case ("stock.picking", "search_read"):
                 pickings = FIXTURE["pickings"]
+                if self.odoo.other_order_receipt:
+                    other = {**pickings[0], "id": 23, "name": "WH/IN/00008", "purchase_id": [99, "P00099"]}
+                    return [p for p in [*pickings, other] if p["id"] in args[0][0][2]]
                 if self.odoo.receipts == 0:
                     return []
                 if self.odoo.receipts > 1:
@@ -1331,6 +1339,29 @@ def test_a_validated_push_forgotten_before_its_state_was_kept_is_asked_of_the_er
     assert len(odoo.created) == 1
 
 
+def test_a_draft_forgotten_before_its_state_was_kept_and_gone_from_the_erp_holds_nothing(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other half: a row that still reads draft whose document is gone from the ERP was a deleted
+    draft. Asked, the ERP says so, and the freight is owed in full — held, it would never be sent."""
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    first = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    del odoo.documents[first["odoo_id"]]
+    forgotten = client.delete(f"/api/v1/containers/{container_id}/erp/pushes/{first['id']}")
+    assert forgotten.status_code == 200, forgotten.text
+    db.execute(update(ErpPush).where(ErpPush.id == uuid.UUID(first["id"])).values(status="draft"))
+    db.commit()
+
+    body = preview(client, container_id)
+    assert body["pushable"] is True, body["blockers"]
+    assert body["total"] == "2766.67"
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 201
+    db.expire_all()
+    assert db.get(ErpPush, uuid.UUID(first["id"])).status == "gone"  # type: ignore[union-attr]
+
+
 def test_a_held_cost_the_engine_cannot_allocate_for_now_is_not_taken_back(
     client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1420,6 +1451,55 @@ def test_a_validated_cost_deleted_when_it_was_the_only_one_is_taken_back(
     assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 201
     assert [command[2]["price_unit"] for command in odoo.created[1]["cost_lines"]] == [-2766.67]
     assert preview(client, container_id)["total"] == "0.00"
+
+
+def test_a_take_back_does_not_look_for_receipts_beyond_the_orders_still_charged(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The box holds P00012, received on WH/IN/00007, and P00099, received on a receipt of its own.
+    The costs are P00012's: its validated freight was deleted and a demurrage came in. Their push
+    is one receipt's business — asking for every order in the box finds two and refuses it all."""
+    odoo = WritableOdoo(other_order_receipt=True)
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client, invoiced=False)
+    ours = client.get("/api/v1/purchase-orders").json()[0]["id"]
+    ours_line = client.get(f"/api/v1/purchase-orders/{ours}").json()["lines"][0]["id"]
+    line = {"line_no": 1, "sku": "DESK-0001", "quantity": "10", "unit_price": "50.00"}
+    order = {"po_number": "P00099", "currency": "EUR", "lines": [line]}
+    other = client.post("/api/v1/purchase-orders", json=order)
+    assert other.status_code == 201, other.text
+    loads = [
+        {"po_line_id": ours_line, "quantity": "100"},
+        {"po_line_id": other.json()["lines"][0]["id"], "quantity": "10"},
+    ]
+    assert client.put(f"/api/v1/containers/{container_id}/loads", json=loads).status_code == 200
+
+    def charge(cost_type: str, amount: str, invoice: str) -> str:
+        body = {
+            "scope": "PO",
+            "target_id": ours,
+            "cost_type": cost_type,
+            "amount": amount,
+            "currency": "EUR",
+            "cost_date": "2026-03-12",
+            "invoice_number": invoice,
+        }
+        res = client.post("/api/v1/costs", json=body)
+        assert res.status_code == 201, res.text
+        return str(res.json()["id"])
+
+    freight = charge("OCEAN_FREIGHT", "1000.00", "FA-2026-0912")
+    first = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
+    assert first.status_code == 201, first.text
+    assert client.delete(f"/api/v1/costs/{freight}").status_code == 204
+    validate_and_forget(client, odoo, container_id, first.json())
+    charge("DEMURRAGE", "300.00", "FA-2026-1210")
+
+    body = preview(client, container_id)
+    assert "multiple_receipts" not in [b["code"] for b in body["blockers"]]
+    assert body["pushable"] is True, body["blockers"]
+    assert body["receipt_name"] == "WH/IN/00007"
+    assert body["total"] == "-700.00"
 
 
 def test_a_change_that_moves_the_same_total_between_receipt_lines_is_adjusted(

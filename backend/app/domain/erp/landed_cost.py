@@ -223,9 +223,10 @@ def plan(
     ]
     allocated = {load_id for allocations in by_cost.values() for load_id in allocations}
     load_ids = set(allocated)
-    if taken_back:
+    if taken_back and not load_ids:
         # What is taken back may be all that is left to write: the receipt is then found from the
-        # container's goods, not only from the costs still allocated to them.
+        # container's goods. Only then — asking for every order in the box finds the receipts of
+        # orders no cost is on, and several receipts refuse the whole push.
         load_ids |= {load_id for load_id, row in comp.load_rows.items() if row.container_id == container.id}
     po_numbers = sorted({comp.load_rows[load_id].po_line.purchase_order.po_number for load_id in load_ids})
     if not by_cost and not po_numbers:
