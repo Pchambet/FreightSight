@@ -57,6 +57,7 @@ PUSHED_COST_CHANGED = "pushed_cost_changed"
 PUSHED_COST_GONE = "pushed_cost_gone"
 CURRENCY_MISMATCH = "erp_currency_mismatch"
 ADJUSTMENT_UNPLACED = "adjustment_unplaced"
+TAKE_BACK_NO_GOODS = "take_back_no_goods"
 
 #: Where a document that is no longer a draft has got to. Both mean the same thing for us: it is
 #: posted or voided in someone's accounts and it will not be deleted to suit us.
@@ -242,7 +243,10 @@ def plan(
         # orders no cost is on, and several receipts refuse the whole push.
         load_ids |= {load_id for load_id, row in comp.load_rows.items() if row.container_id == container.id}
     po_numbers = sorted({comp.load_rows[load_id].po_line.purchase_order.po_number for load_id in load_ids})
-    if not by_cost and not po_numbers:
+    costs: list[PlannedCost] = []
+    if taken_back and not po_numbers:
+        costs = _no_goods_left(taken_back, booked, blockers)
+    elif not by_cost and not po_numbers:
         blockers.append(
             Blocker(
                 NO_COSTS,
@@ -281,7 +285,6 @@ def plan(
         _drift_blockers(live_pushes(db, org, container), comp, by_cost, booked, waiting, org.locale)
     )
 
-    costs: list[PlannedCost] = []
     if receipt is not None:
         blockers.extend(_currency_blockers(org, writer))
         moves = _moves_by_sku(receipt)
@@ -881,6 +884,36 @@ def _unplaced(planned: PlannedCost, held: Booked, receipt: ErpReceipt) -> list[B
             blocking=False,
         )
     ]
+
+
+def _no_goods_left(
+    taken_back: list[str], booked: dict[str, Booked], blockers: list[Blocker]
+) -> list[PlannedCost]:
+    """What is to be taken back when no goods are left in the container to find the receipt from.
+
+    Nothing can be written: a landed cost attaches to a receipt. Left at that, the preview said only
+    that no invoiced cost is here, while their books still hold the amount. So each one is named, on
+    the cost and in a remark, for a person to take back by hand in the ERP.
+    """
+    out: list[PlannedCost] = []
+    for key in sorted(taken_back):
+        held = booked[key]
+        assert held.amount is not None
+        name = _name(held.push)
+        planned = PlannedCost(label=held.label, cost_ids=[UUID(key)], amount=Decimal("0.00"))
+        planned.by_hand = ByHand(name, held.amount, -held.amount)
+        blockers.append(
+            Blocker(
+                TAKE_BACK_NO_GOODS,
+                f"{name} still holds {held.amount:.2f} for {held.label}, which no longer counts on this "
+                "container. No goods are left in it to find the receipt from, so nothing is written: "
+                "take this amount back by hand in the ERP.",
+                {"existing": name, "cost": held.label, "held": f"{held.amount:.2f}"},
+                blocking=False,
+            )
+        )
+        out.append(planned)
+    return out
 
 
 def _adjust(planned: PlannedCost, held: Booked, receipt: ErpReceipt, locale: str) -> None:

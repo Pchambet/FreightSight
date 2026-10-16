@@ -1573,6 +1573,41 @@ def test_a_validated_cost_deleted_when_it_was_the_only_one_is_taken_back(
     assert preview(client, container_id)["total"] == "0.00"
 
 
+def test_a_take_back_with_no_goods_left_names_what_their_books_still_hold(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The validated freight was deleted and the goods have left the box: no order is left to find
+    the receipt from, so nothing can be written. What their books still hold is said, on the cost
+    and in a remark, for a person to take back by hand — not "no invoiced cost" as if all was well."""
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    first = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    (cost,) = client.get(f"/api/v1/landed-costs/containers/{container_id}").json()["costs"]
+    assert client.delete(f"/api/v1/costs/{cost['id']}").status_code == 204
+    emptied = client.put(f"/api/v1/containers/{container_id}/loads", json=[])
+    assert emptied.status_code == 200, emptied.text
+    validate_and_forget(client, odoo, container_id, first)
+
+    body = preview(client, container_id)
+    assert body["pushable"] is False
+    assert body["total"] == "0.00"
+    (remark,) = body["blockers"]
+    assert (remark["code"], remark["blocking"]) == ("take_back_no_goods", False)
+    assert remark["params"] == {
+        "existing": DOCUMENT,
+        "cost": "Fret maritime — facture FA-2026-0912 — Transdemo",
+        "held": "2766.67",
+    }
+    (row,) = body["costs"]
+    assert (row["pushed_as"], row["amount"]) == (None, "0.00")
+    assert row["by_hand"] == {"existing": DOCUMENT, "held": "2766.67", "difference": "-2766.67"}
+    refused = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
+    assert refused.status_code == 422, refused.text
+    assert [b["code"] for b in refused.json()["blockers"]] == ["take_back_no_goods"]
+    assert len(odoo.created) == 1
+
+
 def test_a_take_back_does_not_look_for_receipts_beyond_the_orders_still_charged(
     client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
 ) -> None:

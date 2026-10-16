@@ -10,7 +10,7 @@ import { Money } from "@/components/shared/Money";
 import { forgetErpPush, listErpPushes, previewErpLandedCost, pushErpLandedCost, type ErpLandedCostPreview, type ErpPushResponse } from "@/features/actions";
 import { dateTimeShort, money } from "@/lib/format";
 
-const KNOWN_BLOCKERS = new Set(["no_erp_connection", "no_actual_costs", "no_receipt", "multiple_receipts", "not_valued", "unmatched_line", "already_pushed", "pushed_cost_changed", "pushed_cost_gone", "ambiguous_line", "erp_currency_mismatch", "adjustment_unplaced"]);
+const KNOWN_BLOCKERS = new Set(["no_erp_connection", "no_actual_costs", "no_receipt", "multiple_receipts", "not_valued", "unmatched_line", "already_pushed", "pushed_cost_changed", "pushed_cost_gone", "ambiguous_line", "erp_currency_mismatch", "adjustment_unplaced", "take_back_no_goods"]);
 
 type Loaded = { preview: ErpLandedCostPreview; pushes: ErpPushResponse[] };
 type State = { loading: boolean; data: Loaded | null; error: string | null };
@@ -98,6 +98,7 @@ export default function LandedCostPush({ containerId, currency, embedded = false
     if (!KNOWN_BLOCKERS.has(b.code)) return t("blocker.unknown");
     const params = { ...(b.params ?? {}) };
     if (b.code === "unmatched_line" && !params.sku) params.sku = t("blocker.noSku");
+    if (b.code === "take_back_no_goods" && params.held) params.held = money(params.held, currency, locale);
     return t(`blocker.${b.code}` as never, params as never);
   };
   const nothingNew = blockers.some((b) => b.code === "already_pushed");
