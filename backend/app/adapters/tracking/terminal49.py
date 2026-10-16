@@ -10,7 +10,7 @@ Two modes, on purpose:
   * **subscribed** — with an API key, `subscribe` creates a tracking request and `fetch` re-reads a
     container's transport events.
 
-Open questions the public documentation does not settle are written down in docs/tracking-questions.md
+Open questions the public documentation does not settle are flagged in the code where they matter,
 rather than guessed at here.
 """
 

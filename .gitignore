@@ -37,7 +37,6 @@ coverage.xml
 .DS_Store
 Thumbs.db
 .vercel
-.env*
 
-# Real invoices a customer shared for the reading bench: scored locally, never committed.
+# Private invoices used locally for the reading bench: never committed.
 backend/tests/fixtures/invoices_real/

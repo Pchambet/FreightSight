@@ -1,4 +1,4 @@
-"""Reference cases T1-T9 from docs/plan/01_backend.md, executed against the pure engine."""
+"""Reference cases T1-T9, executed against the pure engine."""
 
 from __future__ import annotations
 
