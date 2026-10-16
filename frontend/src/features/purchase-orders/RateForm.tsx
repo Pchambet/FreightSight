@@ -21,6 +21,7 @@ export default function RateForm({
   base,
   current,
   rateDate,
+  forDay = null,
   source,
   unconfirmed,
   needsDate,
@@ -31,6 +32,8 @@ export default function RateForm({
   base: string;
   current: string | null;
   rateDate: string | null;
+  /** The day a rate typed here is for, when the order has one: its rate date, else its order date. */
+  forDay?: string | null;
   /** Where the rate came from (`fx_source`): the ECB, typed on the order, the order file. */
   source: string | null;
   /** A rate of 1 the import wrote when it had none, before a missing rate was left empty (`rate_unconfirmed`). */
@@ -90,7 +93,8 @@ export default function RateForm({
           }}
         >
           <div>
-            <label className={label} htmlFor="po-rate">{t("label", { currency, base })}</label>
+            {/* The day the rate is for: the order's date (or the rate's own), which the saved rate is dated with. */}
+            <label className={label} htmlFor="po-rate">{forDay ? t("labelDated", { currency, base, date: dateShort(forDay, locale) }) : t("label", { currency, base })}</label>
             <input
               id="po-rate"
               inputMode="decimal"
@@ -98,7 +102,6 @@ export default function RateForm({
               required
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              placeholder={locale === "fr" ? "0,9215" : "0.9215"}
               aria-invalid={error ? true : undefined}
               aria-describedby={error ? "po-rate-error" : "po-rate-hint"}
               className={`${input} !w-40 text-right tabular-nums`}

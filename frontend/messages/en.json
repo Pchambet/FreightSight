@@ -140,7 +140,6 @@
     "breadcrumb": "Containers",
     "lastFreeDay": "Last free day {date}",
     "shipment": "Shipment {reference}",
-    "unallocatedSuffix": "unallocated — full amount of the charge, even if it spans beyond this container",
     "notesTitle": "Worth knowing about this allocation",
     "totals": {
       "fob": "FOB",
@@ -395,10 +394,11 @@
       "save": "Save the rate",
       "saving": "Saving…",
       "saved": "Rate saved: the order's landed costs are recomputed.",
-      "invalid": "Enter a rate above zero, for example 0.9215.",
+      "invalid": "Enter a rate above zero.",
       "failed": "The rate could not be saved.",
       "change": "Change the rate",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "labelDated": "Value of 1 {currency} in {base} on {date}"
     }
   },
   "imports": {
@@ -2863,5 +2863,9 @@
     "held": "{count, plural, one {One container has charges on file that are waiting to be allocated} other {# containers have charges on file that are waiting to be allocated}}{orderCount, plural, =0 {.} one {: order {orders} has no exchange rate.} other {: orders {orders} have no exchange rate.}} {count, plural, one {Until they are, this container is left out of the landed cost, the coefficient, the unit costs and the margins; its goods are still counted in the FOB.} other {Until they are, these containers are left out of the landed cost, the coefficient, the unit costs and the margins; their goods are still counted in the FOB.}}",
     "heldCount": "{count, plural, one {# container with charges waiting to be allocated, not counted} other {# containers with charges waiting to be allocated, not counted}}",
     "heldBox": "Charges on file, waiting to be allocated{orderCount, plural, =0 {} one {: order {orders} has no exchange rate} other {: orders {orders} have no exchange rate}}"
+  },
+  "unallocated": {
+    "held": "{count, plural, one {Cost not allocated: {costs}.} other {# costs not allocated: {costs}.}}",
+    "whole": "These are whole invoice amounts: a shipment or order invoice is counted in full, even where part of it belongs to other containers."
   }
 }

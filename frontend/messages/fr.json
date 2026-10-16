@@ -140,7 +140,6 @@
     "breadcrumb": "Conteneurs",
     "lastFreeDay": "Dernier jour franc {date}",
     "shipment": "Expédition {reference}",
-    "unallocatedSuffix": "non ventilé — montant total de la pièce, même si elle dépasse ce conteneur",
     "notesTitle": "À savoir sur cette ventilation",
     "totals": {
       "fob": "FOB",
@@ -395,10 +394,11 @@
       "save": "Enregistrer le taux",
       "saving": "Enregistrement…",
       "saved": "Taux enregistré : les coûts de revient de la commande sont recalculés.",
-      "invalid": "Saisissez un taux supérieur à zéro, par exemple 0,9215.",
+      "invalid": "Saisissez un taux supérieur à zéro.",
       "failed": "Le taux n'a pas pu être enregistré.",
       "change": "Modifier le taux",
-      "cancel": "Annuler"
+      "cancel": "Annuler",
+      "labelDated": "Valeur de 1 {currency} en {base} au {date}"
     }
   },
   "imports": {
@@ -2863,5 +2863,9 @@
     "held": "{count, plural, one {Un conteneur a des frais saisis qui attendent d'être ventilés} other {# conteneurs ont des frais saisis qui attendent d'être ventilés}}{orderCount, plural, =0 {.} one { : la commande {orders} n'a pas de taux de change.} other { : les commandes {orders} n'ont pas de taux de change.}} {count, plural, one {Tant qu'ils ne le sont pas, ce conteneur n'est compté ni dans le coût rendu, ni dans le coefficient, ni dans les coûts unitaires et les marges ; ses marchandises restent comptées dans le FOB.} other {Tant qu'ils ne le sont pas, ces conteneurs ne sont comptés ni dans le coût rendu, ni dans le coefficient, ni dans les coûts unitaires et les marges ; leurs marchandises restent comptées dans le FOB.}}",
     "heldCount": "{count, plural, one {# conteneur aux frais en attente de ventilation, non compté} other {# conteneurs aux frais en attente de ventilation, non comptés}}",
     "heldBox": "Frais saisis, en attente de ventilation{orderCount, plural, =0 {} one { : la commande {orders} n'a pas de taux de change} other { : les commandes {orders} n'ont pas de taux de change}}"
+  },
+  "unallocated": {
+    "held": "{count, plural, one {Coût non ventilé : {costs}.} other {# coûts non ventilés : {costs}.}}",
+    "whole": "Ces montants sont ceux des factures entières : une facture d'expédition ou de commande y est comptée en entier, même si une part revient à d'autres conteneurs."
   }
 }
