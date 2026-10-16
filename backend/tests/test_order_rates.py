@@ -126,6 +126,21 @@ def test_a_rate_given_on_a_later_line_of_an_order_is_taken_and_a_second_one_is_n
     assert (usd["fx_rate"], usd["fx_source"], len(usd["lines"])) == ("0.91", "import", 3)
 
 
+def test_the_report_names_the_orders_the_import_leaves_without_a_rate(client: TestClient) -> None:
+    head = "N° commande;Devise;Taux de change;Date de commande;Référence;Quantité;Prix unitaire\n"
+    report = imported(
+        client,
+        f"{head}PO-XTS2;XTS;;2026-09-10;A;10;100\n"
+        f"PO-XTS1;XTS;;2026-09-10;A;10;100\n"
+        f"PO-USD;USD;;2026-09-10;B;10;100\n"
+        f"PO-VND;VND;;2026-09-10;C;10;100000\n"
+        f"PO-VND;VND;0,0000365;2026-09-10;D;10;100000\n"
+        f"PO-EUR;EUR;;2026-09-10;E;10;100\n".encode(),
+    )
+    # The quoted currency got the ECB's rate, the dong its file's rate on a later line.
+    assert report["orders_without_rate"] == ["PO-XTS1", "PO-XTS2"]
+
+
 def test_the_worker_gives_a_missing_rate_once_the_provider_has_it(
     client: TestClient, db: Session, org_id: UUID
 ) -> None:

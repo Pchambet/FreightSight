@@ -3484,6 +3484,8 @@ export interface components {
             suppliers_created?: number | null;
             /** Loads Updated */
             loads_updated?: number | null;
+            /** Orders Without Rate */
+            orders_without_rate?: string[] | null;
             /** Containers Created */
             containers_created?: number | null;
             /** Loads Created */

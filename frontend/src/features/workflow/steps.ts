@@ -335,13 +335,16 @@ export function importNewStep(resuming: boolean): WorkflowStep {
 
 const DONE_HREF: Partial<Record<ImportJobResponse["kind"], string>> = { PRODUCTS: "/imports", CONTAINERS: "/containers", COSTS: "/cost-audit" };
 
+/** What an orders file left to do: its orders still without an exchange rate, and whether any of its lines went into a container. */
+export type OrdersOutcome = { withoutRate: string[]; loaded: boolean };
+
 /**
  * The next-step card for the import wizard itself, computed from the wizard's own client-side step
  * instead of the server-rendered "resuming or not" snapshot the page loaded with: the
  * card used to keep telling you to "choose a file" while you were already on the validation
  * report.
  */
-export function importWizardStep(step: "upload" | "mapping" | "review" | "done", resuming: boolean, hasErrors: boolean, kind: ImportJobResponse["kind"] = "PURCHASE_ORDERS"): WorkflowStep {
+export function importWizardStep(step: "upload" | "mapping" | "review" | "done", resuming: boolean, hasErrors: boolean, kind: ImportJobResponse["kind"] = "PURCHASE_ORDERS", outcome?: OrdersOutcome): WorkflowStep {
   if (step === "mapping") {
     return {
       descriptionKey: "importNew.mapping",
@@ -359,10 +362,23 @@ export function importWizardStep(step: "upload" | "mapping" | "review" | "done",
     };
   }
   if (step === "done") {
+    const first = outcome?.withoutRate[0];
+    if (outcome && first !== undefined) {
+      // An order without a rate has no value, and every charge split by value on its boxes waits for
+      // it: that comes before anything else the file was for.
+      return {
+        descriptionKey: "importNew.doneWithoutRate",
+        descriptionParams: { count: outcome.withoutRate.length, po: first },
+        primary: { href: `/purchase-orders?q=${encodeURIComponent(first)}`, labelKey: "importNew.openOrder", labelParams: { po: first } },
+        secondary: [{ href: "/containers", labelKey: "imports.goContainers" }],
+        variant: "warning",
+      };
+    }
     // What to look at next depends on what the file was: a tariff, a tracking sheet and a costs
-    // ledger have nothing to do with "check your orders are in containers".
+    // ledger have nothing to do with "check your orders are in containers" — nor has a file of orders
+    // that put none of them in a container.
     return {
-      descriptionKey: "importNew.done",
+      descriptionKey: outcome && !outcome.loaded ? "importNew.doneUnloaded" : "importNew.done",
       descriptionParams: { kind },
       primary: { href: DONE_HREF[kind] ?? "/purchase-orders", labelKey: "importNew.doneAction", labelParams: { kind } },
       secondary: kind === "CONTAINERS" ? [] : [{ href: "/containers", labelKey: "imports.goContainers" }],

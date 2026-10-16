@@ -760,6 +760,7 @@ def _apply_purchase_orders(
     rate_tried: set[str] = set()
     # The rate the file gives each order, from whichever of its lines gives it first.
     file_rates: dict[str, Decimal] = {}
+    foreign_orders: dict[str, PurchaseOrder] = {}
     rows = _forward_filled_rows(table, mapping, report)
     for idx, raw in enumerate(rows, start=table.header_row + 1):
         r = _Row(idx, raw, mapping, report, conventions)
@@ -930,6 +931,7 @@ def _apply_purchase_orders(
                 # An order left without a rate gets one as soon as a later file finds it.
                 _set_order_rate(t, fx, po, r)
             rate_tried.add(po_number)
+            foreign_orders[po_number] = po
 
         line = t.db.scalar(
             select(PurchaseOrderLine).where(
@@ -984,6 +986,9 @@ def _apply_purchase_orders(
             if r.failed:
                 continue
         report.valid_rows += 1
+    # Named at the end of the import, so that a person can set them: a rate a later line gave, or a
+    # later file, is no longer missing.
+    report.extra["orders_without_rate"] = sorted(n for n, po in foreign_orders.items() if po.fx_rate is None)
 
 
 def _apply_legacy(

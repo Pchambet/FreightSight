@@ -552,7 +552,9 @@
       "creditNotes": "{count, plural, one {# avoir écarté : vérifiez qu'il ne rembourse pas un constat.} other {# avoirs écartés : vérifiez qu'aucun ne rembourse un constat.}}",
       "next": "Importer ensuite : {kind}",
       "prepareAudit": "Voir ce qui manque pour l'audit",
-      "creditReverses": "{count, plural, one {# avoir annule un coût encore en compte : supprimez ce coût.} other {# avoirs annulent des coûts encore en compte : supprimez ces coûts.}}"
+      "creditReverses": "{count, plural, one {# avoir annule un coût encore en compte : enregistrez-le sur ce coût avec le bouton « Avoir » de la liste des coûts.} other {# avoirs annulent des coûts encore en compte : enregistrez chacun sur son coût avec le bouton « Avoir » de la liste des coûts.}}",
+      "withoutRate": "{count, plural, one {Sans taux de change :} other {# commandes sans taux de change :}}",
+      "withoutRateMore": "et {count, plural, one {# autre} other {# autres}}."
     },
     "kinds": {
       "legend": "Type de fichier",
@@ -641,7 +643,7 @@
       "creditLine": "Ligne {row} · {date} · {vendor} · facture {invoice} · {amount}",
       "creditsMore": "et {count} autres",
       "vatApart": "suivie à part, hors coût de revient",
-      "reversesCost": "annule un coût encore en compte"
+      "reversesCost": "annule un coût encore en compte : à enregistrer comme avoir sur ce coût"
     },
     "row": {
       "invoiceNo": "facture {number}",
@@ -653,7 +655,7 @@
         "AMOUNT_CURRENCY_MISMATCH": "Le montant est en {amount}, la colonne devise dit {currency} : corrigez l'une des deux.",
         "TARGET_FROM_LABEL": "Rattaché à {value}, lu dans le libellé : vérifiez que c'est bien lui.",
         "ZERO_AMOUNT": "Montant nul : ce n'est pas un coût, la ligne est ignorée.",
-        "CREDIT_NOTE_SKIPPED": "{reverses, select, yes {Avoir de {amount} écarté : il annule un coût encore en compte. Supprimez ce coût.} other {Avoir de {amount} écarté : un coût n'est jamais négatif. Vérifiez qu'il ne rembourse pas un constat.}}",
+        "CREDIT_NOTE_SKIPPED": "{reverses, select, yes {Avoir de {amount} écarté : il annule un coût encore en compte. Enregistrez-le sur ce coût avec le bouton « Avoir » de la liste des coûts.} other {Avoir de {amount} écarté : un coût n'est jamais négatif. Vérifiez qu'il ne rembourse pas un constat.}}",
         "REVERSED_IN_FILE": "Annulée par la ligne {row} ({amount} dans l'autre sens) : les deux lignes sont écartées.",
         "INVOICE_IN_INBOX": "La facture {invoice_number} attend sa relecture parmi les factures déposées.",
         "SEVERAL_ESTIMATES": "{estimates} estimés « {type} » sont ouverts sur ce transport : on ne sait pas lequel cette ligne remplace. Saisissez ce frais à la main sur la fiche.",
@@ -1893,7 +1895,10 @@
       "reviewErrors": "Le rapport de validation a trouvé des erreurs — corrigez le fichier ou importez seulement les lignes valides.",
       "reviewOk": "Le rapport de validation est propre — importez les lignes.",
       "done": "{kind, select, PRODUCTS {Le tarif est importé : ses taux de droits, poids et volumes seront repris sur les lignes de commande importées ensuite.} CONTAINERS {Le suivi est importé : vérifiez les dates d'arrivée et le risque de surestaries sur les conteneurs.} COSTS {Les frais sont importés : voyez ce qui manque encore pour que l'audit de la période dise juste.} other {Import validé. Vérifiez que vos commandes sont bien chargées dans les conteneurs.}}",
-      "doneAction": "{kind, select, PRODUCTS {Retour aux imports} CONTAINERS {Voir les conteneurs} COSTS {Préparer l'audit} other {Voir les commandes}}"
+      "doneAction": "{kind, select, PRODUCTS {Retour aux imports} CONTAINERS {Voir les conteneurs} COSTS {Préparer l'audit} other {Voir les commandes}}",
+      "doneWithoutRate": "{count, plural, one {La commande {po} n'a pas de taux de change : sa valeur reste manquante tant qu'un taux n'est pas saisi.} other {# commandes n'ont pas de taux de change, listées ci-dessous : leur valeur reste manquante tant qu'un taux n'est pas saisi sur chacune.}}",
+      "openOrder": "Ouvrir la commande {po}",
+      "doneUnloaded": "Commandes importées. Ce fichier ne les met dans aucun conteneur : importez le suivi des conteneurs, avec sa colonne des n° de commande, pour les y charger."
     },
     "pos": {
       "empty": "Aucune commande pour l'instant. Importez un fichier ou chargez le jeu d'exemple.",

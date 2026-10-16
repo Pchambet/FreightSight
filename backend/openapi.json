@@ -12717,6 +12717,20 @@
             ],
             "title": "Loads Updated"
           },
+          "orders_without_rate": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orders Without Rate"
+          },
           "containers_created": {
             "anyOf": [
               {

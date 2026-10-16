@@ -552,7 +552,9 @@
       "creditNotes": "{count, plural, one {# credit note left out: check it does not refund a finding.} other {# credit notes left out: check none refunds a finding.}}",
       "next": "Import next: {kind}",
       "prepareAudit": "See what the audit still needs",
-      "creditReverses": "{count, plural, one {# credit note cancels a cost still counted: delete that cost.} other {# credit notes cancel costs still counted: delete those costs.}}"
+      "creditReverses": "{count, plural, one {# credit note cancels a cost still counted: record it on that cost with the Credit button in the list of costs.} other {# credit notes cancel costs still counted: record each one on its cost with the Credit button in the list of costs.}}",
+      "withoutRate": "{count, plural, one {No exchange rate:} other {# orders without an exchange rate:}}",
+      "withoutRateMore": "and {count, plural, one {# other} other {# others}}."
     },
     "kinds": {
       "legend": "Kind of file",
@@ -641,7 +643,7 @@
       "creditLine": "Row {row} · {date} · {vendor} · invoice {invoice} · {amount}",
       "creditsMore": "and {count} more",
       "vatApart": "tracked apart, not a landed cost",
-      "reversesCost": "cancels a cost still counted"
+      "reversesCost": "cancels a cost still counted: to record as a credit on that cost"
     },
     "row": {
       "invoiceNo": "invoice {number}",
@@ -653,7 +655,7 @@
         "AMOUNT_CURRENCY_MISMATCH": "The amount is in {amount}, the currency column says {currency}: fix one of the two.",
         "TARGET_FROM_LABEL": "Attached to {value}, read in the label: check it is the right one.",
         "ZERO_AMOUNT": "Zero amount: not a cost, the row is ignored.",
-        "CREDIT_NOTE_SKIPPED": "{reverses, select, yes {Credit note of {amount} left out: it cancels a cost still counted. Delete that cost.} other {Credit note of {amount} left out: a cost is never negative. Check it does not refund a finding.}}",
+        "CREDIT_NOTE_SKIPPED": "{reverses, select, yes {Credit note of {amount} left out: it cancels a cost still counted. Record it on that cost with the Credit button in the list of costs.} other {Credit note of {amount} left out: a cost is never negative. Check it does not refund a finding.}}",
         "REVERSED_IN_FILE": "Cancelled by row {row} ({amount} the other way): both rows are left out.",
         "INVOICE_IN_INBOX": "Invoice {invoice_number} is waiting for review among the uploaded invoices.",
         "SEVERAL_ESTIMATES": "{estimates} \"{type}\" estimates are open on this freight: which one this row replaces is unknown. Enter this cost by hand on the sheet.",
@@ -1893,7 +1895,10 @@
       "reviewErrors": "The validation report found errors — fix the file or import only the valid rows.",
       "reviewOk": "The validation report is clean — import the rows.",
       "done": "{kind, select, PRODUCTS {The price list is imported: its duty rates, weights and volumes will be copied onto the order lines imported next.} CONTAINERS {The tracking is imported: check arrival dates and demurrage risk on the containers.} COSTS {The costs are imported: see what is still missing for the period's audit to be right.} other {Import committed. Check that your purchase orders are loaded into containers.}}",
-      "doneAction": "{kind, select, PRODUCTS {Back to imports} CONTAINERS {View containers} COSTS {Prepare the audit} other {View purchase orders}}"
+      "doneAction": "{kind, select, PRODUCTS {Back to imports} CONTAINERS {View containers} COSTS {Prepare the audit} other {View purchase orders}}",
+      "doneWithoutRate": "{count, plural, one {Order {po} has no exchange rate: its value stays missing until a rate is entered.} other {# orders have no exchange rate, listed below: their value stays missing until a rate is entered on each.}}",
+      "openOrder": "Open order {po}",
+      "doneUnloaded": "Orders imported. This file puts none of them in a container: import the container tracking, with its order-number column, to load them."
     },
     "pos": {
       "empty": "No purchase orders yet. Import a file or load the sample data.",

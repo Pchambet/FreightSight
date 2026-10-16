@@ -784,6 +784,8 @@ class ImportReport(BaseModel):
     lines_updated: int | None = None
     suppliers_created: int | None = None
     loads_updated: int | None = None
+    #: PURCHASE_ORDERS: the file's orders in a foreign currency still without an exchange rate.
+    orders_without_rate: list[str] | None = None
     # PURCHASE_ORDERS, CONTAINERS
     containers_created: int | None = None
     loads_created: int | None = None
