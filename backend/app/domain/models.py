@@ -535,6 +535,46 @@ class Cost(Timestamped, OrgScoped, Base):
     )
     supersedes: Mapped[Cost | None] = relationship(remote_side="Cost.id", back_populates="superseded_by")
     superseded_by: Mapped[Cost | None] = relationship(back_populates="supersedes", uselist=False)
+    #: The refunds that brought `amount` down to what this cost now amounts to.
+    credits: Mapped[list[CostCredit]] = relationship(
+        back_populates="cost", cascade="all, delete-orphan", order_by="CostCredit.credit_date"
+    )
+
+    @property
+    def credited(self) -> Decimal:
+        """What the credits took off: the amount invoiced is `amount + credited`."""
+        return sum((credit.amount for credit in self.credits), Decimal("0.00"))
+
+
+class CostCredit(OrgScoped, Base):
+    """A refund on a cost: a credit note, or a discount granted after the invoice.
+
+    The cost itself carries the net amount, so that every reader of a cost — the engine, the reports,
+    the exports, a closed month's drift, the ERP — sees what it now amounts to without knowing about
+    credits. Each reduction is kept here, with the document it came from and who accepted it: the
+    amount invoiced stays `cost.amount + sum(credits)`, and a credit taken back gives its amount back.
+    """
+
+    __tablename__ = "cost_credits"
+    __table_args__ = (CheckConstraint("amount > 0", name="amount_positive"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    cost_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("costs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    #: In the cost's own currency, which is the credit note's: a refund in another currency is refused.
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    credit_number: Mapped[str | None] = mapped_column(String)
+    vendor: Mapped[str | None] = mapped_column(String)
+    credit_date: Mapped[date] = mapped_column(Date, nullable=False)
+    #: The credit note this came from, when it was read from a document rather than typed in.
+    invoice_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("invoices.id", ondelete="SET NULL"), index=True
+    )
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_now)
+
+    cost: Mapped[Cost] = relationship(back_populates="credits")
 
 
 class CostAllocation(OrgScoped, Base):
@@ -846,6 +886,8 @@ class InvoiceLine(OrgScoped, Base):
     accepted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     notes: Mapped[str | None] = mapped_column(String)  # why a human should look twice
     cost_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("costs.id", ondelete="SET NULL"))
+    #: On a refund, the cost it reduces: chosen by a person, or the only cost it can reduce.
+    credit_cost_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("costs.id", ondelete="SET NULL"))
 
     invoice: Mapped[Invoice] = relationship(back_populates="lines")
 

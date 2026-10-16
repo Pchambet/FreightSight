@@ -64,7 +64,8 @@ def _load_rows(db: Session, org_id: UUID) -> list[ContainerLoad]:
 
 
 def _cost_rows(db: Session, org_id: UUID) -> list[Cost]:
-    return list(db.scalars(select(Cost).where(Cost.org_id == org_id)))
+    # The credits come along: a report lists each cost with what was refunded on it.
+    return list(db.scalars(select(Cost).where(Cost.org_id == org_id).options(selectinload(Cost.credits))))
 
 
 def live_and_superseded(rows: list[Cost]) -> tuple[list[Cost], list[tuple[Cost, Cost]]]:

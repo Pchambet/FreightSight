@@ -515,6 +515,49 @@ class CostResponse(BaseModel):
     closed_at: datetime | None
     close_reason: str | None
     created_at: datetime
+    #: What the credits below took off `amount`: the amount invoiced is `amount + credited`.
+    credited: Money
+    credits: list[CostCreditResponse] = Field(default_factory=list)
+
+
+class CostCreditResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    amount: Money
+    credit_number: str | None
+    vendor: str | None
+    credit_date: date
+    #: The credit note it was read from; null when it was entered by hand.
+    invoice_id: UUID | None
+    created_by: UUID | None
+    created_at: datetime
+
+
+class CostCreditCreate(BaseModel):
+    """A refund entered by hand on an invoiced cost: a credit note, a discount granted afterwards."""
+
+    amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
+    #: The cost's own when left out; another one is refused, never converted.
+    currency: str | None = None
+    credit_number: str | None = Field(default=None, max_length=64)
+    #: The cost's forwarder when left out.
+    vendor: str | None = Field(default=None, max_length=200)
+    credit_date: date
+
+    @field_validator("currency")
+    @classmethod
+    def _cur(cls, v: str | None) -> str | None:
+        return None if v is None else currency_code(v)
+
+    @field_validator("vendor")
+    @classmethod
+    def _blank(cls, v: str | None) -> str | None:
+        return none_if_blank(v)
+
+    @field_validator("credit_number")
+    @classmethod
+    def _number(cls, v: str | None) -> str | None:
+        return number_or_none(v)
 
 
 class CostClose(BaseModel):
@@ -969,11 +1012,31 @@ class InvoiceLineResponse(BaseModel):
     accepted: bool
     notes: str | None
     cost_id: UUID | None
+    #: This line refunds rather than charges, as things stand: confirmed, it reduces an invoiced cost.
+    refund: bool = False
+    #: The invoiced cost it reduces — named by a person, or written there by the confirmation.
+    credit_cost_id: UUID | None = None
+    #: On a refund line with a type and a target: the invoiced costs of that type on that target it
+    #: can reduce, any currency (another one is refused at confirmation, and said).
+    credit_candidates: list[CreditCandidate] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _band(self) -> InvoiceLineResponse:
         self.confidence_band = confidence_band(self.confidence)
         return self
+
+
+class CreditCandidate(BaseModel):
+    """An invoiced cost a refund line can reduce, as the review screen names it."""
+
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    #: What it still amounts to, after the credits it already carries.
+    amount: Money
+    currency: str
+    vendor: str | None
+    invoice_number: str | None
+    cost_date: date
 
 
 class InvoiceSummary(BaseModel):
@@ -1007,6 +1070,8 @@ class InvoiceSummary(BaseModel):
 
 
 class InvoiceResponse(InvoiceSummary):
+    #: Read as a credit note: every accepted line reduces an invoiced cost instead of adding one.
+    credit_note: bool = False
     lines: list[InvoiceLineResponse] = Field(default_factory=list)
     document_url: str  # this API's own route; the bytes never come from a storage URL
     notes: list[str] = Field(default_factory=list)
@@ -1022,6 +1087,8 @@ class InvoiceLineUpdate(BaseModel):
     target_id: UUID | None = None
     accepted: bool | None = None
     description: str | None = None
+    #: On a refund line, the invoiced cost it reduces. Checked at confirmation, with the rest.
+    credit_cost_id: UUID | None = None
 
     @field_validator("currency")
     @classmethod
@@ -1107,6 +1174,9 @@ class InvoiceConfirmResponse(BaseModel):
     containers: list[InvoiceContainerLink] = Field(default_factory=list)
     #: Estimates these costs replaced, when exactly one was waiting for them.
     superseded_estimate_ids: list[UUID] = Field(default_factory=list)
+    #: The refunds taken off invoiced costs already on file, and those costs.
+    credits_created: int = 0
+    credited_cost_ids: list[UUID] = Field(default_factory=list)
     #: What the confirmation deliberately did not decide, in plain words.
     notes: list[str] = Field(default_factory=list)
 

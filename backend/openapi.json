@@ -5207,6 +5207,148 @@
         }
       }
     },
+    "/api/v1/costs/{cost_id}/credits": {
+      "post": {
+        "tags": [
+          "costs"
+        ],
+        "summary": "Add Credit",
+        "description": "A refund entered by hand: a credit note that came by post, a discount granted on the phone.\n\nIt reduces the cost it is entered on and is kept as its own line \u2014 never a cost of its own, and\nnever more than what the cost still amounts to.",
+        "operationId": "add_credit_api_v1_costs__cost_id__credits_post",
+        "parameters": [
+          {
+            "name": "cost_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Cost Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CostCreditCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/costs/{cost_id}/credits/{credit_id}": {
+      "delete": {
+        "tags": [
+          "costs"
+        ],
+        "summary": "Remove Credit",
+        "description": "Take a credit back: the cost amounts to what it did before it. A credit read from a credit\nnote is taken back by reopening that credit note, which says why on the document itself.",
+        "operationId": "remove_credit_api_v1_costs__cost_id__credits__credit_id__delete",
+        "parameters": [
+          {
+            "name": "cost_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Cost Id"
+            }
+          },
+          {
+            "name": "credit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Credit Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/landed-costs/containers/{container_id}": {
       "get": {
         "tags": [
@@ -10416,6 +10558,151 @@
         ],
         "title": "CostCreate"
       },
+      "CostCreditCreate": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "credit_number": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Number"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor"
+          },
+          "credit_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Credit Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount",
+          "credit_date"
+        ],
+        "title": "CostCreditCreate",
+        "description": "A refund entered by hand on an invoiced cost: a credit note, a discount granted afterwards."
+      },
+      "CostCreditResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          },
+          "credit_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Number"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor"
+          },
+          "credit_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Credit Date"
+          },
+          "invoice_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Id"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "amount",
+          "credit_number",
+          "vendor",
+          "credit_date",
+          "invoice_id",
+          "created_by",
+          "created_at"
+        ],
+        "title": "CostCreditResponse"
+      },
       "CostResponse": {
         "properties": {
           "id": {
@@ -10600,6 +10887,17 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "credited": {
+            "type": "string",
+            "title": "Credited"
+          },
+          "credits": {
+            "items": {
+              "$ref": "#/components/schemas/CostCreditResponse"
+            },
+            "type": "array",
+            "title": "Credits"
           }
         },
         "type": "object",
@@ -10627,7 +10925,8 @@
           "supersedes_cost_id",
           "closed_at",
           "close_reason",
-          "created_at"
+          "created_at",
+          "credited"
         ],
         "title": "CostResponse"
       },
@@ -10837,6 +11136,61 @@
         },
         "type": "object",
         "title": "CostUpdate"
+      },
+      "CreditCandidate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor"
+          },
+          "invoice_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Number"
+          },
+          "cost_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Cost Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "amount",
+          "currency",
+          "vendor",
+          "invoice_number",
+          "cost_date"
+        ],
+        "title": "CreditCandidate",
+        "description": "An invoiced cost a refund line can reduce, as the review screen names it."
       },
       "DndAnalysis": {
         "properties": {
@@ -12809,6 +13163,19 @@
             "type": "array",
             "title": "Superseded Estimate Ids"
           },
+          "credits_created": {
+            "type": "integer",
+            "title": "Credits Created",
+            "default": 0
+          },
+          "credited_cost_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Credited Cost Ids"
+          },
           "notes": {
             "items": {
               "type": "string"
@@ -12999,6 +13366,18 @@
             ],
             "title": "Description"
           },
+          "credit_cost_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Cost Id"
+          },
           "id": {
             "type": "string",
             "format": "uuid",
@@ -13108,6 +13487,30 @@
               }
             ],
             "title": "Cost Id"
+          },
+          "refund": {
+            "type": "boolean",
+            "title": "Refund",
+            "default": false
+          },
+          "credit_cost_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Cost Id"
+          },
+          "credit_candidates": {
+            "items": {
+              "$ref": "#/components/schemas/CreditCandidate"
+            },
+            "type": "array",
+            "title": "Credit Candidates"
           }
         },
         "type": "object",
@@ -13209,6 +13612,18 @@
               }
             ],
             "title": "Description"
+          },
+          "credit_cost_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit Cost Id"
           }
         },
         "type": "object",
@@ -13390,6 +13805,11 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "credit_note": {
+            "type": "boolean",
+            "title": "Credit Note",
+            "default": false
           },
           "lines": {
             "items": {
