@@ -49,8 +49,10 @@ services:
       CLERK_AUTHORIZED_PARTIES: ${CLERK_AUTHORIZED_PARTIES:-[]}
     volumes:
       - ./backend:/app
+    # On this machine only: with ALLOW_DEV_PRINCIPAL an X-Org-Id header is a login, so the port is
+    # not published to the network the laptop happens to be on.
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     depends_on:
       migrate:
         condition: service_completed_successfully
