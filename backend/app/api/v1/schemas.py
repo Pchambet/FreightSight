@@ -1733,9 +1733,12 @@ class OverviewFigures(BaseModel):
     #: the orders whose missing exchange rate holds them, by number: never "no charge" on a screen.
     containers_held: int = 0
     held_orders: list[str] = Field(default_factory=list)
-    #: The goods of the containers left out (`fob` - `charged_fob`): what the fees and the coefficient
-    #: are not over. Null while either is unknown.
-    uncharged_fob: Money | None = None
+    #: The known value of the goods of the containers left out: what the fees and the coefficient are
+    #: not over. `uncharged_fob_missing_lines` of their lines have no value and are not in it.
+    uncharged_fob: Money = Decimal("0.00")
+    uncharged_fob_missing_lines: int = 0
+    #: The orders of the period with no exchange rate (`fob_missing`), where the rate is entered.
+    orders_without_fx_rate: list[PeriodOrder] = Field(default_factory=list)
     #: Estimates replaced by an invoice dated in the period, and what the invoices came to.
     variance_estimated: Money
     variance_actual: Money
@@ -2191,6 +2194,13 @@ class ReportBucket(BaseModel):
     #: the orders whose missing exchange rate holds them, by number: never "no charge" on a screen.
     containers_held: int = 0
     held_orders: list[str] = Field(default_factory=list)
+    #: The lines whose container carries a charge, and their quantity: what `landed` and
+    #: `charged_fob` are over. A row reads its columns on this basis while some of its lines are left out.
+    charged_lines: int = 0
+    charged_quantity: Qty = Decimal(0)
+    #: The known value of the goods left out, and how many of their lines have no value.
+    uncharged_fob: Money = Decimal("0.00")
+    uncharged_fob_missing_lines: int = 0
 
 
 class ReportSkuLine(BaseModel):
@@ -2227,6 +2237,8 @@ class LandedCostAnalysis(BaseModel):
     buckets: list[ReportBucket]
     skus: list[ReportSkuLine]
     totals: ReportBucket
+    #: The orders of the period with no exchange rate (`totals.fob_missing`), where the rate is entered.
+    orders_without_fx_rate: list[PeriodOrder] = Field(default_factory=list)
 
 
 class DndReportLine(BaseModel):

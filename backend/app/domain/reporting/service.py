@@ -73,6 +73,10 @@ class Bucket:
     #: (`held_containers`): never to be told as containers "with no charge".
     held: set[UUID] = field(default_factory=set)
     held_orders: set[str] = field(default_factory=set)
+    #: The known value of the goods those containers carry, and how many of their lines have none: what
+    #: a figure over the charged containers leaves out, given even while part of it is unknown.
+    uncharged_fob: Decimal = ZERO
+    uncharged_fob_missing_lines: int = 0
 
     @property
     def fob_missing(self) -> str | None:
@@ -118,6 +122,10 @@ class Bucket:
             self.fob += load.fob
         if not charged:
             self.uncharged.add(box)
+            if load.fob is None:
+                self.uncharged_fob_missing_lines += 1
+            else:
+                self.uncharged_fob += load.fob
             if held is not None:
                 self.held.add(box)
                 self.held_orders.update(held)
@@ -168,6 +176,12 @@ class SkuLine:
 
 
 @dataclass
+class UnratedOrder:
+    id: UUID
+    po_number: str
+
+
+@dataclass
 class LandedCostReport:
     base_currency: str
     group_by: str
@@ -176,6 +190,8 @@ class LandedCostReport:
     buckets: list[Bucket]
     skus: list[SkuLine]
     totals: Bucket
+    #: The orders of the period whose lines have no value: where the rate a screen asks for is entered.
+    orders_without_fx_rate: list[UnratedOrder] = field(default_factory=list)
 
 
 def arrival_date(container: Container) -> date | None:
@@ -226,6 +242,7 @@ def landed_cost_report(
     skus: dict[str, Bucket] = {}
     totals = Bucket(key="total", label="total")
     estimated_by_type: dict[str, Decimal] = defaultdict(lambda: ZERO)
+    unrated: dict[UUID, str] = {}
 
     for load in comp.loads:
         row = comp.load_rows[load.id]
@@ -236,6 +253,8 @@ def landed_cost_report(
         if period_to and (landed_on is None or landed_on > period_to):
             continue
 
+        if load.fob is None:
+            unrated[load.po_id] = row.po_line.purchase_order.po_number
         by_type = per_load.get(load.id, {})
         vat = sum((v for k, v in by_type.items() if k in EXCLUDED_FROM_LANDED), ZERO)
         allocated = sum((v for k, v in by_type.items() if k not in EXCLUDED_FROM_LANDED), ZERO)
@@ -269,6 +288,9 @@ def landed_cost_report(
         buckets=sorted(buckets.values(), key=lambda b: b.label),
         skus=[_sku_line(skus[sku]) for sku in sorted(skus)],
         totals=totals,
+        orders_without_fx_rate=[
+            UnratedOrder(po_id, number) for po_id, number in sorted(unrated.items(), key=lambda item: item[1])
+        ],
     )
 
 
@@ -347,6 +369,7 @@ def _by_cost_type(totals: Bucket, estimated: dict[str, Decimal]) -> dict[str, Bu
 def _rounded(bucket: Bucket) -> Bucket:
     bucket.fob = None if bucket.fob is None else q2(bucket.fob)
     bucket.charged_fob = None if bucket.charged_fob is None else q2(bucket.charged_fob)
+    bucket.uncharged_fob = q2(bucket.uncharged_fob)
     bucket.allocated = q2(bucket.allocated)
     bucket.vat = q2(bucket.vat)
     bucket.estimated = q2(bucket.estimated)

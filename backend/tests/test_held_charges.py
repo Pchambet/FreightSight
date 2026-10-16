@@ -112,6 +112,23 @@ def test_the_order_with_no_rate_counts_the_charges_its_rate_holds(
     assert eur["warnings"] == [] and eur["totals"]["invoiced"] == "0.00"
 
 
+def test_the_goods_left_out_are_given_at_their_known_value_with_the_orders_to_rate(
+    client: TestClient, held: dict[str, Any]
+) -> None:
+    """2 300 € of tables in euros are known, the 10 in dollars are not: the known part is given, with
+    the lines it lacks, never a dash for the whole."""
+    unrated = [{"id": held["vnd"], "po_number": "PO-VND"}]
+    current = client.get("/api/v1/reports/overview").json()["current"]
+    assert (current["uncharged_fob"], current["uncharged_fob_missing_lines"]) == ("2300.00", 1)
+    assert current["orders_without_fx_rate"] == unrated
+
+    analysis = client.get("/api/v1/reports/landed-cost", params={"group_by": "supplier"}).json()
+    totals = analysis["totals"]
+    assert (totals["uncharged_fob"], totals["uncharged_fob_missing_lines"]) == ("2300.00", 1)
+    assert (totals["charged_lines"], totals["charged_quantity"]) == (0, "0.0000")
+    assert analysis["orders_without_fx_rate"] == unrated
+
+
 def test_every_summary_tells_the_held_container_from_the_bare_one(
     client: TestClient, held: dict[str, Any]
 ) -> None:

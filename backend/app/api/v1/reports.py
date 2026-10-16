@@ -135,6 +135,10 @@ def _bucket(bucket: reporting.Bucket) -> schemas.ReportBucket:
         containers_without_charge=bucket.containers_without_charge,
         containers_held=bucket.containers_held,
         held_orders=sorted(bucket.held_orders),
+        charged_lines=bucket.charged_lines,
+        charged_quantity=bucket.charged_quantity,
+        uncharged_fob=bucket.uncharged_fob,
+        uncharged_fob_missing_lines=bucket.uncharged_fob_missing_lines,
     )
 
 
@@ -186,6 +190,7 @@ def landed_cost(
         buckets=[_bucket(b) for b in report.buckets],
         skus=[_sku_line(line) for line in report.skus],
         totals=_bucket(report.totals),
+        orders_without_fx_rate=[schemas.PeriodOrder.model_validate(o) for o in report.orders_without_fx_rate],
     )
 
 

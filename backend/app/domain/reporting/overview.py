@@ -33,6 +33,7 @@ from app.domain.reporting.service import (
     Bucket,
     DndAtRiskLine,
     SkuLine,
+    UnratedOrder,
     arrival_date,
     dnd_report,
     landed_cost_report,
@@ -59,9 +60,12 @@ class Figures:
     containers_without_charge: int
     containers_held: int
     held_orders: list[str]
-    #: The goods of those containers: `fob` minus `charged_fob`, what a figure over the charged
-    #: containers leaves out. None while either is unknown.
-    uncharged_fob: Decimal | None
+    #: The known value of the goods of those containers, what a figure over the charged containers
+    #: leaves out, and how many of their lines have no value.
+    uncharged_fob: Decimal
+    uncharged_fob_missing_lines: int
+    #: The orders of the period with no exchange rate, where the rate is entered.
+    orders_without_fx_rate: list[UnratedOrder]
     variance_estimated: Decimal
     variance_actual: Decimal
     variance: Decimal
@@ -152,7 +156,8 @@ def overview(
 def _figures(
     db: Session, comp: Computation, org: Organization, start: date, end: date, rate: Decimal | None
 ) -> Figures:
-    totals = landed_cost_report(comp, org, group_by="month", period_from=start, period_to=end).totals
+    report = landed_cost_report(comp, org, group_by="month", period_from=start, period_to=end)
+    totals = report.totals
     landed_boxes = {
         comp.load_rows[load.id].container_id
         for load in comp.loads
@@ -180,7 +185,9 @@ def _figures(
         containers_without_charge=totals.containers_without_charge,
         containers_held=totals.containers_held,
         held_orders=sorted(totals.held_orders),
-        uncharged_fob=_left_out(totals),
+        uncharged_fob=totals.uncharged_fob,
+        uncharged_fob_missing_lines=totals.uncharged_fob_missing_lines,
+        orders_without_fx_rate=report.orders_without_fx_rate,
         variance_estimated=q2(estimated),
         variance_actual=q2(actual),
         variance=q2(actual - estimated),
@@ -190,14 +197,6 @@ def _figures(
         fob_missing=totals.fob_missing,
         fob_missing_lines=totals.fob_missing_lines,
     )
-
-
-def _left_out(totals: Bucket) -> Decimal | None:
-    if totals.fob is None:
-        return None
-    if not totals.charged_lines:
-        return totals.fob
-    return None if totals.charged_fob is None else q2(totals.fob - totals.charged_fob)
 
 
 def _todo(

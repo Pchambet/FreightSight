@@ -14168,6 +14168,13 @@
           },
           "totals": {
             "$ref": "#/components/schemas/ReportBucket"
+          },
+          "orders_without_fx_rate": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodOrder"
+            },
+            "type": "array",
+            "title": "Orders Without Fx Rate"
           }
         },
         "type": "object",
@@ -14778,15 +14785,21 @@
             "title": "Held Orders"
           },
           "uncharged_fob": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Uncharged Fob"
+            "type": "string",
+            "title": "Uncharged Fob",
+            "default": "0.00"
+          },
+          "uncharged_fob_missing_lines": {
+            "type": "integer",
+            "title": "Uncharged Fob Missing Lines",
+            "default": 0
+          },
+          "orders_without_fx_rate": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodOrder"
+            },
+            "type": "array",
+            "title": "Orders Without Fx Rate"
           },
           "variance_estimated": {
             "type": "string",
@@ -17091,6 +17104,26 @@
             },
             "type": "array",
             "title": "Held Orders"
+          },
+          "charged_lines": {
+            "type": "integer",
+            "title": "Charged Lines",
+            "default": 0
+          },
+          "charged_quantity": {
+            "type": "string",
+            "title": "Charged Quantity",
+            "default": "0.0000"
+          },
+          "uncharged_fob": {
+            "type": "string",
+            "title": "Uncharged Fob",
+            "default": "0.00"
+          },
+          "uncharged_fob_missing_lines": {
+            "type": "integer",
+            "title": "Uncharged Fob Missing Lines",
+            "default": 0
           }
         },
         "type": "object",

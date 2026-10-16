@@ -3921,6 +3921,8 @@ export interface components {
             /** Skus */
             skus: components["schemas"]["ReportSkuLine"][];
             totals: components["schemas"]["ReportBucket"];
+            /** Orders Without Fx Rate */
+            orders_without_fx_rate?: components["schemas"]["PeriodOrder"][];
         };
         /**
          * LandedCostReport
@@ -4151,8 +4153,18 @@ export interface components {
             containers_held: number;
             /** Held Orders */
             held_orders?: string[];
-            /** Uncharged Fob */
-            uncharged_fob?: string | null;
+            /**
+             * Uncharged Fob
+             * @default 0.00
+             */
+            uncharged_fob: string;
+            /**
+             * Uncharged Fob Missing Lines
+             * @default 0
+             */
+            uncharged_fob_missing_lines: number;
+            /** Orders Without Fx Rate */
+            orders_without_fx_rate?: components["schemas"]["PeriodOrder"][];
             /** Variance Estimated */
             variance_estimated: string;
             /** Variance Actual */
@@ -4827,6 +4839,26 @@ export interface components {
             containers_held: number;
             /** Held Orders */
             held_orders?: string[];
+            /**
+             * Charged Lines
+             * @default 0
+             */
+            charged_lines: number;
+            /**
+             * Charged Quantity
+             * @default 0.0000
+             */
+            charged_quantity: string;
+            /**
+             * Uncharged Fob
+             * @default 0.00
+             */
+            uncharged_fob: string;
+            /**
+             * Uncharged Fob Missing Lines
+             * @default 0
+             */
+            uncharged_fob_missing_lines: number;
         };
         /** ReportLine */
         ReportLine: {
