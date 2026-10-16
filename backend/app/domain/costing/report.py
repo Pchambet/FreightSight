@@ -401,4 +401,8 @@ def purchase_order_report(comp: Computation, base_currency: str, po_id: UUID) ->
     line_ids = {ld.po_line_id for ld in comp.loads if ld.po_id == po_id}
     costs = {c.id for c in comp.cost_rows.values() if c.po_id == po_id or c.po_line_id in line_ids}
     costs |= {a.cost_id for a in comp.result.allocations if a.load_id in loads}  # what reached its lines
+    # And what its lines hold back: a container's invoice spread on value that this order's missing
+    # rate keeps from being placed. Left out, the order read "nothing invoiced" and asked for the
+    # invoice a second time, when the next step is its rate.
+    costs |= {u.cost_id for u in comp.result.unallocated if loads.intersection(u.load_ids)}
     return _report(comp, base_currency, loads, costs)

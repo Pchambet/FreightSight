@@ -64,7 +64,7 @@ def held(client: TestClient, db: Session) -> dict[str, Any]:
     missing = {"fx_rate": None, "fx_date": None, "fx_source": None}
     db.execute(update(PurchaseOrder).where(PurchaseOrder.id == UUID(vnd["id"])).values(**missing))
     db.flush()
-    return {"box": box, "bare": bare, "eur": eur["id"]}
+    return {"box": box, "bare": bare, "eur": eur["id"], "vnd": vnd["id"]}
 
 
 def held_part(body: dict[str, Any]) -> dict[str, Any]:
@@ -96,6 +96,20 @@ def test_the_order_in_euros_names_the_order_that_holds_its_container(
 ) -> None:
     report = client.get(f"/api/v1/landed-costs/purchase-orders/{held['eur']}").json()
     assert report["containers_without_charge"] == 2 and held_part(report) == HELD
+
+
+def test_the_order_with_no_rate_counts_the_charges_its_rate_holds(
+    client: TestClient, held: dict[str, Any]
+) -> None:
+    """Its container's invoices are on file, held by this very order: its page must not read "nothing
+    invoiced" and invite a second deposit of the same invoices."""
+    report = client.get(f"/api/v1/landed-costs/purchase-orders/{held['vnd']}").json()
+    assert report["totals"]["unallocated_actual"] == "525.00" and report["totals"]["invoiced"] == "525.00"
+    assert {w["code"] for w in report["warnings"]} == {"MISSING_FX_RATE"} and len(report["warnings"]) == 2
+    assert report["by_cost_type_detail"]["THC"]["actual"] == "380.00"
+    # The order in euros does not hold them: they are not its charges to settle.
+    eur = client.get(f"/api/v1/landed-costs/purchase-orders/{held['eur']}").json()
+    assert eur["warnings"] == [] and eur["totals"]["invoiced"] == "0.00"
 
 
 def test_every_summary_tells_the_held_container_from_the_bare_one(
