@@ -7,16 +7,18 @@ last computed — which is why each of them needs something that actively goes a
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session
 
 from app.adapters.s3 import S3Object
 from app.jobs import handlers
-from app.ops.backup import BackupResult, note_success
+from app.ops.backup import BackupResult, note_success, record_success
 
 NOW = datetime(2026, 9, 17, 12, 0, tzinfo=UTC)
 
@@ -210,3 +212,23 @@ def test_the_verdict_is_what_the_service_status_reads(db: Session) -> None:
 
     handlers.record_backup_freshness(db, now=NOW + timedelta(days=5), env={"APP_ENV": "prod"})
     assert job_runs(db.connection())[handlers.BACKUP_FRESHNESS_JOB].failures == 1
+
+
+def test_the_backup_records_itself_in_the_database_it_dumped(engine: Engine, database_url: str) -> None:
+    """What `python -m app.backup` does after the upload, on its own connection, as the owner."""
+    try:
+        record_success(database_url, BackupResult("backups/prod/a.dump.enc", 900_000, "", 1.0, [], NOW))
+        record_success(database_url, BackupResult("backups/prod/b.dump.enc", 950_000, "", 1.0, [], NOW))
+        with engine.connect() as connection:
+            row = connection.execute(
+                text("SELECT last_run_at, detail FROM job_runs WHERE name = 'ops.backup'")
+            ).one()
+        assert row.last_run_at == NOW
+        assert json.loads(row.detail) == {
+            "key": "backups/prod/b.dump.enc",
+            "size_bytes": 950_000,
+            "previous_bytes": 900_000,
+        }
+    finally:
+        with engine.begin() as connection:
+            connection.execute(text("DELETE FROM job_runs WHERE name = 'ops.backup'"))

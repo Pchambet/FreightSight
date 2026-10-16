@@ -16,7 +16,10 @@ logger = logging.getLogger("freightsight.backup")
 def main() -> int:
     # This service has MIGRATIONS_DATABASE_URL and no DATABASE_URL: the settings are built on the
     # owner's URL only so that a failure at 03:00 reaches Sentry rather than a log nobody reads.
-    init_sentry(Settings(database_url=os.environ.get("MIGRATIONS_DATABASE_URL", "")))
+    try:
+        init_sentry(Settings(database_url=os.environ.get("MIGRATIONS_DATABASE_URL", "")))
+    except Exception:  # reporting must never be the reason a backup did not run
+        logger.exception("Sentry could not be started for the backup")
     try:
         result = run()
         # The worker's freshness check reads this row: it holds no storage credentials of its own.
