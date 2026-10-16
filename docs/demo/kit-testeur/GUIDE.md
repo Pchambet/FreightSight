@@ -91,8 +91,8 @@ reconnaissent seules), *Valider (à blanc)*, lire l'aperçu — **rien n'est enc
   avertissement sur **MSCU6702211** : déchargé, jamais sorti du terminal, ses surestaries courent.
   Retenez-le.
 - [ ] Type **Frais** → `4-frais-trimestre.csv` → l'aperçu montre l'argent d'abord : **42 coûts pour
-  45 758,53 € HT**, par type (fret 29 510 €, droits 7 878,53 €, camionnage 4 265 €…), et **un avoir de
-  −80 € écarté et compté** — un avoir n'est pas un coût.
+  45 758,53 € HT**, par type (fret 29 510 €, droits 7 878,53 €, camionnage 4 265 €…), et **« 1 avoir
+  écarté (80,00 €) »** : un avoir n'est pas un coût.
 
 > **Pourquoi c'est important :** un client réel n'a rien à ressaisir. Il envoie ce qu'il a déjà, dans le
 > format de son ERP et de son comptable (point-virgule, virgule décimale, accents).
@@ -118,15 +118,15 @@ reconnaissent seules), *Valider (à blanc)*, lire l'aperçu — **rien n'est enc
   |---|---|
   | Fret maritime | 3 780,00 € |
   | THC destination Le Havre | 285,00 € |
-  | Dédouanement import | 145,00 € |
+  | Dedouanement import | 145,00 € |
   | Camionnage Le Havre – Carquefou | 440,00 € |
-  | Débours droits de douane | 1 293,09 € |
+  | Debours droits de douane | 1 293,09 € |
 
 - [ ] *Retenir les 5 lignes* : le bandeau au-dessus des lignes les compte toutes comme retenues, et
   leur somme égale le total HT de la facture. Puis *Confirmer les 5 lignes*. Rien n'est devenu un
   coût avant ce clic.
-- [ ] Ouvrir le conteneur **MSCU6702211** (le lien « Voir le conteneur » de la page de la facture y
-  mène) : le **coût rendu par ligne de commande** s'affiche.
+- [ ] Ouvrir le conteneur **MSCU6702211** (le bouton « Coûts unitaires · MSCU6702211 » de la page de la
+  facture y mène) : le **coût rendu par ligne de commande** s'affiche.
   **Parasol 3 m : 47,91 €** pour un prix d'achat de 38,50 € (+24 %) ; **coussin : 3,95 €** pour 3,20 €.
 
 ### Étape 4 — La facture déjà payée (3 min)
@@ -185,8 +185,7 @@ reconnaissent seules), *Valider (à blanc)*, lire l'aperçu — **rien n'est enc
 
 - [ ] **Paramètres → Barèmes d'estimation** : ajouter quatre barèmes, par conteneur, au forfait, en
   EUR — **Fret maritime 3 650**, **Manutention portuaire (THC) 285**, **Frais de dédouanement 145**,
-  **Camionnage / livraison 440**. (N'ajoutez pas de barème de surestaries pour ce test. La section
-  peut se refermer après chaque ajout : rouvrez-la pour retrouver vos barèmes.)
+  **Camionnage / livraison 440**. (N'ajoutez pas de barème de surestaries pour ce test.)
 - [ ] Ouvrir le conteneur **MSCU6715564** (520 chaises, arrivée prévue à la date de l'encadré) →
   *Estimer avec les barèmes*. Les droits de douane s'estiment seuls à partir du tarif.
 - [ ] Coût rendu **estimé de la chaise : 30,96 €** pour un prix d'achat de 21,50 € — avant toute facture.
