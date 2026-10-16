@@ -260,17 +260,17 @@ def plan(
             )
         for cost_id, allocations in sorted(by_cost.items(), key=lambda item: str(item[0])):
             cost = comp.cost_rows[cost_id]
-            amount = q2(sum(allocations.values(), Decimal("0.00")))
+            total = q2(sum(allocations.values(), Decimal("0.00")))
             already = carried.get(str(cost_id))
             # Held by a validated document we let go of: their books keep it whatever we forget, so
             # only a difference from it is still to go.
             held = booked.get(str(cost_id)) if already is None else None
-            settled = held is not None and (held.amount is None or held.amount == amount)
+            settled = held is not None and (held.amount is None or held.amount == total)
             holder = already or (held.push if held is not None and settled else None)
             planned = PlannedCost(
                 label=_label(cost, org.locale),
                 cost_ids=[cost_id],
-                amount=amount,
+                amount=total,
                 invoice_number=cost.invoice_number,
                 pushed_as=_name(holder) if holder else None,
                 pushed_push_id=holder.id if holder else None,
