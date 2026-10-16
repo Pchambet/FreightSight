@@ -146,4 +146,4 @@ Production must connect to Postgres as the non-superuser role `freightsight_app`
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+Proprietary, all rights reserved: see [LICENSE](LICENSE).
