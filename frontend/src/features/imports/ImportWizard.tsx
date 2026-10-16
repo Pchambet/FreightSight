@@ -199,7 +199,7 @@ export default function ImportWizard({
   // Before → after, in money for a costs file, in rows otherwise.
   const changedFigure = (r: Report) => (r.money ? money(r.money.total_base, baseCurrency, locale) : t("review.rowsCount", { count: r.valid_rows }));
 
-  const wizardStep = importWizardStep(step, job !== null && step === "upload", errors.length > 0);
+  const wizardStep = importWizardStep(step, job !== null && step === "upload", errors.length > 0, activeKind);
 
   return (
     <div className="space-y-6">

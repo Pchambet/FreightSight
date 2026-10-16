@@ -1750,8 +1750,8 @@
       "reviewErrors": "Le rapport de validation a trouvé des erreurs — corrigez le fichier ou importez seulement les lignes valides.",
       "reviewOk": "Le rapport de validation est propre — importez les lignes.",
       "reviewAction": "Voir le rapport de validation",
-      "done": "Import validé. Vérifiez que vos commandes sont bien chargées dans les conteneurs.",
-      "doneAction": "Voir les commandes"
+      "done": "{kind, select, PRODUCTS {Le tarif est importé : ses taux de droits, poids et volumes seront repris sur les lignes de commande importées ensuite.} CONTAINERS {Le suivi est importé : vérifiez les dates d'arrivée et le risque de surestaries sur les conteneurs.} COSTS {Les frais sont importés : voyez ce qui manque encore pour que l'audit de la période dise juste.} other {Import validé. Vérifiez que vos commandes sont bien chargées dans les conteneurs.}}",
+      "doneAction": "{kind, select, PRODUCTS {Retour aux imports} CONTAINERS {Voir les conteneurs} COSTS {Préparer l'audit} other {Voir les commandes}}"
     },
     "pos": {
       "empty": "Aucune commande pour l'instant. Importez un fichier ou chargez le jeu d'exemple.",

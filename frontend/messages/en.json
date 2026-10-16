@@ -1750,8 +1750,8 @@
       "reviewErrors": "The validation report found errors — fix the file or import only the valid rows.",
       "reviewOk": "The validation report is clean — import the rows.",
       "reviewAction": "View the validation report",
-      "done": "Import committed. Check that your purchase orders are loaded into containers.",
-      "doneAction": "View purchase orders"
+      "done": "{kind, select, PRODUCTS {The price list is imported: its duty rates, weights and volumes will be copied onto the order lines imported next.} CONTAINERS {The tracking is imported: check arrival dates and demurrage risk on the containers.} COSTS {The costs are imported: see what is still missing for the period's audit to be right.} other {Import committed. Check that your purchase orders are loaded into containers.}}",
+      "doneAction": "{kind, select, PRODUCTS {Back to imports} CONTAINERS {View containers} COSTS {Prepare the audit} other {View purchase orders}}"
     },
     "pos": {
       "empty": "No purchase orders yet. Import a file or load the sample data.",

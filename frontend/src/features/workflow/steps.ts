@@ -337,13 +337,15 @@ export function importNewStep(resuming: boolean): WorkflowStep {
   };
 }
 
+const DONE_HREF: Partial<Record<ImportJobResponse["kind"], string>> = { PRODUCTS: "/imports", CONTAINERS: "/containers", COSTS: "/cost-audit" };
+
 /**
  * The next-step card for the import wizard itself, computed from the wizard's own client-side step
  * instead of the server-rendered "resuming or not" snapshot the page loaded with — see audit B20:
  * the card used to keep telling you to "choose a file" while you were already on the validation
  * report.
  */
-export function importWizardStep(step: "upload" | "mapping" | "review" | "done", resuming: boolean, hasErrors: boolean): WorkflowStep {
+export function importWizardStep(step: "upload" | "mapping" | "review" | "done", resuming: boolean, hasErrors: boolean, kind: ImportJobResponse["kind"] = "PURCHASE_ORDERS"): WorkflowStep {
   if (step === "mapping") {
     return {
       descriptionKey: "importNew.mapping",
@@ -361,10 +363,13 @@ export function importWizardStep(step: "upload" | "mapping" | "review" | "done",
     };
   }
   if (step === "done") {
+    // What to look at next depends on what the file was: a tariff, a tracking sheet and a costs
+    // ledger have nothing to do with "check your orders are in containers".
     return {
       descriptionKey: "importNew.done",
-      primary: { href: "/purchase-orders", labelKey: "importNew.doneAction" },
-      secondary: [{ href: "/containers", labelKey: "imports.goContainers" }],
+      descriptionParams: { kind },
+      primary: { href: DONE_HREF[kind] ?? "/purchase-orders", labelKey: "importNew.doneAction", labelParams: { kind } },
+      secondary: kind === "CONTAINERS" ? [] : [{ href: "/containers", labelKey: "imports.goContainers" }],
       variant: "success",
     };
   }
