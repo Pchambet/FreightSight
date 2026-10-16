@@ -55,6 +55,18 @@ export function containerWorkflowStep(
     };
   }
 
+  // Charges held by an order with no rate: the next step is that rate, not another invoice.
+  const unrated = report.lines.find((ln) => ln.fob_missing);
+  if (unallocated && unrated && report.warnings.some((w) => w.code === "MISSING_FX_RATE")) {
+    return {
+      descriptionKey: "container.heldByRate",
+      descriptionParams: { all: Number(report.totals.allocated ?? 0) === 0 ? "yes" : "no", order: unrated.po_number },
+      primary: { href: `/purchase-orders/${unrated.po_id}#taux`, labelKey: "container.setRate", labelParams: { order: unrated.po_number } },
+      secondary: [{ href: "#ventilation", labelKey: "container.fixAllocation" }],
+      variant: "warning",
+    };
+  }
+
   if (unallocated) {
     return {
       descriptionKey: "container.unallocated",
@@ -427,6 +439,19 @@ export function purchaseOrderDetailStep(
       descriptionKey: "poDetail.notLoaded",
       primary: { href: "/containers", labelKey: "poDetail.loadInContainer" },
       secondary: [{ href: "/purchase-orders", labelKey: "poDetail.backList" }],
+      variant: "warning",
+    };
+  }
+  // With no rate the order has no value, and its container's charges spread on value wait for it:
+  // the rate is the step, entered on this page, whatever was invoiced.
+  if (report.fob_missing) {
+    return {
+      descriptionKey: "poDetail.noRate",
+      descriptionParams: { held: report.warnings.some((w) => w.code === "MISSING_FX_RATE") ? "yes" : "no" },
+      primary: { href: "#taux", labelKey: "poDetail.setRate" },
+      secondary: container
+        ? [{ href: `/container/${container.id}`, labelKey: "poDetail.openContainer", labelParams: { container: container.number } }]
+        : [],
       variant: "warning",
     };
   }

@@ -111,8 +111,11 @@ export default function AllocationPanel({ containerId, poId, report }: { contain
                   <td className={td}>
                     <div className="font-medium">{ln.po_number} <span className="text-slate-500 font-normal">#{ln.line_no}</span></div>
                     <div className="text-xs text-slate-500">{[ln.sku, ln.description].filter(Boolean).join(" · ") || "—"}</div>
-                    {ln.fob_missing ? <FobMissingLine href={`/purchase-orders/${ln.po_id}#taux`} /> : null}
-                    <WithoutChargeLine box={ln} />
+                    {/* The reasons wrap: on a phone a nowrap sentence ran off the scrolled table. */}
+                    <div className="whitespace-normal max-w-64 sm:max-w-md">
+                      {ln.fob_missing ? <FobMissingLine href={`/purchase-orders/${ln.po_id}#taux`} /> : null}
+                      <WithoutChargeLine box={ln} />
+                    </div>
                   </td>
                   {poId ? <td className={`${td} font-mono text-xs text-slate-600`}>{ln.container_number}</td> : null}
                   <td className={tdRight}>{qty(ln.quantity, locale)}</td>

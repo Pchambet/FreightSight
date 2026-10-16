@@ -1008,7 +1008,7 @@
     "FX_RATE_DIFFERS_IN_ORDER": "Commande {po_number} : le taux {rate} de cette ligne diffère de {kept}, donné sur une ligne précédente. La commande garde {kept}.",
     "FX_RATE_DEFAULTED": "Commande en {currency} : aucun taux de change connu au {rate_date}, le taux {rate} ({currency}→{base_currency}, source : taux par défaut) a été appliqué. Corrigez-le sur la commande.",
     "FX_RATE_MISSING": "Commande en {currency} : aucun taux de change {currency}→{base_currency} connu au {rate_date}. Sa valeur reste manquante — jamais lue à 1 pour 1 — tant qu'un taux n'est pas saisi sur la commande ; les frais ventilés à la valeur sur ses conteneurs restent non répartis d'ici là.",
-    "MISSING_FX_RATE": "Taux de change manquant sur une commande : sa valeur en devise de base est inconnue, ce frais ne peut pas être réparti à la valeur. Saisissez le taux sur la commande, ou choisissez une autre méthode.",
+    "MISSING_FX_RATE": "Taux de change manquant sur une commande : sa valeur en devise de base est inconnue, donc rien ne peut être réparti à la valeur. Saisissez le taux sur la commande, ou choisissez une autre méthode.",
     "NOT_AN_ACTUAL": "Seul un coût réel peut remplacer un estimé.",
     "SELF_SUPERSEDE": "Un coût ne peut pas se remplacer lui-même.",
     "NOT_AN_ESTIMATE": "Le coût visé n'est pas un estimé.",
@@ -1827,7 +1827,9 @@
       "viewReports": "Voir les rapports",
       "unitCostsReady": "Les coûts sont ventilés. Comparez le prix FOB au coût rendu par référence.",
       "detailBreakdown": "Détail de la ventilation",
-      "default": "Explorez la ventilation et les coûts unitaires du conteneur {container}."
+      "default": "Explorez la ventilation et les coûts unitaires du conteneur {container}.",
+      "heldByRate": "{all, select, yes {Tous les frais de ce conteneur attendent d'être ventilés} other {Une partie des frais de ce conteneur attend d'être ventilée}} : la commande {order} n'a pas de taux de change. Saisissez son taux, ils seront répartis aussitôt.",
+      "setRate": "Saisir le taux de {order}"
     },
     "hub": {
       "invoicesWaiting": "{count, plural, one {# facture à relire avant de continuer} other {# factures à relire avant de continuer}}",
@@ -1923,7 +1925,9 @@
       "openContainer": "Fiche {container}",
       "unitCosts": "Les coûts sont ventilés — voyez le coût unitaire par référence sur le conteneur.",
       "seeUnitCosts": "Coûts unitaires · {container}",
-      "ready": "Ventilation à jour sur cette commande."
+      "ready": "Ventilation à jour sur cette commande.",
+      "noRate": "{held, select, yes {Les frais déjà saisis sur le conteneur de cette commande attendent son taux de change pour être ventilés. Saisissez le taux ci-dessus : ils seront répartis aussitôt.} other {Cette commande n'a pas de taux de change : sa valeur est inconnue, et son coût de revient avec. Saisissez le taux ci-dessus.}}",
+      "setRate": "Saisir le taux"
     },
     "settings": {
       "noRateCards": "Ajoutez des barèmes pour estimer fret et frais avant les factures réelles.",
