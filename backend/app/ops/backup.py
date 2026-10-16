@@ -151,6 +151,52 @@ def restore(database_url: str, archive: bytes, pg_restore: str = "pg_restore") -
         raise BackupError(f"{pg_restore} is not on the PATH") from exc
     if completed.returncode != 0:
         raise BackupError(f"pg_restore failed: {completed.stderr.decode()[:2000]}")
+    grant_application_role(database_url)
+
+
+#: The role the API and the worker connect as, which owns nothing (migration 0003).
+APP_ROLE = "freightsight_app"
+
+#: What the migrations grant, replayed on a restored copy. Dumps carry no privileges — they must
+#: restore into a database whose roles are not the source's — so without this the copy is readable
+#: by its owner alone, the API answers "permission denied" on every table, and the SECURITY DEFINER
+#: door through row-level security (`tracking_resolve_subscription`) comes back open to PUBLIC.
+#: `tests/test_backup.py` compares the result with a migrated database, privilege by privilege.
+APP_GRANTS = f"""
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{APP_ROLE}') THEN
+        CREATE ROLE {APP_ROLE} NOLOGIN;
+    END IF;
+END $$;
+GRANT USAGE ON SCHEMA public TO {APP_ROLE};
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {APP_ROLE};
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {APP_ROLE};
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {APP_ROLE};
+REVOKE UPDATE, DELETE, TRUNCATE ON audit_log FROM {APP_ROLE};
+REVOKE ALL ON FUNCTION tracking_resolve_subscription(TEXT, TEXT, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION tracking_resolve_subscription(TEXT, TEXT, TEXT) TO {APP_ROLE};
+DO $$
+DECLARE fn regprocedure;
+BEGIN
+    FOR fn IN
+        SELECT p.oid::regprocedure FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public' AND p.proname LIKE 'procrastinate%'
+    LOOP
+        EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO {APP_ROLE}', fn);
+    END LOOP;
+END $$;
+"""
+
+
+def grant_application_role(database_url: str) -> None:
+    """Give the application role back what the migrations gave it, in one transaction."""
+    import psycopg
+
+    try:
+        with psycopg.connect(libpq_url(database_url)) as connection:
+            connection.execute(APP_GRANTS)
+    except psycopg.Error as exc:
+        raise BackupError(f"restored, but granting {APP_ROLE} failed: {exc}") from exc
 
 
 def object_key(env: str, moment: datetime) -> str:

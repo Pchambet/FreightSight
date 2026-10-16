@@ -57,6 +57,11 @@ jobs:
       APP_ENV: test
       DATABASE_URL: postgresql+psycopg://fs:fs@localhost:5432/fs_test
       TEST_DATABASE_URL: postgresql+psycopg://fs:fs@localhost:5432/fs_test
+      # The runner image ships PostgreSQL 16, and Debian's `pg_dump` wrapper can pick that cluster's
+      # client over the 18 installed below: the backup round-trip test skipped for weeks. Named by
+      # path; the test now fails in CI (CI=true) instead of skipping.
+      PG_DUMP_BIN: /usr/lib/postgresql/18/bin/pg_dump
+      PG_RESTORE_BIN: /usr/lib/postgresql/18/bin/pg_restore
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
@@ -78,7 +83,7 @@ jobs:
       - run: uv run mypy .
       - run: uv run alembic upgrade head
       - run: uv run alembic check
-      - run: uv run pytest --cov=app --cov-report=term-missing
+      - run: uv run pytest -rs --cov=app --cov-report=term-missing
 
   frontend:
     needs: changes
