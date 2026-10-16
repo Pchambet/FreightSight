@@ -110,6 +110,11 @@ class SkuSummary:
     fob_missing_lines: int = 0
     containers_without_charge: int = 0
 
+    @property
+    def charged(self) -> bool:
+        """At least one of its containers carries a charge: there is a landed cost to tell."""
+        return any(not point.without_charge for point in self.points)
+
 
 def sku_report(
     db: Session,

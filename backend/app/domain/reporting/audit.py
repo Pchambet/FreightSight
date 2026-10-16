@@ -867,7 +867,7 @@ def _margins(
     articles: list[SkuSummary] = sku_report(db, comp, org, period_from=period_from, period_to=period_to)
     found: list[Margin] = []
     for article in articles:
-        if all(point.without_charge for point in article.points):
+        if not article.charged:
             continue  # not one of its containers carries a charge: there is no approach cost to tell
         # Measured on what the containers that carry a charge brought in: one with none has no
         # approach cost to tell, and its goods would only dilute the others'.

@@ -752,11 +752,16 @@ class _Period:
 
     def no_sale_price(self) -> list[Item]:
         """Articles of the period without a selling price in the books' currency: no margin for them.
-        The same count as the audit's `unpriced_skus`."""
+        The same count as the audit's `unpriced_skus`, which lists no article none of whose
+        containers carries a charge."""
         articles = sku_report(
             self.db, self.comp, self.org, period_from=self.period_from, period_to=self.period_to
         )
-        unpriced = [a for a in articles if a.sale_price is None or a.margin_unit is None or a.sale_price <= 0]
+        unpriced = [
+            a
+            for a in articles
+            if a.charged and (a.sale_price is None or a.margin_unit is None or a.sale_price <= 0)
+        ]
         return _item("NO_SALE_PRICE", len(unpriced), (Example("sku", a.sku, a.sku) for a in unpriced))
 
     def no_assumed_coefficient(self) -> list[Item]:

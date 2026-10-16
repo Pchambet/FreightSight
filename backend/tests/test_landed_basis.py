@@ -211,3 +211,14 @@ def test_a_charge_on_the_bare_container_brings_it_back_into_every_figure(
     current = client.get("/api/v1/reports/overview", params=PERIOD).json()["current"]
     assert basis(current) == ("2250.00", "2775.00", "1.2333", "100.00", 0)
     assert current["charged_fob"] == current["fob"]
+
+
+def test_an_article_never_charged_is_neither_priced_nor_unpriced_in_the_audit_or_its_preparation(
+    client: TestClient, boxes: dict[str, Any]
+) -> None:
+    assert client.post("/api/v1/products", json={"sku": "B", "sale_price": "90"}).status_code == 201
+    audit = client.get("/api/v1/reports/audit", params=PERIOD).json()
+    assert (audit["headline"]["priced_skus"], audit["headline"]["unpriced_skus"]) == (1, 0)
+    assert audit["headline"]["margin_overstated"] == "400.00"
+    preparation = client.get("/api/v1/reports/audit/preparation", params=PERIOD).json()
+    assert "NO_SALE_PRICE" not in {item["code"] for item in preparation["items"]}
