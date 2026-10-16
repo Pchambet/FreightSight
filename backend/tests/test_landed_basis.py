@@ -22,11 +22,11 @@ from sqlalchemy.orm import Session
 from app.domain.models import SkuCostHistory
 
 TODAY = datetime.now(UTC)
-FIRST, SECOND = TODAY - timedelta(days=10), TODAY - timedelta(days=3)
-PERIOD = {
-    "period_from": (TODAY - timedelta(days=30)).date().isoformat(),
-    "period_to": TODAY.date().isoformat(),
-}
+# Both boxes in one month whatever the day the suite runs: the 5th and the 20th of last month.
+LAST_MONTH = TODAY.replace(day=1) - timedelta(days=1)
+FIRST, SECOND = LAST_MONTH.replace(day=5), LAST_MONTH.replace(day=20)
+MONTH = f"{FIRST:%Y-%m}"
+PERIOD = {"period_from": f"{MONTH}-01", "period_to": TODAY.date().isoformat()}
 
 
 def cost(box: str, cost_type: str, amount: str, status: str = "ACTUAL") -> dict[str, str]:
@@ -222,3 +222,19 @@ def test_an_article_never_charged_is_neither_priced_nor_unpriced_in_the_audit_or
     assert audit["headline"]["margin_overstated"] == "400.00"
     preparation = client.get("/api/v1/reports/audit/preparation", params=PERIOD).json()
     assert "NO_SALE_PRICE" not in {item["code"] for item in preparation["items"]}
+
+
+def test_closing_the_month_leaves_its_cost_price_export_as_it_was(
+    client: TestClient, boxes: dict[str, Any]
+) -> None:
+    def prices() -> dict[str, tuple[str, str, str]]:
+        res = client.get("/api/v1/exports/sku-costs.csv", params={"period": MONTH, "locale": "en"})
+        assert res.status_code == 200, res.text
+        rows = csv.DictReader(io.StringIO(res.text.lstrip("\ufeff")))
+        return {r["sku"]: (r["unit_landed_cost"], r["quantity"], r["containers"]) for r in rows}
+
+    live = prices()
+    assert live == {"A": ("140.0000", "10.0000", "MSCU1111111")}
+    closed = client.post(f"/api/v1/periods/{MONTH}/close")
+    assert closed.status_code == 201, closed.text
+    assert prices() == live  # the frozen month takes no cost price from the bare box either

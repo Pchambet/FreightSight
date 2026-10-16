@@ -574,9 +574,16 @@ def sku_costs_csv(
 
     def from_close() -> Iterator[list[Any]]:
         assert closed is not None
+        # The live rule (`charged_containers`) read on the frozen lines: a box none of whose lines bore a
+        # landed charge gives no cost price, whether its month is closed or not.
+        charged = {
+            ln.container_id
+            for ln in closed.lines
+            if any(Decimal(str(v)) for k, v in ln.by_cost_type.items() if k not in EXCLUDED_FROM_LANDED)
+        }
         articles: dict[str, list[Any]] = {}
         for line in closed.lines:
-            if line.sku:
+            if line.sku and line.container_id in charged:
                 articles.setdefault(line.sku, []).append(line)
         for sku, lines in sorted(articles.items()):
             last_day = max((ln.arrived_on for ln in lines if ln.arrived_on), default=None)
