@@ -57,7 +57,7 @@ export const SUBPROCESSORS: Subprocessor[] = [
 ];
 
 // Built, not switched on in production: listed ahead of the switch, not discovered after the fact by a
-// DPO who cross-checks an alert e-mail's headers against /securite (A4-5).
+// DPO who cross-checks an alert e-mail's headers against /securite.
 export const SUBPROCESSORS_PENDING: Subprocessor[] = [
   {
     name: "Resend",

@@ -8,9 +8,9 @@ import { NextResponse } from "next/server";
  * That's what makes it safe to fail open here: a path this file doesn't recognize as one of the
  * protected app sections falls through untouched. A real (app) route still protects itself at
  * render time; a URL that matches no route at all reaches Next's own 404 (src/app/not-found.tsx)
- * instead of being bounced to /sign-in — see docs/plan/audit-2026-09-17/A4-site-commercial-prod.md
- * (A4-4): an unknown link, /sitemap.xml and the per-page /opengraph-image files were all redirected
- * to sign-in before this change, which also broke sitemap indexing and social previews.
+ * instead of being bounced to /sign-in: an unknown link, /sitemap.xml and the per-page
+ * /opengraph-image files were all redirected to sign-in before, which also broke sitemap indexing and
+ * social previews.
  */
 const PUBLIC = [/^\/$/, /^\/robots\.txt$/, /^\/securite$/, /^\/design-partner$/, /^\/confidentialite$/, /^\/mentions-legales$/, /^\/cgv$/, /^\/sign-in(\/.*)?$/, /^\/sign-up(\/.*)?$/, /^\/choose-organization(\/.*)?$/];
 

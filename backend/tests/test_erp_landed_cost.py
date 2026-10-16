@@ -350,7 +350,7 @@ def seed_two_lines(
     """One order with two lines of the same SKU, both in the container.
 
     Two delivery dates or two lots, and Odoo has two receipt lines for one product: the ordinary
-    case the audit found, where half of our split used to be overwritten on the way out.
+    case where half of our split used to be overwritten on the way out.
     """
     po = client.post(
         "/api/v1/purchase-orders",
