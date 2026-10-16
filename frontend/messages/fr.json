@@ -1091,7 +1091,7 @@
   },
   "alerts": {
     "title": "Alertes",
-    "subtitle": "{unread} non lues · {total} au total",
+    "subtitle": "{unread, plural, one {# non lue} other {# non lues}} · {total} au total",
     "empty": "Aucune alerte. Elles apparaîtront ici quand un conteneur change de niveau de risque, quand une ETA bouge de plus de 12 h ou quand un jalon attendu n'arrive pas.",
     "markRead": "Marquer comme lue",
     "markAllRead": "Tout marquer comme lu",
@@ -1099,7 +1099,7 @@
     "allMarked": "{count} alertes marquées comme lues",
     "failed": "Impossible de mettre à jour l'alerte",
     "openContainer": "Ouvrir le conteneur",
-    "bell": "Alertes, {count} non lues",
+    "bell": "Alertes, {count, plural, one {# non lue} other {# non lues}}",
     "unreadOnly": "Non lues seulement",
     "showAll": "Tout afficher",
     "superseded": "Remplacée par une alerte plus récente",
