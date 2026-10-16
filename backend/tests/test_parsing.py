@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import io
+import re
+import time
+import zipfile
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
+from app.domain.imports import parsing
 from app.domain.imports.parsing import (
     ColumnNumbers,
     ImportError_,
@@ -207,3 +211,101 @@ def test_a_real_totals_line_is_still_dropped(label: str) -> None:
     content = f"{header}\nPO-1;Acme;A1;Cable;10;12,50\n{label};;;;10;125,00\n".encode()
     table = parse_table(content)
     assert table.totals_row_ignored and len(table.rows) == 1
+
+
+def _xlsx(*rows: list[object]) -> bytes:
+    openpyxl = pytest.importorskip("openpyxl")
+    wb = openpyxl.Workbook()
+    for row in rows:
+        wb.active.append(row)
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
+def _with_stray_cell(content: bytes) -> bytes:
+    """The same workbook with one empty formatted cell in the very last cell of the sheet, XFD1048576,
+    and a sheet that says it spans all of Excel: what a slip of the mouse in a real file does."""
+    source, out = zipfile.ZipFile(io.BytesIO(content)), io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as target:
+        for item in source.infolist():
+            data = source.read(item.filename)
+            if item.filename == "xl/worksheets/sheet1.xml":
+                data = re.sub(rb'<dimension ref="[^"]*"', b'<dimension ref="A1:XFD1048576"', data)
+                stray = b'<row r="1048576"><c r="XFD1048576" s="0"/></row>'
+                data = data.replace(b"</sheetData>", stray + b"</sheetData>")
+            target.writestr(item, data)
+    return out.getvalue()
+
+
+def test_a_sheet_that_claims_every_row_and_column_of_excel_is_read_by_its_cells() -> None:
+    """A 1.5 KB workbook with a cell at XFD1048576 made openpyxl pad every row to 16 384 columns and
+    yield a million rows: 143 GB projected, the API killed for every tenant."""
+    content = _with_stray_cell(_xlsx(["po_number", "sku", "quantity"], ["PO-1", "A", 10]))
+    started = time.monotonic()
+    table = parse_table(content, "commandes.xlsx")
+    assert time.monotonic() - started < 5
+    assert table.columns == ["po_number", "sku", "quantity"]
+    assert table.rows == [{"po_number": "PO-1", "sku": "A", "quantity": "10"}]
+
+
+def test_a_file_over_the_row_cap_is_refused_by_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(parsing, "MAX_ROWS", 3)
+    with pytest.raises(ImportError_) as exc:
+        parse_table(b"po_number;sku\nPO-1;A\nPO-2;B\nPO-3;C\n")
+    assert exc.value.code == "TOO_MANY_ROWS" and exc.value.params == {"limit": 3}
+    with pytest.raises(ImportError_) as exc:
+        parse_table(_xlsx(["po_number", "sku"], ["PO-1", "A"], ["PO-2", "B"], ["PO-3", "C"]), "f.xlsx")
+    assert exc.value.code == "TOO_MANY_ROWS"
+    # blank rows are not rows
+    assert len(parse_table(b"po_number;sku\n\n\nPO-1;A\n;\nPO-2;B\n").rows) == 2
+
+
+def test_a_file_over_the_column_or_cell_cap_is_refused_by_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    wide = ";".join(f"c{i}" for i in range(parsing.MAX_COLUMNS + 1)).encode()
+    with pytest.raises(ImportError_) as exc:
+        parse_table(wide + b"\n" + b"1;" * parsing.MAX_COLUMNS + b"1\n")
+    assert exc.value.code == "TOO_MANY_COLUMNS" and exc.value.params == {"limit": parsing.MAX_COLUMNS}
+    with pytest.raises(ImportError_) as exc:
+        far_right: list[object] = ["PO-1", *[None] * (parsing.MAX_COLUMNS - 1), "far"]
+        parse_table(_xlsx(["po_number", "sku"], far_right), "f.xlsx")
+    assert exc.value.code == "TOO_MANY_COLUMNS"
+    # empty cells past the last column are no column at all
+    assert parse_table(b"po_number;sku" + b";" * 300 + b"\nPO-1;A\n").columns == ["po_number", "sku"]
+
+    monkeypatch.setattr(parsing, "MAX_CELLS", 5)
+    with pytest.raises(ImportError_) as exc:
+        parse_table(b"po_number;sku\nPO-1;A\nPO-2;B\n")
+    assert exc.value.code == "TOO_MANY_CELLS" and exc.value.params == {"limit": 5}
+
+
+def test_a_workbook_that_inflates_past_the_cap_is_refused_before_it_is_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Shared strings are loaded whole even in read-only mode: a few KB of zipped repetition is
+    gigabytes once inflated. The sizes the archive declares are checked before anything is read."""
+    monkeypatch.setattr(parsing, "MAX_XLSX_INFLATED_BYTES", 1000)
+    with pytest.raises(ImportError_) as exc:
+        parse_table(_xlsx(["po_number", "sku"], ["PO-1", "A"]), "f.xlsx")
+    assert exc.value.code == "XLSX_TOO_LARGE"
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 512,
+        b"po_number;sku\nPO-1;A\n",
+        b"PK\x03\x04garbage",
+    ],
+    ids=["xls-renamed", "csv-renamed", "truncated"],
+)
+def test_a_file_that_is_not_a_workbook_is_refused_by_name(content: bytes) -> None:
+    with pytest.raises(ImportError_) as exc:
+        parse_table(content, "ledger.xlsx")
+    assert exc.value.code == "XLSX_UNREADABLE"
+
+
+def test_a_csv_cell_longer_than_the_reader_accepts_is_refused_by_name() -> None:
+    with pytest.raises(ImportError_) as exc:
+        parse_table(b'po_number;sku\nPO-1;"' + b"x" * 200_000 + b'"\n')
+    assert exc.value.code == "CSV_UNREADABLE"

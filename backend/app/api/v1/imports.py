@@ -82,7 +82,7 @@ def import_kinds(_: TenantDep) -> list[schemas.ImportKindInfo]:
 
 
 @router.post("", response_model=schemas.ImportJobResponse, status_code=status.HTTP_201_CREATED)
-async def create_import(
+def create_import(
     t: TenantDep,
     _: WriterDep,
     kind: Annotated[ImportKind, Form()] = ImportKind.PURCHASE_ORDERS,
@@ -90,9 +90,11 @@ async def create_import(
 ) -> ImportJob:
     """Upload a CSV/XLSX. Returns detected columns and a suggested (or remembered) mapping.
 
-    Nothing is written yet.
+    Nothing is written yet. A plain `def`, so the parsing runs in the thread pool: as `async def` it
+    held the only event loop for the seconds a large file takes, and every tenant waited. The body is
+    read no further than one byte past the cap.
     """
-    content = await file.read()
+    content = file.file.read(MAX_UPLOAD_BYTES + 1)
     if len(content) > MAX_UPLOAD_BYTES:
         raise Unprocessable("File larger than 10 MB", code="FILE_TOO_LARGE")
     if not content.strip():

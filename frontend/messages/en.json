@@ -1024,7 +1024,13 @@
     "PREVIEW_REQUIRED": "Preview this file first.",
     "IMPORT_KIND_NOT_READY": "This kind of file cannot be imported yet.",
     "DATE_IN_FUTURE": "\"{value}\" is still to come.",
-    "AMOUNT_INCLUDES_VAT": "Column \"{column}\" includes tax: a landed cost is read before tax. Match the amount-before-tax column."
+    "AMOUNT_INCLUDES_VAT": "Column \"{column}\" includes tax: a landed cost is read before tax. Match the amount-before-tax column.",
+    "XLSX_UNREADABLE": "This file is not a readable Excel workbook (.xlsx). An old .xls renamed, or a CSV saved under this name? Open it in Excel and save it as .xlsx or CSV.",
+    "XLSX_TOO_LARGE": "This workbook is over {limit, number} MB once unzipped. Save only the sheet to import as a CSV.",
+    "CSV_UNREADABLE": "This file cannot be read as CSV: a cell is abnormally long or holds control characters. Save it again from your spreadsheet.",
+    "TOO_MANY_ROWS": "The file has more than {limit, number} rows. Split it, by quarter for instance, and import the parts one after the other.",
+    "TOO_MANY_COLUMNS": "The file has more than {limit, number} columns. One stray value far to the right of the table is enough: delete the unused columns and try again.",
+    "TOO_MANY_CELLS": "The file has more than {limit, number} cells. Keep only the useful columns, or split it into several files."
   },
   "timeline": {
     "title": "Timeline",

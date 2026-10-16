@@ -6,6 +6,8 @@ import csv
 import io
 import re
 import unicodedata
+import zipfile
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -246,11 +248,23 @@ _LEADING_ZERO_COMMA_RE = re.compile(r"^[+-]?0?,\d")
 CommaMeaning = Literal["auto", "decimal", "thousands"]
 
 
+#: What one file may hold. The upload is capped at 10 MB, but a 10 MB CSV is 1.75 million rows (half a
+#: gigabyte once read) and a 1.5 KB workbook can claim every cell of Excel: the reader stops at these
+#: and refuses the file by name. A quarter of an importer's orders or costs is a few thousand rows.
+MAX_ROWS = 100_000
+MAX_COLUMNS = 200
+MAX_CELLS = 2_000_000
+#: What a workbook may weigh once unzipped. Its shared strings are loaded whole even when the sheet
+#: is streamed, and zipped repetition inflates a thousandfold.
+MAX_XLSX_INFLATED_BYTES = 200 * 1024 * 1024
+
+
 class ImportError_(ValueError):
-    def __init__(self, code: str, message: str):
+    def __init__(self, code: str, message: str, **params: int):
         super().__init__(message)
         self.code = code
         self.message = message
+        self.params = params
 
 
 @dataclass(frozen=True)
@@ -424,12 +438,40 @@ def _tabulate(rows: list[list[str]], encoding: str, delimiter: str) -> Table:
     )
 
 
+def _bounded(rows: Iterable[Sequence[str]]) -> list[list[str]]:
+    """The file's non-blank rows, each without its trailing blank cells — refused by name as soon as
+    it holds more rows, columns or cells than one import may, before the rest is even read."""
+    kept: list[list[str]] = []
+    cells = 0
+    for row in rows:
+        width = len(row)
+        while width and not row[width - 1].strip():
+            width -= 1
+        if not width:
+            continue
+        if width > MAX_COLUMNS:
+            raise ImportError_(
+                "TOO_MANY_COLUMNS", f"More than {MAX_COLUMNS} columns in the file", limit=MAX_COLUMNS
+            )
+        if len(kept) == MAX_ROWS:
+            raise ImportError_("TOO_MANY_ROWS", f"More than {MAX_ROWS} rows in the file", limit=MAX_ROWS)
+        cells += width
+        if cells > MAX_CELLS:
+            raise ImportError_("TOO_MANY_CELLS", f"More than {MAX_CELLS} cells in the file", limit=MAX_CELLS)
+        kept.append(list(row[:width]))
+    return kept
+
+
 def parse_table(content: bytes, filename: str | None = None) -> Table:
     if filename and filename.lower().endswith((".xlsx", ".xlsm")):
         return _parse_xlsx(content)
     text, encoding = decode_bytes(content)
     delimiter = sniff_delimiter(text)
-    rows = list(csv.reader(io.StringIO(text), delimiter=delimiter))
+    try:
+        rows = _bounded(csv.reader(io.StringIO(text), delimiter=delimiter))
+    except csv.Error as e:
+        # A cell longer than the reader accepts (128 KB) or a stray NUL: a file problem, said as one.
+        raise ImportError_("CSV_UNREADABLE", f"The file cannot be read as CSV: {e}") from e
     return _tabulate(rows, encoding, delimiter)
 
 
@@ -452,9 +494,38 @@ def _parse_xlsx(content: bytes) -> Table:
         import openpyxl
     except ImportError as e:  # pragma: no cover
         raise ImportError_("XLSX_UNSUPPORTED", "XLSX support is not installed.") from e
-    wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
-    ws = wb.worksheets[0]
-    rows = [[_cell_text(v) for v in values] for values in ws.iter_rows(values_only=True)]
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            inflated = sum(item.file_size for item in archive.infolist())
+    except zipfile.BadZipFile as e:
+        # An old .xls renamed .xlsx, a CSV saved under the wrong name, a truncated download.
+        raise ImportError_("XLSX_UNREADABLE", "The file is not an Excel workbook (.xlsx)") from e
+    if inflated > MAX_XLSX_INFLATED_BYTES:
+        raise ImportError_(
+            "XLSX_TOO_LARGE",
+            f"The workbook is {inflated} bytes once unzipped",
+            limit=MAX_XLSX_INFLATED_BYTES // (1024 * 1024),
+        )
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+        try:
+            ws = wb.worksheets[0]
+            # The sheet's own <dimension> is not believed: one stray formatted cell at XFD1048576 made
+            # openpyxl pad every row to 16 384 columns and yield a million of them. Without it, rows
+            # are as wide as their last cell, and one column past the cap is enough to refuse.
+            ws.reset_dimensions()
+            # The rows a stray cell far below the table leaves in between are skipped before any cell
+            # is looked at: a million of them is a second, not a minute.
+            values = ws.iter_rows(values_only=True, max_col=MAX_COLUMNS + 1)
+            rows = _bounded([_cell_text(v) for v in row] for row in values if row.count(None) != len(row))
+        finally:
+            wb.close()
+    except ImportError_:
+        raise
+    except Exception as e:
+        # Whatever openpyxl trips on inside a zip — a missing part, broken XML — is the file's fault,
+        # and the person can do something about it; a 500 tells them nothing.
+        raise ImportError_("XLSX_UNREADABLE", f"The workbook cannot be read: {type(e).__name__}") from e
     return _tabulate(rows, "xlsx", "")
 
 

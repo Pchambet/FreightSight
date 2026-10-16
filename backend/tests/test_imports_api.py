@@ -374,3 +374,35 @@ def test_an_order_file_s_rate_with_its_per_cent_sign_is_a_per_cent(client: TestC
         "A": Decimal("0.01"),  # « 1 % » — not a whole: a hundred per cent of duty on an article
         "B": Decimal("0.045"),
     }
+
+
+def test_a_file_that_is_not_a_workbook_answers_a_code_not_a_500(client: TestClient) -> None:
+    """An old .xls renamed .xlsx — common with SME users — raised BadZipFile straight into a 500."""
+    res = client.post(
+        "/api/v1/imports",
+        data={"kind": "PURCHASE_ORDERS"},
+        files={"file": ("ledger.xlsx", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 512, "text/csv")},
+    )
+    assert res.status_code == 422 and res.json()["code"] == "XLSX_UNREADABLE"
+
+
+def test_a_file_over_a_cap_is_refused_with_the_cap(client: TestClient, monkeypatch: Any) -> None:
+    from app.domain.imports import parsing
+
+    monkeypatch.setattr(parsing, "MAX_ROWS", 2)
+    res = client.post(
+        "/api/v1/imports",
+        data={"kind": "PURCHASE_ORDERS"},
+        files={"file": ("big.csv", b"po_number;sku\nPO-1;A\nPO-2;B\n", "text/csv")},
+    )
+    assert res.status_code == 422
+    assert res.json()["code"] == "TOO_MANY_ROWS" and res.json()["limit"] == 2
+
+
+def test_an_upload_is_parsed_off_the_event_loop() -> None:
+    """Parsing a large file inside an `async def` route blocked the one event loop for every tenant."""
+    import inspect
+
+    from app.api.v1.imports import create_import
+
+    assert not inspect.iscoroutinefunction(create_import)

@@ -131,7 +131,9 @@ def create_job(t: TenantSession, kind: ImportKind, content: bytes, filename: str
     try:
         table = parse_table(content, filename)
     except ImportError_ as e:
-        raise Unprocessable(e.message, code=e.code) from e
+        refused = Unprocessable(e.message, code=e.code)
+        refused.extra.update(e.params)  # the cap a refusal names, for the sentence
+        raise refused from e
     signature = header_signature(table.columns)
     saved = t.db.scalar(
         t.q(ImportMapping).where(ImportMapping.kind == kind, ImportMapping.header_signature == signature)

@@ -5557,7 +5557,7 @@
           "imports"
         ],
         "summary": "Create Import",
-        "description": "Upload a CSV/XLSX. Returns detected columns and a suggested (or remembered) mapping.\n\nNothing is written yet.",
+        "description": "Upload a CSV/XLSX. Returns detected columns and a suggested (or remembered) mapping.\n\nNothing is written yet. A plain `def`, so the parsing runs in the thread pool: as `async def` it\nheld the only event loop for the seconds a large file takes, and every tenant waited. The body is\nread no further than one byte past the cap.",
         "operationId": "create_import_api_v1_imports_post",
         "parameters": [
           {
