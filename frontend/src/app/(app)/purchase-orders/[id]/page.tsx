@@ -76,6 +76,7 @@ export default async function PurchaseOrderPage({ params }: Params) {
     getTranslations("sheet"),
     getLocale(),
   ]);
+  const measure = (v: string) => decimalDisplay(v.includes(".") ? v.replace(/0+$/, "").replace(/\.$/, "") : v, locale);
   const cur = report.base_currency;
   const revalidate = `/purchase-orders/${po.id}`;
   const step = purchaseOrderDetailStep(report, firstContainer);
@@ -139,9 +140,9 @@ export default async function PurchaseOrderPage({ params }: Params) {
                     <td className={td}><div>{l.sku ?? tc("empty")}</div><div className="text-xs text-slate-500">{l.description}</div></td>
                     <td className={tdRight}>{qty(l.quantity, locale)}</td>
                     <td className={tdRight}>{qty(l.unit_price, locale)}</td>
-                    {/* Every digit the API keeps: 0,00012 kg rounded to 0,0001 is a fifth of the freight basis gone. */}
-                    <td className={`${tdRight} text-slate-500`}>{l.unit_weight_kg ? decimalDisplay(l.unit_weight_kg, locale) : tc("empty")}</td>
-                    <td className={`${tdRight} text-slate-500`}>{l.unit_volume_cbm ? decimalDisplay(l.unit_volume_cbm, locale) : tc("empty")}</td>
+                    {/* Every digit the API keeps, trailing zeros aside: 0,00012 kg shown as 0,0001 is a sixth of the freight basis gone. */}
+                    <td className={`${tdRight} text-slate-500`}>{l.unit_weight_kg ? measure(l.unit_weight_kg) : tc("empty")}</td>
+                    <td className={`${tdRight} text-slate-500`}>{l.unit_volume_cbm ? measure(l.unit_volume_cbm) : tc("empty")}</td>
                     <td className={`${tdRight} text-slate-500`}>{l.duty_rate ? pct(Number(l.duty_rate) * 100, locale) : tc("empty")}</td>
                   </tr>
                 ))}
