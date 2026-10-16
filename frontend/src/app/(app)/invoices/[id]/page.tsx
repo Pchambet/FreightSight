@@ -115,7 +115,9 @@ export default async function InvoicePage({ params }: Params) {
       {inProgress ? <div className="rounded-md border border-blue-200 bg-blue-50 text-blue-800 text-sm px-4 py-3 mb-6 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />{t("reading")} <span className="text-blue-600/70">{t("readingHint")}</span></div> : null}
       {/* invoice.error is a raw, uncoded backend string (extractor failure detail) — never shown verbatim to a DAF; see needs_other_lane. */}
       {invoice.status === "FAILED" ? <div className="rounded-md border border-red-200 bg-red-50 text-red-800 text-sm px-4 py-3 mb-6"><span className="font-medium">{t("failedTitle")}</span></div> : null}
-      {invoice.status === "NEEDS_REVIEW" && invoice.confidence != null && Number(invoice.confidence) < 0.7 ? (
+      {/* The API's own band, not a threshold of ours: at 0.7 a reading the badge calls « à relire » (0.60, a
+          rule-based reading) was also called « faible » here, above lines that add up to the total. */}
+      {invoice.status === "NEEDS_REVIEW" && confidenceBandValue === "LOW" ? (
         <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 text-sm px-4 py-3 mb-6">
           <span className="font-medium">{t("lowConfidenceTitle")}</span> {t("lowConfidenceBody")}
         </div>
@@ -151,7 +153,7 @@ export default async function InvoicePage({ params }: Params) {
         </Card>
         <Card title={t("lines")} right={<span className="text-xs text-slate-500">{lines.length}</span>} className="xl:col-span-3">
           <div id="lignes" className="scroll-mt-6">
-            <ReviewPanel invoice={invoice} targets={targets} />
+            <ReviewPanel invoice={invoice} targets={targets} pageHasNextStep={detailStep !== null} />
           </div>
         </Card>
       </div>

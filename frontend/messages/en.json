@@ -1156,7 +1156,6 @@
       "file": "File"
     },
     "empty": "No invoice yet.",
-    "emptyAction": "Upload an invoice",
     "filter": {
       "all": "All",
       "review": "To review",
@@ -1172,9 +1171,9 @@
       "failedTitle": "Reading failed",
       "retry": "Read again",
       "reject": "Reject",
-      "confirm": "Confirm {count} lines",
+      "confirm": "{count, plural, one {Confirm the line} other {Confirm the # lines}}",
       "confirmNone": "Accept at least one line",
-      "confirmed": "{count} costs created",
+      "confirmed": "{count, plural, =0 {No cost created} one {# cost created} other {# costs created}}",
       "rejected": "Invoice rejected",
       "retried": "Reading restarted",
       "failed": "Action failed",
@@ -1212,7 +1211,7 @@
       "addLineAdded": "Line added",
       "addLineFailed": "Could not add the line",
       "cancel": "Cancel",
-      "progress": "{ready} of {accepted} kept lines are ready · {incomplete, plural, one {# to complete} other {# to complete}}",
+      "progress": "{ready} of {accepted, plural, one {# kept line is ready} other {# kept lines are ready}} · {incomplete, plural, one {# to complete} other {# to complete}}",
       "progressReady": "{count, plural, one {The kept line is ready to become a cost} other {The # kept lines are ready to become costs}}",
       "nextIncomplete": "Go to the next line to complete",
       "progressNone": "{count, plural, one {# line read, to keep or not} other {# lines read, none kept yet}}",
@@ -1683,9 +1682,7 @@
     "invoices": {
       "reviewWaiting": "{count, plural, one {# invoice to review} other {# invoices to review}}",
       "openNext": "Open next invoice",
-      "backContainers": "Back to containers",
-      "deposit": "Upload the forwarder invoice: extraction proposes lines, nothing is created without your confirmation.",
-      "depositAction": "Upload an invoice"
+      "backContainers": "Back to containers"
     },
     "invoiceDetail": {
       "review": "Review each proposed line, fix if needed, then confirm to create costs.",

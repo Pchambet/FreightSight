@@ -221,7 +221,11 @@ function AddLineForm({ invoiceId, targets }: { invoiceId: string; targets: Targe
   );
 }
 
-export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResponse; targets: Targets }) {
+/**
+ * `pageHasNextStep`: the page's own « Prochaine étape » card already says where to go once confirmed;
+ * the panel's own pointer is only for the case it has nothing to say (lines on a shipment or an order).
+ */
+export default function ReviewPanel({ invoice, targets, pageHasNextStep = false }: { invoice: InvoiceResponse; targets: Targets; pageHasNextStep?: boolean }) {
   const t = useTranslations("invoices.detail");
   const noteT = useTranslations("invoices.lineNotes");
   const typeLabel = useTranslations("domain.costType");
@@ -291,7 +295,7 @@ export default function ReviewPanel({ invoice, targets }: { invoice: InvoiceResp
 
   // Only the fresh, just-confirmed feedback — not a standing fallback recomputed from `lines` on every
   // load, which used to duplicate the page's own "Prochaine étape" card word for word (audit B21/B36).
-  const continueLinks = continueTo ?? [];
+  const continueLinks = pageHasNextStep ? [] : (continueTo ?? []);
 
   return (
     <div>

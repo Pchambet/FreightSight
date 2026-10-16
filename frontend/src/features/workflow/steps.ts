@@ -160,21 +160,15 @@ export function containersHubStep(
   return null;
 }
 
-export function invoicesHubStep(review: number, latestReviewId?: string): WorkflowStep {
-  if (review > 0 && latestReviewId) {
-    return {
-      descriptionKey: "invoices.reviewWaiting",
-      descriptionParams: { count: review },
-      primary: { href: `/invoices/${latestReviewId}`, labelKey: "invoices.openNext" },
-      secondary: [{ href: "/containers", labelKey: "invoices.backContainers" }],
-      variant: "warning",
-    };
-  }
+/** Nothing to review: no card. The upload form right under it is the next step, under its own title. */
+export function invoicesHubStep(review: number, latestReviewId?: string): WorkflowStep | null {
+  if (review === 0 || !latestReviewId) return null;
   return {
-    descriptionKey: "invoices.deposit",
-    primary: { href: "#depot", labelKey: "invoices.depositAction" },
+    descriptionKey: "invoices.reviewWaiting",
+    descriptionParams: { count: review },
+    primary: { href: `/invoices/${latestReviewId}`, labelKey: "invoices.openNext" },
     secondary: [{ href: "/containers", labelKey: "invoices.backContainers" }],
-    variant: "default",
+    variant: "warning",
   };
 }
 

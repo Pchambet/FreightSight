@@ -1156,7 +1156,6 @@
       "file": "Fichier"
     },
     "empty": "Aucune facture pour l'instant.",
-    "emptyAction": "Déposer une facture",
     "filter": {
       "all": "Toutes",
       "review": "À relire",
@@ -1172,9 +1171,9 @@
       "failedTitle": "Lecture impossible",
       "retry": "Relancer la lecture",
       "reject": "Rejeter",
-      "confirm": "Confirmer {count} lignes",
+      "confirm": "{count, plural, one {Confirmer la ligne} other {Confirmer les # lignes}}",
       "confirmNone": "Acceptez au moins une ligne",
-      "confirmed": "{count} coûts créés",
+      "confirmed": "{count, plural, =0 {Aucun coût créé} one {# coût créé} other {# coûts créés}}",
       "rejected": "Facture rejetée",
       "retried": "Lecture relancée",
       "failed": "Action impossible",
@@ -1212,7 +1211,7 @@
       "addLineAdded": "Ligne ajoutée",
       "addLineFailed": "Impossible d'ajouter la ligne",
       "cancel": "Annuler",
-      "progress": "{ready} sur {accepted} lignes retenues sont prêtes · {incomplete, plural, one {# à compléter} other {# à compléter}}",
+      "progress": "{ready} sur {accepted, plural, one {# ligne retenue est prête} other {# lignes retenues sont prêtes}} · {incomplete, plural, one {# à compléter} other {# à compléter}}",
       "progressReady": "{count, plural, one {La ligne retenue est prête à devenir un coût} other {Les # lignes retenues sont prêtes à devenir des coûts}}",
       "nextIncomplete": "Aller à la prochaine ligne à compléter",
       "progressNone": "{count, plural, one {# ligne lue, à retenir ou non} other {# lignes lues, aucune retenue pour l'instant}}",
@@ -1683,9 +1682,7 @@
     "invoices": {
       "reviewWaiting": "{count, plural, one {# facture à relire} other {# factures à relire}}",
       "openNext": "Ouvrir la prochaine facture",
-      "backContainers": "Retour aux conteneurs",
-      "deposit": "Déposez la facture transitaire : l'extraction propose les lignes, rien n'est créé sans votre validation.",
-      "depositAction": "Déposer une facture"
+      "backContainers": "Retour aux conteneurs"
     },
     "invoiceDetail": {
       "review": "Relisez chaque ligne proposée, corrigez si besoin, puis confirmez pour créer les coûts.",
