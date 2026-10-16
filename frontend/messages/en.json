@@ -431,7 +431,7 @@
       "DONE": "Done",
       "FAILED": "Failed"
     },
-    "result": "{pos} POs, {lines} lines, {containers} containers, {loads} loads",
+    "result": "{pos, plural, one {# PO} other {# POs}}, {lines, plural, one {# line} other {# lines}}, {containers, plural, one {# container} other {# containers}}, {loads, plural, one {# load} other {# loads}}",
     "continue": "continue",
     "source": {
       "upload": "Uploaded file",
@@ -483,7 +483,7 @@
     "mapping": {
       "card": "Map the columns of {filename}",
       "fallbackFilename": "the file",
-      "meta": "{rows} rows · {encoding}",
+      "meta": "{rows, plural, one {# row} other {# rows}} · {encoding}",
       "notInFile": "— not in file —",
       "required": "Required: {fields}",
       "back": "Back",
@@ -997,7 +997,7 @@
     "DEPRECATED_COLUMN": "Column \"{column}\" (allocation percentage) is ignored: costs follow the organization's default allocation method.",
     "FX_RATE_APPLIED": "Order in {currency}: rate {rate} ({currency}→{base_currency}) applied, {source, select, ecb {the ECB rate of {rate_date}} other {the latest ECB rate published, that of {rate_date}}}. You can replace it on the order with your bank's rate.",
     "FX_RATE_FROM_FILE": "Order in {currency}: the file's rate applied, {rate} ({currency}→{base_currency}). It is kept as given: only another rate, typed on the order or given by a file, replaces it.",
-    "FX_RATE_INVERTED": "Order in {currency}: the rate {rate} looks inverted. The ECB gives {ecb_rate} {base_currency} for 1 {currency} on {rate_date}. The file must give the number of {base_currency} for 1 {currency}.",
+    "FX_RATE_INVERTED": "Order in {currency}: the rate {rate} looks inverted. The ECB gives {ecb_rate} {base_currency} for 1 {currency} on {rate_date}. The file must give the value of 1 {currency} in {base_currency}.",
     "FX_RATE_FAR_FROM_ECB": "Order in {currency}: the rate {rate} is more than 10% away from the ECB rate of {rate_date}, {ecb_rate} {base_currency} for 1 {currency}. Check it in the file. If it is right, import the line without a rate, then type it on the order.",
     "FX_RATE_DIFFERS_IN_ORDER": "Order {po_number}: this line's rate {rate} differs from {kept}, given on an earlier line. The order keeps {kept}.",
     "FX_RATE_DEFAULTED": "Order in {currency}: no exchange rate known as of {rate_date}, rate {rate} ({currency}→{base_currency}, source: default) was applied. Correct it on the order.",
@@ -1902,7 +1902,7 @@
       "mapping": "Match the file's columns to the expected fields, then validate as a dry run.",
       "mappingAction": "Match columns",
       "reviewErrors": "The validation report found errors — fix the file or import only the valid rows.",
-      "reviewOk": "The validation report is clean — import the rows.",
+      "reviewOk": "No row is refused: read the warnings if there are any, then import the rows.",
       "done": "{kind, select, PRODUCTS {The price list is imported: its duty rates, weights and volumes will be copied onto the order lines imported next.} CONTAINERS {The tracking is imported: check arrival dates and demurrage risk on the containers.} COSTS {The costs are imported: see what is still missing for the period's audit to be right.} other {Import committed. Check that your purchase orders are loaded into containers.}}",
       "doneAction": "{kind, select, PRODUCTS {Back to imports} CONTAINERS {View containers} COSTS {Prepare the audit} other {View purchase orders}}",
       "doneWithoutRate": "{count, plural, one {Order {po} has no exchange rate: its value stays missing until a rate is entered.} other {# orders have no exchange rate, listed below: their value stays missing until a rate is entered on each.}}",

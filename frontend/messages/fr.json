@@ -431,7 +431,7 @@
       "DONE": "Terminé",
       "FAILED": "Échec"
     },
-    "result": "{pos} commandes, {lines} lignes, {containers} conteneurs, {loads} chargements",
+    "result": "{pos, plural, one {# commande} other {# commandes}}, {lines, plural, one {# ligne} other {# lignes}}, {containers, plural, one {# conteneur} other {# conteneurs}}, {loads, plural, one {# chargement} other {# chargements}}",
     "continue": "reprendre",
     "source": {
       "upload": "Fichier déposé",
@@ -483,7 +483,7 @@
     "mapping": {
       "card": "Faire correspondre les colonnes de {filename}",
       "fallbackFilename": "ce fichier",
-      "meta": "{rows} lignes · {encoding}",
+      "meta": "{rows, plural, one {# ligne} other {# lignes}} · {encoding}",
       "notInFile": "— absent du fichier —",
       "required": "Obligatoires : {fields}",
       "back": "Retour",
@@ -1003,7 +1003,7 @@
     "DEPRECATED_COLUMN": "La colonne « {column} » (pourcentage de répartition) est ignorée : la répartition suit la méthode par défaut de l'organisation.",
     "FX_RATE_APPLIED": "Commande en {currency} : taux {rate} ({currency}→{base_currency}) appliqué, {source, select, ecb {taux BCE du {rate_date}} other {dernier taux BCE publié, celui du {rate_date}}}. Vous pouvez le remplacer sur la commande par le taux de votre banque.",
     "FX_RATE_FROM_FILE": "Commande en {currency} : taux du fichier appliqué, {rate} ({currency}→{base_currency}). Il est gardé tel quel : seul un autre taux, saisi sur la commande ou donné par un fichier, le remplace.",
-    "FX_RATE_INVERTED": "Commande en {currency} : le taux {rate} semble inversé. La BCE donne {ecb_rate} {base_currency} pour 1 {currency} au {rate_date}. Le fichier doit donner le nombre de {base_currency} pour 1 {currency}.",
+    "FX_RATE_INVERTED": "Commande en {currency} : le taux {rate} semble inversé. La BCE donne {ecb_rate} {base_currency} pour 1 {currency} au {rate_date}. Le fichier doit donner la valeur de 1 {currency} en {base_currency}.",
     "FX_RATE_FAR_FROM_ECB": "Commande en {currency} : le taux {rate} s'écarte de plus de 10 % du taux BCE du {rate_date}, {ecb_rate} {base_currency} pour 1 {currency}. Vérifiez-le dans le fichier. S'il est juste, importez la ligne sans taux puis saisissez-le sur la commande.",
     "FX_RATE_DIFFERS_IN_ORDER": "Commande {po_number} : le taux {rate} de cette ligne diffère de {kept}, donné sur une ligne précédente. La commande garde {kept}.",
     "FX_RATE_DEFAULTED": "Commande en {currency} : aucun taux de change connu au {rate_date}, le taux {rate} ({currency}→{base_currency}, source : taux par défaut) a été appliqué. Corrigez-le sur la commande.",
@@ -1902,7 +1902,7 @@
       "mapping": "Faites correspondre les colonnes du fichier aux champs attendus, puis validez à blanc.",
       "mappingAction": "Faire correspondre les colonnes",
       "reviewErrors": "Le rapport de validation a trouvé des erreurs — corrigez le fichier ou importez seulement les lignes valides.",
-      "reviewOk": "Le rapport de validation est propre — importez les lignes.",
+      "reviewOk": "Aucune ligne n'est refusée : lisez les avertissements s'il y en a, puis importez les lignes.",
       "done": "{kind, select, PRODUCTS {Le tarif est importé : ses taux de droits, poids et volumes seront repris sur les lignes de commande importées ensuite.} CONTAINERS {Le suivi est importé : vérifiez les dates d'arrivée et le risque de surestaries sur les conteneurs.} COSTS {Les frais sont importés : voyez ce qui manque encore pour que l'audit de la période dise juste.} other {Import validé. Vérifiez que vos commandes sont bien chargées dans les conteneurs.}}",
       "doneAction": "{kind, select, PRODUCTS {Retour aux imports} CONTAINERS {Voir les conteneurs} COSTS {Préparer l'audit} other {Voir les commandes}}",
       "doneWithoutRate": "{count, plural, one {La commande {po} n'a pas de taux de change : sa valeur reste manquante tant qu'un taux n'est pas saisi.} other {# commandes n'ont pas de taux de change, listées ci-dessous : leur valeur reste manquante tant qu'un taux n'est pas saisi sur chacune.}}",
