@@ -6327,6 +6327,75 @@
       }
     },
     "/api/v1/invoices/{invoice_id}/lines": {
+      "patch": {
+        "tags": [
+          "invoices"
+        ],
+        "summary": "Update Lines",
+        "description": "Decide several lines of one invoice in one go \u2014 \u00ab keep all \u00bb, \u00ab attach all to this container \u00bb.\n\nOne lock, one transaction, all or nothing. One call per line cannot do this: each takes the\ninvoice's lock without waiting, so lines sent side by side refuse each other (INVOICE_BUSY) and\nthe screen is left with one line kept out of five. A line that is not on this invoice, or named\ntwice, refuses the whole batch, each one with its own code.",
+        "operationId": "update_lines_api_v1_invoices__invoice_id__lines_patch",
+        "parameters": [
+          {
+            "name": "invoice_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Invoice Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceLinesUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
           "invoices"
@@ -12657,6 +12726,102 @@
         "title": "InvoiceLineCreate",
         "description": "The charge the arithmetic says is missing, added by the person who is looking at the PDF.\n\nIt arrives like every other proposal \u2014 unaccepted, at zero confidence \u2014 so the rule holds: what\nbecomes a cost is what someone ticked, whoever typed it."
       },
+      "InvoiceLineDecision": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "cost_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CostType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CostScope"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "accepted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "InvoiceLineDecision",
+        "description": "One line's correction, named by its id, inside a batch."
+      },
       "InvoiceLineResponse": {
         "properties": {
           "id": {
@@ -12859,6 +13024,25 @@
         "type": "object",
         "title": "InvoiceLineUpdate",
         "description": "A correction made by a person. Everything is optional; nothing is inferred."
+      },
+      "InvoiceLinesUpdate": {
+        "properties": {
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/InvoiceLineDecision"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Lines"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lines"
+        ],
+        "title": "InvoiceLinesUpdate",
+        "description": "Several lines of one invoice decided at once \u2014 keep them all, attach them all to one container.\nApplied together or not at all: a screen that says \u00ab 5 lines kept \u00bb must not have kept one."
       },
       "InvoiceResponse": {
         "properties": {

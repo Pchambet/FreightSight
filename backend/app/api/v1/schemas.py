@@ -997,6 +997,19 @@ class InvoiceLineUpdate(BaseModel):
         return None if v is None else currency_code(v)
 
 
+class InvoiceLineDecision(InvoiceLineUpdate):
+    """One line's correction, named by its id, inside a batch."""
+
+    id: UUID
+
+
+class InvoiceLinesUpdate(BaseModel):
+    """Several lines of one invoice decided at once — keep them all, attach them all to one container.
+    Applied together or not at all: a screen that says « 5 lines kept » must not have kept one."""
+
+    lines: list[InvoiceLineDecision] = Field(min_length=1, max_length=500)
+
+
 class InvoiceUpdate(BaseModel):
     """What the reader took from the invoice's header, corrected by the person looking at the PDF: a
     date or a file reference read as the invoice's number, a forwarder not recognised. The number and

@@ -1517,7 +1517,16 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Lines
+         * @description Decide several lines of one invoice in one go — « keep all », « attach all to this container ».
+         *
+         *     One lock, one transaction, all or nothing. One call per line cannot do this: each takes the
+         *     invoice's lock without waiting, so lines sent side by side refuse each other (INVOICE_BUSY) and
+         *     the screen is left with one line kept out of five. A line that is not on this invoice, or named
+         *     twice, refuses the whole batch, each one with its own code.
+         */
+        patch: operations["update_lines_api_v1_invoices__invoice_id__lines_patch"];
         trace?: never;
     };
     "/api/v1/invoices/{invoice_id}/confirm": {
@@ -3473,6 +3482,29 @@ export interface components {
             /** Target Id */
             target_id?: string | null;
         };
+        /**
+         * InvoiceLineDecision
+         * @description One line's correction, named by its id, inside a batch.
+         */
+        InvoiceLineDecision: {
+            /** Amount */
+            amount?: number | string | null;
+            /** Currency */
+            currency?: string | null;
+            cost_type?: components["schemas"]["CostType"] | null;
+            scope?: components["schemas"]["CostScope"] | null;
+            /** Target Id */
+            target_id?: string | null;
+            /** Accepted */
+            accepted?: boolean | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
         /** InvoiceLineResponse */
         InvoiceLineResponse: {
             /**
@@ -3519,6 +3551,15 @@ export interface components {
             accepted?: boolean | null;
             /** Description */
             description?: string | null;
+        };
+        /**
+         * InvoiceLinesUpdate
+         * @description Several lines of one invoice decided at once — keep them all, attach them all to one container.
+         *     Applied together or not at all: a screen that says « 5 lines kept » must not have kept one.
+         */
+        InvoiceLinesUpdate: {
+            /** Lines */
+            lines: components["schemas"]["InvoiceLineDecision"][];
         };
         /** InvoiceResponse */
         InvoiceResponse: {
@@ -8456,6 +8497,43 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_lines_api_v1_invoices__invoice_id__lines_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceLinesUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
