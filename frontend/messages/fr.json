@@ -726,6 +726,9 @@
     "chooseOrganization": {
       "title": "Choisissez votre société",
       "body": "Chaque commande, conteneur et coût appartient à une seule société."
+    },
+    "signUp": {
+      "privacy": "En créant un compte, vos données sont traitées comme le décrit notre <link>politique de confidentialité</link>."
     }
   },
   "domain": {

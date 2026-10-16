@@ -726,6 +726,9 @@
     "chooseOrganization": {
       "title": "Choose your organization",
       "body": "Every purchase order, container and cost belongs to one organization."
+    },
+    "signUp": {
+      "privacy": "By creating an account, your data is processed as described in our <link>privacy policy</link> (in French)."
     }
   },
   "domain": {

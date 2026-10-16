@@ -61,6 +61,13 @@ test("the privacy policy renders without a session, names who answers and links 
   await expect(page.getByText("Anthropic", { exact: false }).first()).toBeVisible();
 });
 
+test("the sign-up page says how the data is processed and links the privacy policy", async ({ page }) => {
+  // GDPR art. 13: the information is given where the data is collected. Rendered on the server, so it
+  // shows even though Clerk's form cannot load offline.
+  await page.goto("/sign-up");
+  await expect(page.locator('a[href="/confidentialite"]')).toBeVisible();
+});
+
 test("the legal notice and the terms exist only once their identity fields are filled, and the footer links only what exists", async ({ page }) => {
   const legal = page.getByRole("navigation", { name: "Informations légales" });
   await page.goto("/?preview=1");
