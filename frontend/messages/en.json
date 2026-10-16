@@ -1066,11 +1066,11 @@
     "RATE_LIMITED": "Too many requests in a short time. Try again in a moment.",
     "PERIOD_INVALID": "The period is not valid: the start date must come before the end date, between 2000 and 2100.",
     "ASSUMED_COEFFICIENT_INVALID": "The applied ratio is a ratio between 1 and 3, such as 1.15, not a percentage.",
-    "INVOICE_ALREADY_RECORDED": "This invoice is already recorded: reopen or delete what carries it before confirming it.",
+    "INVOICE_ALREADY_RECORDED": "This invoice is already in the costs. If it is the same invoice received twice, reject this one. If the costs already recorded are the wrong ones, delete them from the list of costs, then confirm this one.",
     "UNKNOWN_TARGET": "A line points to a container, order or shipment that no longer exists: give it another target, then confirm.",
-    "recordedInvoice": "This invoice is already recorded ({items}): reopen or delete what carries it before confirming it.",
+    "recordedInvoice": "This invoice is already in the costs ({items}). If it is the same invoice received twice, reject this one. If the costs already recorded are the wrong ones, delete them from the list of costs, then confirm this one.",
     "recordedLine": "This invoice already has this cost ({items}): edit or delete the existing entry rather than add a second one.",
-    "recordedOn": "on {date}",
+    "recordedOn": "{kind, select, estimate {entered on {date}} other {recorded on {date}}}",
     "INVOICE_LINE_ALREADY_RECORDED": "This invoice already has this cost: edit or delete the existing entry rather than add a second one.",
     "recordedInvoiceEstimate": "An estimate already carries this invoice number ({items}): edit or delete that estimate before confirming.",
     "recordedLineEstimate": "An estimate already carries this invoice number for this cost ({items}): edit or delete that estimate rather than record a second cost.",
@@ -1108,7 +1108,8 @@
     "CREDIT_FROM_INVOICE": "This credit comes from a confirmed document ({credit_number}): reopen that document to remove it.",
     "CREDIT_NOT_FOUND": "This credit no longer exists. Reload the page.",
     "COST_HAS_CREDITS": "{count, plural, one {A credit reduces a cost involved} other {# credits reduce the cost or costs involved}}: remove {count, plural, one {it} other {them}} first, from the list of costs, or by reopening {count, plural, one {the confirmed credit note it comes from} other {the confirmed credit notes they come from}}. While a credit reduces it, a cost keeps its amount, currency, type and status, and cannot be deleted, by hand, by reopening its invoice or by undoing its import.",
-    "PERIOD_DRIFT_ORDERS_WITHOUT_FX_RATE": "This month's gap cannot be marked as booked: some orders have no exchange rate ({orders}). The value of their goods is unknown today, and with it the amount of the gap. Set the rate on each of them, then mark the gap."
+    "PERIOD_DRIFT_ORDERS_WITHOUT_FX_RATE": "This month's gap cannot be marked as booked: some orders have no exchange rate ({orders}). The value of their goods is unknown today, and with it the amount of the gap. Set the rate on each of them, then mark the gap.",
+    "recordedItem": "{invoice}: {costs}"
   },
   "timeline": {
     "title": "Timeline",

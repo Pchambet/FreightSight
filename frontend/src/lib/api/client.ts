@@ -98,8 +98,10 @@ api.use(authHeaders);
  * estimate that bears the number. Each entry of `errors` describes one such cost as
  * `@recorded|type|vendor|number|amount in the base currency|scope|creation day|ACTUAL or ESTIMATE`
  * (a « | » in a vendor's name arrives as « / », so the positions hold), and the sentence names each
- * invoice once — « Cette facture est déjà enregistrée (TRANSDEMO · FA 2026 0912, le 18/09/2026 —
- * Fret maritime 3 830,00 €) : … » — rather than repeat a field name per cost.
+ * invoice once — « Cette facture figure déjà dans les coûts (TRANSDEMO · FA 2026 0912, enregistrée le
+ * 18/09/2026 : Fret maritime 3 830,00 €). … » — rather than repeat a field name per cost. The day is
+ * when the cost was entered (an imported journal's day), not the invoice's own date: hence
+ * « enregistrée le ».
  */
 const RECORDED = new Set(["INVOICE_ALREADY_RECORDED", "INVOICE_LINE_ALREADY_RECORDED"]);
 
@@ -112,18 +114,18 @@ async function recordedSentence(p: Problem): Promise<string> {
   ]);
   const base = org.data?.base_currency ?? "EUR";
   // One invoice usually carries several costs: its vendor, number and day are said once, then each
-  // cost — « TRANSDEMO · FA 2026 0912, le 18/09/2026 — Fret maritime 2 450,00 €, THC 285,00 € ». The
+  // cost — « TRANSDEMO · FA 2026 0912, enregistrée le 18/09/2026 : Fret maritime 2 450,00 €, THC 285,00 € ». The
   // eighth field says whether what carries the number is a real cost or an estimate: an estimate that
   // bears the number is not « an invoice already recorded », and is said apart.
   const groups = { actual: new Map<string, string[]>(), estimate: new Map<string, string[]>() };
   for (const [, type, vendor, number, amount, , day, status] of (p.errors ?? []).map((e) => e.message.split("|")).filter((parts) => parts[0] === "@recorded")) {
-    const invoice = [vendor, number].filter(Boolean).join(" · ") + (day ? `, ${t("recordedOn", { date: dateShort(day, locale) })}` : "");
+    const invoice = [vendor, number].filter(Boolean).join(" · ") + (day ? `, ${t("recordedOn", { kind: status === "ESTIMATE" ? "estimate" : "actual", date: dateShort(day, locale) })}` : "");
     const cost = `${costType.has(type as never) ? costType(type as never) : type} ${money(amount, base, locale)}`;
     const group = status === "ESTIMATE" ? groups.estimate : groups.actual;
     group.set(invoice, [...(group.get(invoice) ?? []), cost]);
   }
   const items = (group: Map<string, string[]>) =>
-    [...group].map(([invoice, costs]) => (invoice ? `${invoice} — ${costs.join(", ")}` : costs.join(", "))).join(" ; ");
+    [...group].map(([invoice, costs]) => (invoice ? t("recordedItem", { invoice, costs: costs.join(", ") }) : costs.join(", "))).join(" ; ");
   const line = p.code === "INVOICE_LINE_ALREADY_RECORDED";
   const sentences = [
     groups.actual.size ? t(line ? "recordedLine" : "recordedInvoice", { items: items(groups.actual) }) : null,

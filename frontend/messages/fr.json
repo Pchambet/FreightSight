@@ -1076,11 +1076,11 @@
     "RATE_LIMITED": "Trop de demandes en peu de temps. Réessayez dans un instant.",
     "PERIOD_INVALID": "La période n'est pas valide : la date de début doit précéder la date de fin, entre 2000 et 2100.",
     "ASSUMED_COEFFICIENT_INVALID": "Le coefficient appliqué est un rapport entre 1 et 3, comme 1,15, et non un pourcentage.",
-    "INVOICE_ALREADY_RECORDED": "Cette facture est déjà enregistrée : rouvrez ou supprimez ce qui la porte avant de la confirmer.",
+    "INVOICE_ALREADY_RECORDED": "Cette facture figure déjà dans les coûts. Si c'est la même facture reçue deux fois, rejetez celle-ci. Si ce sont les coûts déjà enregistrés qui sont faux, supprimez-les de la liste des coûts, puis confirmez celle-ci.",
     "UNKNOWN_TARGET": "Une ligne vise un conteneur, une commande ou une expédition qui n'existe plus : choisissez-lui une autre cible, puis confirmez.",
-    "recordedInvoice": "Cette facture est déjà enregistrée ({items}) : rouvrez ou supprimez ce qui la porte avant de la confirmer.",
+    "recordedInvoice": "Cette facture figure déjà dans les coûts ({items}). Si c'est la même facture reçue deux fois, rejetez celle-ci. Si ce sont les coûts déjà enregistrés qui sont faux, supprimez-les de la liste des coûts, puis confirmez celle-ci.",
     "recordedLine": "Cette facture a déjà ce coût ({items}) : modifiez ou supprimez la saisie existante plutôt que d'en ajouter une seconde.",
-    "recordedOn": "le {date}",
+    "recordedOn": "{kind, select, estimate {saisi le {date}} other {enregistrée le {date}}}",
     "INVOICE_LINE_ALREADY_RECORDED": "Cette facture a déjà ce coût : modifiez ou supprimez la saisie existante plutôt que d'en ajouter une seconde.",
     "recordedInvoiceEstimate": "Un estimé porte déjà ce numéro de facture ({items}) : modifiez ou supprimez cet estimé avant de confirmer.",
     "recordedLineEstimate": "Un estimé porte déjà ce numéro de facture pour ce coût ({items}) : modifiez ou supprimez cet estimé plutôt que d'enregistrer un second coût.",
@@ -1108,7 +1108,8 @@
     "CREDIT_FROM_INVOICE": "Cet avoir vient d'un document confirmé ({credit_number}) : rouvrez ce document pour le retirer.",
     "CREDIT_NOT_FOUND": "Cet avoir n'existe plus. Rechargez la page.",
     "COST_HAS_CREDITS": "{count, plural, one {Un avoir réduit un coût concerné} other {# avoirs réduisent le ou les coûts concernés}} : retirez-{count, plural, one {le} other {les}} d'abord, depuis la liste des coûts, ou en rouvrant {count, plural, one {l'avoir confirmé dont il vient} other {les avoirs confirmés dont ils viennent}}. Tant qu'un avoir le réduit, un coût garde son montant, sa devise, son type et son statut, et ne peut être supprimé ni à la main, ni en rouvrant sa facture, ni en annulant son import.",
-    "PERIOD_DRIFT_ORDERS_WITHOUT_FX_RATE": "L'écart de ce mois ne peut pas être marqué comme comptabilisé : des commandes n'ont pas de taux de change ({orders}). La valeur de leurs marchandises est inconnue aujourd'hui, et avec elle le montant de l'écart. Saisissez le taux sur chacune, puis marquez l'écart."
+    "PERIOD_DRIFT_ORDERS_WITHOUT_FX_RATE": "L'écart de ce mois ne peut pas être marqué comme comptabilisé : des commandes n'ont pas de taux de change ({orders}). La valeur de leurs marchandises est inconnue aujourd'hui, et avec elle le montant de l'écart. Saisissez le taux sur chacune, puis marquez l'écart.",
+    "recordedItem": "{invoice} : {costs}"
   },
   "timeline": {
     "title": "Chronologie",
