@@ -1544,9 +1544,9 @@
     "estimated": "Encore estimé",
     "estimatedHint": "Postes estimés qu'aucune facture n'a encore remplacés.",
     "actual": "Facturé",
-    "unforecastNote": "dont, sans estimé :",
+    "unforecastNote": "dont {amount} facturés sans estimation préalable",
     "allocated": "Ventilé",
-    "allocatedHint": "Encore estimé + facturé.",
+    "allocatedHint": "Encore estimé + facturé, hors frais non ventilés.",
     "variance": "Écart",
     "varianceHint": "Facturé moins estimé, sur les seuls postes où une facture a remplacé un estimé.",
     "varianceBasis": "{count, plural, one {# poste recalé} other {# postes recalés}}",
@@ -1567,7 +1567,8 @@
     "closed": "clos",
     "close": "Clore sans facture",
     "closeReason": "Motif (ex. : non facturé par le transitaire)",
-    "closed_ok": "Estimé clos"
+    "closed_ok": "Estimé clos",
+    "notAllocatedNote": "dont {amount} non ventilés"
   },
   "rateCards": {
     "hint": "Un barème par type de coût. Appliqué à la demande sur un conteneur pour créer des coûts estimés, remplacés ensuite par la facture réelle. Un barème {demurrage} est lu comme un tarif journalier, il sert au calcul des surestaries évitées.",
@@ -1980,7 +1981,7 @@
       "exposedNoDate": "est exposé aux surestaries, sans dernier jour franc renseigné.",
       "review": "{count, plural, one {# facture lue attend votre relecture avant d'entrer dans les coûts.} other {# factures lues attendent votre relecture avant d'entrer dans les coûts.}}",
       "reviewAction": "Relire",
-      "uncosted": "{count, plural, one {# conteneur chargé n'a encore aucun coût : son coût rendu est égal au prix d'achat.} other {# conteneurs chargés n'ont encore aucun coût : leur coût rendu est égal au prix d'achat.}}",
+      "uncosted": "{count, plural, one {# conteneur chargé n'a encore aucun frais, ni estimé ni facturé : il n'est compté dans aucun coût rendu.} other {# conteneurs chargés n'ont encore aucun frais, ni estimé ni facturé : ils ne sont comptés dans aucun coût rendu.}}",
       "soFar": "{amount} à ce jour",
       "failed": "{count, plural, one {# facture n'a pas pu être lue.} other {# factures n'ont pas pu être lues.}}",
       "failedAction": "Voir",
@@ -1988,7 +1989,9 @@
       "estimatesAction": "Voir les écarts",
       "uncostedAction": "Voir",
       "unloaded": "{count, plural, one {# conteneur ne porte aucune ligne de commande.} other {# conteneurs ne portent aucune ligne de commande.}}",
-      "unloadedAction": "Voir"
+      "unloadedAction": "Voir",
+      "held": "{count, plural, one {# conteneur a des frais saisis qui attendent d'être ventilés : ses factures sont enregistrées, mais une commande sans taux de change ou une donnée manquante empêche de les répartir.} other {# conteneurs ont des frais saisis qui attendent d'être ventilés : leurs factures sont enregistrées, mais une commande sans taux de change ou une donnée manquante empêche de les répartir.}}",
+      "heldAction": "Voir"
     },
     "empty": {
       "title": "Pas encore de chiffres à montrer",
@@ -1999,7 +2002,7 @@
     },
     "kpi": {
       "coef": "Coefficient d'approche",
-      "coefHint": "Coût rendu divisé par le prix d'achat (FOB). 1,27 : chaque euro acheté vous revient à 1,27 € une fois la marchandise chez vous. TVA import exclue.",
+      "coefHint": "Coût rendu divisé par le prix d'achat (FOB) : ce que vous coûte chaque euro acheté, une fois la marchandise chez vous. TVA import exclue.",
       "coefSub": "soit {pct} de frais sur le prix d'achat",
       "fees": "Frais d'approche",
       "feesHint": "Tout ce qui s'ajoute au prix d'achat pour amener la marchandise chez vous : fret, assurance, frais portuaires, douane, livraison, surestaries. TVA import exclue.",
@@ -2015,7 +2018,8 @@
       "varianceSub": "{pairs, plural, one {# coût recalé} other {# coûts recalés}}, pour {estimated} estimés",
       "varianceNone": "Aucun estimé remplacé par une facture sur la période.",
       "dndAtRisk": "{amount} en cours",
-      "feesEstimated": "dont {amount} estimés"
+      "feesEstimated": "dont {amount} estimés",
+      "feesLeftOut": "{count, plural, one {hors # conteneur sans frais ventilés ({fob} d'achats)} other {hors # conteneurs sans frais ventilés ({fob} d'achats)}}"
     },
     "structure": {
       "title": "Frais d'approche par mois",
@@ -2046,7 +2050,8 @@
         "unitLanded": "Rendu unitaire",
         "coef": "Coef."
       },
-      "estimated": "estimé"
+      "estimated": "estimé",
+      "leftOut": "+ {quantity} non comptées"
     },
     "orgChanged": {
       "title": "Votre dernière action n'a pas été enregistrée",
@@ -2184,7 +2189,9 @@
       "marginOtherCurrency": "Prix de vente dans une autre devise : pas de marge calculée.",
       "marginLast": "{margin} sur le dernier arrivage",
       "withEstimates": "dont {count, plural, one {# conteneur encore estimé} other {# conteneurs encore estimés}}",
-      "withEstimatesUncounted": "dont des coûts encore estimés"
+      "withEstimatesUncounted": "dont des coûts encore estimés",
+      "onTheWay": "{qty} en route",
+      "counted": "prix moyen sur les {qty} unités comptées"
     },
     "trend": {
       "title": "Coût unitaire, arrivage après arrivage",
@@ -2240,7 +2247,8 @@
       "failed": "Impossible d'enregistrer la fiche produit",
       "numberInvalid": "Un des nombres n'est pas lisible. Utilisez des chiffres, avec une virgule pour les décimales.",
       "scopeHint": "Modifier la fiche ne change aucun coût de revient déjà calculé : les valeurs sont reprises sur les nouvelles lignes de commande uniquement."
-    }
+    },
+    "leftOut": "+ {quantity} non comptées"
   },
   "sample": {
     "banner": "Cette société contient des données d'exemple : les chiffres que vous voyez peuvent être ceux d'un importateur fictif.",
@@ -2295,13 +2303,14 @@
       "cancel": "Annuler",
       "working": "En cours…",
       "closed": "{month} est clos.",
-      "reopened": "{month} est rouvert."
+      "reopened": "{month} est rouvert.",
+      "blocked": "{count, plural, one {Ce mois ne peut pas être clôturé : la commande {orders} n'a pas de taux de change. Saisissez son taux pour pouvoir clôturer.} other {Ce mois ne peut pas être clôturé : les commandes {orders} n'ont pas de taux de change. Saisissez leur taux pour pouvoir clôturer.}}"
     },
     "detail": {
       "closedSubtitle": "Clos le {date} par {by}. Les chiffres ci-dessous sont ceux de la clôture.",
       "openSubtitle": "{count, plural, one {# conteneur arrivé ce mois-là} other {# conteneurs arrivés ce mois-là}}. Chiffres vivants : ils bougent avec chaque coût enregistré.",
       "frozenLanded": "Coût rendu figé",
-      "frozenHint": "Le coût de revient rendu du mois au moment de la clôture. Il ne change plus, quoi qu'il arrive ensuite.",
+      "frozenHint": "Le coût de revient rendu du mois tel qu'il est passé en comptabilité à la clôture, un conteneur sans frais compté à son FOB. Il ne change plus : ce qui arrive ensuite forme l'écart.",
       "liveLanded": "Coût rendu à ce jour",
       "onFob": "sur {fob} d'achats",
       "coef": "Coefficient d'approche",
@@ -2323,7 +2332,8 @@
       "fob": "Prix d'achat (FOB)",
       "ofFob": "du FOB",
       "driftPosted": "Tout l'écart est comptabilisé.",
-      "driftPartly": "dont {outstanding} restent à comptabiliser"
+      "driftPartly": "dont {outstanding} restent à comptabiliser",
+      "frozenAtFob": "{count, plural, one {dont # conteneur sans frais, compté à son FOB} other {dont # conteneurs sans frais, comptés à leur FOB}}"
     },
     "ready": {
       "title": "Avant de clôturer",
@@ -2332,8 +2342,9 @@
       "estimates": "{count, plural, =0 {Aucun conteneur ne porte d'estimé en attente de facture.} one {# conteneur porte encore des coûts estimés.} other {# conteneurs portent encore des coûts estimés.}}",
       "invoices": "{count, plural, =0 {Aucune facture en attente de relecture.} one {# facture attend votre relecture.} other {# factures attendent votre relecture.}}",
       "unallocated": "{count, plural, =0 {Tous les coûts sont ventilés.} one {# coût n'a pas pu être ventilé.} other {# coûts n'ont pas pu être ventilés.}}",
-      "nocost": "{count, plural, =0 {Tous les conteneurs chargés ont des coûts.} one {# conteneur chargé n'a aucun coût.} other {# conteneurs chargés n'ont aucun coût.}}",
-      "norate": "{count, plural, =0 {Toutes les commandes du mois ont un taux de change.} one {# commande sans taux de change : sa valeur est inconnue, le mois ne peut pas être clôturé.} other {# commandes sans taux de change : leur valeur est inconnue, le mois ne peut pas être clôturé.}}"
+      "nocost": "{count, plural, =0 {Tous les conteneurs chargés ont des frais, estimés ou facturés.} one {# conteneur chargé n'a aucun frais, ni estimé ni facturé.} other {# conteneurs chargés n'ont aucun frais, ni estimé ni facturé.}}",
+      "norate": "{count, plural, =0 {Toutes les commandes du mois ont un taux de change.} one {# commande sans taux de change : sa valeur est inconnue, le mois ne peut pas être clôturé.} other {# commandes sans taux de change : leur valeur est inconnue, le mois ne peut pas être clôturé.}}",
+      "held": "{count, plural, one {# conteneur a des frais saisis qui attendent d'être ventilés} other {# conteneurs ont des frais saisis qui attendent d'être ventilés}}{orderCount, plural, =0 {.} one { : la commande {orders} n'a pas de taux de change.} other { : les commandes {orders} n'ont pas de taux de change.}}"
     },
     "estimates": {
       "title": "Conteneurs encore en estimé",
@@ -2738,13 +2749,14 @@
         "containers": "Conteneurs arrivés sur la période",
         "landed": "Coût rendu total",
         "estimated": "Encore estimé, sans facture",
-        "withoutCost": "Conteneurs sans aucun coût",
+        "withoutCost": "Conteneurs sans aucun frais, ni estimé ni facturé",
         "toReview": "Factures en attente de relecture, à ce jour",
         "fx": "Taux de change des coûts",
         "fxSource": "{source} : {count}",
         "findings": "Constats sur la qualité des chiffres",
         "notCompared": "Conteneurs non comparés (sans route ou sans taille)",
-        "withoutDate": "Conteneurs sans date, hors de toute période"
+        "withoutDate": "Conteneurs sans date, hors de toute période",
+        "held": "Conteneurs aux frais saisis en attente de ventilation"
       },
       "footer": "Établi à partir des commandes et des factures de l'émetteur. Un constat « établi » est un fait mesuré ; « à vérifier » est une question à poser, pas une accusation.",
       "method": {
@@ -2847,6 +2859,9 @@
     "total": "{count, plural, one {Un conteneur n'a encore aucun frais, ni estimé ni facturé : son coût rendu ne serait que son FOB. Il n'est donc compté ni dans le coût rendu, ni dans le coefficient, ni dans les coûts unitaires et les marges ; ses marchandises restent comptées dans le FOB.} other {# conteneurs n'ont encore aucun frais, ni estimé ni facturé : leur coût rendu ne serait que leur FOB. Ils ne sont donc comptés ni dans le coût rendu, ni dans le coefficient, ni dans les coûts unitaires et les marges ; leurs marchandises restent comptées dans le FOB.}}",
     "count": "{count, plural, one {# conteneur sans aucun frais, non compté} other {# conteneurs sans aucun frais, non comptés}}",
     "box": "Aucun frais, ni estimé ni facturé : ce ne serait que le FOB",
-    "see": "Voir les conteneurs"
+    "see": "Voir les conteneurs",
+    "held": "{count, plural, one {Un conteneur a des frais saisis qui attendent d'être ventilés} other {# conteneurs ont des frais saisis qui attendent d'être ventilés}}{orderCount, plural, =0 {.} one { : la commande {orders} n'a pas de taux de change.} other { : les commandes {orders} n'ont pas de taux de change.}} {count, plural, one {Tant qu'ils ne le sont pas, ce conteneur n'est compté ni dans le coût rendu, ni dans le coefficient, ni dans les coûts unitaires et les marges ; ses marchandises restent comptées dans le FOB.} other {Tant qu'ils ne le sont pas, ces conteneurs ne sont comptés ni dans le coût rendu, ni dans le coefficient, ni dans les coûts unitaires et les marges ; leurs marchandises restent comptées dans le FOB.}}",
+    "heldCount": "{count, plural, one {# conteneur aux frais en attente de ventilation, non compté} other {# conteneurs aux frais en attente de ventilation, non comptés}}",
+    "heldBox": "Frais saisis, en attente de ventilation{orderCount, plural, =0 {} one { : la commande {orders} n'a pas de taux de change} other { : les commandes {orders} n'ont pas de taux de change}}"
   }
 }

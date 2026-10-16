@@ -13,7 +13,7 @@ import StatTile from "@/components/ui/StatTile";
 import AcknowledgeDrift from "@/features/periods/AcknowledgeDrift";
 import PeriodActions from "@/features/periods/PeriodActions";
 import FobMissing, { FobMissingLine } from "@/features/report/FobMissing";
-import WithoutCharge from "@/features/report/WithoutCharge";
+import WithoutCharge, { heldParams, leftOutText } from "@/features/report/WithoutCharge";
 import { isPeriodKey, periodTitle, signedMoney } from "@/features/periods/format";
 import { api } from "@/lib/api/client";
 import { dateShort, dateTimeShort, money } from "@/lib/format";
@@ -28,11 +28,12 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function PeriodPage({ params }: Params) {
   const { period } = await params;
   if (!isPeriodKey(period)) notFound();
-  const [t, tf, tt, tm, locale, res, me] = await Promise.all([
+  const [t, tf, tt, tm, tw, locale, res, me] = await Promise.all([
     getTranslations("periods"),
     getTranslations("costFamily"),
     getTranslations("domain.costType"),
     getTranslations("fobMissing"),
+    getTranslations("withoutCharge"),
     getLocale(),
     api.GET("/api/v1/periods/{period}", { params: { path: { period } } }),
     api.GET("/api/v1/me"),
@@ -65,6 +66,12 @@ export default async function PeriodPage({ params }: Params) {
   const canDecide = role === "OWNER" || role === "ADMIN";
   const estimatedTotal = Number(readiness?.estimated_total ?? 0);
   const loose = readiness ? readiness.invoices_to_review + readiness.unallocated_costs + readiness.containers_without_cost : 0;
+  const held = readiness?.containers_held ?? 0;
+  // A closed month's three figures are on the basis the close booked: every container's goods, one with
+  // no charge at its FOB. Frozen plus the drift is then today's figure, to the cent.
+  const frozen = s.frozen_stock ?? s.landed;
+  const today = s.live_stock ?? s.live_landed;
+  const bareAtClose = s.containers_without_charge ?? 0;
 
   return (
     <>
@@ -72,16 +79,25 @@ export default async function PeriodPage({ params }: Params) {
       <PageHeader
         title={<span className="flex items-center gap-2.5">{closed ? <LockKeyhole className="w-5 h-5 text-slate-500" aria-hidden /> : null}{title}</span>}
         subtitle={closed ? t("detail.closedSubtitle", { date: dateShort(s.closed_at, locale), by: s.closed_by_name ?? "—" }) : t("detail.openSubtitle", { count: s.containers })}
-        actions={<PeriodActions period={period} title={periodTitle(period, locale, true)} status={closed ? "closed" : "open"} canClose={canDecide} canReopen={canDecide} estimated={estimatedTotal > 0 ? money(estimatedTotal, currency, locale) : null} />}
+        actions={<PeriodActions period={period} title={periodTitle(period, locale, true)} status={closed ? "closed" : "open"} canClose={canDecide} canReopen={canDecide} estimated={estimatedTotal > 0 ? money(estimatedTotal, currency, locale) : null} blockedBy={unrated.map((o) => o.po_number)} />}
       />
 
       <FobMissing lines={s.fob_missing_lines} href={rateHref} className="mb-6" />
       {/* The landed cost and the coefficient count only the containers that carry a charge, as on the overview. */}
-      {s.fob_missing ? null : <WithoutCharge containers={s.containers_without_charge} href={closed ? null : "/containers?view=nocost"} className="mb-6" />}
+      {s.fob_missing || closed ? null : <WithoutCharge of={s} href="/containers?view=nocost" className="mb-6" />}
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 mb-6">
-        <StatTile label={closed ? t("detail.frozenLanded") : t("detail.liveLanded")} hint={closed ? t("detail.frozenHint") : undefined} value={money(s.landed, currency, locale)} sub={t("detail.onFob", { fob: money(s.charged_fob ?? s.fob, currency, locale) })} />
-        <StatTile label={t("detail.coef")} value={ratio} sub={t("detail.containers", { count: s.containers })} />
+        {closed ? (
+          <StatTile
+            label={t("detail.frozenLanded")}
+            hint={t("detail.frozenHint")}
+            value={money(frozen, currency, locale)}
+            sub={<>{t("detail.onFob", { fob: money(s.fob, currency, locale) })}{bareAtClose > 0 ? <span className="block">{t("detail.frozenAtFob", { count: bareAtClose })}</span> : null}</>}
+          />
+        ) : (
+          <StatTile label={t("detail.liveLanded")} value={money(s.landed, currency, locale)} sub={t("detail.onFob", { fob: money(s.charged_fob ?? s.fob, currency, locale) })} />
+        )}
+        <StatTile label={t("detail.coef")} value={ratio} sub={[t("detail.containers", { count: s.containers }), closed ? leftOutText(tw, s) : null].filter(Boolean).join(" · ")} />
         {closed ? (
           <StatTile
             label={t("detail.drift")}
@@ -94,7 +110,7 @@ export default async function PeriodPage({ params }: Params) {
           <StatTile label={t("detail.estimated")} hint={t("detail.estimatedHint")} value={money(estimatedTotal, currency, locale)} tone={estimatedTotal > 0 ? "warning" : "default"} sub={estimatedTotal > 0 ? t("detail.estimatedSub", { count: readiness?.containers_with_estimates.length ?? 0 }) : t("detail.estimatedNone")} />
         )}
         {closed ? (
-          <StatTile label={t("detail.liveNow")} value={money(s.live_landed, currency, locale)} sub={t("detail.liveNowSub")} />
+          <StatTile label={t("detail.liveNow")} value={money(today, currency, locale)} sub={t("detail.liveNowSub")} />
         ) : (
           <StatTile label={t("detail.loose")} value={loose} tone={loose > 0 ? "warning" : "default"} sub={loose > 0 ? t("detail.looseSub") : t("detail.looseNone")} />
         )}
@@ -142,7 +158,7 @@ export default async function PeriodPage({ params }: Params) {
                 { n: readiness.containers_with_estimates.length, key: "estimates", href: "/reports/variance" },
                 { n: readiness.invoices_to_review, key: "invoices", href: "/invoices?filter=review" },
                 { n: readiness.unallocated_costs, key: "unallocated", href: "/containers" },
-                { n: readiness.containers_without_cost, key: "nocost", href: "/containers?view=nocost" },
+                { n: readiness.containers_without_cost - held, key: "nocost", href: "/containers?view=nocost" },
               ].map((r) => (
                 <li key={r.key} className="flex items-start gap-2.5">
                   {r.n === 0 ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" aria-hidden /> : <Hourglass className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" aria-hidden />}
@@ -150,6 +166,14 @@ export default async function PeriodPage({ params }: Params) {
                   {r.n > 0 ? <Link href={r.href} className="shrink-0 text-blue-700 hover:underline">{t("ready.see")}</Link> : null}
                 </li>
               ))}
+              {held > 0 ? (
+                // Charges on file that cannot be placed yet: not a container "with no cost".
+                <li className="flex items-start gap-2.5">
+                  <Hourglass className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" aria-hidden />
+                  <span className="flex-1 text-slate-700">{t("ready.held", { count: held, ...heldParams(readiness.held_orders) })}</span>
+                  <Link href={unrated.length > 0 ? rateHref : "/containers"} className="shrink-0 text-blue-700 hover:underline">{t("ready.see")}</Link>
+                </li>
+              ) : null}
             </ul>
           </Panel>
         ) : null}

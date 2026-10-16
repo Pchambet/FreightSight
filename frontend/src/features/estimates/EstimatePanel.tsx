@@ -2,13 +2,14 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Loader2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { btnSecondary } from "@/components/layout/AppShell";
 import { Money } from "@/components/shared/Money";
 import { applyEstimates } from "@/features/actions";
 import type { LandedCostReport } from "@/lib/api/client";
+import { money } from "@/lib/format";
 
 /**
  * Estimated vs invoiced, told so that the figures side by side can be added up.
@@ -21,6 +22,7 @@ import type { LandedCostReport } from "@/lib/api/client";
  */
 export default function EstimatePanel({ report, currency, containerId }: { report: LandedCostReport; currency: string; containerId?: string }) {
   const t = useTranslations("estimates");
+  const locale = useLocale();
   const typeLabel = useTranslations("domain.costType");
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -34,6 +36,9 @@ export default function EstimatePanel({ report, currency, containerId }: { repor
   // must not claim a variance on a report that carries none.
   const pairs = (report as { matched_pairs?: number }).matched_pairs ?? 0;
   const unforecast = Number(totals.unforecast_actual ?? "0");
+  // An invoice the engine could not place (an order with no exchange rate, most often) is invoiced
+  // all the same: counted here, and said not allocated, never shown as "nothing invoiced".
+  const notPlaced = Number(totals.unallocated_actual ?? "0");
   const missing = expected.filter(([, v]) => Number(v.actual) === 0).map(([k]) => typeLabel(k as never));
 
   const apply = () =>
@@ -56,10 +61,9 @@ export default function EstimatePanel({ report, currency, containerId }: { repor
       </div>
       <div>
         <div className="text-xs text-slate-500 uppercase tracking-wider">{t("actual")}</div>
-        <div className="text-base font-semibold tabular-nums"><Money amount={totals.actual ?? "0.00"} currency={currency} /></div>
-        {unforecast > 0 ? (
-          <div className="text-[11px] text-slate-500 mt-0.5">{t("unforecastNote")} <Money amount={totals.unforecast_actual ?? "0.00"} currency={currency} /></div>
-        ) : null}
+        <div className="text-base font-semibold tabular-nums"><Money amount={totals.invoiced ?? totals.actual ?? "0.00"} currency={currency} /></div>
+        {notPlaced > 0 ? <div className="text-[11px] font-medium text-amber-800 mt-0.5">{t("notAllocatedNote", { amount: money(totals.unallocated_actual, currency, locale) })}</div> : null}
+        {unforecast > 0 ? <div className="text-[11px] text-slate-500 mt-0.5">{t("unforecastNote", { amount: money(totals.unforecast_actual, currency, locale) })}</div> : null}
       </div>
       <div title={t("allocatedHint")} className="border-l border-slate-200 pl-8">
         <div className="text-xs text-slate-500 uppercase tracking-wider">{t("allocated")}</div>

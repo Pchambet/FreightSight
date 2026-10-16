@@ -1544,9 +1544,9 @@
     "estimated": "Still estimated",
     "estimatedHint": "Estimated charges no invoice has replaced yet.",
     "actual": "Invoiced",
-    "unforecastNote": "of which, with no estimate:",
+    "unforecastNote": "of which {amount} invoiced with no prior estimate",
     "allocated": "Allocated",
-    "allocatedHint": "Still estimated + invoiced.",
+    "allocatedHint": "Still estimated + invoiced, excluding charges not allocated.",
     "variance": "Variance",
     "varianceHint": "Invoiced minus estimated, on the charges where an invoice has replaced an estimate — and only those.",
     "varianceBasis": "{count, plural, one {# charge matched} other {# charges matched}}",
@@ -1567,7 +1567,8 @@
     "closed": "closed",
     "close": "Close without invoice",
     "closeReason": "Reason (e.g. never invoiced by the forwarder)",
-    "closed_ok": "Estimate closed"
+    "closed_ok": "Estimate closed",
+    "notAllocatedNote": "of which {amount} not allocated"
   },
   "rateCards": {
     "hint": "One rate card per cost type. Applied on demand to a container to create estimated costs, later replaced by the real invoice. A {demurrage} rate card is read as a daily rate and feeds the avoided-demurrage estimate.",
@@ -1980,7 +1981,7 @@
       "exposedNoDate": "is exposed to demurrage, with no last free day on file.",
       "review": "{count, plural, one {# read invoice is waiting for your review before it becomes a cost.} other {# read invoices are waiting for your review before they become costs.}}",
       "reviewAction": "Review",
-      "uncosted": "{count, plural, one {# loaded container has no cost yet: its landed cost equals its purchase price.} other {# loaded containers have no cost yet: their landed cost equals their purchase price.}}",
+      "uncosted": "{count, plural, one {# loaded container has no charge yet, estimated or invoiced: it is counted in no landed cost.} other {# loaded containers have no charge yet, estimated or invoiced: they are counted in no landed cost.}}",
       "soFar": "{amount} so far",
       "failed": "{count, plural, one {# invoice could not be read.} other {# invoices could not be read.}}",
       "failedAction": "See",
@@ -1988,7 +1989,9 @@
       "estimatesAction": "See variances",
       "uncostedAction": "See",
       "unloaded": "{count, plural, one {# container carries no order line.} other {# containers carry no order line.}}",
-      "unloadedAction": "See"
+      "unloadedAction": "See",
+      "held": "{count, plural, one {# container has charges on file waiting to be allocated: its invoices are recorded, but an order with no exchange rate or a missing figure keeps them from being spread.} other {# containers have charges on file waiting to be allocated: their invoices are recorded, but an order with no exchange rate or a missing figure keeps them from being spread.}}",
+      "heldAction": "See"
     },
     "empty": {
       "title": "No figures to show yet",
@@ -1999,7 +2002,7 @@
     },
     "kpi": {
       "coef": "Landed cost ratio",
-      "coefHint": "Landed cost divided by purchase price (FOB). 1.27: every euro purchased costs you €1.27 once the goods are at your door. Import VAT excluded.",
+      "coefHint": "Landed cost divided by purchase price (FOB): what each euro of goods bought costs you once the goods are at your door. Import VAT excluded.",
       "coefSub": "i.e. {pct} of charges on the purchase price",
       "fees": "Landing charges",
       "feesHint": "Everything added to the purchase price to bring the goods to you: freight, insurance, port charges, customs, delivery, demurrage. Import VAT excluded.",
@@ -2015,7 +2018,8 @@
       "varianceSub": "{pairs, plural, one {# cost trued up} other {# costs trued up}}, for {estimated} estimated",
       "varianceNone": "No estimate replaced by an invoice in the period.",
       "dndAtRisk": "{amount} running",
-      "feesEstimated": "of which {amount} estimated"
+      "feesEstimated": "of which {amount} estimated",
+      "feesLeftOut": "{count, plural, one {excluding # container with no charge allocated ({fob} of goods)} other {excluding # containers with no charge allocated ({fob} of goods)}}"
     },
     "structure": {
       "title": "Landing charges per month",
@@ -2046,7 +2050,8 @@
         "unitLanded": "Unit landed",
         "coef": "Ratio"
       },
-      "estimated": "estimated"
+      "estimated": "estimated",
+      "leftOut": "+ {quantity} not counted"
     },
     "orgChanged": {
       "title": "Your last action was not saved",
@@ -2184,7 +2189,9 @@
       "marginOtherCurrency": "Selling price in another currency: no margin computed.",
       "marginLast": "{margin} on the last arrival",
       "withEstimates": "including {count, plural, one {# container still estimated} other {# containers still estimated}}",
-      "withEstimatesUncounted": "including costs still estimated"
+      "withEstimatesUncounted": "including costs still estimated",
+      "onTheWay": "{qty} on the way",
+      "counted": "average over the {qty} units counted"
     },
     "trend": {
       "title": "Unit cost, arrival after arrival",
@@ -2240,7 +2247,8 @@
       "failed": "Could not save the product sheet",
       "numberInvalid": "One of the numbers cannot be read. Use digits, with a dot for decimals.",
       "scopeHint": "Editing the sheet changes no landed cost already computed: values are copied onto new order lines only."
-    }
+    },
+    "leftOut": "+ {quantity} not counted"
   },
   "sample": {
     "banner": "This company holds sample data: the figures you see may be those of a fictional importer.",
@@ -2295,13 +2303,14 @@
       "cancel": "Cancel",
       "working": "Working…",
       "closed": "{month} is closed.",
-      "reopened": "{month} is reopened."
+      "reopened": "{month} is reopened.",
+      "blocked": "{count, plural, one {This month cannot be closed: order {orders} has no exchange rate. Enter its rate to close it.} other {This month cannot be closed: orders {orders} have no exchange rate. Enter their rates to close it.}}"
     },
     "detail": {
       "closedSubtitle": "Closed on {date} by {by}. The figures below are those of the close.",
       "openSubtitle": "{count, plural, one {# container arrived in that month} other {# containers arrived in that month}}. Live figures: they move with every cost recorded.",
       "frozenLanded": "Frozen landed cost",
-      "frozenHint": "The month's landed cost at the time of closing. It no longer changes, whatever happens next.",
+      "frozenHint": "The month's landed cost as it went into the accounts at closing, a container with no charge counted at its FOB. It no longer changes: whatever happens next makes up the drift.",
       "liveLanded": "Landed cost to date",
       "onFob": "on {fob} purchased",
       "coef": "Landed cost ratio",
@@ -2323,7 +2332,8 @@
       "fob": "Purchase price (FOB)",
       "ofFob": "of FOB",
       "driftPosted": "The whole gap is posted.",
-      "driftPartly": "of which {outstanding} still to post"
+      "driftPartly": "of which {outstanding} still to post",
+      "frozenAtFob": "{count, plural, one {including # container with no charge, at its FOB} other {including # containers with no charge, at their FOB}}"
     },
     "ready": {
       "title": "Before closing",
@@ -2332,8 +2342,9 @@
       "estimates": "{count, plural, =0 {No container carries an estimate waiting for its invoice.} one {# container still carries estimated costs.} other {# containers still carry estimated costs.}}",
       "invoices": "{count, plural, =0 {No invoice waiting for review.} one {# invoice is waiting for your review.} other {# invoices are waiting for your review.}}",
       "unallocated": "{count, plural, =0 {Every cost is allocated.} one {# cost could not be allocated.} other {# costs could not be allocated.}}",
-      "nocost": "{count, plural, =0 {Every loaded container has costs.} one {# loaded container has no cost.} other {# loaded containers have no cost.}}",
-      "norate": "{count, plural, =0 {Every order of the month has an exchange rate.} one {# order with no exchange rate: its value is unknown, the month cannot be closed.} other {# orders with no exchange rate: their value is unknown, the month cannot be closed.}}"
+      "nocost": "{count, plural, =0 {Every loaded container has charges, estimated or invoiced.} one {# loaded container has no charge, estimated or invoiced.} other {# loaded containers have no charge, estimated or invoiced.}}",
+      "norate": "{count, plural, =0 {Every order of the month has an exchange rate.} one {# order with no exchange rate: its value is unknown, the month cannot be closed.} other {# orders with no exchange rate: their value is unknown, the month cannot be closed.}}",
+      "held": "{count, plural, one {# container has charges on file waiting to be allocated} other {# containers have charges on file waiting to be allocated}}{orderCount, plural, =0 {.} one {: order {orders} has no exchange rate.} other {: orders {orders} have no exchange rate.}}"
     },
     "estimates": {
       "title": "Containers still on estimates",
@@ -2738,13 +2749,14 @@
         "containers": "Containers arrived in the period",
         "landed": "Total landed cost",
         "estimated": "Still estimated, no invoice",
-        "withoutCost": "Containers with no cost at all",
+        "withoutCost": "Containers with no charge, estimated or invoiced",
         "toReview": "Invoices waiting for review, to date",
         "fx": "Exchange rates of the costs",
         "fxSource": "{source}: {count}",
         "findings": "Findings on the quality of the figures",
         "notCompared": "Containers not compared (no route or no size)",
-        "withoutDate": "Containers without a date, outside every period"
+        "withoutDate": "Containers without a date, outside every period",
+        "held": "Containers with charges on file waiting to be allocated"
       },
       "footer": "Drawn up from the issuer's orders and invoices. An “established” finding is a measured fact; “to check” is a question to ask, not an accusation.",
       "method": {
@@ -2847,6 +2859,9 @@
     "total": "{count, plural, one {One container has no charge yet, estimated or invoiced: its landed cost would only be its FOB. It is therefore left out of the landed cost, the coefficient, the unit costs and the margins; its goods are still counted in the FOB.} other {# containers have no charge yet, estimated or invoiced: their landed cost would only be their FOB. They are therefore left out of the landed cost, the coefficient, the unit costs and the margins; their goods are still counted in the FOB.}}",
     "count": "{count, plural, one {# container with no charge, not counted} other {# containers with no charge, not counted}}",
     "box": "No charge, estimated or invoiced: this would only be the FOB",
-    "see": "See the containers"
+    "see": "See the containers",
+    "held": "{count, plural, one {One container has charges on file that are waiting to be allocated} other {# containers have charges on file that are waiting to be allocated}}{orderCount, plural, =0 {.} one {: order {orders} has no exchange rate.} other {: orders {orders} have no exchange rate.}} {count, plural, one {Until they are, this container is left out of the landed cost, the coefficient, the unit costs and the margins; its goods are still counted in the FOB.} other {Until they are, these containers are left out of the landed cost, the coefficient, the unit costs and the margins; their goods are still counted in the FOB.}}",
+    "heldCount": "{count, plural, one {# container with charges waiting to be allocated, not counted} other {# containers with charges waiting to be allocated, not counted}}",
+    "heldBox": "Charges on file, waiting to be allocated{orderCount, plural, =0 {} one {: order {orders} has no exchange rate} other {: orders {orders} have no exchange rate}}"
   }
 }

@@ -93,7 +93,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       </form>
 
       <FobMissing lines={a?.totals.fob_missing_lines} className="mb-6" />
-      <WithoutCharge containers={a?.totals.containers_without_charge} className="mb-6" />
+      <WithoutCharge of={a?.totals} className="mb-6" />
 
       {a && a.buckets.length > 0 ? (
         <Panel title={t(`chart.${groupBy}.title`)} subtitle={t(`chart.${groupBy}.subtitle`)} className="mb-6">
@@ -107,7 +107,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             />
           ) : groupBy === "cost_type" ? (
             a.totals.charged_fob === null ? (
-              a.totals.fob_missing ? <FobMissing lines={a.totals.fob_missing_lines} href={null} /> : <WithoutCharge containers={a.totals.containers_without_charge} href={null} />
+              a.totals.fob_missing ? <FobMissing lines={a.totals.fob_missing_lines} href={null} /> : <WithoutCharge of={a.totals} href={null} />
             ) : <BreakdownBar fob={Number(a.totals.charged_fob)} families={foldFamilies(a.totals.by_cost_type as Record<string, string>)} currency={cur} locale={locale} fobLabel={t("chart.fob")} familyLabels={familyLabels} ofFobLabel={t("chart.ofFob")} />
           ) : (
             <StackedRows
@@ -135,7 +135,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                         {groupBy !== "cost_type" ? (
                           <>
                             {b.fob === null ? <FobMissingLine /> : null}
-                            <WithoutChargeLine count={b.containers_without_charge} />
+                            <WithoutChargeLine of={b} />
                           </>
                         ) : null}
                       </td>
@@ -149,7 +149,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                     </tr>
                   ))}
                   <tr className="bg-slate-50 font-medium">
-                    <td className={td}>{tc("total")}<WithoutChargeLine count={a.totals.containers_without_charge} /></td><td className={tdRight}>{a.totals.load_count}</td><td className={tdRight}>{qty(a.totals.quantity, locale)}</td>
+                    <td className={td}>{tc("total")}<WithoutChargeLine of={a.totals} /></td><td className={tdRight}>{a.totals.load_count}</td><td className={tdRight}>{qty(a.totals.quantity, locale)}</td>
                     <td className={tdRight}><Money amount={a.totals.fob} currency={cur} /></td><td className={tdRight}><Money amount={a.totals.allocated} currency={cur} /></td><td className={tdRight}><Money amount={a.totals.landed} currency={cur} /></td>
                     <td className={`${tdRight} text-violet-800`}>{Number(a.totals.estimated) > 0 ? <Money amount={a.totals.estimated} currency={cur} /> : "—"}</td>
                     <td className={tdRight}>{a.totals.freight_share_pct != null ? pct(a.totals.freight_share_pct, locale) : "—"}</td>
@@ -168,7 +168,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <thead className="bg-slate-50"><tr><th className={th}>{t("th.sku")}</th><th className={thRight}>{t("th.quantity")}</th><th className={thRight}>{t("th.fob")}</th><th className={thRight}>{t("th.landed")}</th><th className={thRight}>{t("th.unit")}</th></tr></thead>
               <tbody className="divide-y divide-slate-200">
                 {!a || a.skus.length === 0 ? <tr><td colSpan={5} className="px-5 py-6 text-center text-sm text-slate-500">{t("empty")}</td></tr> : a.skus.map((s) => (
-                  <tr key={s.sku}><td className={`${td} font-mono`}>{s.sku}{Number(s.estimated) > 0 ? estimatedBadge : null}{s.fob === null ? <FobMissingLine /> : null}<WithoutChargeLine count={s.containers_without_charge} /></td><td className={tdRight}>{qty(s.quantity, locale)}</td><td className={tdRight}><Money amount={s.fob} currency={cur} /></td><td className={tdRight}><Money amount={s.landed} currency={cur} /></td><td className={`${tdRight} font-medium text-emerald-700`}><Money amount={s.unit_landed_cost} currency={cur} /></td></tr>
+                  <tr key={s.sku}><td className={`${td} font-mono`}>{s.sku}{Number(s.estimated) > 0 ? estimatedBadge : null}{s.fob === null ? <FobMissingLine /> : null}<WithoutChargeLine of={s} /></td><td className={tdRight}>{qty(s.quantity, locale)}</td><td className={tdRight}><Money amount={s.fob} currency={cur} /></td><td className={tdRight}><Money amount={s.landed} currency={cur} /></td><td className={`${tdRight} font-medium text-emerald-700`}><Money amount={s.unit_landed_cost} currency={cur} /></td></tr>
                 ))}
               </tbody>
             </table>
