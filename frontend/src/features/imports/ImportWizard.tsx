@@ -88,7 +88,10 @@ export default function ImportWizard({
   // warning sits beside it once a preview has detected the ambiguity — or a weight column left unread
   // because only a person can say which it is.
   const unitColumnWarning = (field: string) => warnings.find((w) => (w.code === "UNIT_COLUMN_AMBIGUOUS" || w.code === "UNIT_COLUMN_UNMAPPED") && w.field === field);
-  const errorRows = new Set(errors.map((e) => e.row)).size;
+  // What the import leaves out is the report's own count, not the rows that carry an error: a box or a
+  // bill refused whole drops rows with no error of their own, and so does a refund with the line it cancels.
+  const leftOut = report ? Math.max(report.row_count - report.valid_rows, 0) : 0;
+  const leftWithoutError = Math.max(leftOut - new Set(errors.map((e) => e.row)).size, 0);
   const missingRequired = fields.filter((f) => f.required && !mapping[f.field]).map((f) => fieldName(f.field));
   const missingOneOf = (info?.required_one_of ?? []).filter((group) => !group.some((f) => mapping[f])).map((group) => group.map(fieldName));
 
@@ -325,7 +328,10 @@ export default function ImportWizard({
             ) : null}
             {errors.length ? (
               <IssueGroups
-                title={t("review.errorSummary", { rows: errorRows, errors: errors.length })}
+                title={[
+                  t("review.errorSummary", { rows: leftOut, total: report.row_count, errors: errors.length }),
+                  leftWithoutError ? t("review.leftWithoutError", { count: leftWithoutError, kind: job.kind }) : "",
+                ].join(" ").trim()}
                 issues={errors}
                 tone="red"
                 kind={job.kind}
