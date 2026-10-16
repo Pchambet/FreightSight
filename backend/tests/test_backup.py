@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -16,12 +17,14 @@ import pytest
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.orm import Session
 
+from app import backup as command  # imported here: importing it configures logging, which caplog survives
 from app.adapters.s3 import S3Client, S3NotFound
 from app.core.tenancy import set_current_org
 from app.domain.models import Organization, Supplier
 from app.ops.backup import (
     MAGIC,
     BackupError,
+    BackupResult,
     decode_key,
     decrypt,
     dump,
@@ -427,3 +430,32 @@ def test_the_success_line_is_structured_and_goes_to_stdout(
     assert success[0]["size_bytes"] > 0  # a field to filter on, not a sentence to match
     assert success[0]["plaintext_sha256"]
     assert "backup.succeeded" not in captured.err
+
+
+def test_the_nightly_command_records_its_backup_and_fails_loudly_when_it_cannot(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """`python -m app.backup`: the worker's freshness check reads the row this leaves, on the owner's
+    URL; an upload it could not record exits non-zero at ERROR, and Sentry refusing to start does not
+    stop the backup."""
+    url = "postgresql+psycopg://owner@db/fs"
+    monkeypatch.setenv("MIGRATIONS_DATABASE_URL", url)
+    result = BackupResult("backups/prod/k.dump.enc", 10, "", 1.0, [], datetime.now(UTC))
+    monkeypatch.setattr(command, "run", lambda: result)
+    recorded: list[tuple[str, BackupResult]] = []
+    monkeypatch.setattr(command, "record_success", lambda u, r: recorded.append((u, r)))
+
+    def no_sentry(_settings: object) -> bool:
+        raise RuntimeError("sentry is down")
+
+    monkeypatch.setattr(command, "init_sentry", no_sentry)
+    assert command.main() == 0
+    assert recorded == [(url, result)]
+
+    def cannot_record(_url: str, _result: BackupResult) -> None:
+        raise BackupError("written but could not be recorded")
+
+    monkeypatch.setattr(command, "record_success", cannot_record)
+    with caplog.at_level("ERROR"):
+        assert command.main() == 1
+    assert "could not be recorded" in caplog.text
