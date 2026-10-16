@@ -50,7 +50,7 @@ function CreditForm({ cost, revalidate, onDone }: { cost: Cost; revalidate: stri
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[9rem_minmax(0,1fr)_10rem]">
         <div>
           <label className={label} htmlFor={`credit-amount-${cost.id}`}>{t("creditAmount", { currency: cost.currency })}</label>
-          <input id={`credit-amount-${cost.id}`} name="amount" required inputMode="decimal" placeholder={amountPlaceholder(locale)} className={`${input} text-right tabular-nums`} />
+          <input id={`credit-amount-${cost.id}`} name="amount" required autoFocus inputMode="decimal" placeholder={amountPlaceholder(locale)} className={`${input} text-right tabular-nums`} />
         </div>
         <div>
           <label className={label} htmlFor={`credit-number-${cost.id}`}>{t("creditNumber")}</label>
@@ -81,6 +81,7 @@ export default function CostLedger({ report, currency, revalidate }: { report: L
   const [pending, startTransition] = useTransition();
   const [toDelete, setToDelete] = useState<Cost | null>(null);
   const [crediting, setCrediting] = useState<string | null>(null);
+  const creditCost = report.costs.find((c) => c.id === crediting) ?? null;
   const lastTriggerRef = useRef<HTMLButtonElement | null>(null);
   const router = useRouter();
 
@@ -182,6 +183,7 @@ export default function CostLedger({ report, currency, revalidate }: { report: L
                           disabled={pending}
                           onClick={() => setCrediting(crediting === c.id ? null : c.id)}
                           aria-expanded={crediting === c.id}
+                          aria-controls={crediting === c.id ? "credit-form" : undefined}
                           aria-label={t("creditAddLabel")}
                           className="text-xs text-blue-700 hover:underline disabled:opacity-50"
                         >
@@ -221,19 +223,19 @@ export default function CostLedger({ report, currency, revalidate }: { report: L
                     </td>
                   </tr>
                 ) : null}
-                {crediting === c.id ? (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-3 bg-blue-50/40 whitespace-normal">
-                      <CreditForm cost={c} revalidate={revalidate} onDone={() => setCrediting(null)} />
-                    </td>
-                  </tr>
-                ) : null}
                 </Fragment>
               ))
             )}
           </tbody>
         </table>
       </div>
+      {/* Below the table, not in a row of it: inside the horizontal scroll the form's fields and its
+          button ran off the screen on a laptop and on a phone. */}
+      {creditCost ? (
+        <div id="credit-form" className="border-t border-slate-200 bg-blue-50/40 px-4 py-3">
+          <CreditForm key={creditCost.id} cost={creditCost} revalidate={revalidate} onDone={() => setCrediting(null)} />
+        </div>
+      ) : null}
     </Card>
     <ConfirmDialog
       open={toDelete !== null}
