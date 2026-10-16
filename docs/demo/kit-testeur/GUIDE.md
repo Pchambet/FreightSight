@@ -3,6 +3,17 @@
 **Pour qui :** quelqu'un qui teste le site en ligne et n'a encore rien vu de concret.
 **Durée :** 45 min. **Il vous faut :** les 6 fichiers de ce dossier et un compte sur le site.
 
+<!-- kit-dates -->
+> **Ce kit a été préparé le 16/10/2026.** Ses dates en dépendent, le guide y renvoie :
+>
+> - le journal des frais (fichier 4) couvre le trimestre **du 01/07/2026 au 30/09/2026** : c'est la période de l'audit (étape 6) ;
+> - **MSCU6702211** a été déchargé le **13/10/2026**, son dernier jour franc est le **17/10/2026** (étape 2) ;
+> - **MSCU6715564** est attendu le **25/10/2026** (étape 7).
+>
+> Ces dates passées, rien ne casse : un dernier jour franc dépassé, ce sont des surestaries qui
+> courent, et l'audit se lit sur la période ci-dessus. Les montants, eux, ne changent jamais.
+<!-- /kit-dates -->
+
 Une organisation vide ne montre rien : FreightSight ne vaut que sur des conteneurs, des commandes et des
 factures. Ce kit vous donne ceux d'une fausse PME, tels qu'elle les enverrait vraiment : un export de
 son ERP, le tableau de suivi de son transitaire, le journal des achats de son comptable et deux
@@ -46,10 +57,10 @@ devez voir**. Si vous voyez autre chose, c'est un retour précieux — notez-le.
 | Fichier | Ce que c'est, dans la vraie vie |
 |---|---|
 | `1-tarif.csv` | La fiche article de l'ERP : code douanier, taux de droits, poids, volume, prix de vente |
-| `2-commandes.csv` | L'export des commandes fournisseurs (11 commandes, 14 lignes) |
+| `2-commandes.csv` | L'export des commandes fournisseurs (11 commandes, 14 lignes, 3 fournisseurs) |
 | `3-suivi-conteneurs.csv` | Le tableau de suivi des arrivages (10 conteneurs, dont un encore au port et un en mer) |
 | `4-frais-trimestre.csv` | Le journal des achats du dernier trimestre, tel que le comptable l'exporte |
-| `5-facture-transitaire-MSCU6702211.pdf` | La facture du conteneur arrivé cette semaine — **nouvelle** |
+| `5-facture-transitaire-MSCU6702211.pdf` | La facture du conteneur arrivé juste avant la préparation du kit — **nouvelle** |
 | `6-facture-transitaire-MSCU6678835.pdf` | Une facture **déjà saisie** en compta, renvoyée par erreur |
 
 Ces fichiers s'ouvrent dans Excel ; inutile de les modifier.
@@ -67,16 +78,18 @@ Ces fichiers s'ouvrent dans Excel ; inutile de les modifier.
 
 ### Étape 1 — Charger la société (10 min)
 
-Menu **Imports → Nouvel import**. Pour chaque fichier : choisir le type, *Déposer et détecter les
-colonnes* (les colonnes se reconnaissent seules), *Valider (à blanc)*, lire l'aperçu — **rien n'est
-encore écrit** — puis *Importer*. L'ordre compte : chaque fichier s'appuie sur les précédents.
+Menu **Imports → Nouvel import**. Pour chaque fichier : **choisir vous-même le type** (celui qui est
+coché au départ n'est pas forcément le bon), *Déposer et détecter les colonnes* (les colonnes se
+reconnaissent seules), *Valider (à blanc)*, lire l'aperçu — **rien n'est encore écrit** — puis
+*Importer*. L'ordre compte : chaque fichier s'appuie sur les précédents.
 
 - [ ] Type **Tarif** → `1-tarif.csv` → **5 fiches produits**.
-- [ ] Type **Lignes de commande** → `2-commandes.csv` → **11 commandes, 14 lignes, 3 fournisseurs**.
-  Les avertissements « repris du tarif » sont normaux : poids, volume et taux de droits viennent des
-  fiches produits, vous n'avez pas à les ressaisir.
+- [ ] Type **Commandes** → `2-commandes.csv` → **11 commandes, 14 lignes**. Les avertissements qui
+  disent que le poids, le volume et le taux de droits sont repris de la fiche produit sont normaux :
+  ils viennent du tarif, vous n'avez pas à les ressaisir.
 - [ ] Type **Suivi des conteneurs** → `3-suivi-conteneurs.csv` → **10 conteneurs, 14 chargements**, et un
-  avertissement : *MSCU6702211 n'est jamais sorti du terminal, ses surestaries courent*. Retenez-le.
+  avertissement sur **MSCU6702211** : déchargé, jamais sorti du terminal, ses surestaries courent.
+  Retenez-le.
 - [ ] Type **Frais** → `4-frais-trimestre.csv` → l'aperçu montre l'argent d'abord : **42 coûts pour
   45 758,53 € HT**, par type (fret 29 510 €, droits 7 878,53 €, camionnage 4 265 €…), et **un avoir de
   −80 € écarté et compté** — un avoir n'est pas un coût.
@@ -86,17 +99,17 @@ encore écrit** — puis *Importer*. L'ordre compte : chaque fichier s'appuie su
 
 ### Étape 2 — Le conteneur qui va coûter cher (3 min)
 
-- [ ] Menu **Conteneurs**. **MSCU6702211** est signalé à risque : déchargé il y a trois jours au Havre,
-  toujours au terminal. Son **dernier jour franc est le lendemain du jour où le kit a été préparé** — si
-  vous testez plus tard, il est dépassé et les surestaries courent déjà.
-- [ ] La **cloche** en haut à droite porte **1 alerte** pour ce conteneur.
+- [ ] Menu **Conteneurs**. **MSCU6702211** est signalé à risque : déchargé au Havre, toujours au
+  terminal. Son dernier jour franc est celui de l'encadré en tête de ce guide ; une fois cette date
+  passée, le conteneur l'a dépassé et les surestaries courent : même signal, en plus grave.
+- [ ] La **cloche** en haut à droite porte **1 alerte** pour ce conteneur (menu **Alertes** pour la lire).
 
 > **Valeur :** sans l'outil, on découvre les surestaries sur la facture de l'armateur, un mois après.
 
 ### Étape 3 — La facture du transitaire arrive (7 min)
 
-- [ ] Menu **Factures** → *Déposer une facture* → `5-facture-transitaire-MSCU6702211.pdf`. Attendre
-  quelques secondes la lecture.
+- [ ] Menu **Factures** → *Déposer une facture* → `5-facture-transitaire-MSCU6702211.pdf` → *Déposer
+  et lire*. Attendre quelques secondes la lecture.
 - [ ] La facture **n° 0571** de Marée Haute Logistique (5 943,09 € HT, TVA 0 % : transport international
   exonéré) est lue en
   **5 lignes**, chacune typée et rattachée au conteneur **MSCU6702211** :
@@ -109,15 +122,21 @@ encore écrit** — puis *Importer*. L'ordre compte : chaque fichier s'appuie su
   | Camionnage Le Havre – Carquefou | 440,00 € |
   | Débours droits de douane | 1 293,09 € |
 
-- [ ] *Retenir les 5 lignes*, puis *Confirmer*. Rien n'est devenu un coût avant ce clic.
-- [ ] Ouvrir le conteneur **MSCU6702211** : le **coût rendu par ligne** s'affiche.
+- [ ] *Retenir les 5 lignes*. Avant de confirmer, vérifiez que le bandeau au-dessus des lignes les compte
+  **toutes** comme retenues et que leur somme égale le total HT de la facture ; sinon recliquez
+  *Retenir*. Puis *Confirmer*. Rien n'est devenu un coût avant ce clic.
+- [ ] Ouvrir le conteneur **MSCU6702211** (le lien « Voir le conteneur » de la page de la facture y
+  mène) : le **coût rendu par ligne de commande** s'affiche.
   **Parasol 3 m : 47,91 €** pour un prix d'achat de 38,50 € (+24 %) ; **coussin : 3,95 €** pour 3,20 €.
 
 ### Étape 4 — La facture déjà payée (3 min)
 
 - [ ] Déposer `6-facture-transitaire-MSCU6678835.pdf`. Chaque ligne est signalée en rouge : *un coût de ce
   type et de ce montant existe déjà sur ce conteneur* (la facture est dans le journal du comptable).
-- [ ] Essayer *Confirmer* : **refusé** — « Cette facture est déjà enregistrée ». Cliquer *Rejeter*.
+  Comme ces lignes sont des doublons, aucun bouton ne les retient en bloc : **cochez une ligne à
+  la main** (*Accepter*).
+- [ ] Essayer *Confirmer* : **refusé**, l'outil dit que cette facture est déjà enregistrée. Cliquer
+  *Rejeter*.
 
 > **Valeur :** la même facture envoyée deux fois, par mail puis par courrier, ne sera jamais comptée deux
 > fois.
@@ -127,7 +146,7 @@ encore écrit** — puis *Importer*. L'ordre compte : chaque fichier s'appuie su
 - [ ] Ouvrir le conteneur **MSCU6614208** (600 parasols + 1 500 lots de lampes solaires).
   Coût unitaire : **parasol 45,04 €**, **lampe 7,70 €** — les frais sont répartis à la valeur, comme dans
   la plupart des tableurs.
-- [ ] Dans **Ventilation détaillée**, *Et si la ventilation était :* passer le **fret maritime**, les
+- [ ] Dans **Coût rendu par ligne de commande**, *Et si la ventilation était :* passer le **fret maritime**, les
   **THC** et le **camionnage** **au volume**. **Parasol 46,13 €**, **lampe 7,27 €**. C'est une simulation,
   rien n'est enregistré.
 
@@ -136,7 +155,9 @@ encore écrit** — puis *Importer*. L'ordre compte : chaque fichier s'appuie su
 
 ### Étape 6 — L'audit du trimestre : le moment « aïe » (10 min)
 
-- [ ] Menu **Audit des coûts** → **Dernier trimestre clos** (c'est le trimestre du journal).
+- [ ] Menu **Audit des coûts** → période **du … au …** du trimestre de l'encadré en tête de ce guide
+  (champs *Du* et *Au*, puis *Appliquer*). Tant que ce trimestre est le dernier clos, le raccourci
+  *Dernier trimestre clos* donne la même chose.
 - [ ] Dans *Le coefficient que vous appliquez*, saisir **1,12**.
 - [ ] Lire **L'essentiel** :
   - **8 conteneurs**, 189 180 € achetés FOB, **234 938,53 € de coût rendu** ;
@@ -153,7 +174,8 @@ encore écrit** — puis *Importer*. L'ordre compte : chaque fichier s'appuie su
     Logistique, sur deux factures : *établi* ;
   - **MSCU6651475** — camionnage à 1 150 € quand la médiane de la ligne Ningbo → Le Havre est à 435 € :
     *à vérifier* (une question à poser, pas une économie promise) ;
-  - **CMAU4437293** — 9 jours au terminal, 380 € de surestaries.
+  - **CMAU4437293** — resté 9 jours au terminal, soit 5 jours après son dernier jour franc : 380 € de
+    surestaries.
 - [ ] Essayer *Imprimer ou enregistrer en PDF*, le lien de partage et l'export *Constats (CSV)*.
 
 > **Valeur :** c'est le document que le DAF pose devant son patron, et que l'on vend en entrée
@@ -161,10 +183,11 @@ encore écrit** — puis *Importer*. L'ordre compte : chaque fichier s'appuie su
 
 ### Étape 7 — Le conteneur encore en mer : estimer avant la facture (5 min)
 
-- [ ] **Paramètres → Barèmes d'estimation** : ajouter quatre barèmes, par conteneur, en EUR —
-  **Fret maritime 3 650**, **Manutention portuaire (THC) 285**, **Frais de dédouanement 145**,
-  **Camionnage / livraison 440**. (N'ajoutez pas de barème de surestaries pour ce test.)
-- [ ] Ouvrir le conteneur **MSCU6715564** (520 chaises, arrivée prévue dans quelques jours) →
+- [ ] **Paramètres → Barèmes d'estimation** : ajouter quatre barèmes, par conteneur, au forfait, en
+  EUR — **Fret maritime 3 650**, **Manutention portuaire (THC) 285**, **Frais de dédouanement 145**,
+  **Camionnage / livraison 440**. (N'ajoutez pas de barème de surestaries pour ce test. La section
+  peut se refermer après chaque ajout : rouvrez-la pour retrouver vos barèmes.)
+- [ ] Ouvrir le conteneur **MSCU6715564** (520 chaises, arrivée prévue à la date de l'encadré) →
   *Estimer avec les barèmes*. Les droits de douane s'estiment seuls à partir du tarif.
 - [ ] Coût rendu **estimé de la chaise : 30,96 €** pour un prix d'achat de 21,50 € — avant toute facture.
   Quand la vraie facture arrivera, elle remplacera chaque estimé un pour un, et l'écart sera mesuré.
@@ -174,7 +197,8 @@ encore écrit** — puis *Importer*. L'ordre compte : chaque fichier s'appuie su
 - [ ] **Vue d'ensemble** : coefficient d'approche par mois et par fournisseur.
 - [ ] **Références** → `CHA-ALU-ANT` : le coût unitaire de la chaise, conteneur après conteneur.
 - [ ] **Rapports** : coût rendu par fournisseur, par route, par type de frais ; exports CSV.
-- [ ] **Historique** : chaque import, chaque facture confirmée, qui l'a fait et quand.
+- [ ] **Historique** : un journal en ajout seul — les factures confirmées, les imports de frais, vos
+  modifications, qui les a faites et quand.
 - [ ] Le sélecteur de langue : tout existe aussi en anglais.
 
 ---
@@ -196,14 +220,15 @@ Notez les réponses au fil de l'eau, même en vrac :
 | L'import des frais refuse des lignes « conteneur inconnu » | Le suivi des conteneurs n'a pas été importé avant : respecter l'ordre 1 → 4 |
 | « Ce fichier a déjà été importé » | Normal : réimporter compterait chaque frais deux fois. Passer au fichier suivant |
 | La facture reste « Déposée » sans lignes | Attendre 30 s et rafraîchir ; sinon le signaler (le lecteur tourne en arrière-plan) |
-| Les chiffres ne sont pas ceux du guide | L'organisation contenait déjà des données : recommencer dans une organisation neuve |
+| Les chiffres ne sont pas ceux du guide | L'organisation contenait déjà des données : recommencer dans une organisation neuve. Les dates, elles, changent d'un kit à l'autre ; les montants non |
 | L'audit dit qu'une facture est à relire | La facture n° 6 n'a pas été rejetée (étape 4) |
 
 ## Pour régénérer le kit
 
 Les dates sont calculées par rapport au jour de génération (le journal couvre le dernier trimestre clos,
 un conteneur vient d'arriver, un autre est en mer) ; le script refuse les quatre premiers jours d'un
-trimestre. Avant de confier le kit à un nouveau testeur :
+trimestre. Il réécrit aussi l'encadré de dates en tête de ce guide. Avant de confier le kit à un nouveau
+testeur, ou dès que ces dates sont loin :
 
 ```bash
 python3 docs/demo/kit-testeur/generate_kit.py     # Google Chrome imprime les PDF
@@ -211,4 +236,5 @@ cd backend && uv run pytest tests/test_tester_kit.py
 ```
 
 Les montants ne dépendent pas de la date ; `backend/tests/test_tester_kit.py` charge ces fichiers par
-l'API et vérifie chaque chiffre cité ici.
+l'API, vérifie chaque chiffre cité ici, et que les fichiers sont bien ceux que le script écrit pour le
+jour indiqué dans l'encadré.

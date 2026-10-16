@@ -5,13 +5,21 @@ quotes what each screen will show. This loads the very files committed next to i
 the two PDFs as Chrome printed them — and holds the figures the guide quotes, so that the guide and the
 screens can never tell a tester two different things. Nothing here depends on the day it runs: the kit's
 dates are those of the day it was generated, and the bell that rings on the day of an import is held by
-`test_imports_containers`, on dates taken from today."""
+`test_imports_containers`, on dates taken from today.
+
+A kit goes stale all the same (a last free day passes, a quarter turns), and the cure is to regenerate it:
+the second half of this file holds that `generate_kit.py` writes the same amounts whatever the day, and
+that the committed files are exactly what it writes for the day GUIDE.md says it prepared them."""
 
 from __future__ import annotations
 
 import csv
+import importlib.util
+import re
+import sys
 import uuid
 from datetime import date, timedelta
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +33,15 @@ from app.jobs import handlers
 
 KIT = Path(__file__).resolve().parents[2] / "docs" / "demo" / "kit-testeur"
 L1, L2, H1 = "MSCU6702211", "MSCU6715564", "MSCU6614208"
+
+
+def generator() -> Any:
+    spec = importlib.util.spec_from_file_location("generate_kit", KIT / "generate_kit.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses resolve their annotations through sys.modules
+    spec.loader.exec_module(module)
+    return module
 
 
 def rows(name: str) -> list[dict[str, str]]:
@@ -207,3 +224,65 @@ def test_the_tester_s_kit_shows_every_figure_its_guide_promises(
         "0.00",
         {"CHA-ALU-ANT": "30.9623"},
     )
+
+
+def rows_in(folder: Path, name: str) -> list[dict[str, str]]:
+    with (folder / name).open(encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f, delimiter=";"))
+
+
+def write(tmp_path: Path, today: date) -> Path:
+    """The CSVs `generate_kit.py` writes for `today` (the PDFs need Chrome, so they are skipped)."""
+    kit = generator()
+    kit.render_pdf = lambda *_: None
+    out = tmp_path / today.isoformat()
+    out.mkdir()
+    kit.write_kit(today, out, "no-chrome")
+    return out
+
+
+@pytest.mark.parametrize(
+    ("today", "quarter"),
+    [
+        (date(2026, 1, 5), (date(2025, 10, 1), date(2025, 12, 31))),
+        (date(2026, 4, 30), (date(2026, 1, 1), date(2026, 3, 31))),
+        (date(2026, 7, 5), (date(2026, 4, 1), date(2026, 6, 30))),
+        (date(2026, 10, 16), (date(2026, 7, 1), date(2026, 9, 30))),
+        (date(2026, 12, 31), (date(2026, 7, 1), date(2026, 9, 30))),
+        (date(2028, 1, 5), (date(2027, 10, 1), date(2027, 12, 31))),
+    ],
+)
+def test_the_kit_is_written_relative_to_the_day_and_its_amounts_never_move(
+    tmp_path: Path, today: date, quarter: tuple[date, date]
+) -> None:
+    folder = write(tmp_path, today)
+    ledger = rows_in(folder, "4-frais-trimestre.csv")
+    assert all(quarter[0] <= day(r["Date du coût"]) <= quarter[1] for r in ledger)
+    amounts = (Decimal(r["Montant HT"].replace(" ", "").replace(",", ".")) for r in ledger)
+    assert sum(amounts, Decimal(0)) == Decimal("45678.53")  # the 45 758,53 of costs, less the 80 credit note
+    tracking = {r["N° conteneur"]: r for r in rows_in(folder, "3-suivi-conteneurs.csv")}
+    assert day(tracking[L1]["Déchargé le"]) == today - timedelta(days=3)
+    assert tracking[L1]["Sorti du terminal le"] == ""
+    assert tracking[L2]["Arrivée réelle"] == "" and day(tracking[L2]["ETA"]) == today + timedelta(days=9)
+    arrivals = [day(r["Arrivée réelle"]) for r in tracking.values() if r["Arrivée réelle"]]
+    assert len(arrivals) == 9 and max(arrivals) < today  # nothing arrives in the future but L2
+
+
+def test_the_kit_refuses_the_first_days_of_a_quarter(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit, match="Too early in the quarter"):
+        write(tmp_path, date(2026, 10, 4))
+
+
+def test_the_committed_kit_is_what_the_generator_writes_for_the_day_its_guide_states(tmp_path: Path) -> None:
+    guide = (KIT / "GUIDE.md").read_text(encoding="utf-8")
+    stamp = guide.split("<!-- kit-dates -->")[1].split("<!-- /kit-dates -->")[0]
+    prepared = re.search(r"préparé le (\d\d/\d\d/\d{4})", stamp)
+    assert prepared, "GUIDE.md lost its kit-dates block"
+    folder = write(tmp_path, day(prepared[1]))
+    for name in ("1-tarif.csv", "2-commandes.csv", "3-suivi-conteneurs.csv", "4-frais-trimestre.csv"):
+        assert (KIT / name).read_bytes() == (folder / name).read_bytes(), f"{name}: regenerate the kit"
+    # The dates the guide quotes are the files' own.
+    first = min(day(r["Date du coût"]) for r in rows("4-frais-trimestre.csv"))
+    tracking = {r["N° conteneur"]: r for r in rows("3-suivi-conteneurs.csv")}
+    for quoted in (first.replace(day=1), day(tracking[L1]["Déchargé le"]), day(tracking[L2]["ETA"])):
+        assert quoted.strftime("%d/%m/%Y") in stamp, quoted

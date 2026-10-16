@@ -18,13 +18,17 @@ What the files are built to make the application find, on purpose:
 - container L1 was discharged three days ago and is not out: its last free day is tomorrow;
 - container L2 is at sea, with no invoice yet: the rate cards estimate it.
 
-Every date is computed from the day this runs (the ledger covers the last closed quarter, the audit's
-default window, so it refuses the first four days of a quarter, when L1 would still land in it); no
-amount depends on the date. Regenerate before handing the kit to a new tester:
+Every date is computed from the day this runs (the ledger covers the last closed quarter, so the run
+refuses the first four days of a quarter, when L1 would still land in it); no amount depends on the
+date. A kit goes stale, though: L1's last free day passes and the quarter turns. So the run also writes
+the dates it used into GUIDE.md, between the `kit-dates` markers, and the guide sends the tester to
+those dates instead of to "the last closed quarter" or "tomorrow". Regenerate before handing the kit
+to a new tester:
 
     python3 docs/demo/kit-testeur/generate_kit.py            # Google Chrome renders the PDFs
 
-`backend/tests/test_tester_kit.py` loads the files committed here and pins every figure GUIDE.md quotes.
+`backend/tests/test_tester_kit.py` loads the files committed here, pins every figure GUIDE.md quotes,
+and checks that the kit is what this script writes for the day GUIDE.md says it was prepared.
 """
 
 # ruff: noqa: E501 — the data tables read best one record per line
@@ -33,6 +37,7 @@ from __future__ import annotations
 import argparse
 import csv
 import html
+import re
 import subprocess
 import sys
 import tempfile
@@ -56,6 +61,9 @@ GREENLEAF, SUNCRAFT = "Ningbo Greenleaf Outdoor Co., Ltd", "Ningbo Suncraft Furn
 TEAK = "Saigon Teak Craft Co., Ltd"
 THC, BROKERAGE = D("285.00"), D("145.00")
 SAILING_DAYS = {"Ningbo": 34, "Ho Chi Minh": 30}
+#: The organisation's default is five free days counted from the discharge day, so the last one is the fourth after it.
+LAST_FREE_DAY_OFFSET = 4
+GUIDE_STAMP = re.compile(r"(<!-- kit-dates -->\n).*?(\n<!-- /kit-dates -->)", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -148,7 +156,7 @@ HISTORY = (
                      extras=(Charge(9, "MHL-{yy}-0498", "THC destination Le Havre", "Manutention portuaire (THC)", THC),))),
     (66, "0503", Box("H7", "CMAU4437293", "CMA CGM", "CMDUSGN0891276", "Ho Chi Minh",
                      (order(50, TEAK, ("TAB-TECK-180", 180, "185.00")),), D("4020.00"), D("465.00"), days_at_terminal=9,
-                     extras=(Charge(12, "MHL-{yy}-0521", "Surestaries 4 jours refacturées armateur", "Surestaries",
+                     extras=(Charge(12, "MHL-{yy}-0521", "Surestaries 5 jours refacturées armateur", "Surestaries",
                                     D("380.00")),))),
     (78, "0517", Box("H8", "MSCU6678835", "MSC", "MEDUNB2602215", "Ningbo",
                      (order(52, SUNCRAFT, ("CHA-ALU-ANT", 520, "21.50")),), D("3640.00"), D("450.00"))),
@@ -183,6 +191,10 @@ def history_dates(arrival: date, box: Box) -> Dates:
 def last_quarter_start(today: date) -> date:
     month = (today.month - 1) // 3 * 3 - 2
     return date(today.year - (month < 1), (month - 1) % 12 + 1, 1)
+
+
+def quarter_end(start: date) -> date:
+    return (start + timedelta(days=95)).replace(day=1) - timedelta(days=1)
 
 
 def fr_date(d: date | None) -> str:
@@ -309,6 +321,33 @@ def find_chrome() -> str:
     raise SystemExit("Google Chrome not found — install it, or edit CHROME_CANDIDATES in this script")
 
 
+def guide_stamp(today: date, ledger_from: date, l1: Dates, l2: Dates) -> str:
+    """The dates a tester needs from this kit, as GUIDE.md quotes them: the guide never says "tomorrow"
+    or "last closed quarter", which are only true on the day the kit was written."""
+    assert l1.discharged is not None
+    lines = [
+        f"**Ce kit a été préparé le {fr_date(today)}.** Ses dates en dépendent, le guide y renvoie :",
+        "",
+        f"- le journal des frais (fichier 4) couvre le trimestre **du {fr_date(ledger_from)} au "
+        f"{fr_date(quarter_end(ledger_from))}** : c'est la période de l'audit (étape 6) ;",
+        f"- **MSCU6702211** a été déchargé le **{fr_date(l1.discharged)}**, son dernier jour franc est le "
+        f"**{fr_date(l1.discharged + timedelta(days=LAST_FREE_DAY_OFFSET))}** (étape 2) ;",
+        f"- **MSCU6715564** est attendu le **{fr_date(l2.eta)}** (étape 7).",
+        "",
+        "Ces dates passées, rien ne casse : un dernier jour franc dépassé, ce sont des surestaries qui",
+        "courent, et l'audit se lit sur la période ci-dessus. Les montants, eux, ne changent jamais.",
+    ]
+    return "\n".join(f"> {line}".rstrip() for line in lines)
+
+
+def stamp_guide(path: Path, stamp: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    stamped, count = GUIDE_STAMP.subn(lambda m: f"{m[1]}{stamp}{m[2]}", text)
+    if count != 1:
+        raise SystemExit(f"{path.name} must hold exactly one <!-- kit-dates --> block")
+    path.write_text(stamped, encoding="utf-8")
+
+
 def write_kit(today: date, out: Path, chrome: str) -> None:
     quarter = last_quarter_start(today)
     history = [
@@ -323,6 +362,8 @@ def write_kit(today: date, out: Path, chrome: str) -> None:
         raise SystemExit(f"Too early in the quarter: run this from {this_quarter + timedelta(days=4)} on.")
     l2 = Dates(today - timedelta(days=25), today + timedelta(days=9))
     boxes = [(box, dates) for box, _, dates in history] + [(L1, l1), (L2, l2)]
+    if (out / "GUIDE.md").exists():
+        stamp_guide(out / "GUIDE.md", guide_stamp(today, quarter, l1, l2))
 
     write_csv(
         out / "1-tarif.csv",
