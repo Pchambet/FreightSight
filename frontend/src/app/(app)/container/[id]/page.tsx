@@ -5,12 +5,12 @@ import Link from "next/link";
 import { AlertTriangle, Box, FileText, Info, LockKeyhole } from "lucide-react";
 import { PageHeader, btnSecondary } from "@/components/layout/AppShell";
 import Breadcrumb from "@/components/shared/Breadcrumb";
-import MetricLabel from "@/components/shared/MetricLabel";
 import CollapsibleSection from "@/components/shared/CollapsibleSection";
 import { MilestoneBadge, RiskBadge } from "@/components/shared/Badges";
 import { Money } from "@/components/shared/Money";
 import AllocationPanel from "@/features/costs/AllocationPanel";
 import CostBreakdown from "@/features/costs/CostBreakdown";
+import ReportTotals from "@/features/costs/ReportTotals";
 import UnitCostHighlight from "@/features/costs/UnitCostHighlight";
 import CostLedger from "@/features/costs/CostLedger";
 import OpenOnHash from "@/components/shared/OpenOnHash";
@@ -31,6 +31,7 @@ import { dateShort, daysUntil, money } from "@/lib/format";
 type Params = { params: Promise<{ id: string }> };
 
 const API_ERROR = "api_error";
+const TOTALS = ["fob", "allocated", "vat", "landed", "unallocated"] as const;
 
 // `LandedCostReport.notes` (a rule applied to a cost that WAS allocated, e.g. duty spread on customs
 // value for lines with no tariff rate — see backend/app/api/v1/schemas.py::ReportNote). Typed here,
@@ -79,7 +80,7 @@ export default async function ContainerPage({ params }: Params) {
   const data = await load(containerId);
   if (!data) notFound();
   const { container, report, loads, pos, shipmentRef, events, etaHistory, subscription, erpConnected, invoicesToReview } = data;
-  const [t, errorCode, tg, tp, ts, locale] = await Promise.all([getTranslations("container"), getTranslations("errors"), getTranslations("glossary"), getTranslations("periods.container"), getTranslations("sheet"), getLocale()]);
+  const [t, errorCode, tp, ts, locale] = await Promise.all([getTranslations("container"), getTranslations("errors"), getTranslations("periods.container"), getTranslations("sheet"), getLocale()]);
   const cur = report.base_currency;
   const revalidate = `/container/${container.id}`;
   const step = containerWorkflowStep(container, loads, report, invoicesToReview);
@@ -151,16 +152,7 @@ export default async function ContainerPage({ params }: Params) {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
-        {(["fob", "allocated", "vat", "landed", "unallocated"] as const).map((k) => (
-          <div key={k} className="bg-white rounded-lg border border-slate-200 px-4 py-3">
-            <MetricLabel label={t(`totals.${k}`)} hint={tg(k)} />
-            <div className={`text-lg font-semibold tabular-nums mt-1 ${k === "unallocated" && report.totals.unallocated !== "0.00" ? "text-amber-700" : ""}`}>
-              <Money amount={report.totals[k]} currency={cur} />
-            </div>
-          </div>
-        ))}
-      </div>
+      <ReportTotals report={report} keys={TOTALS} labels={Object.fromEntries(TOTALS.map((k) => [k, t(`totals.${k}`)])) as Record<(typeof TOTALS)[number], string>} />
 
       <div className="space-y-6 mb-6">
         <CostBreakdown report={report} />

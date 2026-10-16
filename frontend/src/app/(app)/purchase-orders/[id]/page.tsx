@@ -5,13 +5,12 @@ import Link from "next/link";
 import { AlertTriangle, FileText, Info } from "lucide-react";
 import { PageHeader, btnSecondary, td, tdRight, th, thRight } from "@/components/layout/AppShell";
 import Breadcrumb from "@/components/shared/Breadcrumb";
-import MetricLabel from "@/components/shared/MetricLabel";
 import CollapsibleSection from "@/components/shared/CollapsibleSection";
-import { Money } from "@/components/shared/Money";
 import ScrollRegion from "@/components/shared/ScrollRegion";
 import AddCostForm from "@/features/costs/AddCostForm";
 import AllocationPanel from "@/features/costs/AllocationPanel";
 import CostBreakdown from "@/features/costs/CostBreakdown";
+import ReportTotals from "@/features/costs/ReportTotals";
 import EstimatePanel from "@/features/estimates/EstimatePanel";
 import CostLedger from "@/features/costs/CostLedger";
 import OpenOnHash from "@/components/shared/OpenOnHash";
@@ -23,6 +22,7 @@ import { dateShort, pct, qty } from "@/lib/format";
 type Params = { params: Promise<{ id: string }> };
 
 const API_ERROR = "api_error";
+const TOTALS = ["fob", "allocated", "vat", "landed"] as const;
 
 // `LandedCostReport.notes` — see the same type in the container page for why it is typed locally.
 type ReportNote = { cost_id: string; code: string; message: string; load_ids: string[]; load_labels: string[] };
@@ -63,11 +63,10 @@ export default async function PurchaseOrderPage({ params }: Params) {
   const data = await load(id);
   if (!data) notFound();
   const { po, report, firstContainer } = data;
-  const [t, tc, errorCode, tg, ts, locale] = await Promise.all([
+  const [t, tc, errorCode, ts, locale] = await Promise.all([
     getTranslations("purchaseOrder"),
     getTranslations("common"),
     getTranslations("errors"),
-    getTranslations("glossary"),
     getTranslations("sheet"),
     getLocale(),
   ]);
@@ -118,14 +117,7 @@ export default async function PurchaseOrderPage({ params }: Params) {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {(["fob", "allocated", "vat", "landed"] as const).map((k) => (
-          <div key={k} className="bg-white rounded-lg border border-slate-200 px-4 py-3">
-            <MetricLabel label={t(`totals.${k}`)} hint={tg(k)} />
-            <div className="text-lg font-semibold tabular-nums mt-1"><Money amount={report.totals[k]} currency={cur} /></div>
-          </div>
-        ))}
-      </div>
+      <ReportTotals report={report} keys={TOTALS} labels={Object.fromEntries(TOTALS.map((k) => [k, t(`totals.${k}`)])) as Record<(typeof TOTALS)[number], string>} />
 
       <div className="space-y-6 mb-6">
         <CostBreakdown report={report} />

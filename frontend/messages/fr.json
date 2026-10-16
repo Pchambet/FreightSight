@@ -276,7 +276,9 @@
     "fobUnit": "FOB unitaire",
     "landedUnit": "Coût rendu unitaire",
     "quantity": "{qty} chargées",
-    "skuHistory": "Voir l'historique du coût unitaire de cette référence"
+    "skuHistory": "Voir l'historique du coût unitaire de cette référence",
+    "noCharge": "aucun frais encore ventilé",
+    "partlyEstimated": "en partie estimé"
   },
   "allocation": {
     "title": "Coût rendu par ligne de commande",
@@ -1986,7 +1988,9 @@
     "subtitle": "Coût rendu : {landed}, TVA import exclue.",
     "coef": "Coefficient d'approche",
     "fob": "Prix d'achat (FOB)",
-    "ofFob": "du FOB"
+    "ofFob": "du FOB",
+    "subtitleEstimated": "Coût rendu : {landed}, TVA import exclue, dont {estimated} encore estimés.",
+    "coefEstimated": "en partie estimé"
   },
   "skus": {
     "title": "Références",
@@ -2696,5 +2700,10 @@
     "period": "Dernier trimestre, du {from} au {to}",
     "summary": "{blocking, plural, =0 {Rien ne fausse l'audit} one {# point fausserait l'audit} other {# points fausseraient l'audit}}, {limits, plural, =0 {aucune limite} one {# limite} other {# limites}}",
     "otherPeriod": "Choisir une autre période"
+  },
+  "reportTotals": {
+    "estimated": "estimé",
+    "landedNone": "Aucun frais encore ventilé : ce ne serait que le FOB.",
+    "landedEstimated": "dont {amount} estimés, pas encore facturés"
   }
 }

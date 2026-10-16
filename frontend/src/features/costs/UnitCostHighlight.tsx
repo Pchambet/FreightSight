@@ -20,6 +20,8 @@ export default async function UnitCostHighlight({ report }: { report: LandedCost
       <ul className="divide-y divide-slate-100">
         {report.lines.map((ln) => {
           const fobUnit = Number(ln.quantity) > 0 ? Number(ln.fob) / Number(ln.quantity) : null;
+          // With no charge on the line, its "landed" cost is its FOB: not a figure to sell from.
+          const noCharge = Number(ln.allocated) === 0;
           return (
             <li key={ln.load_id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="min-w-0">
@@ -41,9 +43,10 @@ export default async function UnitCostHighlight({ report }: { report: LandedCost
                 <div className="text-slate-300 text-xl" aria-hidden>→</div>
                 <div className="text-right">
                   <div className="text-xs uppercase tracking-wider text-emerald-700">{t("landedUnit")}</div>
-                  <div className="text-2xl font-bold tabular-nums text-emerald-800">
-                    {unitCost(ln.unit_landed_cost, report.base_currency, locale)}
+                  <div className={`text-2xl font-bold tabular-nums ${noCharge ? "text-slate-400" : "text-emerald-800"}`}>
+                    {noCharge ? "—" : unitCost(ln.unit_landed_cost, report.base_currency, locale)}
                   </div>
+                  {noCharge ? <div className="text-[11px] text-slate-500">{t("noCharge")}</div> : Number(ln.estimated) > 0 ? <div className="text-[11px] font-medium text-violet-800">{t("partlyEstimated")}</div> : null}
                 </div>
               </div>
             </li>

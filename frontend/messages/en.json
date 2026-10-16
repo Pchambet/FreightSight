@@ -276,7 +276,9 @@
     "fobUnit": "FOB unit",
     "landedUnit": "Landed unit cost",
     "quantity": "{qty} loaded",
-    "skuHistory": "See this SKU's unit cost history"
+    "skuHistory": "See this SKU's unit cost history",
+    "noCharge": "no charges allocated yet",
+    "partlyEstimated": "partly estimated"
   },
   "allocation": {
     "title": "Landed cost per purchase-order line",
@@ -1986,7 +1988,9 @@
     "subtitle": "Landed cost: {landed}, import VAT excluded.",
     "coef": "Landed cost ratio",
     "fob": "Purchase price (FOB)",
-    "ofFob": "of FOB"
+    "ofFob": "of FOB",
+    "subtitleEstimated": "Landed cost: {landed}, import VAT excluded, of which {estimated} still estimated.",
+    "coefEstimated": "partly estimated"
   },
   "skus": {
     "title": "SKUs",
@@ -2696,5 +2700,10 @@
     "period": "Last quarter, {from} to {to}",
     "summary": "{blocking, plural, =0 {Nothing makes the audit wrong} one {# point would make the audit wrong} other {# points would make the audit wrong}}, {limits, plural, =0 {no limit} one {# limit} other {# limits}}",
     "otherPeriod": "Choose another period"
+  },
+  "reportTotals": {
+    "estimated": "estimated",
+    "landedNone": "No charges allocated yet: this would only be the FOB.",
+    "landedEstimated": "of which {amount} estimated, not yet invoiced"
   }
 }
