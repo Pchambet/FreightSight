@@ -2311,6 +2311,7 @@
     "caveat": {
       "estimated": "{amount} of this landed cost still rest on estimates, pending the invoice: the figure will be trued up on receipt.",
       "allInvoiced": "Every cost included comes from an invoice: no estimate.",
+      "noCharge": "No charge is allocated to this file yet: its landed cost is not known, it would only be the purchase price (FOB).",
       "unallocated": "{amount} of charges could not be allocated (a missing value on a line) and are not in the unit costs above.",
       "vat": "Import VAT ({amount}) is recoverable: it is tracked for cash and excluded from the landed cost.",
       "vatNone": "Import VAT, recoverable, is excluded from the landed cost.",

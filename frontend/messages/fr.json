@@ -2311,6 +2311,7 @@
     "caveat": {
       "estimated": "{amount} de ce coût rendu reposent encore sur des estimés, en attendant la facture : le chiffre sera recalé à réception.",
       "allInvoiced": "Tous les coûts retenus proviennent de factures : aucun estimé.",
+      "noCharge": "Aucun frais n'est encore ventilé sur ce dossier : le coût rendu n'est pas encore connu, il ne serait que le prix d'achat (FOB).",
       "unallocated": "{amount} de frais n'ont pas pu être ventilés (donnée manquante sur une ligne) et ne sont pas dans les coûts unitaires ci-dessus.",
       "vat": "La TVA à l'importation ({amount}) est récupérable : elle est suivie pour la trésorerie et exclue du coût de revient.",
       "vatNone": "La TVA à l'importation, récupérable, est exclue du coût de revient.",
