@@ -129,7 +129,7 @@ INVOICES: tuple[Invoice, ...] = (
     ),
     # Wordings no keyword list knows: the lines must be read all the same.
     Invoice(
-        "SOGETRA COMMISSIONNAIRE DE TRANSPORT",
+        "SOGDEMO COMMISSIONNAIRE DE TRANSPORT",
         "Zone portuaire, 13270 Fos-sur-Mer - TVA FR40123456789",
         "F2609-00412",
         date(2026, 9, 12),
@@ -163,7 +163,7 @@ INVOICES: tuple[Invoice, ...] = (
     ),
     # Freight in dollars, converted on the line; small and large amounts side by side.
     Invoice(
-        "TRANSITEX SAS",
+        "TRANSDEMO SAS",
         "12 quai de la Marine, 76600 Le Havre - TVA FR12345678901",
         "FA-2026-1104",
         date(2026, 9, 2),

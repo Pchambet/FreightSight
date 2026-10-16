@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Regenerate the demo invoice fixture (Transitex, MSCU4821990).
+"""Regenerate the demo invoice fixture (Transdemo, MSCU4821990).
 
 The figures and wording live in one place, `app.domain.sample_data.demo_invoice_lines()`, so this
-script and `backend/tests/test_demo_story.py` can never quote different numbers for the same invoice
-(the failure the 2026-09-17 audit found: the sales script said 13,91 €, the screen said 11,80 €).
+script and `backend/tests/test_demo_story.py` can never quote different numbers for the same invoice:
+a figure quoted next to the demo cannot drift from what the screen shows.
 
 The invoice date defaults to 3 days before the day this script runs, which is what keeps the fixture
 plausible next to a container whose ETD/ETA/discharge dates are always computed relative to "today"
@@ -44,8 +44,8 @@ from app.domain.sample_data import (
 )
 
 HERE = Path(__file__).parent
-HTML_PATH = HERE / "facture-transitex-demo.html"
-PDF_PATH = HERE / "facture-transitex-demo.pdf"
+HTML_PATH = HERE / "facture-transdemo-demo.html"
+PDF_PATH = HERE / "facture-transdemo-demo.pdf"
 
 CHROME_CANDIDATES = [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",

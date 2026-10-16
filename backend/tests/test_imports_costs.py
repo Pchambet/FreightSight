@@ -24,8 +24,8 @@ HEADER = (
     "Date du coût;Prestataire;N° facture;Libellé;Type de coût;Montant HT;Devise;"
     "N° conteneur;N° B/L;N° commande"
 )
-THC_F1 = "12/03/2026;TRANSITEX;F-1;THC;;285,00;EUR;MSCU4821994;;"
-FREIGHT_F1 = "12/03/2026;TRANSITEX;F-1;Fret maritime;;3 000,00;EUR;MSCU4821994;;"
+THC_F1 = "12/03/2026;TRANSDEMO;F-1;THC;;285,00;EUR;MSCU4821994;;"
+FREIGHT_F1 = "12/03/2026;TRANSDEMO;F-1;Fret maritime;;3 000,00;EUR;MSCU4821994;;"
 MARCH = {"period_from": "2026-03-01", "period_to": "2026-03-31"}
 
 
@@ -105,12 +105,12 @@ def test_a_ledger_lands_on_its_boxes_bills_and_orders_with_its_types_read_or_inf
     client: TestClient, world: dict[str, str]
 ) -> None:
     job = upload(client, ledger(
-        "12/03/2026;TRANSITEX;F-1;Fret maritime;;3 000,00 €;;MSCU4821994;;",
-        "12/03/2026;TRANSITEX;F-1;THC destination;Manutention portuaire (THC);285,00;EUR;MSCU4821994;;",
-        "12/03/2026;TRANSITEX;F-1;THC destination;Manutention portuaire (THC);285,00;EUR;MSCU4821994;;",
+        "12/03/2026;TRANSDEMO;F-1;Fret maritime;;3 000,00 €;;MSCU4821994;;",
+        "12/03/2026;TRANSDEMO;F-1;THC destination;Manutention portuaire (THC);285,00;EUR;MSCU4821994;;",
+        "12/03/2026;TRANSDEMO;F-1;THC destination;Manutention portuaire (THC);285,00;EUR;MSCU4821994;;",
         "13/03/2026;TRANSPORTS LEMAIRE;L-9;Camionnage MSCU4821994 Le Havre;;425,00;EUR;;;",
-        "14/03/2026;TRANSITEX;F-2;Frais de dossier;;45,00;EUR;;BL-C;",
-        "14/03/2026;TRANSITEX;F-2;Frais de dossier;;60,00;EUR;;bl-a;",
+        "14/03/2026;TRANSDEMO;F-2;Frais de dossier;;45,00;EUR;;BL-C;",
+        "14/03/2026;TRANSDEMO;F-2;Frais de dossier;;60,00;EUR;;bl-a;",
         "15/03/2026;DOUANE;D-1;Droits de douane;;120,00;EUR;;;PO-1",
     ))  # fmt: skip
     report = preview(client, job)
@@ -184,16 +184,16 @@ def test_a_negative_line_cancels_its_twin_or_is_set_aside_and_counted(
     client: TestClient, world: dict[str, str]
 ) -> None:
     job = upload(client, ledger(
-        "12/03/2026;TRANSITEX;F-1;THC;;285,00;EUR;MSCU4821994;;",
-        "12/03/2026;TRANSITEX;AV-1;THC;;-285,00;EUR;MSCU4821994;;",  # cancels the line above
-        "12/03/2026;TRANSITEX;AV-2;Remise fret;Fret maritime;(50,00);EUR;MSCU4821994;;",  # a refund
-        "12/03/2026;TRANSITEX;F-3;Fret maritime;;3 000,00;EUR;MSCU4821994;;",
+        "12/03/2026;TRANSDEMO;F-1;THC;;285,00;EUR;MSCU4821994;;",
+        "12/03/2026;TRANSDEMO;AV-1;THC;;-285,00;EUR;MSCU4821994;;",  # cancels the line above
+        "12/03/2026;TRANSDEMO;AV-2;Remise fret;Fret maritime;(50,00);EUR;MSCU4821994;;",  # a refund
+        "12/03/2026;TRANSDEMO;F-3;Fret maritime;;3 000,00;EUR;MSCU4821994;;",
     ))  # fmt: skip
     report = preview(client, job)
     assert by_row(report["errors"]) == {2: "REVERSED_IN_FILE", 3: "REVERSED_IN_FILE"}
     assert report["reversed_in_file"] == 1
     assert report["credit_notes_skipped"] == [
-        {"row": 4, "cost_date": "2026-03-12", "vendor": "TRANSITEX", "invoice_number": "AV-2",
+        {"row": 4, "cost_date": "2026-03-12", "vendor": "TRANSDEMO", "invoice_number": "AV-2",
          "amount": "-50.00", "currency": "EUR", "amount_base": "-50.00", "reverses_cost_id": None}
     ]  # fmt: skip
     assert (report["credit_notes_skipped_base"], report["costs_created"]) == ("-50.00", 1)
@@ -215,7 +215,7 @@ def test_what_the_books_already_hold_is_refused_and_a_person_may_overrule_a_neig
     client: TestClient, db: Session, org: Organization, world: dict[str, str]
 ) -> None:
     typed(
-        client, world["MSCU4821994"], "OCEAN_FREIGHT", "3000.00", vendor="Transitex SAS", invoice_number="F 1"
+        client, world["MSCU4821994"], "OCEAN_FREIGHT", "3000.00", vendor="Transdemo SAS", invoice_number="F 1"
     )
     typed(client, world["TGHU7245086"], "THC", "250.00", vendor="TERMINAL", invoice_number="T-7")
     waiting = client.post(
@@ -224,9 +224,9 @@ def test_what_the_books_already_hold_is_refused_and_a_person_may_overrule_a_neig
     handlers.extract_invoice(db, org.id, uuid.UUID(waiting))  # FA-2026-0912, waiting in review
 
     job = upload(client, ledger(
-        "12/03/2026;TRANSITEX;F-1;THC;;285,00;EUR;MSCU4821994;;",  # the invoice F-1 is in the books
-        "12/03/2026;TRANSITEX;FA-2026-0912;THC;;275,00;EUR;CSQU3054383;;",  # its PDF is in the inbox
-        "12/03/2026;TRANSITEX;F-8;THC;;250,00;EUR;TGHU7245086;;",  # a handling already on that box
+        "12/03/2026;TRANSDEMO;F-1;THC;;285,00;EUR;MSCU4821994;;",  # the invoice F-1 is in the books
+        "12/03/2026;TRANSDEMO;FA-2026-0912;THC;;275,00;EUR;CSQU3054383;;",  # its PDF is in the inbox
+        "12/03/2026;TRANSDEMO;F-8;THC;;250,00;EUR;TGHU7245086;;",  # a handling already on that box
     ))  # fmt: skip
     report = preview(client, job)
     assert by_row(report["errors"]) == {
@@ -252,9 +252,9 @@ def test_an_estimate_on_the_line_s_target_is_replaced_and_any_other_is_left_to_a
     typed(client, world["TGHU7245086"], "DRAYAGE", "420.00", status="ESTIMATE")
     typed(client, world["BL-C"], "OCEAN_FREIGHT", "3000.00", status="ESTIMATE", scope="SHIPMENT")
     job = upload(client, ledger(
-        "12/03/2026;TRANSITEX;F-1;THC;;285,00;EUR;MSCU4821994;;",
-        "12/03/2026;TRANSITEX;F-2;Camionnage;;410,00;EUR;TGHU7245086;;",
-        "12/03/2026;TRANSITEX;F-3;Fret maritime;;3 100,00;EUR;CSQU3054383;;",
+        "12/03/2026;TRANSDEMO;F-1;THC;;285,00;EUR;MSCU4821994;;",
+        "12/03/2026;TRANSDEMO;F-2;Camionnage;;410,00;EUR;TGHU7245086;;",
+        "12/03/2026;TRANSDEMO;F-3;Fret maritime;;3 100,00;EUR;CSQU3054383;;",
     ))  # fmt: skip
     report = preview(client, job)
     assert by_row(report["errors"]) == {3: "SEVERAL_ESTIMATES", 4: "ESTIMATE_OTHER_SCOPE"}
@@ -267,7 +267,7 @@ def test_an_estimate_on_the_line_s_target_is_replaced_and_any_other_is_left_to_a
 def test_a_preview_binds_its_commit_and_the_same_ledger_is_never_read_twice(
     client: TestClient, world: dict[str, str]
 ) -> None:
-    first = ledger("12/03/2026;TRANSITEX;F-1;THC;;285,00;EUR;MSCU4821994;;")
+    first = ledger("12/03/2026;TRANSDEMO;F-1;THC;;285,00;EUR;MSCU4821994;;")
     job = upload(client, first)
     refused = client.post(f"/api/v1/imports/{job['id']}/commit", json={})
     assert (refused.status_code, refused.json()["code"]) == (409, "PREVIEW_REQUIRED")
@@ -286,15 +286,15 @@ def test_a_preview_binds_its_commit_and_the_same_ledger_is_never_read_twice(
     grown = upload(
         client,
         ledger(
-            "12/03/2026;TRANSITEX;F-1;THC;;285,00;EUR;MSCU4821994;;",
-            "13/03/2026;TRANSITEX;F-2;Fret maritime;;3 000,00;EUR;MSCU4821994;;",
+            "12/03/2026;TRANSDEMO;F-1;THC;;285,00;EUR;MSCU4821994;;",
+            "13/03/2026;TRANSDEMO;F-2;Fret maritime;;3 000,00;EUR;MSCU4821994;;",
         ),
     )
     report = preview(client, grown)
     assert (report["costs_skipped"], report["costs_created"], report["errors"]) == (1, 1, [])
     # Between the preview and the commit, the freight gets keyed in by hand: the same file would now
     # do something else, and the person is shown what before anything is written.
-    typed(client, world["MSCU4821994"], "OCEAN_FREIGHT", "3000.00", vendor="TRANSITEX", invoice_number="F-2")
+    typed(client, world["MSCU4821994"], "OCEAN_FREIGHT", "3000.00", vendor="TRANSDEMO", invoice_number="F-2")
     changed = commit_previewed(client, grown["id"])
     assert (changed.status_code, changed.json()["code"]) == (409, "PREVIEW_CHANGED")
     assert by_row(changed.json()["report"]["errors"]) == {3: "INVOICE_ALREADY_RECORDED"}
@@ -355,8 +355,8 @@ def test_what_the_audit_finds_on_an_inferred_type_is_a_question(
 ) -> None:
     """The same handling twice from one forwarder is a fact — unless the type was read in the label:
     then it may be two different charges the label words alike."""
-    job = upload(client, ledger("12/03/2026;TRANSITEX;F-1;THC;;285,00;EUR;MSCU4821994;;",
-                                "20/03/2026;TRANSITEX;F-9;THC;;285,00;EUR;MSCU4821994;;"))  # fmt: skip
+    job = upload(client, ledger("12/03/2026;TRANSDEMO;F-1;THC;;285,00;EUR;MSCU4821994;;",
+                                "20/03/2026;TRANSDEMO;F-9;THC;;285,00;EUR;MSCU4821994;;"))  # fmt: skip
     preview(client, job)
     commit(client, job)
     findings = client.get("/api/v1/reports/audit", params=MARCH).json()["findings"]
@@ -376,13 +376,13 @@ def test_vat_is_never_a_cost_whatever_the_label_says_or_the_file_s_default_type(
     job = upload(client, ledger(
         "12/03/2026;DOUANE;D-1;TVA sur importation;;500,00;EUR;MSCU4821994;;",       # 2
         "12/03/2026;DOUANE;D-2;Autoliquidation TVA;;400,00;EUR;MSCU4821994;;",       # 3
-        "12/03/2026;TRANSITEX;F-5;TVA 20%;;57,00;EUR;CSQU3054383;;",                 # 4
+        "12/03/2026;TRANSDEMO;F-5;TVA 20%;;57,00;EUR;CSQU3054383;;",                 # 4
         "12/03/2026;DOUANE;D-3;Droits de douane et TVA;;700,00;EUR;TGHU7245086;;",   # 5
         "12/03/2026;DOUANE;D-4;Droits + TVA import;;300,00;EUR;TGHU7245086;;",       # 6
-        "12/03/2026;TRANSITEX;F-6;Fret maritime exonéré de TVA;;1 000,00;EUR;CSQU3054383;;",  # 7
-        "12/03/2026;TRANSITEX;F-6;Frais de dossier TVA 20 %;;45,00;EUR;CSQU3054383;;",        # 8
-        "12/03/2026;TRANSITEX;F-7;THC TTC;;342,00;EUR;CSQU3054383;;",                          # 9
-        "12/03/2026;TRANSITEX;F-8;TVA;THC;57,00;EUR;CSQU3054383;;",                            # 10
+        "12/03/2026;TRANSDEMO;F-6;Fret maritime exonéré de TVA;;1 000,00;EUR;CSQU3054383;;",  # 7
+        "12/03/2026;TRANSDEMO;F-6;Frais de dossier TVA 20 %;;45,00;EUR;CSQU3054383;;",        # 8
+        "12/03/2026;TRANSDEMO;F-7;THC TTC;;342,00;EUR;CSQU3054383;;",                          # 9
+        "12/03/2026;TRANSDEMO;F-8;TVA;THC;57,00;EUR;CSQU3054383;;",                            # 10
     ))  # fmt: skip
     for report in (preview(client, job), preview(client, job, default_cost_type="OTHER")):
         assert by_row(report["errors"]) == {
@@ -407,10 +407,10 @@ def test_a_purchase_journal_is_read_by_its_accounts_and_only_its_charges_are_cos
     of a class 6 account is a cost, its VAT and the supplier's total are set aside, a refund in the
     credit of a charge account is counted."""
     journal = ledger(
-        "20260312;TRANSITEX;F-1;THC MSCU4821994;6241000;285,00;",
-        "20260312;TRANSITEX;F-1;THC MSCU4821994;44566;57,00;",
-        "20260312;TRANSITEX;F-1;THC MSCU4821994;401TRANSI;;342,00",
-        "20260320;TRANSITEX;AV-1;Avoir THC MSCU4821994;6241000;;85,00",
+        "20260312;TRANSDEMO;F-1;THC MSCU4821994;6241000;285,00;",
+        "20260312;TRANSDEMO;F-1;THC MSCU4821994;44566;57,00;",
+        "20260312;TRANSDEMO;F-1;THC MSCU4821994;401TRANSI;;342,00",
+        "20260320;TRANSDEMO;AV-1;Avoir THC MSCU4821994;6241000;;85,00",
         header="EcritureDate;CompAuxLib;PieceRef;EcritureLib;CompteNum;Debit;Credit",
     )
     job = upload(client, journal)
@@ -453,10 +453,10 @@ def test_a_refund_of_a_line_already_in_the_books_is_counted_and_names_the_cost_i
     typed(client, world["TGHU7245086"], "DRAYAGE", "400.00", vendor="LEMAIRE", invoice_number="L-1")
     grown = upload(client, ledger(
         THC_F1,
-        "20/03/2026;TRANSITEX;AV-1;THC;;-285,00;EUR;MSCU4821994;;",
+        "20/03/2026;TRANSDEMO;AV-1;THC;;-285,00;EUR;MSCU4821994;;",
         "21/03/2026;LEMAIRE;L-1;Camionnage;;400,00;EUR;TGHU7245086;;",   # keyed in by hand already
         "22/03/2026;LEMAIRE;AV-2;Camionnage;;-400,00;EUR;TGHU7245086;;",  # and reversed
-        "21/03/2026;TRANSITEX;F-2;Fret maritime;;3 000,00;EUR;MSCU4821994;;",
+        "21/03/2026;TRANSDEMO;F-2;Fret maritime;;3 000,00;EUR;MSCU4821994;;",
     ), name="grand-livre-2.csv")  # fmt: skip
     report = preview(client, grown)
     assert by_row(report["errors"]) == {4: "INVOICE_ALREADY_RECORDED"}
@@ -475,7 +475,7 @@ def test_a_refund_from_another_forwarder_cancels_nothing_of_the_first(
         THC_F1,
         "20/03/2026;TERMINAL;AV-9;THC;;-285,00;EUR;MSCU4821994;;",
         "20/03/2026;;AV-10;THC;;-285,00;EUR;TGHU7245086;;",
-        "21/03/2026;TRANSITEX;F-3;THC;;285,00;EUR;TGHU7245086;;",
+        "21/03/2026;TRANSDEMO;F-3;THC;;285,00;EUR;TGHU7245086;;",
     ))  # fmt: skip
     report = preview(client, job)
     # A refund naming no forwarder may cancel anyone's line: rows 4 and 5 go together.
@@ -493,8 +493,8 @@ def test_a_number_of_dashes_is_no_number_and_the_line_already_on_file_is_refused
     """Two « - » of one forwarder on one box, on two days, were one invoice line to the database and
     two to every rule: the second write failed. An estimate carrying an invoice's line did the same."""
     dashes = upload(client, ledger(
-        "12/03/2026;TRANSITEX;-;THC;;285,00;EUR;MSCU4821994;;",
-        "13/03/2026;TRANSITEX;-;THC;;100,00;EUR;MSCU4821994;;",
+        "12/03/2026;TRANSDEMO;-;THC;;285,00;EUR;MSCU4821994;;",
+        "13/03/2026;TRANSDEMO;-;THC;;100,00;EUR;MSCU4821994;;",
     ))  # fmt: skip
     assert preview(client, dashes, force_duplicates=True)["costs_created"] == 2
     commit(client, dashes)
@@ -525,7 +525,7 @@ def test_a_collision_the_reading_could_not_see_is_said_not_a_server_error(
     from app.domain.imports import costs as reading
 
     monkeypatch.setattr(reading, "_already_in_books", lambda *_: None)  # a rule that misses the line
-    typed(client, world["MSCU4821994"], "THC", "285.00", vendor="TRANSITEX", invoice_number="F-1")
+    typed(client, world["MSCU4821994"], "THC", "285.00", vendor="TRANSDEMO", invoice_number="F-1")
     job = upload(client, ledger(THC_F1))
     res = client.post(f"/api/v1/imports/{job['id']}/validate", json={"mapping": job["mapping"]})
     assert (res.status_code, res.json()["code"]) == (409, "INVOICE_LINE_ALREADY_RECORDED")
@@ -539,8 +539,8 @@ def test_a_label_naming_two_boxes_or_a_box_nobody_has_lands_nowhere(
 ) -> None:
     other = "MSKU123456" + str(check_digit("MSKU123456"))
     job = upload(client, ledger(
-        f"12/03/2026;TRANSITEX;F-1;THC MSCU4821994 {other};;570,00;EUR;;;",
-        f"12/03/2026;TRANSITEX;F-2;THC {other} BL-A;;285,00;EUR;;;",
+        f"12/03/2026;TRANSDEMO;F-1;THC MSCU4821994 {other};;570,00;EUR;;;",
+        f"12/03/2026;TRANSDEMO;F-2;THC {other} BL-A;;285,00;EUR;;;",
     ))  # fmt: skip
     report = preview(client, job)
     assert by_row(report["errors"]) == {2: "TARGET_AMBIGUOUS", 3: "UNKNOWN_CONTAINER"}
@@ -556,7 +556,7 @@ def test_a_line_a_person_corrected_is_recognised_in_the_next_copy_of_the_ledger(
 ) -> None:
     """A line without a number, re-typed by hand after the import: the next export of the ledger still
     holds it as it was, and it is the same line — not a new one written again."""
-    row = "12/03/2026;TRANSITEX;;THC;;285,00;EUR;MSCU4821994;;"
+    row = "12/03/2026;TRANSDEMO;;THC;;285,00;EUR;MSCU4821994;;"
     first = upload(client, ledger(row))
     preview(client, first)
     commit(client, first)
@@ -565,7 +565,7 @@ def test_a_line_a_person_corrected_is_recognised_in_the_next_copy_of_the_ledger(
     assert client.patch(f"/api/v1/costs/{cost['id']}", json={"cost_type": "BL_FEE"}).status_code == 200
     db.expire_all()
     assert db.get(Cost, uuid.UUID(cost["id"])).type_inferred is False  # type: ignore[union-attr]  # a person said it
-    grown = upload(client, ledger(row, "21/03/2026;TRANSITEX;F-2;Fret maritime;;3 000,00;EUR;MSCU4821994;;"))
+    grown = upload(client, ledger(row, "21/03/2026;TRANSDEMO;F-2;Fret maritime;;3 000,00;EUR;MSCU4821994;;"))
     report = preview(client, grown)
     assert (report["costs_skipped"], report["costs_created"], report["errors"]) == (1, 1, [])
     commit(client, grown)
@@ -684,8 +684,8 @@ def test_lines_of_one_invoice_on_several_days_are_one_cost_dated_and_converted_o
     client: TestClient, world: dict[str, str]
 ) -> None:
     job = upload(client, ledger(
-        "16/03/2026;TRANSITEX;F-1;THC;;100,00;USD;MSCU4821994;;",
-        "12/03/2026;TRANSITEX;F-1;THC;;200,00;USD;MSCU4821994;;",
+        "16/03/2026;TRANSDEMO;F-1;THC;;100,00;USD;MSCU4821994;;",
+        "12/03/2026;TRANSDEMO;F-1;THC;;200,00;USD;MSCU4821994;;",
     ))  # fmt: skip
     preview(client, job)
     commit(client, job)

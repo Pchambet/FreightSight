@@ -104,7 +104,7 @@ def test_a_read_invoice_waits_for_a_person(client: TestClient, db: Session, org:
 
     body = client.get(f"/api/v1/invoices/{invoice_id}").json()
     assert body["status"] == "NEEDS_REVIEW"
-    assert body["vendor"] == "TRANSITEX SAS"
+    assert body["vendor"] == "TRANSDEMO SAS"
     assert body["invoice_number"] == "FA-2026-0912"
     assert body["total_amount"] == "4596.00"
     # the three figures the document prints, kept apart: the HT is the one it states, not 4596 - 766

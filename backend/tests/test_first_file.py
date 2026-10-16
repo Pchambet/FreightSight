@@ -47,7 +47,7 @@ def test_an_invoice_that_names_no_container_lands_on_the_one_it_was_dropped_for(
 ) -> None:
     box = client.post("/api/v1/containers", json={"container_number": "MSCU4821990"}).json()
     pdf = make_pdf(
-        ["TRANSITEX SAS", "FACTURE N° FA-2026-0099", "Date : 10/09/2026", "",
+        ["TRANSDEMO SAS", "FACTURE N° FA-2026-0099", "Date : 10/09/2026", "",
          "Designation                         Montant",
          "Fret maritime                       2 450,00", "Frais de surete                        18,50",
          "Total HT                            2 468,50"]

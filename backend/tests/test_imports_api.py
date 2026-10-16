@@ -10,10 +10,10 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 PO_LINES_CSV = (
     "﻿N° commande;Fournisseur;Réf;Qté;Prix unitaire;Poids;Volume;Conteneur;Qté conteneur\n"
-    "PO-A;Michelin;A;1000;10,00;2;0,01;MSCU1234567;600\n"
-    "PO-A;Michelin;A;1000;10,00;2;0,01;CMAU9876543;400\n"
-    "PO-B;Pirelli;B;500;20,00;5;0,02;MSCU1234567;500\n"
-    "PO-C;Hankook;C;10;abc;;;;\n"
+    "PO-A;Ardent Tyres;A;1000;10,00;2;0,01;MSCU1234567;600\n"
+    "PO-A;Ardent Tyres;A;1000;10,00;2;0,01;CMAU9876543;400\n"
+    "PO-B;Volta Pneus;B;500;20,00;5;0,02;MSCU1234567;500\n"
+    "PO-C;Kestrel Tyre Co.;C;10;abc;;;;\n"
 ).encode()
 
 
@@ -82,7 +82,7 @@ def test_po_lines_import_with_mapping_and_row_errors(client: TestClient) -> None
     pos = {p["po_number"]: p for p in client.get("/api/v1/purchase-orders").json()}
     assert set(pos) == {"PO-A", "PO-B"}
     assert pos["PO-A"]["container_numbers"] == ["CMAU9876543", "MSCU1234567"]
-    assert pos["PO-A"]["supplier_name"] == "Michelin"
+    assert pos["PO-A"]["supplier_name"] == "Ardent Tyres"
 
     # the mapping is remembered for the same header
     job3 = upload(client, PO_LINES_CSV, "PURCHASE_ORDERS")

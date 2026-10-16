@@ -20,7 +20,7 @@ from pathlib import Path
 import httpx
 
 API = os.environ.get("API_URL", "http://localhost:8001").rstrip("/")
-PDF = Path(__file__).resolve().parents[1] / "docs/demo/fixtures/facture-transitex-demo.pdf"
+PDF = Path(__file__).resolve().parents[1] / "docs/demo/fixtures/facture-transdemo-demo.pdf"
 POLL_SEC = 2
 EXTRACT_TIMEOUT = 90
 
@@ -105,7 +105,7 @@ def main() -> int:
         with PDF.open("rb") as f:
             r = client.post(
                 "/api/v1/invoices",
-                files={"file": ("facture-transitex-demo.pdf", f, "application/pdf")},
+                files={"file": ("facture-transdemo-demo.pdf", f, "application/pdf")},
             )
         if r.status_code != 201:
             fail(f"upload → {r.status_code} {r.text}")

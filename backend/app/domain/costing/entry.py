@@ -139,7 +139,7 @@ def open_estimates(
 
 # ---------------------------------------------------------------------------- the same invoice
 
-#: Words that say what kind of company it is, not which one: "Transitex SAS" and "TRANSITEX" are one
+#: Words that say what kind of company it is, not which one: "Transdemo SAS" and "TRANSDEMO" are one
 #: forwarder. Kept to legal forms, so that two real names are never merged by it.
 _LEGAL_FORMS = frozenset(
     {"sa", "sas", "sasu", "sarl", "eurl", "snc", "sca", "gmbh", "ag", "kg", "ltd", "limited", "plc",

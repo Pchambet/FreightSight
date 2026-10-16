@@ -23,7 +23,7 @@ from app.jobs import handlers
 KIT = Path(__file__).parent / "fixtures" / "intake"
 MARCH = {"period_from": "2026-03-01", "period_to": "2026-03-31"}
 ALREADY_IN_THE_LEDGER = [
-    "TRANSITEX SAS",
+    "TRANSDEMO SAS",
     "FACTURE N° FA-2026-0912",
     "Date : 12/03/2026",
     "Conteneur MSCU4821994",
@@ -39,7 +39,7 @@ ALREADY_IN_THE_LEDGER = [
     "Total TTC                                                         5 666,28 EUR",
 ]
 NEW_INVOICE = [
-    "TRANSITEX SAS",
+    "TRANSDEMO SAS",
     "FACTURE N° FA-2026-0990",
     "Date : 21/03/2026",
     "Conteneur TGHU7245086",

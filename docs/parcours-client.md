@@ -4,7 +4,7 @@
 (import pneus et accessoires auto, ~8 conteneurs/mois, Odoo pour les commandes, Excel pour le « vrai coût »).
 
 **Aujourd'hui.** L'expédition **MEDUSH2604417** (Ningbo → Le Havre, MSCU) vient d'être déchargée. Le
-transitaire **Transitex** envoie sa facture par mail. Votre patron vous demande : *« On peut encore vendre
+transitaire **Transdemo** envoie sa facture par mail. Votre patron vous demande : *« On peut encore vendre
 le pneu 205/55 à 20 € ou pas ? »*
 
 Ce document est le **film de votre journée** dans FreightSight. Suivez les encarts **« Prochaine étape »**
@@ -40,7 +40,7 @@ docker compose ps                     # worker doit être « Up »
 | **TGHU7245081** | 40' HC — **1 200 pneus** (FOB 16 800,00 €) — déjà sorti du terminal |
 | **Barèmes déjà en place** | fret maritime, THC, dédouanement, camionnage (un montant par conteneur) et surestaries (85 €/jour) — Paramètres → Barèmes |
 | **Coûts sur les deux conteneurs, avant toute facture** | uniquement des **estimés** issus de ces barèmes — rien de réel encore |
-| **Facture à déposer** | `docs/demo/fixtures/facture-transitex-demo.pdf` (Transitex, MSCU4821990 uniquement) |
+| **Facture à déposer** | `docs/demo/fixtures/facture-transdemo-demo.pdf` (Transdemo, MSCU4821990 uniquement) |
 
 ---
 
@@ -62,7 +62,7 @@ docker compose ps                     # worker doit être « Up »
 
 ### Questions métier (comme un vrai client)
 - *« Quel conteneur me coûte cher si je ne le sors pas cette semaine ? »* → MSCU
-- *« Est-ce que j'ai déjà intégré la facture Transitex ? »* → pas encore : les chiffres actuels sont des
+- *« Est-ce que j'ai déjà intégré la facture Transdemo ? »* → pas encore : les chiffres actuels sont des
   estimés par barème, la facture va les remplacer un par un
 
 **Action :** cliquer **Ouvrir MSCU4821990** (encart ou ligne du tableau)
@@ -79,7 +79,7 @@ docker compose ps                     # worker doit être « Up »
 3. Encart **Prochaine étape** (souvent : déposer une facture, ou voir les coûts unitaires)
 
 ### Bandeau vert « Coût rendu par ligne »
-C'est **la réponse à la question du patron**, avant même la facture Transitex — déjà avec les droits de
+C'est **la réponse à la question du patron**, avant même la facture Transdemo — déjà avec les droits de
 douane dedans, puisque ce sont des barèmes, pas juste le fret :
 
 | Ligne | FOB unitaire | Coût rendu unitaire (estimé, avant facture) |
@@ -88,7 +88,7 @@ douane dedans, puisque ce sont des barèmes, pas juste le fret :
 | PO-2026-015 · tapis | **20,00 €** | **~25,94 €** |
 
 ### Réflexe dirigeant
-> « Je croyais acheter le pneu à 14 €. En entrepôt c'est déjà 17,83 € **avant même** la facture Transitex,
+> « Je croyais acheter le pneu à 14 €. En entrepôt c'est déjà 17,83 € **avant même** la facture Transdemo,
 > droits de douane compris. À 20 € de vente, ma marge n'est pas 6 € — c'est plutôt **2,17 €**. »
 
 ### Explorer (optionnel, 3 min)
@@ -120,13 +120,13 @@ existent déjà, et la facture PDF va arriver.
 
 ---
 
-## Acte 4 · La facture Transitex arrive (10 min)
+## Acte 4 · La facture Transdemo arrive (10 min)
 
 **Écran :** `/invoices`
 
 ### Étape 4.1 — Dépôt
 1. Encart **Déposer une facture**
-2. Glisser `docs/demo/fixtures/facture-transitex-demo.pdf`
+2. Glisser `docs/demo/fixtures/facture-transdemo-demo.pdf`
 3. Attendre 3–10 s (le **worker** lit le PDF — page se rafraîchit)
 
 ### Étape 4.2 — Relecture
@@ -156,7 +156,7 @@ Ouvrir la facture → encart **Relire les lignes**
 
 ### Chiffres attendus (après la facture)
 
-| Référence | FOB | Rendu **estimé** (avant Transitex) | Rendu **réel** (après Transitex) |
+| Référence | FOB | Rendu **estimé** (avant Transdemo) | Rendu **réel** (après Transdemo) |
 |-----------|-----|-------------------------------------|-------------------------------------|
 | Pneu PO-2026-014 | 14,00 € | ~17,83 € | **17,98 €** |
 | Tapis PO-2026-015 | 20,00 € | ~25,94 € | **26,16 €** |
@@ -173,7 +173,7 @@ Jauge **Postes facturés** : **5/5**, 100 % — plus aucun estimé sur ce conten
 |------|-------|----------------------|
 | **6** | `/reports` | Coût rendu par fournisseur · coût unitaire `TYR-20555R16-91V` · section **À risque maintenant** (MSCU) · tarif surestaries 85 €/jour |
 | **7** | `/reports/variance` (mois en cours) | Estimé 5 845,10 € → réel 6 058,79 € → écart **+213,69 €**, détaillé par type de coût (camionnage en baisse de 54 €, le reste en hausse ; les droits de 11,79 € seulement, l'estimé comptait déjà le fret dans la valeur CIF) |
-| **8** | `/purchase-orders` → PO-2026-014 | Ventilation split MSCU / TGHU · postes facturés 5/5 sur MSCU après Transitex, encore estimés sur TGHU |
+| **8** | `/purchase-orders` → PO-2026-014 | Ventilation split MSCU / TGHU · postes facturés 5/5 sur MSCU après Transdemo, encore estimés sur TGHU |
 | **9** | `/alerts` | Au moins **1 alerte** surestarie MSCU (cloche en haut à droite) |
 | **10** | `/audit` | `Facture confirmée` avec n° FA-2026-0912 · statuts traduits · pas d'UUID bruts |
 
@@ -261,7 +261,7 @@ Si vous voulez vivre **l'import depuis zéro** (plus long, plus réaliste) :
 1. Nouvelle org vide → checklist **Premiers pas** sur Conteneurs
 2. `/imports/new` → fichier `backend/tests/fixtures/legacy_po_container.csv`
 3. Créer conteneur, charger lignes, saisir un coût manuel
-4. Puis facture Transitex
+4. Puis facture Transdemo
 
 Durée : **1 h**. Le jeu d'exemple est là pour aller **droit au coût unitaire** en 30 min.
 

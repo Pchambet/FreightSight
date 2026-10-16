@@ -31,7 +31,7 @@ def test_a_container_number_is_trusted_only_with_its_check_digit() -> None:
 
 
 def test_the_numbers_written_in_a_ledger_label_are_found_and_only_those() -> None:
-    label = "FACT 0412 TRANSITEX DOS 5678 CSQU3054383 FRET + THC"
+    label = "FACT 0412 TRANSDEMO DOS 5678 CSQU3054383 FRET + THC"
     assert container_numbers_in(label) == ["CSQU3054383"]
     assert container_numbers_in("DOS CSQU3054384 et CSQU3054383, CSQU3054383") == ["CSQU3054383"]
     assert container_numbers_in("Facture 2026-0412 du 12/03") == []

@@ -66,7 +66,7 @@ _UNSET = object()
 
 
 def _refuse_a_line_already_recorded(t: TenantSession, cost: Cost) -> None:
-    """The same invoice line keyed in twice — "TRANSITEX / F-0412" then "Transitex SAS / F0412" on one
+    """The same invoice line keyed in twice — "TRANSDEMO / F-0412" then "Transdemo SAS / F0412" on one
     box in one currency, or once on the box and once on its bill of lading for the same amount —
     counts twice in the landed cost. Refused by name: before this it was a database error when spelled
     the same, and nothing at all otherwise. Spelled the same to the letter, an estimate carrying the

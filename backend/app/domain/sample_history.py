@@ -136,8 +136,8 @@ RECIPES: dict[str, tuple[tuple[str, int], ...]] = {
 
 #: carrier SCAC, container owner prefix, bill of lading prefix, origin, destination, forwarder
 LINES: dict[str, tuple[str, str, str, str, str, str]] = {
-    "msc": ("MSCU", "MSCU", "MEDUNB", "CNNGB", "FRLEH", "TRANSITEX SAS"),
-    "cma": ("CMDU", "CMAU", "CMDUNGB", "CNNGB", "FRLEH", "TRANSITEX SAS"),
+    "msc": ("MSCU", "MSCU", "MEDUNB", "CNNGB", "FRLEH", "TRANSDEMO SAS"),
+    "cma": ("CMDU", "CMAU", "CMDUNGB", "CNNGB", "FRLEH", "TRANSDEMO SAS"),
     "hapag": ("HLCU", "HLXU", "HLCUSHA", "CNSHA", "BEANR", "SCHELDE FORWARDING NV"),
 }
 

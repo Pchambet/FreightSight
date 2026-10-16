@@ -337,7 +337,7 @@ def seed_container(client: TestClient, *, invoiced: bool = True, sku: str | None
                 "currency": "EUR",
                 "cost_date": "2026-03-12",
                 "invoice_number": "FA-2026-0912",
-                "vendor": "Transitex",
+                "vendor": "Transdemo",
             },
         )
         assert cost.status_code == 201, cost.text
@@ -384,7 +384,7 @@ def seed_two_lines(
             "currency": "EUR",
             "cost_date": "2026-03-12",
             "invoice_number": "FA-2026-0912",
-            "vendor": "Transitex",
+            "vendor": "Transdemo",
         },
     )
     assert cost.status_code == 201, cost.text
@@ -414,7 +414,7 @@ def test_the_preview_shows_the_document_before_it_exists(
     assert body["receipt_name"] == "WH/IN/00007"
     assert body["total"] == "2766.67"
     (cost,) = body["costs"]
-    assert cost["label"] == "Fret maritime — facture FA-2026-0912 — Transitex"
+    assert cost["label"] == "Fret maritime — facture FA-2026-0912 — Transdemo"
     (line,) = cost["lines"]
     assert line["move_id"] == MOVE_ID
     assert line["sku"] == SKU
@@ -491,7 +491,7 @@ def test_recoverable_vat_never_reaches_the_erp(
 
     body = preview(client, container_id)
     assert body["pushable"] is True
-    assert [cost["label"] for cost in body["costs"]] == ["Fret maritime — facture FA-2026-0912 — Transitex"]
+    assert [cost["label"] for cost in body["costs"]] == ["Fret maritime — facture FA-2026-0912 — Transdemo"]
     assert body["total"] == "2766.67"  # the freight alone, not 3320.00
 
 
@@ -649,7 +649,7 @@ def test_a_second_invoice_becomes_its_own_document_carrying_only_itself(
     assert body["blockers"] == []
     assert body["total"] == "275.00"
     by_label = {c["label"]: c for c in body["costs"]}
-    freight = by_label["Fret maritime — facture FA-2026-0912 — Transitex"]
+    freight = by_label["Fret maritime — facture FA-2026-0912 — Transdemo"]
     duty = by_label["Droits de douane — facture FA-2026-1104"]
     assert freight["pushed_as"] == DOCUMENT
     assert freight["pushed_push_id"] == first.json()["id"]
@@ -914,7 +914,7 @@ def test_our_charges_are_paired_with_their_lines_by_identity_not_by_rank(
     (document,) = odoo.documents.values()
     by_charge = {a["cost_line_id"][1]: written.get(a["id"]) for a in document["adjustments"]}
     assert by_charge == {
-        "Fret maritime — facture FA-2026-0912 — Transitex": 2766.67,
+        "Fret maritime — facture FA-2026-0912 — Transdemo": 2766.67,
         "Droits de douane — facture FA-2026-1104": 275.0,
     }
 

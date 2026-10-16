@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.adapters import auth_clerk
 from app.core.settings import Settings, get_settings
 
-ISSUER = "https://renewed-macaw-4965.clerk.accounts.dev"
+ISSUER = "https://example-issuer-0000.clerk.accounts.dev"
 JWKS = f"{ISSUER}/.well-known/jwks.json"
 ORIGIN = "https://app.example.test"
 

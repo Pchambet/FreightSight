@@ -166,7 +166,7 @@ def test_a_redacted_link_does_not_carry_the_forwarders_names_at_all(
     typed = client.post(
         "/api/v1/costs",
         json={"scope": "CONTAINER", "target_id": box, "cost_type": "INSPECTION", "amount": "145.00",
-              "currency": "EUR", "cost_date": "2026-09-10", "vendor": "TRANSITEX SAS",
+              "currency": "EUR", "cost_date": "2026-09-10", "vendor": "TRANSDEMO SAS",
               "invoice_number": "FA-2026-0912", "notes": "scanner du 9"},
     )  # fmt: skip
     assert typed.status_code == 201, typed.text
@@ -177,7 +177,7 @@ def test_a_redacted_link_does_not_carry_the_forwarders_names_at_all(
     seen = open_link(client, redacted["token"])
     assert seen.json()["redacted"] is True
     assert (
-        "TRANSITEX" not in seen.text and "FA-2026-0912" not in seen.text and "scanner du 9" not in seen.text
+        "TRANSDEMO" not in seen.text and "FA-2026-0912" not in seen.text and "scanner du 9" not in seen.text
     )
     assert seen.json()["report"]["totals"]["landed"] == plain["landed"]  # the figures are all there
     stored = (
@@ -185,8 +185,8 @@ def test_a_redacted_link_does_not_carry_the_forwarders_names_at_all(
         .scalars()
         .first()
     )
-    assert stored is not None and "TRANSITEX" not in stored
-    assert "TRANSITEX" in open_link(client, plain["token"]).text
+    assert stored is not None and "TRANSDEMO" not in stored
+    assert "TRANSDEMO" in open_link(client, plain["token"]).text
 
 
 def test_a_token_holder_can_read_one_row_and_change_none(

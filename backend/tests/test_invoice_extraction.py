@@ -63,7 +63,7 @@ def read(lines: list[str], context: ExtractionContext = CONTEXT) -> FreightInvoi
 def test_a_french_forwarder_invoice_is_read_in_full() -> None:
     invoice = read(FRENCH_ONE_CONTAINER)
 
-    assert invoice.vendor == "TRANSITEX SAS"
+    assert invoice.vendor == "TRANSDEMO SAS"
     assert invoice.invoice_number == "FA-2026-0912"
     assert invoice.invoice_date == date(2026, 3, 12)
     assert invoice.currency == "EUR"
@@ -120,7 +120,7 @@ def test_the_date_of_the_invoice_is_not_taken_for_its_number() -> None:
 def test_a_number_is_told_from_a_date_by_the_calendar_and_by_where_it_stands(
     header: list[str], number: str | None
 ) -> None:
-    lines = ["TRANSITEX SAS", *header, "Conteneur MSCU4821990",
+    lines = ["TRANSDEMO SAS", *header, "Conteneur MSCU4821990",
              "Fret maritime CNNGB / FRLEH                  1          3 000,00  3 000,00"]  # fmt: skip
     assert read(lines).invoice_number == number
 
@@ -308,7 +308,7 @@ def test_the_freight_already_recorded_on_the_shipment_is_flagged_too(db: Session
             allocation_method=AllocationMethod.BY_WEIGHT,
             cost_date=date(2026, 3, 1),
             status=CostStatus.ACTUAL,
-            vendor="Transitex SAS",
+            vendor="Transdemo SAS",
         )
     )
     db.flush()
@@ -406,7 +406,7 @@ def test_the_model_is_given_the_containers_and_its_answer_is_validated() -> None
         seen["prompt"] = body["messages"][0]["content"]
         seen["api_key"] = request.headers["x-api-key"]
         answer = {
-            "vendor": "TRANSITEX SAS",
+            "vendor": "TRANSDEMO SAS",
             "invoice_number": "FA-2026-0912",
             "invoice_date": "2026-03-12",
             "currency": "EUR",
@@ -480,13 +480,13 @@ def test_the_patterns_are_always_available_and_the_model_only_with_a_key(
     get_settings.cache_clear()
 
 
-# ---------------------------------------------------------------------------- a real invoice
+# ---------------------------------------------------------------------------- a realistic invoice
 
 
-def test_a_real_forwarder_invoice_reads_exactly(db: Session, org: Organization) -> None:
-    """The one fixture nobody wrote to be easy: a French forwarder invoice produced for a production
-    walkthrough, which caught two bugs the invented ones did not — a header line naming a B/L and a
-    container size, and a VAT line stating its taxable base."""
+def test_a_realistic_forwarder_invoice_reads_exactly(db: Session, org: Organization) -> None:
+    """The one fixture nobody wrote to be easy: a French forwarder invoice laid out like a real one,
+    generated as a demo document, which caught two bugs the hand-written lines did not: a header line
+    naming a B/L and a container size, and a VAT line stating its taxable base."""
     from pathlib import Path
 
     pdf = (Path(__file__).parent / "fixtures" / "facture_transitaire_fr.pdf").read_bytes()
@@ -604,7 +604,7 @@ def test_a_header_naming_a_charge_is_not_a_charge() -> None:
 
 def test_a_registration_number_is_not_an_amount_of_tax() -> None:
     lines = [
-        "TRANSITEX SAS - TVA FR12812345678",
+        "TRANSDEMO SAS - TVA FR12812345678",
         "Fret maritime 2 400,00",
         "Total HT 2 400,00",
         "TVA 20 % (sur prestations taxables : 835,00) 167,00",
@@ -615,7 +615,7 @@ def test_a_registration_number_is_not_an_amount_of_tax() -> None:
 
 
 def test_a_legal_mention_naming_the_tax_is_not_the_tax() -> None:
-    """The real invoice's last line — an exemption article and an IBAN — names « TVA » and ends on
+    """That invoice's last line — an exemption article and an IBAN — names « TVA » and ends on
     « FR76 3000 4000 0500 ». Read as the last labelled amount, the VAT of that invoice was 76.
 
     Without a stated « Total HT » nothing else stands in the way, which is the layout half of our

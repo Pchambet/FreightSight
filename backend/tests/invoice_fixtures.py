@@ -4,7 +4,7 @@ from __future__ import annotations
 
 #: A French forwarder's invoice for one container: THC, ocean freight, customs clearance, VAT.
 FRENCH_ONE_CONTAINER = [
-    "TRANSITEX SAS",
+    "TRANSDEMO SAS",
     "12 quai de la Marine, 76600 Le Havre - TVA FR12345678901",
     "FACTURE N° FA-2026-0912",
     "Date : 12/03/2026",
@@ -25,7 +25,7 @@ FRENCH_ONE_CONTAINER = [
 
 #: The same forwarder, two containers on one invoice — the case that needs a human eye.
 FRENCH_TWO_CONTAINERS = [
-    "TRANSITEX SAS",
+    "TRANSDEMO SAS",
     "FACTURE N° FA-2026-0918",
     "Date : 18/03/2026",
     "Dossier : MEDUSH2604417",
@@ -44,7 +44,7 @@ FRENCH_TWO_CONTAINERS = [
 #: A refund, written the five ways refunds are actually written. Every one of them adds up: the
 #: arithmetic check blesses all five, which is precisely why it cannot be the thing that decides.
 CREDIT_NOTE_MINUS_GLUED = [
-    "TRANSITEX SAS",
+    "TRANSDEMO SAS",
     "AVOIR N° A-2026-118",
     "Date : 14/03/2026",
     "Annule la facture FA-2026-0912 (surcharge facturée à tort)",
@@ -59,7 +59,7 @@ CREDIT_NOTE_MINUS_GLUED = [
 
 #: Accountants write a negative in parentheses; the minus never appears at all.
 CREDIT_NOTE_PARENTHESES = [
-    "TRANSITEX SAS",
+    "TRANSDEMO SAS",
     "NOTE DE CRÉDIT N° NC-2026-044",
     "Date : 20/03/2026",
     "Conteneur MSCU4821990",
@@ -88,7 +88,7 @@ CREDIT_NOTE_TRAILING_MINUS = [
 #: The typographic minus a PDF font prints instead of the hyphen, loose in front of the figure.
 #: Read as text rather than through a PDF: the test writer's font is latin-1 and has no such glyph.
 CREDIT_NOTE_UNICODE_MINUS = [
-    "TRANSITEX SAS",
+    "TRANSDEMO SAS",
     "AVOIR N° A-2026-205",
     "Date : 25/03/2026",
     "Conteneur MSCU4821990",
@@ -103,7 +103,7 @@ CREDIT_NOTE_UNICODE_MINUS = [
 #: The commonest of all, and the one no arithmetic can catch: every figure is positive, and only
 #: the word at the top says the money is going the other way.
 CREDIT_NOTE_POSITIVE_FIGURES = [
-    "TRANSITEX SAS",
+    "TRANSDEMO SAS",
     "AVOIR N° A-2026-211",
     "Date : 28/03/2026",
     "Annule et remplace la facture FA-2026-0918",
@@ -126,7 +126,7 @@ CREDIT_NOTES = [
 
 #: An invoice with a commercial discount on it: one charge, one credit, and a total that proves it.
 FRENCH_WITH_DISCOUNT = [
-    "TRANSITEX SAS",
+    "TRANSDEMO SAS",
     "FACTURE N° FA-2026-0931",
     "Date : 31/03/2026",
     "Conteneur MSCU4821990",
@@ -150,7 +150,7 @@ EXCHANGE_RATE_IN_HEADER = [
 
 #: The same trap at the other end of the page: the supplier's dollar account under the totals.
 DOLLAR_IBAN_IN_FOOTER = [
-    "TRANSITEX SAS",
+    "TRANSDEMO SAS",
     "Facture n° F-2026-119",
     "Conteneur MSCU4821990",
     "",

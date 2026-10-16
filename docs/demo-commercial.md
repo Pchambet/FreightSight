@@ -32,7 +32,7 @@ soit ce document qui n'a pas été régénéré après un changement du moteur �
      (20,00 € FOB)
    - Fret, THC, dédouanement et camionnage sont déjà **estimés** (barèmes) sur les deux conteneurs —
      rien à ajouter avant la facture.
-5. Garder sous la main : `docs/demo/fixtures/facture-transitex-demo.pdf` (régénérée il y a peu — si elle
+5. Garder sous la main : `docs/demo/fixtures/facture-transdemo-demo.pdf` (régénérée il y a peu — si elle
    a plus de ~2 mois, relancez `backend/.venv/bin/python docs/demo/fixtures/generate_invoice.py`).
 6. **Ne cliquez pas sur « Estimer avec les barèmes »** pendant la démo : les estimés existent déjà
    (voir 4.). Un second clic ne changerait rien à freight/THC/dédouanement/camionnage/droits (déjà
@@ -59,7 +59,7 @@ soit ce document qui n'a pas été régénéré après un changement du moteur �
 | 1 | `/containers` | **Ouvrir MSCU4821990** | KPIs, conteneur à risque surestaries |
 | 2 | Fiche MSCU | **Voir les coûts unitaires** | FOB 14 € → estimé **~17,83 €** (pneu) — *le chiffre qui fait tilt* |
 | 3 | Même fiche, scroll | Bloc **Ventilation détaillée** (repliable, optionnel) | « Et si » : changer la méthode fret → coût unitaire bouge |
-| 4 | `/invoices` | **Déposer une facture** | Glisser `facture-transitex-demo.pdf`, **confirmer les 5 lignes** |
+| 4 | `/invoices` | **Déposer une facture** | Glisser `facture-transdemo-demo.pdf`, **confirmer les 5 lignes** |
 | 5 | Après confirmation | **Coûts unitaires · MSCU4821990** | FOB 14 € → **17,98 €** (pneu) — le vrai coût, écart réel affiché |
 | 6 | `/reports/variance` | (mois en cours) | Écart réel du mois : +213,69 € sur ce conteneur, poste par poste |
 | 7 | `/reports` | **Exports CSV** + carte Surestaries | Export ouvert dans Excel ; tarif journalier 85 €/j affiché |
@@ -129,7 +129,7 @@ qu'elle arrive — c'est justement la scène 4.
 **Où :** `/invoices` → encart **Déposer une facture** (ou zone #depot).
 
 **Fais :**
-1. Glisser `docs/demo/fixtures/facture-transitex-demo.pdf`
+1. Glisser `docs/demo/fixtures/facture-transdemo-demo.pdf`
 2. Attendre l'extraction (quelques secondes)
 3. Ouvrir la facture → encart **Relire les lignes**
 4. **Confirmer les 5 lignes** (fret maritime, THC, dédouanement, camionnage, droits de douane) — **aucun

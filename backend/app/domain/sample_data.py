@@ -1,5 +1,5 @@
 """Demo dataset: a tyre-and-accessories importer's reference case, with figures a forwarder or a CFO
-would accept — see docs/demo-commercial.md for the story this data tells.
+would accept (a tyre importer's landed-cost story).
 
 Everything is priced in the organization's base currency, so the seed never needs a live FX lookup.
 Freight, THC, customs clearance and haulage are seeded as ESTIMATES, one rate card per cost type,
@@ -7,16 +7,15 @@ applied through the real `estimate_container` (the same code path a user gets fr
 les barèmes" button) so the numbers can never drift from what the product itself would compute. Customs
 duty is estimated the same way, from a `duty_rate` carried on each PO line rather than a rate card,
 because the rate depends on the tariff heading of what is in the box, not on a price list. Nothing here
-is an ACTUAL cost: the demo invoice (`docs/demo/fixtures/facture-transitex-demo.pdf`) is what brings the
+is an ACTUAL cost: the demo invoice (`docs/demo/fixtures/facture-transdemo-demo.pdf`) is what brings the
 actuals, superseding these estimates one for one and producing a real, explainable variance — see
-`backend/tests/test_demo_story.py`, which pins every figure this docstring and the demo scripts quote.
+`backend/tests/test_demo_story.py`, which pins every figure this docstring and the README quote.
 
 The DEMURRAGE rate card (for the "surestaries évitées" report) is added only after both containers are
 estimated: `estimate_container` does not know that demurrage is a penalty rather than a landed cost, so
 a card present too early would silently add a phantom "estimated demurrage" line to both containers'
 landed cost. Seeding it last keeps today's seed clean; it does not fix the underlying gap, which is why
-a fresh call to "Estimer avec les barèmes" later in the demo would revive it — see the caution note in
-docs/demo-commercial.md.
+a fresh call to "Estimer avec les barèmes" later in the demo would revive it.
 """
 
 from __future__ import annotations
@@ -53,9 +52,9 @@ from app.domain.models import (
 FREE_DAYS_DEMURRAGE = 7
 
 #: Rate cards, one FLAT amount per container — realistic 2026 forwarder pricing for a Ningbo → Le Havre
-#: FCL move (docs/plan/03_market_domain.md §1: ~4 000 $ Shanghai-Rotterdam per 40', ≈ 3 700 € at a
+#: FCL move (~4 000 $ Shanghai-Rotterdam per 40', ≈ 3 700 € at a
 #: ~0.925 USD/EUR rate assumed for the demo, not looked up live). THC, customs clearance and haulage
-#: sit mid-band of what item 3 of the audit asked for (200-300 € / 80-150 € / 300-600 €).
+#: sit mid-band of the ranges assumed for this lane (200-300 € / 80-150 € / 300-600 €).
 OCEAN_FREIGHT_RATE = Decimal("3700.00")
 THC_RATE = Decimal("250.00")
 CUSTOMS_BROKERAGE_RATE = Decimal("120.00")
@@ -72,13 +71,14 @@ TYRE_DUTY_RATE = Decimal("0.045")
 #: ruling before quoting a design partner.
 MAT_DUTY_RATE = Decimal("0.065")
 
-#: The demo invoice (docs/demo/fixtures/facture-transitex-demo.pdf): Transitex's ACTUAL figures for
-#: MSCU4821990, which the presenter confirms whole. Each amount replaces the matching ESTIMATE above
-#: one for one (same cost type, same container) — see `estimate_container`'s supersession — so
-#: confirming every line is safe and produces one real variance per cost type, not a duplicate.
+#: The demo invoice (docs/demo/fixtures/facture-transdemo-demo.pdf): Transdemo's ACTUAL figures for
+#: MSCU4821990, meant to be confirmed whole (README, "Try it"). Each amount replaces the matching
+#: ESTIMATE above one for one (same cost type, same container) — see `estimate_container`'s
+#: supersession — so confirming every line is safe and produces one real variance per cost type, not a
+#: duplicate.
 #: These are not round numbers on purpose: a real forwarder's invoice never lands on the estimate.
 DEMO_INVOICE_NUMBER = "FA-2026-0912"
-DEMO_INVOICE_VENDOR = "TRANSITEX SAS"
+DEMO_INVOICE_VENDOR = "TRANSDEMO SAS"
 DEMO_INVOICE_OCEAN_FREIGHT = Decimal("3915.40")
 DEMO_INVOICE_THC = Decimal("268.00")
 DEMO_INVOICE_CUSTOMS_BROKERAGE = Decimal("142.50")
@@ -105,7 +105,7 @@ def demo_invoice_lines(invoice_date: date) -> list[str]:
     (backend/tests/test_demo_story.py), so the two can never disagree with each other.
 
     `invoice_date` is left to the caller: the PDF is a static file, so whoever regenerates it decides
-    how recent it should look (docs/demo-commercial.md says how far out is still plausible).
+    how recent it should look (how far out still looks plausible is the caller's call).
     """
 
     def money(amount: Decimal) -> str:
@@ -290,7 +290,7 @@ def seed_sample_data(db: Session, org: Organization) -> SampleData:
                 basis=RateBasis.FLAT,
                 amount=OCEAN_FREIGHT_RATE,
                 currency=currency,
-                notes="Ningbo-Le Havre, ~4 000 $/40' (docs/plan/03_market_domain.md §1)",
+                notes="Ningbo-Le Havre, ~4 000 $/40'",
             ),
             RateCard(
                 org_id=org.id,

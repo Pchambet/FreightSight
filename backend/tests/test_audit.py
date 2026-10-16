@@ -113,10 +113,10 @@ def test_one_charge_billed_three_times_is_two_duplicates_and_bank_fees_are_never
 
 def test_two_providers_a_little_apart_is_a_question_and_identical_amounts_a_fact(client: TestClient) -> None:
     near = landed(client, "MSCU4821990", "2026-03-10")
-    cost(client, near, "THC", "262.00", vendor="TRANSITEX SAS", invoice_number="FA-1")
+    cost(client, near, "THC", "262.00", vendor="TRANSDEMO SAS", invoice_number="FA-1")
     cost(client, near, "THC", "260.00", vendor="TERMINAL PORTUAIRE", invoice_number="TH-9")
     rebilled = landed(client, "TGHU7245081", "2026-03-12")  # re-billed at cost: the very same amount
-    cost(client, rebilled, "THC", "255.00", vendor="TRANSITEX SAS", invoice_number="FA-2")
+    cost(client, rebilled, "THC", "255.00", vendor="TRANSDEMO SAS", invoice_number="FA-2")
     cost(client, rebilled, "THC", "255.00", vendor="TERMINAL PORTUAIRE", invoice_number="TH-10")
     apart = landed(client, "TCLU1234565", "2026-03-14")  # 3 % apart: two different charges
     cost(client, apart, "THC", "300.00", vendor="A", invoice_number="A-1")
@@ -152,13 +152,13 @@ def test_one_invoice_recorded_twice_is_a_double_entry_of_ours_and_nothing_to_cla
     twice but the company's own books counting once too often. Said so, claimed from nobody — and
     certain only when both copies name the forwarder, whose numbers are its own."""
     box = landed(client, "MSCU4821990", "2026-03-10")
-    cost(client, box, "THC", "260.00", vendor="TRANSITEX", invoice_number="F-0412")
-    twin = cost(client, box, "THC", "260.00", vendor="TRANSITEX", invoice_number="F-0413")
+    cost(client, box, "THC", "260.00", vendor="TRANSDEMO", invoice_number="F-0412")
+    twin = cost(client, box, "THC", "260.00", vendor="TRANSDEMO", invoice_number="F-0413")
     other = landed(client, "TGHU7245081", "2026-03-12")
-    cost(client, other, "DRAYAGE", "425.00", vendor="TRANSITEX", invoice_number="F-0500")
+    cost(client, other, "DRAYAGE", "425.00", vendor="TRANSDEMO", invoice_number="F-0500")
     unnamed = cost(client, other, "DRAYAGE", "425.00", invoice_number="F-0501")
     # What the entry now refuses, written the way older rows were: straight into the table.
-    for made, vendor, number in ((twin, "Transitex SAS", "F0412"), (unnamed, None, "f 0500")):
+    for made, vendor, number in ((twin, "Transdemo SAS", "F0412"), (unnamed, None, "f 0500")):
         row = db.get(Cost, uuid.UUID(made["id"]))
         assert row is not None
         row.vendor, row.invoice_number = vendor, number
@@ -178,8 +178,8 @@ def test_one_number_in_two_currencies_on_one_box_is_a_question_not_a_fact(client
     """The freight in dollars and a surcharge in euros under one number, both keyed in by hand: two
     lines of one invoice, or one line keyed twice — nothing on file says which."""
     box = landed(client, "MSCU4821990", "2026-03-10")
-    cost(client, box, "OCEAN_FREIGHT", "3000.00", currency="USD", vendor="TRANSITEX", invoice_number="F-0412")
-    cost(client, box, "OCEAN_FREIGHT", "40.00", vendor="TRANSITEX", invoice_number="F-0412")
+    cost(client, box, "OCEAN_FREIGHT", "3000.00", currency="USD", vendor="TRANSDEMO", invoice_number="F-0412")
+    cost(client, box, "OCEAN_FREIGHT", "40.00", vendor="TRANSDEMO", invoice_number="F-0412")
     (found,) = findings(client, "DOUBLE_ENTRY")
     assert (found["confidence"], found["recoverable"]) == ("to_check", False)
 
@@ -614,7 +614,7 @@ def test_an_audit_sent_with_names_left_out_stores_none_of_them(client: TestClien
 
 def test_the_findings_are_a_file_in_french(client: TestClient) -> None:
     box = landed(client, "MSCU4821990", "2026-03-10")
-    cost(client, box, "THC", "262.00", vendor="TRANSITEX SAS", invoice_number="FA-1")
+    cost(client, box, "THC", "262.00", vendor="TRANSDEMO SAS", invoice_number="FA-1")
     cost(client, box, "THC", "260.00", vendor="TERMINAL PORTUAIRE", invoice_number="TH-9")
     res = client.get("/api/v1/exports/audit-findings.csv", params=PERIOD)
     assert res.status_code == 200
@@ -625,11 +625,11 @@ def test_the_findings_are_a_file_in_french(client: TestClient) -> None:
     )
     assert row == (
         "Prestation facturée deux fois;À vérifier;260,00;MSCU4821990;Manutention portuaire (THC);"
-        'TERMINAL PORTUAIRE;TH-9;;"Première facture : FA-1 ; Premier prestataire : TRANSITEX SAS ; '
+        'TERMINAL PORTUAIRE;TH-9;;"Première facture : FA-1 ; Premier prestataire : TRANSDEMO SAS ; '
         'Premier montant : 262,00 ; Même prestataire : non"'
     )
     english = client.get("/api/v1/exports/audit-findings.csv", params={**PERIOD, "locale": "en"}).text
-    assert "first_invoice=FA-1 ; first_vendor=TRANSITEX SAS ; first_amount=262.00" in english
+    assert "first_invoice=FA-1 ; first_vendor=TRANSDEMO SAS ; first_amount=262.00" in english
 
 
 @pytest.mark.parametrize(

@@ -17,7 +17,7 @@ def post(client: TestClient, path: str, json: Any, expect: int = 201) -> dict[st
 
 def setup_t5(client: TestClient) -> dict[str, Any]:
     """PO-A 1000 x 10.00 (2 kg/u) split 600/400 over CNT1/CNT2; PO-B 500 x 20.00 (5 kg/u) in CNT1."""
-    sup = post(client, "/api/v1/suppliers", {"name": "Michelin"})
+    sup = post(client, "/api/v1/suppliers", {"name": "Ardent Tyres"})
     po_a = post(
         client,
         "/api/v1/purchase-orders",
