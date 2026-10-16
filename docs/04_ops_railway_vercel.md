@@ -306,7 +306,15 @@ sont supprimées sous 30 jours, sur demande ou en fin de contrat, et la suppress
 Ce runbook n'a pas encore été joué en production.
 
 **1. Avant.** Remettre l'export au client s'il le demande. Noter l'identifiant de la société (son `id`,
-son identifiant Clerk `org_…` ou son slug) et son nom exact.
+son identifiant Clerk `org_…` ou son slug) et son nom exact, et la liste de ses numéros de conteneur :
+après l'étape 3 plus rien ne les relie à elle, et ils sont le seul moyen de retrouver ses messages de
+suivi (étape 4, `webhook_deliveries`). Dans `railway connect PostgresEU` (le propriétaire des tables,
+que la RLS forcée lie aussi) :
+
+```sql
+SET app.org_id = '<id>';
+SELECT container_number FROM containers WHERE org_id = '<id>' ORDER BY 1;
+```
 
 **2. Clerk d'abord.** Tableau de bord Clerk → Organizations → la société → Delete, puis Users : supprimer
 chacun de ses membres qui n'appartient à aucune autre société. Dans cet ordre, parce que l'API recrée
@@ -359,12 +367,14 @@ priori — non vérifié : la commande l'affiche). Les deux cas sont testés
 | Stockage objet des documents | les factures PDF et autres documents, seulement si `DOCUMENTS_S3_*` est réglé sur l'API | la commande affiche « documents in object storage under `<id>/` » ; alors `aws s3 rm s3://$DOCUMENTS_S3_BUCKET/<id>/ --recursive --endpoint-url https://s3.fr-par.scw.cloud`. Sans ces variables, documents et fichiers importés sont en base (`document_blobs`, `import_jobs.content`) et la commande les a supprimés |
 | Sentry | des traces d'erreur peuvent citer un identifiant ou un libellé (`send_default_pii` est coupé) | chercher l'`id` de la société dans les issues et supprimer celles qui la citent ; le reste expire avec la rétention de l'offre (30 à 90 jours) |
 | Sauvegardes Scaleway | une copie chiffrée complète de la base, donc de la société | rien à faire : elles expirent (30 quotidiennes, et la première de chacun des 12 derniers mois), donc **12 mois au plus** après la suppression. On ne retire pas une société d'un dump chiffré |
-| Volume Railway | Railway sauvegarde son propre volume (§6) | rétention propre à Railway, non vérifiée : la lire dans le tableau de bord du service PostgresEU |
+| Messages de suivi (`webhook_deliveries`) | les messages bruts des transporteurs et des fournisseurs de suivi, gardés entiers et sans limite de durée : numéros de conteneur, B/L, ports, dates. La table n'a pas d'`org_id` — un message arrive avant qu'on sache à quelle société il est — donc `python -m app.erase` ne peut pas les choisir | pour chaque numéro noté à l'étape 1 : `SELECT id, provider, received_at FROM webhook_deliveries WHERE position('<numéro>' in convert_from(body, 'UTF8')) > 0;` puis le même `DELETE`. Laisser un numéro qu'une autre société suit aussi (le même conteneur physique) : ses messages sont aussi les siens. Non joué en production |
+| Volume Railway | les sauvegardes que Railway fait de son propre volume (§6) : une copie de la base, donc de la société, hors de portée de la commande | rien à supprimer à la main ; leur rétention est propre à Railway et non vérifiée : la lire dans le tableau de bord du service PostgresEU et la reporter dans la confirmation au client (étape 6) |
 | File de jobs | `procrastinate_jobs` garde les identifiants passés aux tâches (société, facture), sans contenu | rien |
 
 **5. Après une restauration.** Une sauvegarde antérieure à la suppression ramène la société. Tenir la
 liste des sociétés supprimées (id, date) et relancer `python -m app.erase` pour chacune sur la base
 restaurée, avant de la remettre en service.
 
-**6. Confirmer par écrit** au client : la date, ce que la commande a affiché (tables et lignes), Clerk et
-documents supprimés, et la date à laquelle la dernière sauvegarde qui le contient aura expiré.
+**6. Confirmer par écrit** au client : la date, ce que la commande a affiché (tables et lignes), Clerk,
+documents et messages de suivi supprimés, et la date à laquelle la dernière sauvegarde qui le contient
+aura expiré — Scaleway et Railway.
