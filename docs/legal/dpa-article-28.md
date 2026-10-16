@@ -5,7 +5,11 @@ page et la liste des sous-traitants est fourni à la signature du programme desi
 (`securite/page.tsx:84`). Ce document doit exister avant la première signature réelle — c'était le
 constat A4-7 de l'audit du 17/09/2026 (« il faut qu'il existe réellement au moment T »).
 
-**Brouillon rédigé par un outil d'IA, à faire relire par un avocat avant la première signature.** Les
+**Brouillon rédigé par un outil d'IA, à faire relire par un avocat avant la première signature.**
+Mis à jour le 16 octobre 2026 : annexe 1 alignée sur `frontend/src/features/marketing/subprocessors.ts`
+(la liste publiée sur `/securite`), journal d'audit et catégories de données remplis depuis le code. Il
+reste l'identité des parties, deux décisions (articles g et i, propositions écrites) et la confirmation
+de l'effectif (article c). Les
 clauses ci-dessous suivent l'ordre de l'article 28§3 du RGPD, qui liste ce qu'un contrat de
 sous-traitance doit obligatoirement contenir. Rien dans les annexes n'a été inventé : chaque
 affirmation technique est sourcée sur le code ou la documentation ops existante.
@@ -37,9 +41,11 @@ documents.
   service ne fait pas (`securite/page.tsx:80`, à lire en creux : le service ne décide jamais seul,
   n'utilise jamais les données à une fin étrangère au calcul demandé).
 - **Catégories de données** : références de commande, numéros de conteneur, montants et lignes de
-  facture, noms de fournisseurs, [À COMPLÉTER : le Client peut-il faire apparaître des données
-  personnelles dans ces documents, par exemple le nom d'un contact fournisseur sur une facture ? à
-  documenter au cas par cas, le service n'exige aucune donnée personnelle pour fonctionner].
+  facture, noms de fournisseurs ; pour les utilisateurs du Client, e-mail, nom, rôle et journal de leurs
+  actions (`users`, `memberships`, `audit_log` dans `backend/app/domain/models.py`). Le service n'exige
+  aucune autre donnée personnelle ; les documents importés peuvent en contenir incidemment (nom d'un
+  contact sur une facture, par exemple), traités comme le reste du document, sans être exploités pour
+  eux-mêmes. Aucune donnée sensible au sens de l'article 9 n'est attendue.
 - **Catégories de personnes concernées** : les utilisateurs du Client ayant un compte dans
   l'application (nom, e-mail professionnel) ; ponctuellement, des personnes physiques mentionnées dans
   les documents importés par le Client (ex. signataire d'une facture), sans que le service ne les
@@ -55,8 +61,8 @@ autre disposition relative à la protection des données.
 ### c) Confidentialité du personnel
 
 Le Sous-traitant s'assure que les personnes autorisées à traiter les données (à ce jour :
-**[À COMPLÉTER : le fondateur seul, ou une équipe — à préciser selon l'effectif réel au moment de la
-signature]**) sont soumises à une obligation de confidentialité, contractuelle ou légale.
+**le fondateur seul** [À CONFIRMER à la signature : effectif réel à cette date]) sont soumises à une
+obligation de confidentialité, contractuelle ou légale.
 
 ### d) Sécurité (article 32)
 
@@ -67,7 +73,11 @@ Voir annexe 2 « Mesures de sécurité ». Reprend et détaille ce qui est publi
 Le Sous-traitant ne recourt à un sous-traitant ultérieur qu'avec l'autorisation écrite, générale ou
 spécifique, du Responsable de traitement. L'autorisation générale ci-dessous couvre la liste actuelle
 de l'annexe 1 ; le Sous-traitant informe le Responsable de traitement de tout ajout ou remplacement
-avant qu'il ne prenne effet, lui laissant la possibilité de s'y opposer — engagement déjà pris
+avant qu'il ne prenne effet, avec un préavis d'au moins 30 jours, lui laissant la possibilité de s'y
+opposer ; en cas d'objection motivée sans solution, le Responsable de traitement peut résilier sans
+frais les services concernés. Le Sous-traitant impose à chaque sous-traitant ultérieur des obligations
+de protection des données équivalentes (article 28§4), par l'accord de traitement de ce prestataire, et
+reste responsable envers le Responsable de traitement de leur exécution — engagement déjà pris
 publiquement sur `/securite` (« le fournisseur sera ajouté à cette page avant toute activation »,
 `securite/page.tsx:73`, au sujet d'un éventuel fournisseur d'IA), étendu ici contractuellement à tout
 sous-traitant ultérieur.
@@ -85,11 +95,9 @@ par l'export CSV complet et la suppression accessibles à tout moment (`securite
 
 - Le Sous-traitant notifie le Responsable de traitement de toute violation de données concernant ses
   données dans les meilleurs délais après en avoir pris connaissance, et au plus tard
-  **[À COMPLÉTER : délai contractuel — 48h ou 72h sont des valeurs usuelles ; l'article 33 RGPD impose
-  au Responsable de traitement de notifier la CNIL sous 72h après en avoir pris connaissance lui-même,
-  ce qui pousse à retenir un délai contractuel plus court côté Sous-traitant, par exemple 24h ou 48h]**
-  heures, avec les éléments connus au moment de la notification (nature, catégories et nombre
-  approximatif de personnes et d'enregistrements concernés, conséquences probables, mesures prises ou
+  **48 heures** [DÉCISION de Pierre : 48 h proposées ; l'article 33 laisse 72 h au Responsable de
+  traitement pour notifier la CNIL, le délai du Sous-traitant doit donc être plus court], avec les
+  éléments connus au moment de la notification (nature, catégories et nombre approximatif de personnes et d'enregistrements concernés, conséquences probables, mesures prises ou
   proposées).
 - Le Sous-traitant fournit au Responsable de traitement les informations nécessaires à une analyse
   d'impact relative à la protection des données (AIPD) si celui-ci en réalise une — improbable au
@@ -108,30 +116,34 @@ Responsable de traitement tout élément nécessaire pour démontrer le respect 
 
 Le Responsable de traitement peut demander au Sous-traitant les informations nécessaires pour
 démontrer le respect des obligations du présent article, et faire réaliser un audit, y compris une
-inspection, par lui-même ou un tiers mandaté qu'il choisit, [À COMPLÉTER avec un avocat : conditions
-raisonnables — préavis, fréquence, prise en charge des coûts pour un fondateur solo qui ne peut pas
-absorber un audit sur site sans limite].
+inspection, par lui-même ou un tiers mandaté qu'il choisit, dans les conditions suivantes [DÉCISION de Pierre,
+proposition] : le Sous-traitant répond d'abord par écrit (questionnaire, documentation, attestations
+des hébergeurs) ; un audit sur pièces ou sur place n'a lieu qu'avec un préavis de 30 jours, au plus une
+fois par an sauf violation de données avérée, par un auditeur tenu au secret, aux frais du Responsable
+de traitement, et sans accès aux données des autres clients.
 
 ---
 
 ## Annexe 1 — Sous-traitants ultérieurs
 
-Reprend le tableau détaillé de `docs/legal/politique-de-confidentialite.md` §4, à la date de
-signature :
+Liste publiée sur `/securite`, tirée de `frontend/src/features/marketing/subprocessors.ts`, à la date
+du 16 octobre 2026. Les mécanismes de transfert sont ceux des accords de traitement des prestataires
+(sources dans `docs/legal/README.md`).
 
-| Sous-traitant | Rôle | Pays | Statut |
-|---|---|---|---|
-| Railway | API et base de données PostgreSQL | Pays-Bas (UE) | Actif |
-| Vercel | Rendu de l'interface | France (fonctions) / mondial (CDN statique) | Actif |
-| Clerk | Authentification | États-Unis | Actif |
-| Scaleway | Sauvegardes chiffrées | France (UE) | Actif |
-| Sentry | Supervision des erreurs | [À VÉRIFIER : région EU, cf. politique de confidentialité §4] | Actif |
-| Frankfurter (taux BCE) | Taux de change publics, lecture seule | UE | Actif — aucune donnée transmise |
-| Shipsgo | Suivi automatique des conteneurs | Turquie | Construit, pas encore activé en production au 17/09/2026 |
-| Resend | Envoi des alertes e-mail | États-Unis | Construit, pas encore activé en production au 17/09/2026 |
+| Sous-traitant | Rôle | Localisation | Transfert hors UE | Statut |
+|---|---|---|---|---|
+| Railway Corporation | API, base de données, tâches planifiées | Amsterdam, Pays-Bas | Société américaine : clauses contractuelles types (DPA Railway §9.2) | Actif |
+| Vercel Inc. | Rendu de l'interface | Paris (fonctions) / CDN mondial (fichiers statiques) | DPF et clauses contractuelles types | Actif |
+| Clerk, Inc. | Authentification des utilisateurs du Client | États-Unis | DPF ; clauses contractuelles types en secours (DPA Clerk cl. 11) | Actif |
+| Scaleway | Sauvegardes chiffrées (clé hors Scaleway) | Paris, France | Aucun | Actif |
+| Sentry (Functional Software, Inc.) | Supervision des erreurs | Francfort (région UE) ; métadonnées de compte aux États-Unis | DPF ; clauses contractuelles types en secours | Actif |
+| Frankfurter | Taux de change BCE, lecture seule | — | Aucune donnée transmise | Actif |
+| Resend (Plus Five Five, Inc.) | Alertes par e-mail | États-Unis | Clauses contractuelles types et DPF | Construit, pas activé |
+| Shipsgo / Terminal49 | Suivi des conteneurs | Turquie / États-Unis | Aucune donnée personnelle transmise | Construit, pas activé |
 
-Aucun fournisseur d'IA n'est utilisé aujourd'hui pour la lecture des factures (voir
-`docs/legal/politique-de-confidentialite.md` §4 pour le détail et la source).
+La lecture des factures se fait par des règles. Une lecture assistée par IA (Anthropic, États-Unis,
+texte des factures) existe dans le code et est désactivée ; elle ne sera activée qu'après information du
+Responsable de traitement selon l'article e), et s'appliquerait à tous les clients à la fois.
 
 ## Annexe 2 — Mesures de sécurité (article 32)
 
@@ -147,18 +159,20 @@ Aucun fournisseur d'IA n'est utilisé aujourd'hui pour la lecture des factures (
   `docs/backups-questions.md` §1).
 - **Sauvegardes hors hébergeur principal** : une copie chiffrée complète chaque nuit chez Scaleway à
   Paris, hors de Railway ; 30 sauvegardes quotidiennes et 12 mensuelles conservées
-  (`securite/page.tsx:87`, `docs/04_ops_railway_vercel.md` §6). La restauration est testée en
-  intégration continue à chaque changement de code (`securite/page.tsx:87`) — [À VÉRIFIER : au moment
-  de la signature, confirmer que le job CI qui installe `postgresql-client-17` a bien été ajouté,
-  cf. `docs/backups-questions.md` §3, pour que ce test tourne réellement et pas seulement en local].
+  (`securite/page.tsx:87`, `docs/04_ops_railway_vercel.md` §6). [À VÉRIFIER à la signature : la restauration
+  et son test en intégration continue sont en cours de correction (diagnostic D2-F1 : une base
+  restaurée n'était pas lisible par le rôle applicatif) ; ne rien affirmer sur la restauration avant
+  que ce correctif soit livré et qu'une restauration complète ait été rejouée].
 - **Contrôle d'accès** : authentification confiée à Clerk (connexion par e-mail ou Google, double
   authentification disponible, organisations avec rôles) ; l'API ne fait confiance qu'à un jeton de
   session signé, vérifié contre les clés publiques de Clerk, restreint au domaine de l'application
   (`securite/page.tsx:52`).
 - **Journalisation** : traces d'erreur envoyées à Sentry, sans le contenu d'une facture ni d'une
-  commande (`securite/page.tsx:26`). [À COMPLÉTER : si un journal d'audit applicatif dédié (qui a
-  consulté/modifié quoi, horodaté) existe ou est prévu au-delà des traces d'erreur — à vérifier dans
-  le code applicatif avant de l'affirmer dans un DPA signé].
+  commande. Un journal d'audit applicatif horodaté enregistre qui a créé, validé, modifié ou annulé
+  quoi (imports, coûts, factures, clôtures de période, partages, envois vers l'ERP) ; il est en ajout seul : le rôle applicatif n'a que
+  `SELECT` et `INSERT`, et un déclencheur refuse `UPDATE` et `DELETE` à tous, propriétaire compris
+  (`backend/migrations/versions/0008_audit_log.py`, `backend/tests/test_audit_log.py`). Les
+  consultations ne sont pas journalisées.
 - **Hébergement dans l'Union européenne** : API et base de données à Amsterdam, Pays-Bas
   (`docs/04_ops_railway_vercel.md` §4) ; rendu de l'interface dans la région de Paris
   (`securite/page.tsx:46`).
@@ -181,6 +195,6 @@ Aucun fournisseur d'IA n'est utilisé aujourd'hui pour la lecture des factures (
 ---
 
 **Avant la première signature réelle**, résoudre en priorité : le délai de notification de violation
-(article g), les conditions d'audit (article i), et confirmer la région Sentry et le statut du test de
-restauration en CI (annexe 2) — ce sont les trois points qu'un DPO sérieux vérifie en premier d'après
+(article g), les conditions d'audit (article i), et le statut de la restauration (annexe 2). La région
+Sentry est l'UE (organisation sur `de.sentry.io`, diagnostic D5) — ce sont les trois points qu'un DPO sérieux vérifie en premier d'après
 `docs/legal/reponses-questionnaire-securite.md`.

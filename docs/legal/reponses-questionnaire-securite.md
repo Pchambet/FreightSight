@@ -7,7 +7,9 @@ ouvrés », `securite/page.tsx:90`) et de check-list interne avant de répondre 
 
 Chaque réponse est marquée **VRAI AUJOURD'HUI** (vérifié dans le code ou la configuration en
 production au 17/09/2026) ou **PRÉVU** (construit mais pas encore activé, ou pas encore fait), avec la
-preuve. Rien n'est marqué VRAI AUJOURD'HUI sans une source vérifiable dans le dépôt.
+preuve. Rien n'est marqué VRAI AUJOURD'HUI sans une source vérifiable dans le dépôt. Questions 3, 13,
+16, 19, 20, 22, 23 et 24 mises à jour le 16 octobre 2026 ; les sources des prestataires sont dans
+`docs/legal/README.md`.
 
 ---
 
@@ -24,8 +26,10 @@ les seuls fichiers statiques (pas de données métier). **VRAI AUJOURD'HUI** —
 `docs/04_ops_railway_vercel.md` §4, `securite/page.tsx:23`.
 
 **3. Quel hébergeur, quelle certification ?**
-Railway (API, base), Vercel (interface). [À VÉRIFIER : certifications propres de chaque hébergeur —
-SOC 2, ISO 27001 — à demander directement à Railway et Vercel, non documentées dans ce dépôt].
+Railway (API, base) : attestation SOC 2 Type II, rapport sur son Trust Center
+(https://docs.railway.com/enterprise/compliance) ; pas d'ISO 27001 annoncé. Vercel (interface) :
+SOC 2 Type 2 et ISO 27001 (https://vercel.com/security). **VRAI AUJOURD'HUI** d'après les pages des
+hébergeurs, lues le 16/10/2026 ; demander les rapports eux-mêmes avant de les citer à un DPO.
 
 **4. Les connexions sont-elles chiffrées ?**
 Oui, TLS de bout en bout entre le navigateur, l'interface et l'API. **VRAI AUJOURD'HUI** —
@@ -72,6 +76,9 @@ Oui, AES-256-GCM, clé détenue par FreightSight et non par Scaleway. **VRAI AUJ
 faite dans ce dépôt].
 
 **12. Une restauration a-t-elle déjà été testée avec succès ?**
+[À VÉRIFIER avant tout envoi : la restauration est en cours de correction (diagnostic D2-F1 : une base
+restaurée n'était pas lisible par le rôle applicatif, et le test de CI ne pouvait pas le voir). La
+réponse ci-dessous date du 17/09/2026 et ne doit pas être reprise telle quelle.]
 Un aller-retour complet (dump, chiffrement, déchiffrement, restauration, comparaison ligne par ligne) a
 été vérifié à la main sur Postgres 17 local (28 tables, lignes attendues). **PRÉVU pour la production**
 — aucune restauration n'a encore été prouvée sur l'environnement de production lui-même, et le test
@@ -80,8 +87,11 @@ automatisé se saute en CI tant qu'un client PostgreSQL 17 n'y est pas installé
 (« reste vrai : aucune restauration n'a été prouvée sur la prod »).
 
 **13. Quel est l'objectif de temps de reprise (RTO) et de perte de données maximale tolérée (RPO) ?**
-[À COMPLÉTER : aucun objectif chiffré formalisé à ce jour — à définir avec le premier design partner
-selon sa tolérance réelle, plutôt que d'annoncer un chiffre non vérifié].
+Perte maximale (RPO) : la sauvegarde hors hébergeur est quotidienne (cron `0 3 * * *`,
+`.railway/railway.ts`) ; si la base Railway et ses propres copies étaient perdues, on perdrait au plus
+ce qui a été saisi depuis la dernière sauvegarde de 3 h (UTC), soit 24 h au pire. **VRAI AUJOURD'HUI**
+pour la fréquence. Délai de reprise (RTO) : [DÉCISION de Pierre : aucun chiffre tant qu'une
+restauration complète n'a pas été chronométrée].
 
 ## Accès et authentification
 
@@ -95,8 +105,8 @@ la mise en place. **VRAI AUJOURD'HUI** — `docs/04_ops_railway_vercel.md` §1, 
 `SELECT rolname, rolsuper, rolbypassrls, rolinherit`.
 
 **16. Qui, chez FreightSight, a accès aux données de production ?**
-[À COMPLÉTER : à ce jour, le fondateur seul d'après l'organisation actuelle du projet — à confirmer et
-formaliser (liste nominative, procédure d'habilitation) avant que l'équipe grandisse].
+Le fondateur seul. [À CONFIRMER par Pierre au moment de répondre ; formaliser une liste nominative et
+une procédure d'habilitation avant que l'équipe grandisse.]
 
 **17. Existe-t-il un contrôle d'accès par rôle côté client (utilisateur standard vs administrateur) ?**
 Oui, quatre rôles vérifiés par l'API à chaque requête : *VIEWER* lit ; *MEMBER* lit et écrit (coûts,
@@ -145,15 +155,18 @@ Oui, via Sentry, sans le contenu d'une facture ni d'une commande dans les traces
 — `securite/page.tsx:26`.
 
 **19. Existe-t-il un journal d'audit (qui a fait quoi, quand) au-delà des traces d'erreur ?**
-[À COMPLÉTER : non confirmé dans les sources disponibles pour ce document — à vérifier dans le code
-applicatif ; si un tel journal n'existe pas encore, le dire clairement plutôt que de laisser la
-question sans réponse devant un DPO].
+Oui pour les modifications : un journal d'audit horodaté enregistre qui a créé, validé, modifié ou
+annulé quoi (coûts, factures, imports, clôtures de période, partages, envois vers l'ERP), avec l'état
+avant et après. Il est en ajout seul : le rôle applicatif n'a que `SELECT` et `INSERT`, et un
+déclencheur refuse `UPDATE` et `DELETE` à tous, propriétaire compris. Les simples consultations ne sont
+pas journalisées. **VRAI AUJOURD'HUI** — `backend/migrations/versions/0008_audit_log.py`,
+`backend/app/domain/audit/service.py`, `backend/tests/test_audit_log.py`.
 
 ## Incidents
 
 **20. Sous quel délai une violation de données affectant le client serait-elle notifiée ?**
-[À COMPLÉTER : aucun délai contractuel formalisé à ce jour en dehors du DPA à signer — voir
-`docs/legal/dpa-article-28.md` article g, qui propose 24 à 48h à trancher avec un avocat].
+48 heures après en avoir pris connaissance, dans le DPA proposé (`docs/legal/dpa-article-28.md`
+article g). **PRÉVU** : engagement contractuel à la signature du DPA [DÉCISION de Pierre sur le délai].
 
 **21. Existe-t-il un plan de réponse à incident écrit ?**
 [À COMPLÉTER : non trouvé dans ce dépôt sous cette forme — le runbook de restauration
@@ -164,22 +177,27 @@ reste à écrire].
 ## Sous-traitants
 
 **22. Quels sous-traitants reçoivent des données, et où sont-ils situés ?**
-Railway (Pays-Bas), Vercel (France/mondial pour le CDN statique), Clerk (États-Unis), Scaleway
-(France), Sentry (Francfort), Frankfurter (UE, lecture seule sans donnée transmise). **VRAI
-AUJOURD'HUI** — table complète dans `docs/legal/politique-de-confidentialite.md` §4.
+Railway (Amsterdam ; société américaine, clauses contractuelles types), Vercel (Paris pour les
+fonctions, CDN mondial ; DPF et clauses contractuelles types), Clerk (États-Unis ; DPF, clauses
+contractuelles types en secours), Scaleway (Paris), Sentry (Francfort, métadonnées de compte aux
+États-Unis ; DPF, clauses en secours), Frankfurter (aucune donnée transmise). **VRAI AUJOURD'HUI** —
+liste publiée sur `/securite` et `/confidentialite`, tirée de
+`frontend/src/features/marketing/subprocessors.ts`.
 
 **23. Cette liste est-elle tenue à jour et communiquée avant tout changement ?**
-Deux sous-traitants supplémentaires (Shipsgo, Resend) sont déjà listés par avance sur `/securite` et
+Les sous-traitants à venir (Resend, Shipsgo ou Terminal49) sont déjà listés par avance sur `/securite` et
 dans la politique de confidentialité, alors qu'ils ne sont pas encore activés en production — pour ne
 jamais être découverts après coup. **VRAI AUJOURD'HUI** comme pratique ; **PRÉVU** comme sous-traitants
 eux-mêmes tant qu'ils ne sont pas activés — `securite/page.tsx:33`,
 `docs/plan/audit-2026-09-17/F1-verifications-prod.md` §1.
 
 **24. Un fournisseur d'intelligence artificielle traite-t-il les données du client ?**
-Non, à ce jour. La lecture des factures se fait par des règles déterministes, pas par le lecteur
-assisté par IA qui existe dans le code mais n'est activé sur aucun des deux services de production
-(clé d'API absente). **VRAI AUJOURD'HUI** — `docs/plan/audit-2026-09-17/F1-verifications-prod.md` §2,
-`securite/page.tsx:73`.
+Non. La lecture des factures se fait par des règles déterministes. Un lecteur assisté par IA existe
+dans le code (il enverrait le texte des factures à Anthropic, aux États-Unis) ; il ne s'active qu'avec
+une clé d'API, absente de la production, et s'appliquerait alors à tous les clients à la fois. `/securite`
+le dit, et Anthropic y sera listé avec son mécanisme de transfert avant toute activation. **VRAI
+AUJOURD'HUI** au 17/09/2026 (variables de production lues), [À VÉRIFIER dans Railway avant d'envoyer :
+la production n'a pas été relue depuis] — `backend/app/domain/invoices/registry.py`.
 
 ## Réversibilité, export, suppression
 

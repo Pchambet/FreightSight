@@ -1,97 +1,74 @@
-# Mentions légales — brouillon
+# Mentions légales — brouillon et justification
 
-Document de travail pour la page `/mentions-legales` du site FreightSight. Rédigé pour respecter
-l'article 6-III de la loi n° 2004-575 du 21 juin 2004 pour la confiance dans l'économie numérique
-(LCEN), qui impose ces informations à tout éditeur professionnel d'un site accessible au public en
-France — dès la mise en ligne, pas seulement à partir de la première vente.
+Le texte publié est celui de `frontend/src/app/(marketing)/mentions-legales/page.tsx`, alimenté par
+`frontend/src/lib/site.ts`. La page répond 404, et aucun lien n'y mène, tant qu'un champ exigé par la
+loi est vide. Ce document dit ce que la loi demande et d'où vient chaque valeur.
 
-**Ce document est un brouillon rédigé par un outil d'IA. Il doit être relu par un avocat ou, a minima,
-vérifié point par point avant publication.** Chaque `[À COMPLÉTER : …]` est une information que
-l'outil ne peut pas connaître ou inventer (identité juridique, adresse, numéros officiels). Rien n'a
-été inventé : pas de SIREN, pas de forme juridique, pas d'adresse fictifs.
+**Brouillon rédigé par un outil d'IA, non relu par un avocat.**
 
----
+## Ce que la loi exige
 
-## 1. Éditeur du site
+Article 6-III de la loi n° 2004-575 du 21 juin 2004 (LCEN), résumé par
+https://entreprendre.service-public.gouv.fr/vosdroits/F37351 (diagnostic D7-F1) : tout éditeur
+professionnel d'un site accessible en France affiche, dès la mise en ligne,
 
-- Nom / raison sociale : [À COMPLÉTER : nom de la personne physique (micro-entrepreneur) ou raison
-  sociale de la société]
-- Forme juridique : [À COMPLÉTER : entreprise individuelle / micro-entreprise / SASU / autre — l'audit
-  A4-6 suggère qu'une micro-entreprise suffit à ce stade, mais c'est une décision du fondateur]
-- Capital social : [À COMPLÉTER : sans objet si entreprise individuelle ; montant si société]
-- Numéro SIREN / SIRET : [À COMPLÉTER : obtenu à l'immatriculation, non existant à ce jour d'après
-  l'audit A4-6 — « aucune mention de SIREN/forme juridique trouvée »]
-- Numéro de TVA intracommunautaire : [À COMPLÉTER : le cas échéant — une micro-entreprise en
-  franchise en base de TVA n'en a pas et doit alors faire figurer la mention « TVA non applicable,
-  art. 293 B du CGI »]
-- RCS (ville d'immatriculation) : [À COMPLÉTER : sans objet pour une entreprise individuelle non
-  commerçante inscrite au RNE plutôt qu'au RCS — à trancher avec le statut juridique]
-- Siège social / adresse postale : [À COMPLÉTER : une adresse professionnelle ou personnelle de
-  domiciliation, pas une boîte postale seule]
-- Contact : [À COMPLÉTER : adresse e-mail professionnelle — aujourd'hui `pierrechambet@gmail.com`,
-  `frontend/src/lib/site.ts:4`. Une adresse Gmail n'est pas interdite en mentions légales, mais
-  l'audit A4-6 note que ça nuit à la crédibilité commerciale ; à remplacer par une adresse sur domaine
-  propre dès que le domaine existe]
-- Téléphone : [À COMPLÉTER : optionnel en LCEN pour une personne physique, mais utile pour la
-  crédibilité commerciale]
+- **personne physique** : nom, prénom, domicile, téléphone, e-mail, numéro d'immatriculation (RNE ou
+  RCS) le cas échéant ;
+- **société** : dénomination, forme juridique, capital, siège, téléphone, e-mail, numéro
+  d'immatriculation ;
+- le numéro de TVA intracommunautaire s'il en existe un ;
+- le **directeur de la publication** ;
+- l'**hébergeur** : nom, adresse, téléphone.
 
-## 2. Directeur de la publication
+Amendes affichées par service-public : jusqu'à 75 000 € pour une personne physique, 375 000 € pour une
+personne morale.
 
-- Nom : [À COMPLÉTER : en général le fondateur — Pierre Chambet, sous réserve de confirmation]
-- Qualité : [À COMPLÉTER : gérant / président / entrepreneur individuel, selon la forme retenue]
+## 1. Éditeur — [À COMPLÉTER par Pierre, dans `site.ts`]
 
-## 3. Hébergeurs
+| Mention | Champ de `site.publisher` | Valeur |
+|---|---|---|
+| Nom ou dénomination | `legalName` | [À COMPLÉTER : après immatriculation] |
+| Forme juridique (et capital pour une société) | `legalForm` | [À COMPLÉTER : décision D7-F8] |
+| SIREN | `siren` | [À COMPLÉTER : après immatriculation] |
+| Registre | `registry` | [À COMPLÉTER : « RCS <ville> » pour une société ; vide pour un EI] |
+| TVA intracommunautaire | `vatNumber` | Vide en franchise en base (art. 293 B du CGI) |
+| Adresse | `address` | [À COMPLÉTER] |
+| Téléphone | `phone` | [À COMPLÉTER] |
+| E-mail | `email` | `pierrechambet@gmail.com` (déjà affiché sur le site) ; à remplacer par une adresse sur domaine propre quand il existe |
 
-Le site FreightSight est composé d'une interface web (front) et d'une API (back), hébergées
-séparément. Les deux doivent apparaître : l'obligation LCEN vise « la personne physique ou morale qui
-assure [...] le stockage de signaux, d'écrits, d'images, de sons ou de messages », ce qui couvre
-chaque hébergeur effectivement utilisé.
+## 2. Directeur de la publication — [À COMPLÉTER par Pierre]
 
-### Interface web (front)
+`site.publisher.publicationDirector` : en pratique « Pierre Chambet ».
 
-- Nom : Vercel Inc.
-- Adresse : [À VÉRIFIER : adresse officielle actuelle — historiquement 440 N Barranca Ave #4133,
-  Covina, CA 91723, États-Unis ; à confirmer sur la page légale de vercel.com avant publication]
-- Site : https://vercel.com
-- Note technique : le rendu serveur (fonctions) est exécuté dans la région de Paris (`cdg1`), le CDN
-  pour les fichiers statiques est mondial — cohérent avec `docs/04_ops_railway_vercel.md` §4 et la
-  page `/securite`.
+## 3. Hébergeurs — rempli, sauf les téléphones
 
-### API et base de données (back)
+Le site (pages et interface) et l'application (API, base de données) sont hébergés séparément ; les deux
+sont listés, car l'obligation vise quiconque stocke ce que le service publie.
 
-- Nom : Railway Corporation
-- Adresse : [À VÉRIFIER : adresse officielle actuelle — historiquement 340 S Lemon Ave #4021,
-  Walnut, CA 91789, États-Unis ; à confirmer sur la page légale de railway.com avant publication]
-- Site : https://railway.com
-- Note technique : les services tournent dans la région d'Amsterdam (`europe-west4-drams3a`) depuis le
-  8 septembre 2026 (`docs/04_ops_railway_vercel.md` §4, `docs/plan/audit-2026-09-17/F1-verifications-prod.md`
-  confirme la configuration lue en production).
+| | Vercel Inc. | Railway Corporation |
+|---|---|---|
+| Rôle | Site et interface (fonctions serveur région Paris `cdg1`, CDN mondial) | API et base de données (région Amsterdam `europe-west4-drams3a`) |
+| Adresse | 440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis | 548 Market St PMB 68956, San Francisco, CA 94104, États-Unis |
+| Source de l'adresse | https://vercel.com/legal/privacy-policy (1er juin 2026), aussi dans https://vercel.com/legal/terms | https://railway.com/legal/dpa (annexe B) |
+| Téléphone | [À COMPLÉTER : non publié par Vercel, à demander au support] | [À COMPLÉTER : non publié par Railway, à demander au support] |
 
-## 4. Propriété intellectuelle
+L'ancienne adresse « 340 S Lemon Ave, Walnut » de Railway, citée par le premier brouillon, n'est plus
+celle de ses pages légales.
 
-[À COMPLÉTER avec un avocat : clause standard — le contenu du site (textes, marque, logo, mise en
-page) est la propriété de [éditeur] ou de ses concédants ; toute reproduction sans autorisation
-préalable est interdite. Attention à la cohérence avec le fichier `LICENSE` du dépôt de code — voir
-`docs/legal/README.md`, point sur `LICENSE`/`CONTRIBUTING.md`/`CODE_OF_CONDUCT.md` : ces fichiers
-n'ont d'effet que si le code source lui-même est rendu public, ce qu'il n'est pas aujourd'hui (dépôt
-privé), mais ils ne doivent pas être laissés en l'état si le dépôt devait un jour être ouvert ou audité
-par un tiers.]
+## 4. Propriété intellectuelle — rempli
 
-## 5. Données personnelles
+« Les textes, images, marques, logos et logiciels de ce site et du service FreightSight appartiennent à
+<éditeur> ou sont utilisés avec l'autorisation de leurs titulaires. Toute reproduction ou réutilisation
+sans autorisation écrite préalable est interdite. » Cohérent avec `LICENSE` (tous droits réservés,
+Pierre Chambet, 2026). Si une société est créée, Pierre lui cède ou lui concède ses droits sur le code :
+à prévoir à la création (statuts ou acte de cession), sinon la société vend un logiciel qui ne lui
+appartient pas.
 
-Le traitement des données personnelles des visiteurs du site et des utilisateurs de l'application est
-décrit dans la politique de confidentialité : voir `docs/legal/politique-de-confidentialite.md` (à
-publier sous `/politique-de-confidentialite` une fois validée).
+## 5. Données personnelles — rempli
 
-## 6. Médiation et litiges
+Renvoi vers `/confidentialite` (publiée).
 
-[À COMPLÉTER avec un avocat : clause de droit applicable (droit français) et de juridiction compétente
-en cas de litige avec un client professionnel — pour un contrat B2B entre professionnels, la clause
-attributive de compétence est possible mais doit être rédigée avec soin.]
+## Ce qui n'est pas dans la page
 
----
-
-**Ordre de complétion recommandé** (voir aussi `docs/legal/README.md`) : ce document dépend de deux
-décisions préalables du fondateur — la forme juridique et le nom de domaine propre. Les deux
-adresses d'hébergeur marquées `[À VÉRIFIER]` doivent être confirmées sur les pages légales officielles
-de Vercel et Railway juste avant publication (elles changent parfois).
+Le droit applicable et le règlement des litiges relèvent des CGV (`cgv.md`, art. 11), pas des mentions
+légales.

@@ -4,7 +4,9 @@ Une page, à faire signer avant le démarrage de l'audit. Reprend la structure r
 `docs/plan/gtm-2026-09-17/research/11_outbound_offre_process_de_vente.md` §2.1 (one-pager pilote) et
 le prix/délai de `docs/plan/gtm-2026-09-17/00_PLAYBOOK_VENTE.md` §5.
 
-**Brouillon rédigé par un outil d'IA, à faire relire par un avocat avant le premier envoi.** Les
+**Brouillon rédigé par un outil d'IA, à faire relire par un avocat avant le premier envoi.** Mis à jour
+le 16 octobre 2026 : suppression (art. 9) et responsabilité (art. 11) rédigées, alignées sur les CGV.
+Restent l'identité des parties et les décisions commerciales des articles 2, 4, 5, 7 et de la variante. Les
 clauses de responsabilité et de confidentialité en particulier gagnent à être vérifiées par un
 professionnel plutôt que signées telles quelles.
 
@@ -85,10 +87,10 @@ techniques (isolation, chiffrement, sous-traitants) figure sur la page `/securit
 À l'issue de l'audit — que le Client convertisse ou non — FreightSight :
 
 - restitue au Client, sur demande, un export complet des données saisies pendant l'audit ;
-- supprime définitivement les documents et données transmis sous **[À COMPLÉTER : délai, cohérent
-  avec l'engagement « sous 30 jours » déjà publié sur `/securite` (`securite/page.tsx:84`) — à
-  reprendre ici pour ne pas afficher deux délais différents]** à compter de la décision de ne pas
-  convertir, sauf obligation légale de conservation contraire.
+- supprime définitivement les documents et données transmis sous **30 jours** à compter de la
+  décision de ne pas convertir, et le confirme par écrit, sauf obligation légale de conservation
+  contraire ; les copies chiffrées des sauvegardes expirent ensuite selon leur cycle, douze mois au
+  plus (même délai que `/securite`, `/confidentialite` et les CGV).
 
 ### 10. Cas d'usage (case à cocher, facultatif)
 
@@ -102,11 +104,14 @@ réserve d'une relecture et d'une validation écrite préalable du contenu exact
 
 ### 11. Responsabilité
 
-[À COMPLÉTER avec un avocat : plafond de responsabilité, recommandé au montant payé au titre du
-présent accord (article 4), exclusion des dommages indirects. FreightSight ne garantit pas
-l'exhaustivité des écarts identifiés au-delà des documents effectivement fournis par le Client à
-l'article 2 — l'audit porte sur ce qui a été transmis, pas sur l'ensemble de la comptabilité du
-Client.]
+L'audit porte sur les documents effectivement fournis par le Client à l'article 2, pas sur l'ensemble
+de sa comptabilité : FreightSight ne garantit pas l'exhaustivité des écarts au-delà de ces documents, et
+signale ce qui manque au lieu de le deviner. Chaque partie répond des dommages directs causés par sa
+faute prouvée ; FreightSight ne répond pas des dommages indirects (perte de chiffre d'affaires, de
+marge ou de clientèle). La responsabilité de FreightSight est limitée au montant payé au titre du
+présent accord (article 4), sauf faute lourde ou dolosive. [DÉCISION de Pierre : ce plafond, à aligner
+sur la police RC Pro ; pour la variante gratuite, un plafond forfaitaire est à fixer, un plafond à zéro
+serait réputé non écrit.]
 
 ### 12. Signatures
 
