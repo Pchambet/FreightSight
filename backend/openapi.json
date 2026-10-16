@@ -12053,7 +12053,7 @@
           },
           "skipped": {
             "additionalProperties": {
-              "type": "string"
+              "$ref": "#/components/schemas/EstimateSkip"
             },
             "type": "object",
             "title": "Skipped"
@@ -12066,6 +12066,40 @@
         ],
         "title": "EstimateResponse",
         "description": "What applying the rate cards to a container produced, and what it did not."
+      },
+      "EstimateSkip": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CostScope"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "basis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RateBasis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "EstimateSkip",
+        "description": "Why a cost type got no estimate. `code`: SCOPE_NOT_APPLIED (with `scope`), NEEDS_SHIPMENT,\nALREADY_RECORDED, ON_SHIPMENT, ON_SHIPMENT_CONTAINER, NO_BASIS (with `basis`), NO_TARIFF_RATE."
       },
       "EtaHistoryResponse": {
         "properties": {

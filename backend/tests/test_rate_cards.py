@@ -176,8 +176,7 @@ def test_a_basis_nobody_entered_produces_nothing(client: TestClient, org: Organi
 
     result = estimates(client, container_id)
     assert result["created"] == []
-    assert "DRAYAGE" in result["skipped"]
-    assert "PER_100KG" in result["skipped"]["DRAYAGE"]
+    assert result["skipped"]["DRAYAGE"] == {"code": "NO_BASIS", "basis": "PER_100KG", "scope": None}
 
 
 def test_running_it_twice_changes_nothing(client: TestClient, org: Organization) -> None:
@@ -188,7 +187,7 @@ def test_running_it_twice_changes_nothing(client: TestClient, org: Organization)
     assert len(first["created"]) == 1
     second = estimates(client, container_id)
     assert second["created"] == []
-    assert second["skipped"]["THC"] == "a cost of this type already exists"
+    assert second["skipped"]["THC"]["code"] == "ALREADY_RECORDED"
     assert len(client.get("/api/v1/costs").json()) == 1
 
 
@@ -210,7 +209,7 @@ def test_an_invoice_already_there_stops_the_estimate(client: TestClient, org: Or
 
     result = estimates(client, container_id)
     assert result["created"] == []
-    assert result["skipped"]["THC"] == "a cost of this type already exists"
+    assert result["skipped"]["THC"]["code"] == "ALREADY_RECORDED"
 
 
 def test_the_estimates_reach_the_landed_cost(client: TestClient, org: Organization) -> None:
@@ -299,7 +298,7 @@ def test_a_bill_of_lading_card_waits_for_the_box_to_travel_under_one(
     add_card(client, cost_type="DRAYAGE", scope="SHIPMENT", amount="450.00")
     result = estimates(client, container_id)
     assert result["created"] == []
-    assert result["skipped"]["DRAYAGE"] == "a SHIPMENT rate card needs the container to be on a shipment"
+    assert result["skipped"]["DRAYAGE"]["code"] == "NEEDS_SHIPMENT"
 
 
 def test_a_card_priced_per_box_does_not_add_the_freight_its_bill_of_lading_carries(
@@ -316,7 +315,7 @@ def test_a_card_priced_per_box_does_not_add_the_freight_its_bill_of_lading_carri
     add_card(client, cost_type="OCEAN_FREIGHT", amount="3700.00")
     result = estimates(client, container_id)
     assert result["created"] == []
-    assert result["skipped"]["OCEAN_FREIGHT"] == "a cost of this type is already on the container's shipment"
+    assert result["skipped"]["OCEAN_FREIGHT"]["code"] == "ON_SHIPMENT"
 
 
 def test_the_duty_estimate_takes_each_line_s_customs_value_as_the_engine_spreads_the_freight(
@@ -345,7 +344,7 @@ def test_no_rate_anywhere_says_so_instead_of_inventing_one(client: TestClient, o
     container_id = seed_container(client)
     result = estimates(client, container_id)
     assert result["created"] == []
-    assert result["skipped"]["CUSTOMS_DUTY"] == "no tariff rate on these lines"
+    assert result["skipped"]["CUSTOMS_DUTY"]["code"] == "NO_TARIFF_RATE"
 
 
 # ---------------------------------------------------------------------------- isolation

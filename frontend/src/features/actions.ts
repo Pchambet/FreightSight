@@ -401,7 +401,7 @@ export async function reopenInvoice(invoiceId: string): Promise<ActionResult<nul
 
 // ---------------------------------------------------------------------------- estimates
 
-export async function applyEstimates(containerId: string): Promise<ActionResult<{ created: number; skipped: Record<string, string> }>> {
+export async function applyEstimates(containerId: string): Promise<ActionResult<{ created: number; skipped: Record<string, Schemas["EstimateSkip"]> }>> {
   await protectAction();
   const { data, error } = await api.POST("/api/v1/containers/{container_id}/estimates", { params: { path: { container_id: containerId } } });
   if (error || !data) return await fail(error, "estimates.failed");

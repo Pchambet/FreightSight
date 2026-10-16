@@ -2063,11 +2063,20 @@ class RateCardResponse(BaseModel):
     notes: str | None
 
 
+class EstimateSkip(BaseModel):
+    """Why a cost type got no estimate. `code`: SCOPE_NOT_APPLIED (with `scope`), NEEDS_SHIPMENT,
+    ALREADY_RECORDED, ON_SHIPMENT, ON_SHIPMENT_CONTAINER, NO_BASIS (with `basis`), NO_TARIFF_RATE."""
+
+    code: str
+    scope: CostScope | None = None
+    basis: RateBasis | None = None
+
+
 class EstimateResponse(BaseModel):
     """What applying the rate cards to a container produced, and what it did not."""
 
     created: list[CostResponse]
-    skipped: dict[str, str]  # cost type -> the reason, in plain words
+    skipped: dict[str, EstimateSkip]  # cost type -> why nothing was created
 
 
 # ---------------------------------------------------------------------------- variance report

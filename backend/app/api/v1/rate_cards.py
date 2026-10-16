@@ -123,5 +123,8 @@ def create_estimates(container_id: UUID, t: TenantDep, fx: FxDep, p: WriterDep) 
     t.db.commit()
     return schemas.EstimateResponse(
         created=[schemas.CostResponse.model_validate(c) for c in result.created],
-        skipped=result.skipped,
+        skipped={
+            k: schemas.EstimateSkip(code=v.code, scope=v.scope, basis=v.basis)
+            for k, v in result.skipped.items()
+        },
     )

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { btnSecondary } from "@/components/layout/AppShell";
 import { Money } from "@/components/shared/Money";
 import { applyEstimates } from "@/features/actions";
-import type { LandedCostReport } from "@/lib/api/client";
+import type { LandedCostReport, Schemas } from "@/lib/api/client";
 import { money } from "@/lib/format";
 
 /**
@@ -24,6 +24,8 @@ export default function EstimatePanel({ report, currency, containerId }: { repor
   const t = useTranslations("estimates");
   const locale = useLocale();
   const typeLabel = useTranslations("domain.costType");
+  const scopeLabel = useTranslations("domain.costScope");
+  const basisLabel = useTranslations("rateCards.basisLabel");
   const [pending, start] = useTransition();
   const router = useRouter();
   const detail = Object.entries(report.by_cost_type_detail ?? {});
@@ -41,6 +43,13 @@ export default function EstimatePanel({ report, currency, containerId }: { repor
   const notPlaced = Number(totals.unallocated_actual ?? "0");
   const missing = expected.filter(([, v]) => Number(v.actual) === 0).map(([k]) => typeLabel(k as never));
 
+  // The API says why with a code and the card's scope or basis; the sentence is the reader's language.
+  const skipReason = (s: Schemas["EstimateSkip"]) => {
+    const key = `skipped.${s.code}`;
+    if (!t.has(key as never)) return t("skipped.other", { code: s.code });
+    return t(key as never, { scope: s.scope ? scopeLabel(s.scope as never) : "", basis: s.basis ? basisLabel(s.basis as never) : "" } as never);
+  };
+
   const apply = () =>
     start(async () => {
       if (!containerId) return;
@@ -48,7 +57,15 @@ export default function EstimatePanel({ report, currency, containerId }: { repor
       if (!r.ok) return void toast.error(r.error);
       const skipped = Object.entries(r.data.skipped);
       if (r.data.created === 0 && skipped.length === 0) toast.info(t("noRateCards"));
-      else if (skipped.length) toast.warning(`${t("appliedSkipped", { created: r.data.created, skipped: skipped.length })} · ${skipped.map(([k, v]) => `${k}: ${v}`).join(" · ")}`, { duration: 8000 });
+      else if (skipped.length)
+        toast.warning(t("appliedSkipped", { created: r.data.created, skipped: skipped.length }), {
+          description: (
+            <ul className="space-y-0.5">
+              {skipped.map(([type, s]) => <li key={type}>{t("skippedLine", { type: typeLabel.has(type as never) ? typeLabel(type as never) : type, reason: skipReason(s) })}</li>)}
+            </ul>
+          ),
+          duration: 10000,
+        });
       else toast.success(t("applied", { created: r.data.created }));
       router.refresh();
     });

@@ -62,9 +62,19 @@ class Basis:
 
 
 @dataclass(frozen=True)
+class Skip:
+    """Why a cost type got no estimate: a code, with the card's scope or basis when the reason is it.
+    The screen says it in the reader's language."""
+
+    code: str
+    scope: CostScope | None = None
+    basis: RateBasis | None = None
+
+
+@dataclass(frozen=True)
 class Estimated:
     created: list[Cost]
-    skipped: dict[str, str]  # cost type -> why nothing was created
+    skipped: dict[str, Skip]  # cost type -> why nothing was created
     #: The basis of the card each estimate was made from; duty, made from the lines' tariff rates, has none.
     basis: dict[UUID, RateBasis] = field(default_factory=dict)
 
@@ -190,34 +200,32 @@ def estimate_container(
         if on_its_bill or cost.container_id in voyage:
             on_voyage[cost.cost_type].add(cost.scope)
     created: list[Cost] = []
-    skipped: dict[str, str] = {}
+    skipped: dict[str, Skip] = {}
     bases: dict[UUID, RateBasis] = {}
 
     for card in sorted(cards, key=lambda c: (c.cost_type.value, c.scope.value)):
         if card.scope not in (CostScope.CONTAINER, CostScope.SHIPMENT):
-            skipped[card.cost_type.value] = f"{card.scope.value} rate cards are not applied yet"
+            skipped[card.cost_type.value] = Skip("SCOPE_NOT_APPLIED", scope=card.scope)
             continue
         if card.cost_type is CostType.CUSTOMS_DUTY:
             continue  # duty comes from the tariff rates below, not from a flat card
         if card.scope is CostScope.SHIPMENT and container.shipment_id is None:
-            skipped[card.cost_type.value] = "a SHIPMENT rate card needs the container to be on a shipment"
+            skipped[card.cost_type.value] = Skip("NEEDS_SHIPMENT")
             continue
         present = (on_box if card.scope is CostScope.CONTAINER else on_voyage).get(card.cost_type, set())
         if card.scope in present:
-            skipped[card.cost_type.value] = "a cost of this type already exists"
+            skipped[card.cost_type.value] = Skip("ALREADY_RECORDED")
             continue
         if present:
             # The same charge recorded at the other end of the freight: another charge of the same
             # type is possible — origin and destination handling — but only a person can say so.
-            skipped[card.cost_type.value] = (
-                "a cost of this type is already on the container's shipment"
-                if card.scope is CostScope.CONTAINER
-                else "a cost of this type is already on a container of this shipment"
+            skipped[card.cost_type.value] = Skip(
+                "ON_SHIPMENT" if card.scope is CostScope.CONTAINER else "ON_SHIPMENT_CONTAINER"
             )
             continue
         amount = amount_for(card, basis)
         if amount is None:
-            skipped[card.cost_type.value] = f"nothing to apply {card.basis.value} to on this container"
+            skipped[card.cost_type.value] = Skip("NO_BASIS", basis=card.basis)
             continue
         estimate = _estimate(
             db,
@@ -263,9 +271,9 @@ def estimate_container(
                 )
             )
         else:
-            skipped[CostType.CUSTOMS_DUTY.value] = "no tariff rate on these lines"
+            skipped[CostType.CUSTOMS_DUTY.value] = Skip("NO_TARIFF_RATE")
     else:
-        skipped[CostType.CUSTOMS_DUTY.value] = "a cost of this type already exists"
+        skipped[CostType.CUSTOMS_DUTY.value] = Skip("ALREADY_RECORDED")
 
     db.flush()
     return Estimated(created=created, skipped=skipped, basis=bases)

@@ -3233,8 +3233,19 @@ export interface components {
             created: components["schemas"]["CostResponse"][];
             /** Skipped */
             skipped: {
-                [key: string]: string;
+                [key: string]: components["schemas"]["EstimateSkip"];
             };
+        };
+        /**
+         * EstimateSkip
+         * @description Why a cost type got no estimate. `code`: SCOPE_NOT_APPLIED (with `scope`), NEEDS_SHIPMENT,
+         *     ALREADY_RECORDED, ON_SHIPMENT, ON_SHIPMENT_CONTAINER, NO_BASIS (with `basis`), NO_TARIFF_RATE.
+         */
+        EstimateSkip: {
+            /** Code */
+            code: string;
+            scope?: components["schemas"]["CostScope"] | null;
+            basis?: components["schemas"]["RateBasis"] | null;
         };
         /** EtaHistoryResponse */
         EtaHistoryResponse: {
