@@ -1804,7 +1804,9 @@
         "subtitle": "Ce que chaque famille de frais ajoute au prix payé aux fournisseurs."
       }
     },
-    "estimated": "estimé"
+    "estimated": "estimé",
+    "heldFees": "en attente",
+    "leftOutFob": "{missing, plural, =0 {+ {amount} non comptés} one {+ {amount} connus non comptés, et # ligne sans valeur} other {+ {amount} connus non comptés, et # lignes sans valeur}}"
   },
   "workflow": {
     "nextStep": "Prochaine étape",

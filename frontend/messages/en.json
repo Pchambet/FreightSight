@@ -1804,7 +1804,9 @@
         "subtitle": "What each family of charges adds to the price paid to suppliers."
       }
     },
-    "estimated": "estimated"
+    "estimated": "estimated",
+    "heldFees": "on hold",
+    "leftOutFob": "{missing, plural, =0 {+ {amount} not counted} one {+ {amount} known, not counted, and # line with no value} other {+ {amount} known, not counted, and # lines with no value}}"
   },
   "workflow": {
     "nextStep": "Next step",
