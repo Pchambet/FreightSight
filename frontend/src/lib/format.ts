@@ -121,3 +121,40 @@ export function dateTimeShort(value: string | null | undefined, locale: string =
   if (Number.isNaN(d.getTime())) return "—";
   return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Paris" }).format(d);
 }
+
+/** The clock of Paris read for one instant, as zero-padded parts. */
+function parisParts(instant: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }).formatToParts(instant);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "00";
+  return { year: part("year"), month: part("month"), day: part("day"), hour: part("hour"), minute: part("minute"), second: part("second") };
+}
+
+/** Today on the clock of Paris (`YYYY-MM-DD`), the day `daysUntil` counts from: a date field's default. */
+export function parisToday(now: Date = new Date()): string {
+  const p = parisParts(now);
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
+/** Now on the clock of Paris, as a `datetime-local` value (`YYYY-MM-DDTHH:mm`). */
+export function parisNowLocal(now: Date = new Date()): string {
+  const p = parisParts(now);
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}
+
+/**
+ * A `datetime-local` value typed on the clock of Paris, as the UTC instant the API stores: the inverse
+ * of `dateTimeShort`, so an event typed at 23:30 reads 23:30 afterwards, not 01:30 the next day. The
+ * offset is Paris's own for that date (+1 in winter, +2 in summer), read again at the instant found so
+ * a time typed across the change of hour lands on the right side of it.
+ */
+export function parisLocalToIso(local: string): string {
+  const [date, time = "00:00"] = local.split("T");
+  const [y, m, d] = date.split("-").map(Number);
+  const [h, min] = time.split(":").map(Number);
+  const wall = Date.UTC(y, m - 1, d, h, min);
+  const offset = (instant: number) => {
+    const p = parisParts(new Date(instant));
+    return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - instant;
+  };
+  return new Date(wall - offset(wall - offset(wall))).toISOString();
+}
