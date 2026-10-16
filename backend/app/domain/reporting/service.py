@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from app.core.money import q2, q4
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
 from app.domain.costing.service import Computation
+from app.domain.costing.value import missing_code
 from app.domain.models import (
     Container,
     ContainerMilestone,
@@ -46,31 +47,51 @@ FREIGHT_TYPES = {CostType.OCEAN_FREIGHT.value, CostType.AIR_FREIGHT.value}
 class Bucket:
     key: str
     label: str
-    fob: Decimal = ZERO
+    #: None, with `landed`, while one of the bucket's lines has no value (see `costing.value`).
+    fob: Decimal | None = ZERO
     allocated: Decimal = ZERO
     vat: Decimal = ZERO
-    landed: Decimal = ZERO
+    landed: Decimal | None = ZERO
     quantity: Decimal = Decimal(0)
     load_count: int = 0
     by_cost_type: dict[str, Decimal] = field(default_factory=lambda: defaultdict(lambda: ZERO))
+    fob_missing_lines: int = 0
+
+    @property
+    def fob_missing(self) -> str | None:
+        return missing_code(self.fob_missing_lines)
 
     @property
     def freight_share(self) -> Decimal | None:
         """Freight as a percentage of the goods. None when there are no goods to compare it to."""
-        if self.fob <= 0:
+        if self.fob is None or self.fob <= 0:
             return None
         freight = sum((v for k, v in self.by_cost_type.items() if k in FREIGHT_TYPES), ZERO)
         return (freight / self.fob * Decimal(100)).quantize(Decimal("0.01"))
+
+    def add(self, fob: Decimal | None, allocated: Decimal) -> None:
+        """One line's value and what it was charged: an unknown value makes the bucket's unknown."""
+        if fob is None:
+            self.fob_missing_lines += 1
+            self.fob = self.landed = None
+        elif self.fob is not None and self.landed is not None:
+            self.fob += fob
+            self.landed += fob + allocated
 
 
 @dataclass
 class SkuLine:
     sku: str
     quantity: Decimal
-    fob: Decimal
-    landed: Decimal
-    unit_landed_cost: Decimal
+    fob: Decimal | None
+    landed: Decimal | None
+    unit_landed_cost: Decimal | None
     load_count: int
+    fob_missing_lines: int = 0
+
+    @property
+    def fob_missing(self) -> str | None:
+        return missing_code(self.fob_missing_lines)
 
 
 @dataclass
@@ -142,10 +163,9 @@ def landed_cost_report(
 
         key, label = _bucket_key(group_by, row, container, landed_on)
         for bucket in (buckets.setdefault(key, Bucket(key=key, label=label)), totals):
-            bucket.fob += load.fob
+            bucket.add(load.fob, allocated)
             bucket.allocated += allocated
             bucket.vat += vat
-            bucket.landed += load.fob + allocated
             bucket.quantity += load.quantity
             bucket.load_count += 1
             for cost_type, amount in by_type.items():
@@ -155,9 +175,13 @@ def landed_cost_report(
         if sku:
             line = skus.setdefault(sku, SkuLine(sku, Decimal(0), ZERO, ZERO, Decimal(0), 0))
             line.quantity += load.quantity
-            line.fob += load.fob
-            line.landed += load.fob + allocated
             line.load_count += 1
+            if load.fob is None:
+                line.fob_missing_lines += 1
+                line.fob = line.landed = None
+            elif line.fob is not None and line.landed is not None:
+                line.fob += load.fob
+                line.landed += load.fob + allocated
 
     if group_by == "cost_type":
         buckets = _by_cost_type(totals)
@@ -165,6 +189,9 @@ def landed_cost_report(
     for line in skus.values():
         # Weighted by quantity, which is what a weighted average is: the same SKU landed twice at
         # different costs is one number, not the mean of two.
+        if line.landed is None or line.fob is None:
+            line.unit_landed_cost = None
+            continue
         line.unit_landed_cost = q4(line.landed / line.quantity) if line.quantity else Decimal(0)
         line.fob, line.landed = q2(line.fob), q2(line.landed)
 
@@ -200,7 +227,13 @@ def _by_cost_type(totals: Bucket) -> dict[str, Bucket]:
     """One bucket per charge, carrying the FOB it was charged on so shares stay computable."""
     out: dict[str, Bucket] = {}
     for cost_type, amount in totals.by_cost_type.items():
-        bucket = Bucket(key=cost_type, label=cost_type, fob=totals.fob, load_count=totals.load_count)
+        bucket = Bucket(
+            key=cost_type,
+            label=cost_type,
+            fob=totals.fob,
+            load_count=totals.load_count,
+            fob_missing_lines=totals.fob_missing_lines,
+        )
         bucket.allocated = amount if cost_type not in EXCLUDED_FROM_LANDED else ZERO
         bucket.vat = amount if cost_type in EXCLUDED_FROM_LANDED else ZERO
         # The import-VAT row used to carry its amount as a landed cost of its own, in the one table
@@ -212,10 +245,10 @@ def _by_cost_type(totals: Bucket) -> dict[str, Bucket]:
 
 
 def _rounded(bucket: Bucket) -> Bucket:
-    bucket.fob = q2(bucket.fob)
+    bucket.fob = None if bucket.fob is None else q2(bucket.fob)
     bucket.allocated = q2(bucket.allocated)
     bucket.vat = q2(bucket.vat)
-    bucket.landed = q2(bucket.landed)
+    bucket.landed = None if bucket.landed is None else q2(bucket.landed)
     bucket.by_cost_type = {k: q2(v) for k, v in sorted(bucket.by_cost_type.items())}
     return bucket
 
@@ -228,7 +261,8 @@ def record_sku_costs(db: Session, comp: Computation, org: Organization, on_date:
 
     Called after each recompute. One row per SKU per day: recomputing twice on the same day corrects
     the day rather than adding a second point, so the curve is a history of facts about the goods,
-    not of button presses.
+    not of button presses. An article one of whose lines has no value gets no point that day: its
+    unit cost is not known, and a point over its other lines would be a different article's curve.
     """
     per_load: dict[UUID, Decimal] = defaultdict(lambda: ZERO)
     for allocation in comp.result.allocations:
@@ -237,9 +271,13 @@ def record_sku_costs(db: Session, comp: Computation, org: Organization, on_date:
             per_load[allocation.load_id] += allocation.amount_base
 
     totals: dict[str, list[Decimal]] = defaultdict(lambda: [Decimal(0), ZERO, ZERO, Decimal(0)])
+    unknown: set[str] = set()
     for load in comp.loads:
         sku = comp.load_rows[load.id].po_line.sku
         if not sku:
+            continue
+        if load.fob is None:
+            unknown.add(sku)
             continue
         entry = totals[sku]
         entry[0] += load.quantity
@@ -255,6 +293,10 @@ def record_sku_costs(db: Session, comp: Computation, org: Organization, on_date:
             )
         )
     }
+    for sku in unknown:
+        totals.pop(sku, None)
+        if sku in existing:
+            db.delete(existing.pop(sku))  # the day is corrected, not left at what it was before
     for sku, (quantity, fob, landed, count) in totals.items():
         unit = q4(landed / quantity) if quantity else Decimal(0)
         row = existing.get(sku)

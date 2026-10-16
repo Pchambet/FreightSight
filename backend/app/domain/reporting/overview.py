@@ -15,9 +15,10 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.money import q2, q4
+from app.core.money import q2
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
 from app.domain.costing.service import Computation
+from app.domain.costing.value import coefficient
 from app.domain.models import (
     Container,
     CostStatus,
@@ -48,8 +49,9 @@ class Figures:
     period_from: date
     period_to: date
     containers: int
-    fob: Decimal
-    landed: Decimal
+    #: None, with `landed` and `coefficient`, while a line of the period has no value.
+    fob: Decimal | None
+    landed: Decimal | None
     coefficient: Decimal | None
     variance_estimated: Decimal
     variance_actual: Decimal
@@ -57,6 +59,8 @@ class Figures:
     variance_pairs: int
     demurrage_paid: Decimal
     demurrage_avoided: Decimal
+    fob_missing: str | None = None
+    fob_missing_lines: int = 0
 
 
 @dataclass
@@ -125,8 +129,11 @@ def overview(
         by_month=monthly.buckets,
         by_supplier=suppliers.buckets,
         by_cost_type={k: q2(v) for k, v in sorted(monthly.totals.by_cost_type.items())},
-        # The articles that weigh the most in the period: what a first screen has room for.
-        skus=sorted(monthly.skus, key=lambda s: s.landed, reverse=True)[:TOP_SKUS],
+        # The articles that weigh the most in the period: what a first screen has room for. One
+        # whose landed cost is not known cannot be ranked, and comes after those that can.
+        skus=sorted(monthly.skus, key=lambda s: (s.landed is not None, s.landed or ZERO), reverse=True)[
+            :TOP_SKUS
+        ],
         at_risk=exposure,
     )
 
@@ -156,13 +163,15 @@ def _figures(
         containers=len(landed_boxes),
         fob=totals.fob,
         landed=totals.landed,
-        coefficient=q4(totals.landed / totals.fob) if totals.fob else None,
+        coefficient=coefficient(totals.landed, totals.fob),
         variance_estimated=q2(estimated),
         variance_actual=q2(actual),
         variance=q2(actual - estimated),
         variance_pairs=pairs,
         demurrage_paid=dnd.paid,
         demurrage_avoided=dnd.avoided,
+        fob_missing=totals.fob_missing,
+        fob_missing_lines=totals.fob_missing_lines,
     )
 
 

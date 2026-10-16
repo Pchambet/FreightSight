@@ -356,11 +356,11 @@ def test_every_allocated_cost_sums_back_to_its_own_amount() -> None:
 def test_a_line_whose_order_has_no_exchange_rate_has_no_value_to_split_on() -> None:
     """An order in a currency no rate is known for used to be valued at 1:1 — dollars read as euros.
     Its value is missing now: a cost split by value cannot be split and says why, by name, while a
-    cost split by quantity or weight still lands, and the line's FOB counts for nothing in a total."""
+    cost split by quantity or weight still lands, and the line has no FOB at all, not one of 0."""
     box = uuid4()
     priced = load("C1", "PO-1", 1, "100", "10", kg="1", container_id=box)
     unpriced = replace(priced, id=uuid4(), unit_price_base=None, sort_key=("C1", "PO-2", 1))
-    assert unpriced.fob == D("0.00") and not unpriced.value_known and priced.value_known
+    assert unpriced.fob is None and not unpriced.value_known and priced.value_known
     by_value = cost("CONTAINER", box, "300.00")
     by_cif = cost("CONTAINER", box, "50.00", "DUTY", "BY_CIF_VALUE")
     by_weight = cost("CONTAINER", box, "300.00", method="BY_WEIGHT")

@@ -8300,11 +8300,25 @@
             "title": "Label"
           },
           "fob": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fob"
           },
           "landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Landed"
           },
           "coefficient": {
@@ -8317,6 +8331,22 @@
               }
             ],
             "title": "Coefficient"
+          },
+          "fob_missing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fob Missing"
+          },
+          "fob_missing_lines": {
+            "type": "integer",
+            "title": "Fob Missing Lines",
+            "default": 0
           }
         },
         "type": "object",
@@ -8336,11 +8366,25 @@
             "title": "Containers"
           },
           "fob": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fob"
           },
           "landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Landed"
           },
           "estimated": {
@@ -8395,6 +8439,22 @@
               }
             ],
             "title": "Containers Without Date"
+          },
+          "fob_missing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fob Missing"
+          },
+          "fob_missing_lines": {
+            "type": "integer",
+            "title": "Fob Missing Lines",
+            "default": 0
           }
         },
         "type": "object",
@@ -8727,7 +8787,14 @@
       "AuditHeadline": {
         "properties": {
           "margin_overstated": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Margin Overstated"
           },
           "priced_skus": {
@@ -8797,23 +8864,58 @@
             "title": "Quantity"
           },
           "fob": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fob"
           },
           "landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Landed"
           },
           "unit_fob": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Unit Fob"
           },
           "unit_landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Unit Landed"
           },
           "approach_costs": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Approach Costs"
           },
           "gap_vs_assumed": {
@@ -8873,6 +8975,22 @@
               }
             ],
             "title": "Points Lost"
+          },
+          "fob_missing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fob Missing"
+          },
+          "fob_missing_lines": {
+            "type": "integer",
+            "title": "Fob Missing Lines",
+            "default": 0
           }
         },
         "type": "object",
@@ -9944,9 +10062,32 @@
             "default": 0
           },
           "fob_base": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fob Base",
             "default": "0.00"
+          },
+          "fob_missing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fob Missing"
+          },
+          "fob_missing_lines": {
+            "type": "integer",
+            "title": "Fob Missing Lines",
+            "default": 0
           },
           "allocated_base": {
             "type": "string",
@@ -13556,10 +13697,33 @@
           },
           "totals": {
             "additionalProperties": {
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "type": "object",
             "title": "Totals"
+          },
+          "fob_missing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fob Missing"
+          },
+          "fob_missing_lines": {
+            "type": "integer",
+            "title": "Fob Missing Lines",
+            "default": 0
           },
           "matched_pairs": {
             "type": "integer",
@@ -14029,11 +14193,25 @@
             "title": "Containers"
           },
           "fob": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fob"
           },
           "landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Landed"
           },
           "coefficient": {
@@ -14070,6 +14248,22 @@
           "demurrage_avoided": {
             "type": "string",
             "title": "Demurrage Avoided"
+          },
+          "fob_missing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fob Missing"
+          },
+          "fob_missing_lines": {
+            "type": "integer",
+            "title": "Fob Missing Lines",
+            "default": 0
           }
         },
         "type": "object",
@@ -14381,11 +14575,25 @@
             "title": "Frozen Landed"
           },
           "live_landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Live Landed"
           },
           "difference": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Difference"
           },
           "reason": {
@@ -14407,6 +14615,22 @@
           "costs_deleted": {
             "type": "integer",
             "title": "Costs Deleted"
+          },
+          "fob_missing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fob Missing"
+          },
+          "fob_missing_lines": {
+            "type": "integer",
+            "title": "Fob Missing Lines",
+            "default": 0
           }
         },
         "type": "object",
@@ -14467,6 +14691,25 @@
         ],
         "title": "PeriodList"
       },
+      "PeriodOrder": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "po_number": {
+            "type": "string",
+            "title": "Po Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "po_number"
+        ],
+        "title": "PeriodOrder"
+      },
       "PeriodReadiness": {
         "properties": {
           "containers_with_estimates": {
@@ -14491,6 +14734,13 @@
           "containers_without_cost": {
             "type": "integer",
             "title": "Containers Without Cost"
+          },
+          "orders_without_fx_rate": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodOrder"
+            },
+            "type": "array",
+            "title": "Orders Without Fx Rate"
           }
         },
         "type": "object",
@@ -14502,7 +14752,7 @@
           "containers_without_cost"
         ],
         "title": "PeriodReadiness",
-        "description": "What is better settled before closing. Never a refusal."
+        "description": "What is better settled before closing. Never a refusal, except `orders_without_fx_rate`: while\nan order of the month has no exchange rate, a close answers 422 PERIOD_ORDERS_WITHOUT_FX_RATE\n(`params.orders`: their numbers)."
       },
       "PeriodSummary": {
         "properties": {
@@ -14523,11 +14773,25 @@
             "title": "Containers"
           },
           "fob": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fob"
           },
           "landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Landed"
           },
           "coefficient": {
@@ -14572,7 +14836,14 @@
             "title": "Closed By Name"
           },
           "live_landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Live Landed",
             "default": "0.00"
           },
@@ -14642,6 +14913,22 @@
               }
             ],
             "title": "Acknowledged Note"
+          },
+          "fob_missing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fob Missing"
+          },
+          "fob_missing_lines": {
+            "type": "integer",
+            "title": "Fob Missing Lines",
+            "default": 0
           }
         },
         "type": "object",
@@ -16042,7 +16329,14 @@
             "title": "Label"
           },
           "fob": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fob"
           },
           "allocated": {
@@ -16054,7 +16348,14 @@
             "title": "Vat"
           },
           "landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Landed"
           },
           "quantity": {
@@ -16082,6 +16383,22 @@
             },
             "type": "object",
             "title": "By Cost Type"
+          },
+          "fob_missing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fob Missing"
+          },
+          "fob_missing_lines": {
+            "type": "integer",
+            "title": "Fob Missing Lines",
+            "default": 0
           }
         },
         "type": "object",
@@ -16153,7 +16470,14 @@
             "title": "Quantity"
           },
           "fob": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fob"
           },
           "allocated": {
@@ -16165,11 +16489,25 @@
             "title": "Vat"
           },
           "landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Landed"
           },
           "unit_landed_cost": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Unit Landed Cost"
           },
           "estimated": {
@@ -16279,20 +16617,57 @@
             "title": "Quantity"
           },
           "fob": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fob"
           },
           "landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Landed"
           },
           "unit_landed_cost": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Unit Landed Cost"
           },
           "load_count": {
             "type": "integer",
             "title": "Load Count"
+          },
+          "fob_missing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fob Missing"
+          },
+          "fob_missing_lines": {
+            "type": "integer",
+            "title": "Fob Missing Lines",
+            "default": 0
           }
         },
         "type": "object",
@@ -16590,7 +16965,14 @@
             "title": "Expires At"
           },
           "landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Landed"
           },
           "generated_at": {
@@ -17146,19 +17528,47 @@
             "title": "Quantity"
           },
           "fob": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fob"
           },
           "landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Landed"
           },
           "unit_fob": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Unit Fob"
           },
           "unit_landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Unit Landed"
           },
           "by_cost_type": {
@@ -17178,6 +17588,17 @@
           "estimated": {
             "type": "string",
             "title": "Estimated"
+          },
+          "fob_missing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fob Missing"
           }
         },
         "type": "object",
@@ -17233,19 +17654,47 @@
             "title": "Quantity"
           },
           "fob": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fob"
           },
           "landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Landed"
           },
           "unit_fob": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Unit Fob"
           },
           "unit_landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Unit Landed"
           },
           "by_cost_type": {
@@ -17265,6 +17714,22 @@
           "estimated": {
             "type": "string",
             "title": "Estimated"
+          },
+          "fob_missing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fob Missing"
+          },
+          "fob_missing_lines": {
+            "type": "integer",
+            "title": "Fob Missing Lines",
+            "default": 0
           }
         },
         "type": "object",
@@ -17426,19 +17891,47 @@
             "title": "Quantity"
           },
           "fob": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fob"
           },
           "landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Landed"
           },
           "unit_fob": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Unit Fob"
           },
           "unit_landed": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Unit Landed"
           },
           "last_unit_landed": {
@@ -17563,6 +18056,22 @@
               }
             ],
             "title": "Last Margin Pct"
+          },
+          "fob_missing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fob Missing"
+          },
+          "fob_missing_lines": {
+            "type": "integer",
+            "title": "Fob Missing Lines",
+            "default": 0
           }
         },
         "type": "object",

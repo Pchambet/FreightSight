@@ -275,6 +275,7 @@ def test_an_estimate_on_the_goods_value_is_not_made_without_that_value() -> None
 
     insurance = RateCard(basis=RateBasis.PCT_OF_FOB, amount=Decimal("0.5"))
     for loads, expected in (([load("100")], Decimal("5.00")), ([load("100"), load(None)], None)):
-        comp = cast(Computation, SimpleNamespace(loads=loads, result=SimpleNamespace(cif={}), lines={}))
+        cif = {ld.id: ld.fob or Decimal(0) for ld in loads}
+        comp = cast(Computation, SimpleNamespace(loads=loads, result=SimpleNamespace(cif=cif), lines={}))
         assert amount_for(insurance, basis_for(comp, box)) == expected
         assert (theoretical_duty(comp, box, []) is None) is (expected is None)

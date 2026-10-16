@@ -415,7 +415,8 @@ def test_an_order_no_rate_is_known_for_keeps_its_rate_missing_and_its_figures_sa
         "PO-XTS": "FX_RATE_MISSING",
         "PO-EUR": None,
     }
-    assert landed["totals"]["fob"] == "1000.00"  # the known value only, never 1:1
+    # never 1:1, nor the other order's value passed off as the box's
+    assert landed["totals"]["fob"] is None and landed["fob_missing_lines"] == 1
     assert [(w["code"], w["amount_base"]) for w in landed["warnings"]] == [("MISSING_FX_RATE", "300.00")]
 
     # the rate a person sets on the order is the one every figure then uses

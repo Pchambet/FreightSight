@@ -127,6 +127,21 @@ def _bucket(bucket: reporting.Bucket) -> schemas.ReportBucket:
         load_count=bucket.load_count,
         freight_share_pct=bucket.freight_share,
         by_cost_type=dict(bucket.by_cost_type),
+        fob_missing=bucket.fob_missing,
+        fob_missing_lines=bucket.fob_missing_lines,
+    )
+
+
+def _sku_line(line: reporting.SkuLine) -> schemas.ReportSkuLine:
+    return schemas.ReportSkuLine(
+        sku=line.sku,
+        quantity=line.quantity,
+        fob=line.fob,
+        landed=line.landed,
+        unit_landed_cost=line.unit_landed_cost,
+        load_count=line.load_count,
+        fob_missing=line.fob_missing,
+        fob_missing_lines=line.fob_missing_lines,
     )
 
 
@@ -155,17 +170,7 @@ def landed_cost(
         period_from=report.period_from,
         period_to=report.period_to,
         buckets=[_bucket(b) for b in report.buckets],
-        skus=[
-            schemas.ReportSkuLine(
-                sku=line.sku,
-                quantity=line.quantity,
-                fob=line.fob,
-                landed=line.landed,
-                unit_landed_cost=line.unit_landed_cost,
-                load_count=line.load_count,
-            )
-            for line in report.skus
-        ],
+        skus=[_sku_line(line) for line in report.skus],
         totals=_bucket(report.totals),
     )
 
@@ -239,17 +244,7 @@ def overview(
         by_month=[_bucket(b) for b in found.by_month],
         by_supplier=[_bucket(b) for b in found.by_supplier],
         by_cost_type=found.by_cost_type,
-        skus=[
-            schemas.ReportSkuLine(
-                sku=line.sku,
-                quantity=line.quantity,
-                fob=line.fob,
-                landed=line.landed,
-                unit_landed_cost=line.unit_landed_cost,
-                load_count=line.load_count,
-            )
-            for line in found.skus
-        ],
+        skus=[_sku_line(line) for line in found.skus],
         at_risk=[schemas.DndAtRiskLine.model_validate(line) for line in found.at_risk],
     )
 

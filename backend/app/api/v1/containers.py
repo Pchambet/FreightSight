@@ -16,6 +16,7 @@ from app.core.tenancy import TenantDep, TenantSession
 from app.domain.alerts.service import restate_dnd_risk
 from app.domain.audit.service import LOADS_REPLACED, record
 from app.domain.costing.service import compute, recompute_org
+from app.domain.costing.value import missing_code, total
 from app.domain.models import (
     Container,
     ContainerLoad,
@@ -98,13 +99,16 @@ def list_containers(
     frozen_in = periods.frozen_periods(t.db, t.org_id)
     out = []
     for c in containers:
-        fob = sum((ld.fob for ld in comp.loads if ld.container_id == c.id), Decimal(0))
+        values = [ld.fob for ld in comp.loads if ld.container_id == c.id]
+        fob = total(values)
         s = schemas.ContainerSummary.model_validate(c)
         s.closed_period = frozen_in.get(c.id)
         s.shipment_reference = c.shipment.reference if c.shipment else None
         s.po_numbers = sorted({ld.po_line.purchase_order.po_number for ld in c.loads})
         s.load_count = len(c.loads)
-        s.fob_base = q2(fob)
+        s.fob_base = None if fob is None else q2(fob)
+        s.fob_missing_lines = values.count(None)
+        s.fob_missing = missing_code(s.fob_missing_lines)
         s.allocated_base = q2(allocated.get(c.id, Decimal(0)))
         s.cost_types_present = [CostType(v) for v in sorted(cost_types.get(c.id, set()))]
         out.append(s)

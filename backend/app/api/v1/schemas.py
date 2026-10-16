@@ -375,7 +375,10 @@ class ContainerSummary(ContainerResponse):
     shipment_reference: str | None = None
     po_numbers: list[str] = Field(default_factory=list)
     load_count: int = 0
-    fob_base: Money = Decimal("0.00")
+    #: Null while one of its lines has no value: its order has no exchange rate (`fob_missing`).
+    fob_base: Money | None = Decimal("0.00")
+    fob_missing: str | None = None
+    fob_missing_lines: int = 0
     allocated_base: Money = Decimal("0.00")
     cost_types_present: list[CostType] = Field(default_factory=list)
 
@@ -554,17 +557,17 @@ class ReportLine(BaseModel):
     sku: str | None
     description: str | None
     quantity: Qty
-    fob: Money
+    fob: Money | None
     allocated: Money
     vat: Money
-    landed: Money
-    unit_landed_cost: Qty
+    landed: Money | None
+    unit_landed_cost: Qty | None
     estimated: Money
     actual: Money
     variance: Money
     by_cost_type: dict[str, Money]
-    #: A code when `fob`, `landed` and `unit_landed_cost` leave the goods' value out because it cannot
-    #: be said — FX_RATE_MISSING: the order has no exchange rate. Null when they are the line's figures.
+    #: Why `fob`, `landed` and `unit_landed_cost` are null — FX_RATE_MISSING: the order has no
+    #: exchange rate. Null when they are the line's figures.
     fob_missing: str | None = None
 
 
@@ -579,8 +582,13 @@ class LandedCostReport(BaseModel):
 
     base_currency: str
     #: fob, allocated, vat, landed, unallocated, estimated, actual, variance, matched_estimated,
-    #: matched_actual, unforecast_actual
-    totals: dict[str, Money]
+    #: matched_actual, unforecast_actual. `fob` and `landed` are null while `fob_missing` says why.
+    totals: dict[str, Money | None]
+    #: Every figure built on the goods' value, here and on every report, overview, list and export,
+    #: is null rather than computed as if a line with no value were worth 0: `fob_missing` says why
+    #: (FX_RATE_MISSING: an order has no exchange rate) and `fob_missing_lines` how many lines.
+    fob_missing: str | None = None
+    fob_missing_lines: int = 0
     #: How many estimate/invoice pairs `variance` rests on. Zero means there is no variance to show.
     matched_pairs: int = 0
     #: Share of the cost types on this scope that have a real invoice, 0 to 1. Null when none is
@@ -1139,13 +1147,14 @@ class AuditMargin(BaseModel):
     sku: str
     description: str | None
     quantity: Qty
-    #: Purchase and landed value of the period's volume, and per unit.
-    fob: Money
-    landed: Money
-    unit_fob: Qty
-    unit_landed: Qty
-    #: landed - fob: what a price computed on the purchase price leaves out. Always present.
-    approach_costs: Money
+    #: Purchase and landed value of the period's volume, and per unit. Null, with every figure built
+    #: on them, while one of the article's lines has no value (`fob_missing`).
+    fob: Money | None
+    landed: Money | None
+    unit_fob: Qty | None
+    unit_landed: Qty | None
+    #: landed - fob: what a price computed on the purchase price leaves out.
+    approach_costs: Money | None
     #: landed - fob x `AuditReport.assumed_coefficient`: what the company's own calculation leaves
     #: out. Null without a coefficient; negative when the coefficient is more prudent than the facts.
     #: Needs no selling price.
@@ -1156,6 +1165,8 @@ class AuditMargin(BaseModel):
     margin_real_pct: Decimal | None
     #: margin_on_fob_pct - margin_real_pct, from the two rounded figures.
     points_lost: Decimal | None
+    fob_missing: str | None = None
+    fob_missing_lines: int = 0
 
 
 class AuditDemurrageLine(BaseModel):
@@ -1179,16 +1190,18 @@ class AuditCoefficient(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     key: str
     label: str
-    fob: Money
-    landed: Money
+    fob: Money | None
+    landed: Money | None
     coefficient: Qty | None
+    fob_missing: str | None = None
+    fob_missing_lines: int = 0
 
 
 class AuditCompleteness(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     containers: int
-    fob: Money
-    landed: Money
+    fob: Money | None
+    landed: Money | None
     estimated: Money
     estimated_share_pct: Decimal | None
     #: Invoices waiting for a person on `as_of`, in the whole organization: until read, any of them
@@ -1202,6 +1215,10 @@ class AuditCompleteness(BaseModel):
     #: organization's boxes that fall in no period (no arrival date). Null in links sent before.
     containers_not_compared: int | None = None
     containers_without_date: int | None = None
+    #: Lines of the period with no value: `fob`, `landed` and every coefficient and margin built on
+    #: them are null while there are any.
+    fob_missing: str | None = None
+    fob_missing_lines: int = 0
 
 
 class AuditHeadline(BaseModel):
@@ -1209,8 +1226,9 @@ class AuditHeadline(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
     #: Sum of `margins[].approach_costs` over the articles that have a selling price (`priced_skus`):
-    #: the margin a calculation on the purchase price announces and the goods do not make.
-    margin_overstated: Money
+    #: the margin a calculation on the purchase price announces and the goods do not make. Null while
+    #: one of them is not known.
+    margin_overstated: Money | None
     priced_skus: int
     unpriced_skus: int
     #: Sum of `margins[].gap_vs_assumed` over every article of the period, priced or not. Null without
@@ -1350,8 +1368,9 @@ class ShareCreated(BaseModel):
     #: Where the front end serves it: "/r/<token>".
     path: str
     expires_at: datetime
-    #: The landed cost that was frozen, so the sender sees the figure that really left.
-    landed: Money
+    #: The landed cost that was frozen, so the sender sees the figure that really left. Null when a
+    #: line of the report has no value (its `fob_missing`): the document says so rather than a figure.
+    landed: Money | None
     generated_at: datetime
 
 
@@ -1401,17 +1420,18 @@ class PeriodSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     period: str  # YYYY-MM: the month the containers arrived in
     status: Literal["open", "closed"]
-    #: Closed: the frozen figures, which never move again. Open: today's.
+    #: Closed: the frozen figures, which never move again. Open: today's, null while a line has no
+    #: value (`fob_missing`); a month holding such a line is not closed.
     containers: int
-    fob: Money
-    landed: Money
+    fob: Money | None
+    landed: Money | None
     coefficient: Qty | None
     by_cost_type: dict[str, Money]
     closed_at: datetime | None = None
     closed_by_name: str | None = None
     #: Today's landed cost of the month (equal to `landed` while it is open): never add `landed` and
-    #: `drift` on a screen.
-    live_landed: Money = Decimal("0.00")
+    #: `drift` on a screen. Null, with the drift, while one of today's lines has no value.
+    live_landed: Money | None = Decimal("0.00")
     #: Closed months only: today's landed cost minus the frozen one ("0.00" when nothing moved), and
     #: how many containers it comes from. It is the sum of `drift_lines` of the detail.
     drift: Money | None = None
@@ -1422,6 +1442,9 @@ class PeriodSummary(BaseModel):
     drift_outstanding: Money | None = None
     acknowledged_at: datetime | None = None
     acknowledged_note: str | None = None
+    #: About today's figures (`landed` while open, `live_landed` and the drift once closed).
+    fob_missing: str | None = None
+    fob_missing_lines: int = 0
 
 
 class PeriodEstimatedBox(BaseModel):
@@ -1431,8 +1454,16 @@ class PeriodEstimatedBox(BaseModel):
     estimated: Money
 
 
+class PeriodOrder(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    po_number: str
+
+
 class PeriodReadiness(BaseModel):
-    """What is better settled before closing. Never a refusal."""
+    """What is better settled before closing. Never a refusal, except `orders_without_fx_rate`: while
+    an order of the month has no exchange rate, a close answers 422 PERIOD_ORDERS_WITHOUT_FX_RATE
+    (`params.orders`: their numbers)."""
 
     model_config = ConfigDict(from_attributes=True)
     containers_with_estimates: list[PeriodEstimatedBox]
@@ -1440,6 +1471,7 @@ class PeriodReadiness(BaseModel):
     invoices_to_review: int
     unallocated_costs: int
     containers_without_cost: int
+    orders_without_fx_rate: list[PeriodOrder] = Field(default_factory=list)
 
 
 class PeriodChangedCost(BaseModel):
@@ -1457,14 +1489,17 @@ class PeriodDrift(BaseModel):
     container_id: UUID
     container_number: str
     frozen_landed: Money
-    live_landed: Money
-    difference: Money
+    #: Null, with `difference`, while one of its lines has no value today (`fob_missing`).
+    live_landed: Money | None
+    difference: Money | None
     #: costs: its costs or loads changed since the close. left_period: its arrival date changed and it
     #: lands in another month now (live is 0). joined_period: the reverse (frozen is 0).
     reason: Literal["costs", "left_period", "joined_period"]
     #: Costs created or changed since the close whose allocation lands on this container.
     costs_changed: list[PeriodChangedCost]
     costs_deleted: int
+    fob_missing: str | None = None
+    fob_missing_lines: int = 0
 
 
 class PeriodAccrual(BaseModel):
@@ -1531,10 +1566,11 @@ class OverviewFigures(BaseModel):
     period_to: date
     #: Containers that landed in the period (discharge, else arrival, else the shipment's ETA).
     containers: int
-    fob: Money
-    landed: Money
+    fob: Money | None
+    landed: Money | None
     #: landed / fob, four decimals: 1.1400 means the goods cost 14 % more than their purchase price
-    #: once they are in the warehouse. Null when nothing landed.
+    #: once they are in the warehouse. Null when nothing landed, or with `fob` and `landed` while a
+    #: line of the period has no value (`fob_missing`).
     coefficient: Qty | None
     #: Estimates replaced by an invoice dated in the period, and what the invoices came to.
     variance_estimated: Money
@@ -1543,6 +1579,8 @@ class OverviewFigures(BaseModel):
     variance_pairs: int
     demurrage_paid: Money
     demurrage_avoided: Money
+    fob_missing: str | None = None
+    fob_missing_lines: int = 0
 
 
 class OverviewTodo(BaseModel):
@@ -1646,11 +1684,12 @@ class SkuSummary(BaseModel):
     sku: str
     description: str | None
     quantity: Qty
-    fob: Money
-    landed: Money
-    unit_fob: Qty
+    #: Null, with every figure built on them, while one of its lines has no value (`fob_missing`).
+    fob: Money | None
+    landed: Money | None
+    unit_fob: Qty | None
     #: Weighted by quantity over every arrival of the period.
-    unit_landed: Qty
+    unit_landed: Qty | None
     #: The two most recent containers that have actually landed. A box still at sea is not compared.
     last_unit_landed: Qty | None
     previous_unit_landed: Qty | None
@@ -1670,6 +1709,8 @@ class SkuSummary(BaseModel):
     #: The same two against `last_unit_landed`: what the stock about to be sold leaves.
     last_margin_unit: Qty | None = None
     last_margin_pct: Decimal | None = None
+    fob_missing: str | None = None
+    fob_missing_lines: int = 0
 
 
 class SkuArrival(BaseModel):
@@ -1684,14 +1725,15 @@ class SkuArrival(BaseModel):
     #: The date is the shipment's ETA, not an arrival on record.
     arrival_is_estimate: bool
     quantity: Qty
-    fob: Money
-    landed: Money
-    unit_fob: Qty
-    unit_landed: Qty
+    fob: Money | None
+    landed: Money | None
+    unit_fob: Qty | None
+    unit_landed: Qty | None
     #: Import VAT excluded, as everywhere.
     by_cost_type: dict[str, Money]
     unit_by_cost_type: dict[str, Qty]
     estimated: Money
+    fob_missing: str | None = None
 
 
 class SkuBox(BaseModel):
@@ -1704,13 +1746,15 @@ class SkuBox(BaseModel):
     arrived_on: date | None
     arrival_is_estimate: bool
     quantity: Qty
-    fob: Money
-    landed: Money
-    unit_fob: Qty
-    unit_landed: Qty
+    fob: Money | None
+    landed: Money | None
+    unit_fob: Qty | None
+    unit_landed: Qty | None
     by_cost_type: dict[str, Money]
     unit_by_cost_type: dict[str, Qty]
     estimated: Money
+    fob_missing: str | None = None
+    fob_missing_lines: int = 0
 
 
 class SkuListResponse(BaseModel):
@@ -1928,24 +1972,29 @@ class ErpSyncRunResponse(BaseModel):
 class ReportBucket(BaseModel):
     key: str
     label: str
-    fob: Money
+    #: Null, with `landed` and `freight_share_pct`, while one of its lines has no value (`fob_missing`).
+    fob: Money | None
     allocated: Money
     vat: Money
-    landed: Money
+    landed: Money | None
     quantity: Qty
     load_count: int
     #: Freight as a percentage of the goods. Null when there are no goods to compare it to.
     freight_share_pct: Pct | None = None
     by_cost_type: dict[str, Money] = Field(default_factory=dict)
+    fob_missing: str | None = None
+    fob_missing_lines: int = 0
 
 
 class ReportSkuLine(BaseModel):
     sku: str
     quantity: Qty
-    fob: Money
-    landed: Money
-    unit_landed_cost: Qty
+    fob: Money | None
+    landed: Money | None
+    unit_landed_cost: Qty | None
     load_count: int
+    fob_missing: str | None = None
+    fob_missing_lines: int = 0
 
 
 class LandedCostAnalysis(BaseModel):

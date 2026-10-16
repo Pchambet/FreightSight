@@ -118,11 +118,11 @@ class Load:
         return self.unit_price_base is not None
 
     @property
-    def fob(self) -> Decimal:
-        """The line's value; a line whose value is not known counts for nothing in a total and is
-        said to be missing wherever a value is needed, never priced at a guessed rate."""
+    def fob(self) -> Decimal | None:
+        """The line's value, or None when its order has no rate: never priced at a guessed one, and
+        never a 0 that a total would quietly add up (see `costing.value`)."""
         if self.unit_price_base is None:
-            return ZERO
+            return None
         return quantize_cent(self.quantity * self.unit_price_base)
 
 
@@ -274,7 +274,8 @@ def allocate(
     """Allocate every cost down to the leaves. Never raises for data problems: they land in `unallocated`."""
     result = AllocationResult()
     sorted_loads = sorted(loads, key=lambda ld: ld.sort_key)
-    cif: dict[UUID, Decimal] = {ld.id: ld.fob for ld in sorted_loads}
+    # A load with no value starts its CIF at nothing; no method that reads the CIF weighs it anyway.
+    cif: dict[UUID, Decimal] = {ld.id: ZERO if ld.fob is None else ld.fob for ld in sorted_loads}
     pass1 = [c for c in costs if c.method not in DUTY_LIKE_METHODS]
     pass2 = [c for c in costs if c.method in DUTY_LIKE_METHODS]
 
