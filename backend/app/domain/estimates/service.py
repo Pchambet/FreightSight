@@ -62,8 +62,11 @@ class Estimated:
 
 def basis_for(comp: Computation, container_id: UUID) -> Basis:
     loads = [ld for ld in comp.loads if ld.container_id == container_id]
+    # An order with no exchange rate leaves the box's value unknown, and an unknown basis estimates
+    # nothing (see `amount_for`): the other lines' value alone would be an estimate too low.
+    known = all(ld.value_known for ld in loads)
     return Basis(
-        fob_base=sum((ld.fob for ld in loads), Decimal("0.00")),
+        fob_base=sum((ld.fob for ld in loads), Decimal("0.00")) if known else Decimal("0.00"),
         weight_kg=sum(((ld.unit_weight_kg or Decimal(0)) * ld.quantity for ld in loads), Decimal(0)),
         volume_cbm=sum(((ld.unit_volume_cbm or Decimal(0)) * ld.quantity for ld in loads), Decimal(0)),
     )
@@ -119,8 +122,8 @@ def theoretical_duty(comp: Computation, container_id: UUID, cards: list[RateCard
     used when the real customs invoice arrives.
     """
     loads = [ld for ld in comp.loads if ld.container_id == container_id]
-    if not loads:
-        return None
+    if not loads or not all(ld.value_known for ld in loads):
+        return None  # no customs value without the goods' value
     total = Decimal("0.00")
     seen_rate = False
     for load in loads:
