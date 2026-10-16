@@ -47,7 +47,7 @@ HEADERS_FR: dict[str, str] = {
     "fob_missing": "Pourquoi le FOB manque",
     "without_charge": "Conteneur sans frais ventilés",
     "charges_held": "Frais en attente de ventilation",
-    "held_orders": "Commandes sans taux qui les bloquent",
+    "held_orders": "Commandes sans taux de change qui bloquent les frais",
     "containers_without_charge": "Conteneurs sans frais",
     "unallocated": "Non ventilé",
     "unallocated_reason": "Raison du non-ventilé",
