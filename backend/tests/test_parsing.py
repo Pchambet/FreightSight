@@ -309,3 +309,15 @@ def test_a_csv_cell_longer_than_the_reader_accepts_is_refused_by_name() -> None:
     with pytest.raises(ImportError_) as exc:
         parse_table(b'po_number;sku\nPO-1;"' + b"x" * 200_000 + b'"\n')
     assert exc.value.code == "CSV_UNREADABLE"
+
+
+def test_a_column_nothing_settles_follows_the_convention_another_column_proves() -> None:
+    """Google Sheets FR exports with "," and quotes "12,5": the price column proves the decimal comma,
+    and the weight column's "1,250" was still read as 1 250 kg because the delimiter was not ";"."""
+    table = parse_table(b'po_number,sku,unit_price,weight\nPO-1,A,"12,5","1,250"\nPO-2,B,"7,9","2,500"\n')
+    conventions = infer_comma_conventions(table, {"unit_price", "weight"})
+    assert conventions["weight"] == ColumnNumbers("decimal", ambiguous=True, example="1,250")
+
+    # and the other way round: a column that proves the English reading settles its neighbours
+    english = parse_table(b'po_number;sku;unit_price;weight\nPO-1;A;"1,250.50";"1,250"\n')
+    assert infer_comma_conventions(english, {"unit_price", "weight"})["weight"].comma == "thousands"

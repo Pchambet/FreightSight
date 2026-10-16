@@ -555,6 +555,7 @@ def infer_comma_conventions(table: Table, columns: set[str]) -> dict[str, Column
     written by any French spreadsheet — read as 1 250 kg and swallow a whole container's freight.
     """
     conventions: dict[str, ColumnNumbers] = {}
+    unsettled: dict[str, str] = {}
     for column in columns:
         decimal_example: str | None = None
         thousands_example: str | None = None
@@ -583,14 +584,19 @@ def infer_comma_conventions(table: Table, columns: set[str]) -> dict[str, Column
         elif thousands_example is not None:
             conventions[column] = ColumnNumbers("thousands", example=thousands_example)
         elif comma_example is not None:
-            # Nothing in the column decides. "1,250" alone is genuinely both readings; a file
-            # written with ";" is a French spreadsheet (Excel FR switches the delimiter precisely
-            # because the comma is taken), so read it in French — and say so in the report, since
-            # the difference is a factor of a thousand on a freight allocation basis.
-            french = table.delimiter == ";"
-            conventions[column] = ColumnNumbers(
-                "decimal" if french else "thousands", ambiguous=True, example=comma_example
-            )
+            unsettled[column] = comma_example
+    # Nothing in these columns decides: "1,250" alone is genuinely both readings. One file is written
+    # one way, so a convention another column proves holds for them too — a Google Sheets FR export
+    # uses "," as its delimiter and still writes "12,5". When no column proves anything, or columns
+    # prove both, the delimiter decides: ";" is a French spreadsheet (Excel FR switches it precisely
+    # because the comma is taken). Either way the report says so, since the difference is a factor of a
+    # thousand on a freight allocation basis.
+    proven = {c.comma for c in conventions.values()}
+    comma: CommaMeaning = (
+        proven.pop() if len(proven) == 1 else "decimal" if table.delimiter == ";" else "thousands"
+    )
+    for column, example in unsettled.items():
+        conventions[column] = ColumnNumbers(comma, ambiguous=True, example=example)
     return conventions
 
 
