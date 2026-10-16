@@ -43,11 +43,17 @@ Rate = Annotated[
     Decimal, PlainSerializer(lambda d: f"{d:.8f}".rstrip("0").rstrip("."), return_type=str, when_used="json")
 ]
 Pct = Annotated[Decimal, PlainSerializer(lambda d: f"{d:.2f}", return_type=str, when_used="json")]
-#: A per-unit weight or volume, with every digit stored and no trailing zero: 0.0001 kg of a part
-#: shipped two million at a time is 200 kg, and four decimals would read it as 0.0001 or as nothing.
-Measure = Annotated[
-    Decimal, PlainSerializer(lambda d: f"{d:.16f}".rstrip("0").rstrip("."), return_type=str, when_used="json")
-]
+
+
+def _measure(d: Decimal) -> str:
+    """Four decimals, as every quantity, and more when the stored figure has them."""
+    whole, _, digits = f"{d:.16f}".partition(".")
+    return f"{whole}.{digits.rstrip('0').ljust(4, '0')}"
+
+
+#: A per-unit weight or volume, with every digit stored: 0.00012 kg of a part shipped two million at a
+#: time is 240 kg, and four decimals read it as 0.0001.
+Measure = Annotated[Decimal, PlainSerializer(_measure, return_type=str, when_used="json")]
 
 
 def currency_code(v: str) -> str:

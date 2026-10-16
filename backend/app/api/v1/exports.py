@@ -94,11 +94,12 @@ def number(value: Decimal | float | int | None, decimal_mark: str, places: int =
     return Number(text.replace(".", decimal_mark) if decimal_mark != "." else text)
 
 
-def measure(value: Decimal | None, decimal_mark: str) -> Number:
-    """A per-unit weight or volume with all its stored digits and no trailing zero."""
+def measure(value: Decimal | None, decimal_mark: str, places: int) -> Number:
+    """A per-unit weight or volume: `places` decimals as always, and more when it has them."""
     if value is None:
         return Number("")
-    text = f"{value:.16f}".rstrip("0").rstrip(".")
+    whole, _, digits = f"{value:.16f}".partition(".")
+    text = f"{whole}.{digits.rstrip('0').ljust(places, '0')}"
     return Number(text.replace(".", decimal_mark) if decimal_mark != "." else text)
 
 
@@ -414,8 +415,8 @@ def purchase_orders_csv(
                     number(line.unit_price, mark, 4),
                     # Every stored digit: this file is re-imported, and 0.0001 kg rounded away on two
                     # million parts is 200 kg of freight basis gone.
-                    measure(line.unit_weight_kg, mark),
-                    measure(line.unit_volume_cbm, mark),
+                    measure(line.unit_weight_kg, mark, 4),
+                    measure(line.unit_volume_cbm, mark, 6),
                     number(line.duty_rate, mark, 4),
                     "order_date",
                 ]
