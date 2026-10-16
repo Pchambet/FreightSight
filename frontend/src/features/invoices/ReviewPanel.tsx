@@ -20,20 +20,29 @@ export type Targets = Record<CostScope, Target[]>;
 
 /**
  * A refund line — any line of a credit note, or a negative line with no charge of its type beside it
- * — reduces an invoiced cost instead of creating one. It needs that cost named: by a person, or as
- * the only cost of its type on its target in its currency, which the API then uses as it stands.
+ * — reduces an invoiced cost instead of creating one. The cost it reduces, as the API will read it at
+ * confirmation: the one named on the line; else the one named on another refund line of the same
+ * type, target and currency; else the only invoiced cost of that type on that target in that currency.
  */
-function refundCost(line: InvoiceLineResponse): string | null {
-  if (line.credit_cost_id) return line.credit_cost_id;
-  const same = (line.credit_candidates ?? []).filter((c) => c.currency === line.currency);
-  return same.length === 1 ? same[0].id : null;
+function refundCosts(lines: InvoiceLineResponse[]): Map<string, string | null> {
+  const key = (l: InvoiceLineResponse) => [l.scope, l.target_id, l.cost_type, l.currency].join("|");
+  const named = new Map<string, Set<string>>();
+  for (const l of lines) if (l.refund && l.credit_cost_id) named.set(key(l), (named.get(key(l)) ?? new Set()).add(l.credit_cost_id));
+  const out = new Map<string, string | null>();
+  for (const l of lines) {
+    if (!l.refund) continue;
+    const siblings = [...(named.get(key(l)) ?? [])];
+    const same = (l.credit_candidates ?? []).filter((c) => c.currency === l.currency);
+    out.set(l.id, l.credit_cost_id ?? (siblings.length === 1 ? siblings[0] : same.length === 1 ? same[0].id : null));
+  }
+  return out;
 }
 
-function needsRefundCost(line: InvoiceLineResponse): boolean {
-  return !!line.refund && !!line.target_id && !!line.cost_type && refundCost(line) === null;
+function needsRefundCost(line: InvoiceLineResponse, refundTo: string | null | undefined): boolean {
+  return !!line.refund && !!line.target_id && !!line.cost_type && !refundTo;
 }
 
-function LineRow({ invoiceId, line, targets, editable, confirmed }: { invoiceId: string; line: InvoiceLineResponse; targets: Targets; editable: boolean; confirmed: boolean }) {
+function LineRow({ invoiceId, line, targets, editable, confirmed, refundTo }: { invoiceId: string; line: InvoiceLineResponse; targets: Targets; editable: boolean; confirmed: boolean; refundTo: string | null }) {
   const t = useTranslations("invoices.line");
   const noteT = useTranslations("invoices.lineNotes");
   const typeLabel = useTranslations("domain.costType");
@@ -73,9 +82,8 @@ function LineRow({ invoiceId, line, targets, editable, confirmed }: { invoiceId:
   const options = scope ? targets[scope] : [];
   // What still stands between this line and a cost. Read from the saved line, not from the fields
   // being edited: the marker moves when the save has held, not while a list is open.
-  const missing = editable && line.accepted ? [!line.cost_type ? t("missingType") : null, !line.scope || !line.target_id ? t("missingTarget") : null, needsRefundCost(line) ? t("missingRefund") : null].filter(Boolean) : [];
+  const missing = editable && line.accepted ? [!line.cost_type ? t("missingType") : null, !line.scope || !line.target_id ? t("missingTarget") : null, needsRefundCost(line, refundTo) ? t("missingRefund") : null].filter(Boolean) : [];
   const candidates = line.credit_candidates ?? [];
-  const refundTo = refundCost(line);
   const amountDirty = amount !== decimalDisplay(line.amount, locale) || currency !== line.currency;
   return (
     <li data-incomplete={missing.length > 0 ? "true" : undefined} className={`px-5 py-4 border-l-2 ${missing.length > 0 ? "border-l-amber-400" : "border-l-transparent"} ${hasDuplicate ? "bg-red-50/80 ring-1 ring-inset ring-red-200" : accepted ? "" : "bg-slate-50/60"}`}>
@@ -313,7 +321,8 @@ export default function ReviewPanel({ invoice, targets, pageHasNextStep = false 
     });
   const lines = invoice.lines ?? [];
   const acceptedCount = lines.filter((l) => l.accepted).length;
-  const incomplete = lines.filter((l) => l.accepted && (!(l.target_id && l.cost_type && l.scope) || needsRefundCost(l))).length;
+  const refunds = refundCosts(lines);
+  const incomplete = lines.filter((l) => l.accepted && (!(l.target_id && l.cost_type && l.scope) || needsRefundCost(l, refunds.get(l.id)))).length;
   const ready = acceptedCount > 0 && incomplete === 0;
   // Lines without a target, accepted or not: a line is attached first and judged after.
   const unattached = lines.filter((l) => !l.target_id).map((l) => l.id);
@@ -400,7 +409,7 @@ export default function ReviewPanel({ invoice, targets, pageHasNextStep = false 
         </div>
       ) : null}
       <ul ref={listRef} className="divide-y divide-slate-200">
-        {lines.map((l) => <LineRow key={`${l.id}:${l.accepted}:${l.cost_type ?? ""}:${l.scope ?? ""}:${l.target_id ?? ""}:${l.amount}:${l.currency}:${l.credit_cost_id ?? ""}`} invoiceId={invoice.id} line={l} targets={targets} editable={editable} confirmed={invoice.status === "CONFIRMED"} />)}
+        {lines.map((l) => <LineRow key={`${l.id}:${l.accepted}:${l.cost_type ?? ""}:${l.scope ?? ""}:${l.target_id ?? ""}:${l.amount}:${l.currency}:${l.credit_cost_id ?? ""}`} invoiceId={invoice.id} line={l} targets={targets} editable={editable} confirmed={invoice.status === "CONFIRMED"} refundTo={refunds.get(l.id) ?? null} />)}
       </ul>
       {editable ? (
         <>
