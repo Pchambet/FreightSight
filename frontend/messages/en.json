@@ -1452,7 +1452,6 @@
     "closed_ok": "Estimate closed"
   },
   "rateCards": {
-    "title": "Estimation rate cards",
     "hint": "One rate card per cost type. Applied on demand to a container to create estimated costs, later replaced by the real invoice. A {demurrage} rate card is read as a daily rate and feeds the avoided-demurrage estimate.",
     "empty": "No rate card.",
     "emptyHint": "No rate card yet: start from the example below, then adjust the amounts to your own rates.",

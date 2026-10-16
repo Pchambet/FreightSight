@@ -1452,7 +1452,6 @@
     "closed_ok": "Estimé clos"
   },
   "rateCards": {
-    "title": "Barèmes d'estimation",
     "hint": "Un barème par type de coût. Appliqué à la demande sur un conteneur pour créer des coûts estimés, remplacés ensuite par la facture réelle. Un barème {demurrage} est lu comme un tarif journalier, il sert au calcul des surestaries évitées.",
     "empty": "Aucun barème.",
     "emptyHint": "Pas encore de barème : commencez avec l'exemple ci-dessous, puis ajustez les montants à vos tarifs.",
