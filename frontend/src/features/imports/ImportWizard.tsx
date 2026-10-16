@@ -207,7 +207,7 @@ export default function ImportWizard({
         title={wt("nextStep")}
         description={wLabel(wizardStep.descriptionKey, wizardStep.descriptionParams)}
         variant={wizardStep.variant}
-        primary={{ href: wizardStep.primary.href, label: wLabel(wizardStep.primary.labelKey, wizardStep.primary.labelParams) }}
+        primary={wizardStep.primary && { href: wizardStep.primary.href, label: wLabel(wizardStep.primary.labelKey, wizardStep.primary.labelParams) }}
         secondary={wizardStep.secondary.map((s) => ({ href: s.href, label: wLabel(s.labelKey, s.labelParams) }))}
       />
       <ol className="flex flex-wrap gap-2 text-xs">

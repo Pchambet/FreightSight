@@ -4,7 +4,8 @@ import { NEXT_IMPORT_KIND } from "@/lib/domain";
 export type WorkflowStep = {
   descriptionKey: string;
   descriptionParams?: Record<string, string | number>;
-  primary: { href: string; labelKey: string; labelParams?: Record<string, string | number> };
+  /** null when the person is already where the step happens: a link to the same place reads as another step. */
+  primary: { href: string; labelKey: string; labelParams?: Record<string, string | number> } | null;
   secondary: { href: string; labelKey: string; labelParams?: Record<string, string | number> }[];
   variant: "default" | "success" | "warning";
 };
@@ -357,7 +358,7 @@ export function importWizardStep(step: "upload" | "mapping" | "review" | "done",
   if (step === "review") {
     return {
       descriptionKey: hasErrors ? "importNew.reviewErrors" : "importNew.reviewOk",
-      primary: { href: "#wizard", labelKey: "importNew.reviewAction" },
+      primary: null,
       secondary: [],
       variant: hasErrors ? "warning" : "default",
     };
