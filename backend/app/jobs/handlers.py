@@ -740,6 +740,85 @@ def extract_invoice(db: Session, org_id: UUID, invoice_id: UUID) -> str:
         return invoice.status.value
 
 
+# ---------------------------------------------------------------------------- stalled jobs
+
+#: Procrastinate's workers beat every 10 s; one silent this long is gone, not busy on a long PDF.
+STALLED_AFTER_SECONDS = 300
+#: A job is re-queued this many times after its worker died under it, then given up on: a document
+#: that runs the worker out of memory would otherwise take it down every ten minutes, for ever.
+MAX_STALLED_RETRIES = 2
+
+
+def recover_stalled_jobs(db: Session, *, scheduled: set[str]) -> tuple[int, int]:
+    """Deal with the jobs a dead worker left `doing`. Returns (re-queued, given up).
+
+    A worker killed mid-job — out of memory, a redeploy, the host going away — never closes its job,
+    and Procrastinate fetches no job whose lock a `doing` one holds: the invoice being read stayed
+    "being read" for good, and its Retry queued a job that never ran. Nothing else notices, because
+    nothing fails.
+
+    A job the person asked for again meanwhile (same queueing lock, waiting) is closed, so that theirs
+    runs. A scheduled one is closed too: its next tick does the same work, and replaying an old tick
+    would write an old moment over a newer one. Anything else is queued again, up to
+    `MAX_STALLED_RETRIES` times; after that it is closed and an invoice it was reading says FAILED,
+    which is where the screen offers Retry. Procrastinate's own queries, in the caller's transaction.
+    """
+    from procrastinate import sql
+    from psycopg.rows import dict_row
+
+    requeued = given_up = 0
+    connection = db.connection().connection.driver_connection
+    assert connection is not None  # a checked-out connection always has its driver's
+    with connection.cursor(row_factory=dict_row) as cursor:
+        cursor.execute(
+            sql.queries["select_stalled_jobs_by_heartbeat"],
+            {"queue": None, "task_name": None, "seconds_since_heartbeat": STALLED_AFTER_SECONDS},
+        )
+        for job in cursor.fetchall():
+            asked_again = (
+                job["queueing_lock"] is not None
+                and cursor.execute(
+                    "SELECT 1 FROM procrastinate_jobs WHERE queueing_lock = %s AND status = 'todo'",
+                    (job["queueing_lock"],),
+                ).fetchone()
+            )
+            if asked_again or job["task_name"] in scheduled or job["attempts"] >= MAX_STALLED_RETRIES:
+                cursor.execute(
+                    sql.queries["finish_job"], {"job_id": job["id"], "status": "failed", "delete_job": False}
+                )
+                logger.warning("gave up on stalled job %s (%s)", job["id"], job["task_name"])
+                if job["task_name"] == "invoices.extract" and not asked_again:
+                    _reading_abandoned(db, job["args"])
+                given_up += 1
+            else:
+                cursor.execute(
+                    sql.queries["retry_job"],
+                    {"job_id": job["id"], "retry_at": datetime.now(UTC), "new_priority": None,
+                     "new_queue_name": None, "new_lock": None},
+                )  # fmt: skip
+                logger.warning("re-queued stalled job %s (%s)", job["id"], job["task_name"])
+                requeued += 1
+    db.commit()
+    return requeued, given_up
+
+
+def _reading_abandoned(db: Session, args: dict[str, str]) -> None:
+    org = db.get(Organization, UUID(args["org_id"]))
+    if org is None:
+        return
+    with tenant(db, org):
+        invoice = db.scalar(
+            select(Invoice).where(
+                Invoice.id == UUID(args["invoice_id"]),
+                Invoice.status.in_((InvoiceStatus.UPLOADED, InvoiceStatus.EXTRACTING)),
+            )
+        )
+        if invoice is not None:
+            invoice.status = InvoiceStatus.FAILED
+            invoice.error = f"the worker stopped while reading this document, {MAX_STALLED_RETRIES + 1} times"
+            db.flush()
+
+
 # ---------------------------------------------------------------------------- ERP
 
 
