@@ -5,7 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, File, Form, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.v1 import schemas
@@ -170,6 +170,39 @@ def validate_import(
     return _responses(t, [job])[0]
 
 
+#: What the history counts of a file besides its rows, by kind: the report's own counters, under the
+#: report's own names. A costs file's costs are listed by id (`cost_ids`).
+HISTORY_COUNTERS: dict[ImportKind, tuple[str, ...]] = {
+    ImportKind.PURCHASE_ORDERS: ("lines_created", "lines_updated"),
+    ImportKind.LEGACY_PO_CONTAINER: ("lines_created", "lines_updated"),
+    ImportKind.CONTAINERS: ("containers_created", "containers_updated"),
+    ImportKind.PRODUCTS: ("products_created", "products_updated"),
+    ImportKind.COSTS: ("costs_skipped",),
+}
+
+
+def _named(t: TenantSession, job: ImportJob) -> dict[str, object]:
+    """Which file, and for a costs file the dates its costs carry, as `from..to`."""
+    named: dict[str, object] = {"kind": job.kind.value, "file_name": job.original_filename}
+    if job.kind is ImportKind.COSTS:
+        first, last = t.db.execute(
+            select(func.min(Cost.cost_date), func.max(Cost.cost_date)).where(Cost.import_job_id == job.id)
+        ).one()
+        if first is not None:
+            named["cost_dates"] = f"{first.isoformat()}..{last.isoformat()}"
+    return named
+
+
+def _counted(job: ImportJob) -> dict[str, object]:
+    """What the file wrote and refused, as its report counted it: a row refused is a row with an error."""
+    report = job.report
+    return {
+        "rows": job.row_count,
+        "refused": len({issue["row"] for issue in report.get("errors", [])}),
+        **{name: report.get(name) for name in HISTORY_COUNTERS[job.kind]},
+    }
+
+
 @router.delete("/{import_id}", response_model=schemas.ImportUndoResponse)
 def undo_import(import_id: UUID, t: TenantDep, p: WriterDep) -> schemas.ImportUndoResponse:
     """Take a costs file back: every cost it wrote is deleted, and the estimates they had replaced
@@ -177,6 +210,7 @@ def undo_import(import_id: UUID, t: TenantDep, p: WriterDep) -> schemas.ImportUn
     (IMPORT_PERIOD_CLOSED, with its `months`); a file taken back once answers IMPORT_ALREADY_UNDONE."""
     job = _locked(t, import_id)
     lock_books(t.db, t.org_id)
+    named = _named(t, job)  # before its costs are gone
     deleted, reopened = undo.undo(t, job, synced=job.id in _synced(t, [job]))
     record(
         t.db,
@@ -185,7 +219,7 @@ def undo_import(import_id: UUID, t: TenantDep, p: WriterDep) -> schemas.ImportUn
         action=IMPORT_UNDONE,
         entity_type="import",
         entity_id=job.id,
-        after={"cost_ids": deleted, "estimates_reopened": reopened},
+        after={**named, "cost_ids": deleted, "estimates_reopened": reopened},
     )
     t.db.commit()
     return schemas.ImportUndoResponse(costs_deleted=len(deleted), estimates_reopened=reopened)
@@ -235,21 +269,24 @@ def commit_import(
         raise Conflict(
             e.message, code="PREVIEW_CHANGED", report=dict(job.report), preview_key=service.preview_key(job)
         ) from e
-    if job.kind is ImportKind.COSTS:
-        record(
-            t.db,
-            t.org_id,
-            actor_user_id=p.user_id,
-            action=IMPORT_COMMITTED,
-            entity_type="import",
-            entity_id=job.id,
-            after={
-                "kind": job.kind.value,
-                "cost_ids": list(t.db.scalars(select(Cost.id).where(Cost.import_job_id == job.id))),
-                # what a person overruled to import it, if anything
-                "force_duplicates": bool((job.options or {}).get("force_duplicates")),
-            },
-        )
+    costs = (
+        {
+            "cost_ids": list(t.db.scalars(select(Cost.id).where(Cost.import_job_id == job.id))),
+            # what a person overruled to import it, if anything
+            "force_duplicates": bool((job.options or {}).get("force_duplicates")),
+        }
+        if job.kind is ImportKind.COSTS
+        else {}
+    )
+    record(
+        t.db,
+        t.org_id,
+        actor_user_id=p.user_id,
+        action=IMPORT_COMMITTED,
+        entity_type="import",
+        entity_id=job.id,
+        after={**_named(t, job), **_counted(job), **costs},
+    )
     t.db.commit()
     t.db.refresh(job)
     return _responses(t, [job])[0]

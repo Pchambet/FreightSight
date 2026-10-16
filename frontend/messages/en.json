@@ -1400,7 +1400,18 @@
       "purchase_orders": "Purchase orders",
       "suppliers": "Suppliers",
       "products": "Product sheets",
-      "timezone": "Time zone"
+      "timezone": "Time zone",
+      "file_name": "File",
+      "rows": "Rows in the file",
+      "refused": "Rows refused",
+      "lines_created": "PO lines created",
+      "lines_updated": "PO lines updated",
+      "containers_created": "Containers created",
+      "containers_updated": "Containers updated",
+      "products_created": "Product sheets created",
+      "products_updated": "Product sheets updated",
+      "costs_skipped": "Costs already on file, left as they were",
+      "cost_dates": "Cost dates"
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "Needs review",

@@ -1400,7 +1400,18 @@
       "purchase_orders": "Commandes",
       "suppliers": "Fournisseurs",
       "products": "Fiches produit",
-      "timezone": "Fuseau horaire"
+      "timezone": "Fuseau horaire",
+      "file_name": "Fichier",
+      "rows": "Lignes du fichier",
+      "refused": "Lignes refusées",
+      "lines_created": "Lignes de commande créées",
+      "lines_updated": "Lignes de commande mises à jour",
+      "containers_created": "Conteneurs créés",
+      "containers_updated": "Conteneurs mis à jour",
+      "products_created": "Fiches produit créées",
+      "products_updated": "Fiches produit mises à jour",
+      "costs_skipped": "Coûts déjà enregistrés, laissés tels quels",
+      "cost_dates": "Dates des coûts"
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "À relire",

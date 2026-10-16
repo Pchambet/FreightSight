@@ -40,9 +40,9 @@ const MONEY_KEYS = new Set(["total_amount", "amount", "amount_base", "fob", "lan
 const HIDDEN_KEYS = new Set(["share_id", "push_id"]);
 /** Settings are one JSON column; each one that moved is a change of its own, not a blob. */
 const NESTED_KEYS = new Set(["settings"]);
-/** Text a person typed or a system named (an invoice "2026.0412", a vendor, a note): shown as written,
- * never re-read as a decimal or a date — "2026,0412" would be another invoice. */
-const VERBATIM_KEYS = new Set(["invoice_number", "vendor", "odoo_name", "note", "close_reason", "forgotten_reason", "code", "name", "voyage", "vessel_name", "location_name"]);
+/** Text a person typed or a system named (an invoice "2026.0412", a vendor, a note, a file "2026-09-30"): shown
+ * as written, never re-read as a decimal or a date — "2026,0412" would be another invoice. */
+const VERBATIM_KEYS = new Set(["invoice_number", "vendor", "odoo_name", "note", "close_reason", "forgotten_reason", "code", "name", "voyage", "vessel_name", "location_name", "file_name"]);
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ISO_DATE_TIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
