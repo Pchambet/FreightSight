@@ -244,6 +244,8 @@ class CoefficientBucket:
     fob_missing: str | None = None
     fob_missing_lines: int = 0
     containers_without_charge: int = 0
+    #: Of those, the ones whose charges are entered but held (`held_containers`).
+    containers_held: int = 0
 
 
 @dataclass
@@ -962,6 +964,7 @@ def _coefficient(bucket: Bucket) -> CoefficientBucket:
         landed=bucket.landed,
         coefficient=bucket.coefficient,
         containers_without_charge=bucket.containers_without_charge,
+        containers_held=bucket.containers_held,
         fob_missing=bucket.fob_missing,
         fob_missing_lines=bucket.fob_missing_lines,
     )

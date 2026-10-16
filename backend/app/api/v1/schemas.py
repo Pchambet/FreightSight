@@ -1308,6 +1308,8 @@ class AuditCoefficient(BaseModel):
     fob_missing_lines: int = 0
     #: Containers with no charge at all, left out of the three figures above.
     containers_without_charge: int = 0
+    #: Of those, the ones whose charges are entered but held (an order with no exchange rate, most often).
+    containers_held: int = 0
 
 
 class AuditCompleteness(BaseModel):
