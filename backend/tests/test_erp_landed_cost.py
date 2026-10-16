@@ -427,6 +427,7 @@ def test_without_a_connection_the_preview_says_so(client: TestClient, org: Organ
     body = preview(client, container_id)
     assert body["pushable"] is False
     assert [b["code"] for b in body["blockers"]] == ["no_erp_connection"]
+    assert body["blockers"][0]["blocking"] is True
 
 
 def test_an_estimate_is_not_pushed(
@@ -1243,6 +1244,7 @@ def test_a_validated_push_whose_split_was_not_kept_is_said_rather_than_guessed(
     body = preview(client, container_id)
     assert body["total"] == "0.00"
     (remark,) = [b for b in body["blockers"] if b["code"] == "adjustment_unplaced"]
+    assert remark["blocking"] is False
     assert remark["params"]["existing"] == DOCUMENT
     assert "2766.67 → 2900.00" in remark["params"]["changes"]
     assert len(odoo.created) == 1
@@ -1397,6 +1399,7 @@ def test_a_cost_edited_after_its_push_is_said_on_the_cost_it_concerns(
 
     body = preview(client, container_id)
     (blocker,) = [b for b in body["blockers"] if b["code"] == "pushed_cost_changed"]
+    assert blocker["blocking"] is False
     assert blocker["params"]["existing"] == DOCUMENT
     assert "2766.67 → 2900.00" in blocker["params"]["changes"]
     # and a push does not quietly add a second document with the new figure
@@ -1456,6 +1459,7 @@ def test_a_cost_deleted_after_its_push_blocks_too(
 
     body = preview(client, container_id)
     (blocker,) = [b for b in body["blockers"] if b["code"] == "pushed_cost_gone"]
+    assert blocker["blocking"] is False
     assert blocker["params"]["existing"] == DOCUMENT
     assert "Fret maritime" in blocker["params"]["costs"]
     assert body["pushable"] is False

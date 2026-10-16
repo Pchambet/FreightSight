@@ -2844,6 +2844,11 @@ export interface components {
             params?: {
                 [key: string]: string;
             };
+            /**
+             * Blocking
+             * @default true
+             */
+            blocking: boolean;
         };
         /**
          * ErpConnectionCreate
