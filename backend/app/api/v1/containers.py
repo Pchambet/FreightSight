@@ -13,6 +13,7 @@ from app.api.v1.deps import WriterDep
 from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.money import q2
 from app.core.tenancy import TenantDep, TenantSession
+from app.domain.alerts.service import restate_dnd_risk
 from app.domain.audit.service import LOADS_REPLACED, record
 from app.domain.costing.service import compute, recompute_org
 from app.domain.models import (
@@ -26,7 +27,6 @@ from app.domain.models import (
     Shipment,
 )
 from app.domain.periods import service as periods
-from app.domain.tracking.state import derive_dnd
 
 router = APIRouter(prefix="/containers", tags=["containers"])
 
@@ -161,7 +161,9 @@ def update_container(
         field = _MILESTONE_TIMESTAMP.get(payload.milestone)
         if field and getattr(c, field) is None:
             setattr(c, field, datetime.now(UTC))
-    derive_dnd(c, t.org)
+    # This is how a discharge arrives without a tracking provider: say it now if the risk rose, as
+    # every other way in does. A box typed in already HIGH was otherwise warned of only once incurring.
+    restate_dnd_risk(t.db, t.org, c, datetime.now(UTC))
     t.db.flush()
     if "shipment_id" in changes:
         recompute_org(t.db, t.org)
