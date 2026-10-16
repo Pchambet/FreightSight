@@ -497,6 +497,33 @@ def test_every_file_of_a_sync_in_several_is_listed_as_the_sync(
     assert client.get(f"/api/v1/imports/{jobs[-1]}").json()["source"] == "erp_sync"
 
 
+def test_the_nightly_sync_leaves_one_entry_in_the_history(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Orders that came in at night are in the history like a file a person imported, under no one's
+    name: one entry for the run, whatever number of files it took, counted as the run counted them."""
+    from app.domain.imports import parsing
+    from app.jobs import handlers
+
+    connect(client, FakeOdoo(), monkeypatch)
+    monkeypatch.setattr(parsing, "MAX_ROWS", 3)
+    assert handlers.sync_erp(db, org.id) == 1
+
+    run = db.scalars(select(ErpSyncRun).where(ErpSyncRun.org_id == org.id)).one()
+    (entry,) = client.get("/api/v1/audit-log", params={"action": "import.committed"}).json()["entries"]
+    assert (entry["actor_user_id"], entry["entity_type"]) == (None, "import")
+    assert entry["entity_id"] == str(run.import_job_id)
+    assert entry["after"] == {
+        "kind": "PURCHASE_ORDERS",
+        "file_name": "odoo-sync.csv",
+        "rows": 5,
+        "valid_rows": 5,
+        "refused": 0,
+        "lines_created": 5,
+        "lines_updated": 0,
+    }
+
+
 def test_a_failed_sync_leaves_a_run_that_says_why(
     client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
 ) -> None:

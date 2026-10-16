@@ -23,6 +23,7 @@ from app.core.crypto import decode_key, seal, unseal
 from app.core.errors import NotFound, Unprocessable
 from app.core.settings import Settings, get_settings
 from app.core.tenancy import TenantSession
+from app.domain.audit.service import IMPORT_COMMITTED, record
 from app.domain.erp.ports import ErpConnector, ErpPurchaseOrder, ErpWriter
 from app.domain.fx.service import FxService
 from app.domain.imports import parsing
@@ -85,6 +86,9 @@ def due_for_sync(connection: ErpConnection, now: datetime | None = None) -> bool
 #: can land a second before the read that missed it, and re-reading five minutes of orders costs one
 #: request. Missing an order costs a landed cost that is quietly wrong.
 SYNC_OVERLAP = timedelta(minutes=5)
+
+#: The name each import file of a sync carries, as a file a person drops carries its own.
+FILE_NAME = "odoo-sync.csv"
 
 #: The container magic for a sealed ERP credential.
 ERP_MAGIC = b"FSERP1"
@@ -309,7 +313,7 @@ def sync(
         try:
             for batch in batches(orders):
                 part, _ = to_csv(batch)
-                job = imports.create_job(t, ImportKind.PURCHASE_ORDERS, part, "odoo-sync.csv")
+                job = imports.create_job(t, ImportKind.PURCHASE_ORDERS, part, FILE_NAME)
                 reports.append(
                     imports.run_job(t, job, mapping, dry_run=False, on_error="skip_rows", fx=fx).to_dict()
                 )
@@ -319,15 +323,32 @@ def sync(
             raise
         together.commit()
 
+        merged = _merged(reports, jobs)
         run.status = ErpSyncStatus.SUCCEEDED
         run.import_job_id = jobs[0]
         run.purchase_orders = len(orders)
         run.lines = line_count
-        run.detail = {
-            **_merged(reports, jobs),
-            "cancelled": cancelled,
-            "since": since.isoformat() if since else None,
-        }
+        run.detail = {**merged, "cancelled": cancelled, "since": since.isoformat() if since else None}
+        # In the history like a file a person imported, in the same words: one entry for the run
+        # however many files it took, under the name of whoever pressed the button — no one's at night.
+        record(
+            t.db,
+            t.org_id,
+            actor_user_id=t.principal.user_id,
+            action=IMPORT_COMMITTED,
+            entity_type="import",
+            entity_id=jobs[0],
+            after={
+                "kind": ImportKind.PURCHASE_ORDERS.value,
+                "file_name": FILE_NAME,
+                "rows": merged.get("row_count"),
+                "valid_rows": merged.get("valid_rows"),
+                # each file numbers its own rows
+                "refused": sum(len({issue["row"] for issue in r.get("errors", [])}) for r in reports),
+                "lines_created": merged.get("lines_created"),
+                "lines_updated": merged.get("lines_updated"),
+            },
+        )
         run.finished_at = datetime.now(UTC)
         note_success(connection, run.finished_at)
         t.db.flush()
