@@ -154,8 +154,8 @@ def _refuse_under_credits(cost: Cost, *, changing: bool) -> None:
     changed after."""
     if cost.credits and changing:
         raise Unprocessable(
-            "Credits have reduced this cost; take them back before changing its amount, currency or "
-            "status, or deleting it",
+            "Credits have reduced this cost; take them back before changing its amount, currency, type "
+            "or status, or deleting it",
             code="COST_HAS_CREDITS",
             params={"credit_number": cost.credits[0].credit_number or "", "count": str(len(cost.credits))},
         )

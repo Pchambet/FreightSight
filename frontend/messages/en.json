@@ -1098,7 +1098,7 @@
     "CREDIT_ON_ESTIMATE": "An estimate was never paid: there is nothing to refund. Record the credit on the invoiced cost.",
     "CREDIT_FROM_INVOICE": "This credit comes from a confirmed document ({credit_number}): reopen that document to remove it.",
     "CREDIT_NOT_FOUND": "This credit no longer exists. Reload the page.",
-    "COST_HAS_CREDITS": "{count, plural, one {A credit reduces this cost} other {# credits reduce this cost}}: remove {count, plural, one {it} other {them}} before changing its amount, currency or status, or deleting it.",
+    "COST_HAS_CREDITS": "{count, plural, one {A credit reduces a cost involved} other {# credits reduce the cost or costs involved}}: remove {count, plural, one {it} other {them}} first, from the list of costs, or by reopening {count, plural, one {the confirmed credit note it comes from} other {the confirmed credit notes they come from}}. While a credit reduces it, a cost keeps its amount, currency, type and status, and cannot be deleted, by hand, by reopening its invoice or by undoing its import.",
     "PERIOD_DRIFT_ORDERS_WITHOUT_FX_RATE": "This month's gap cannot be marked as booked: some orders have no exchange rate ({orders}). The value of their goods is unknown today, and with it the amount of the gap. Set the rate on each of them, then mark the gap."
   },
   "timeline": {

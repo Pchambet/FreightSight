@@ -1098,7 +1098,7 @@
     "CREDIT_ON_ESTIMATE": "Un estimé n'a pas été payé : il n'y a rien à rembourser. Enregistrez l'avoir sur le coût facturé.",
     "CREDIT_FROM_INVOICE": "Cet avoir vient d'un document confirmé ({credit_number}) : rouvrez ce document pour le retirer.",
     "CREDIT_NOT_FOUND": "Cet avoir n'existe plus. Rechargez la page.",
-    "COST_HAS_CREDITS": "{count, plural, one {Un avoir réduit ce coût} other {# avoirs réduisent ce coût}} : retirez-{count, plural, one {le} other {les}} avant de modifier son montant, sa devise ou son statut, ou de le supprimer.",
+    "COST_HAS_CREDITS": "{count, plural, one {Un avoir réduit un coût concerné} other {# avoirs réduisent le ou les coûts concernés}} : retirez-{count, plural, one {le} other {les}} d'abord, depuis la liste des coûts, ou en rouvrant {count, plural, one {l'avoir confirmé dont il vient} other {les avoirs confirmés dont ils viennent}}. Tant qu'un avoir le réduit, un coût garde son montant, sa devise, son type et son statut, et ne peut être supprimé ni à la main, ni en rouvrant sa facture, ni en annulant son import.",
     "PERIOD_DRIFT_ORDERS_WITHOUT_FX_RATE": "L'écart de ce mois ne peut pas être marqué comme comptabilisé : des commandes n'ont pas de taux de change ({orders}). La valeur de leurs marchandises est inconnue aujourd'hui, et avec elle le montant de l'écart. Saisissez le taux sur chacune, puis marquez l'écart."
   },
   "timeline": {
