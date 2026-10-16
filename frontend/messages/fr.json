@@ -2702,7 +2702,7 @@
       "deleteReversedCost": "Supprimer le coût annulé sur la fiche"
     },
     "period": "Dernier trimestre, du {from} au {to}",
-    "summary": "{blocking, plural, =0 {Rien ne fausse l'audit} one {# point fausserait l'audit} other {# points fausseraient l'audit}}, {limits, plural, =0 {aucune limite} one {# limite} other {# limites}}",
+    "summary": "{blocking, plural, =0 {Rien ne fausse l'audit} one {# point fausserait l'audit} other {# points fausseraient l'audit}}{limits, plural, =0 {} one { · # point qu'il ne pourra pas mesurer} other { · # points qu'il ne pourra pas mesurer}}",
     "otherPeriod": "Choisir une autre période"
   },
   "reportTotals": {

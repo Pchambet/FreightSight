@@ -106,8 +106,8 @@ export default async function AuditPreparation({ periodFrom, periodTo, showPerio
       <li key={`${i.code}-${i.params?.reason ?? ""}`} className="py-3 first:pt-0 last:pb-0">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <p className="text-sm text-slate-800">
-            {sentence(i)}
-            <span className="ml-2 text-xs text-slate-500">{t(`section.${i.section}`)}</span>
+            {sentence(i)}{" "}
+            <span className="ml-1 text-xs text-slate-500">{t(`section.${i.section}`)}</span>
           </p>
           {i.amount_base && !isZero(i.amount_base) ? <span className="text-sm font-medium tabular-nums text-slate-900">{t("amount", { amount: money(i.amount_base, base_currency, locale) })}</span> : null}
         </div>

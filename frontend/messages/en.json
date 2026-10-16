@@ -2702,7 +2702,7 @@
       "deleteReversedCost": "Delete the cancelled cost on the sheet"
     },
     "period": "Last quarter, {from} to {to}",
-    "summary": "{blocking, plural, =0 {Nothing makes the audit wrong} one {# point would make the audit wrong} other {# points would make the audit wrong}}, {limits, plural, =0 {no limit} one {# limit} other {# limits}}",
+    "summary": "{blocking, plural, =0 {Nothing makes the audit wrong} one {# point would make the audit wrong} other {# points would make the audit wrong}}{limits, plural, =0 {} one { · # thing it will not be able to measure} other { · # things it will not be able to measure}}",
     "otherPeriod": "Choose another period"
   },
   "reportTotals": {
