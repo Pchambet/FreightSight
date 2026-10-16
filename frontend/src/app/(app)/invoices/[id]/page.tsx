@@ -140,7 +140,7 @@ export default async function InvoicePage({ params }: Params) {
       ) : null}
       {invoice.status === "REJECTED" ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 text-amber-950 text-sm px-4 py-4 mb-6">
-          <p>{t("rejectedBanner")} {t("rejectedHint")}</p>
+          <p>{t("rejectedBanner", { kind: invoice.credit_note ? "credit" : "invoice" })} {t("rejectedHint")}</p>
           <RejectedInvoiceActions invoiceId={invoice.id} hasLines={lines.length > 0} />
         </div>
       ) : null}

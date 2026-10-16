@@ -450,7 +450,7 @@ export default function ReviewPanel({ invoice, targets, pageHasNextStep = false 
               {pending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               {forceConfirm ? t("confirmAnyway") : acceptedCount ? t("confirm", { count: acceptedCount }) : t("confirmNone")}
             </button>
-            <button type="button" disabled={pending} onClick={() => run(() => rejectInvoice(invoice.id), () => t("rejected"))} className={btnSecondary}>{t("reject")}</button>
+            <button type="button" disabled={pending} onClick={() => run(() => rejectInvoice(invoice.id), () => t("rejected", { kind: invoice.credit_note ? "credit" : "invoice" }))} className={btnSecondary}>{t("reject")}</button>
             <button type="button" disabled={pending} onClick={() => run(() => retryInvoice(invoice.id), () => t("retried"))} className="text-sm text-slate-500 hover:underline">{t("retry")}</button>
             <span className="text-xs text-slate-500 ml-auto">{new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { dateStyle: "medium" }).format(new Date(invoice.created_at))}</span>
           </div>
@@ -460,7 +460,7 @@ export default function ReviewPanel({ invoice, targets, pageHasNextStep = false 
       {invoice.status === "FAILED" ? (
         <div className="px-5 py-4 border-t border-slate-200 flex items-center gap-3">
           <button type="button" disabled={pending} onClick={() => run(() => retryInvoice(invoice.id), () => t("retried"))} className={btnSecondary}>{t("retry")}</button>
-          <button type="button" disabled={pending} onClick={() => run(() => rejectInvoice(invoice.id), () => t("rejected"))} className="text-sm text-slate-500 hover:underline">{t("reject")}</button>
+          <button type="button" disabled={pending} onClick={() => run(() => rejectInvoice(invoice.id), () => t("rejected", { kind: invoice.credit_note ? "credit" : "invoice" }))} className="text-sm text-slate-500 hover:underline">{t("reject")}</button>
         </div>
       ) : null}
     </div>
