@@ -67,6 +67,8 @@ export default function ImportWizard({
   const [mappingError, setMappingError] = useState<string | null>(null);
   const [changed, setChanged] = useState<{ before: Report; after: Report } | null>(null);
   const [existingId, setExistingId] = useState<string | null>(null);
+  // A file the API refused stays refused on the page (a toast fades while the file still looks taken).
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const tooLarge = isTooLarge(file);
 
@@ -105,6 +107,7 @@ export default function ImportWizard({
     setMappingError(null);
     setChanged(null);
     setExistingId(null);
+    setUploadError(null);
     if (next) setKind(next);
     setStep("upload");
   };
@@ -117,12 +120,13 @@ export default function ImportWizard({
     startTransition(async () => {
       // Refused before the action runs (connection dropped, a body over a limit): it rejects.
       const result = await createImport(fd).catch(() => null);
-      if (!result) return void toast.error(t("upload.failed"));
+      if (!result) return void setUploadError(t("upload.failed"));
       if (!result.ok) {
         if (result.existingId) return void setExistingId(result.existingId);
-        return void toast.error(result.error);
+        return void setUploadError(result.error);
       }
       setExistingId(null);
+      setUploadError(null);
       setJob(result.data);
       setMapping(result.data.mapping);
       setStep("mapping");
@@ -237,25 +241,26 @@ export default function ImportWizard({
       {step === "upload" ? (
         <Card title={t("upload.card")}>
           <div className="p-5 space-y-5">
-            <KindPicker kinds={kinds} value={kind} onChange={(k) => { setKind(k); setExistingId(null); }} />
+            <KindPicker kinds={kinds} value={kind} onChange={(k) => { setKind(k); setExistingId(null); setUploadError(null); }} />
             <div className="max-w-xl space-y-4">
               <label className="relative border-2 border-dashed border-slate-300 rounded-md p-8 flex flex-col items-center justify-center text-center hover:bg-slate-50 cursor-pointer">
                 <input
                   type="file"
                   accept=".csv,.xlsx,text/csv"
-                  onChange={(e) => { setFile(e.target.files?.[0] ?? null); setExistingId(null); }}
+                  onChange={(e) => { setFile(e.target.files?.[0] ?? null); setExistingId(null); setUploadError(null); }}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   aria-label={t("upload.chooseFor", { kind: t(`kinds.${kind}.title`) })}
-                  aria-invalid={tooLarge || undefined}
-                  aria-describedby={tooLarge ? "import-file-too-large" : undefined}
+                  aria-invalid={tooLarge || Boolean(uploadError) || undefined}
+                  aria-describedby={tooLarge ? "import-file-too-large" : uploadError ? "import-file-refused" : undefined}
                 />
                 {file ? (
-                  <>{tooLarge ? <FileWarning className="w-8 h-8 text-red-600 mb-2" aria-hidden /> : <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" aria-hidden />}<p className="text-sm font-medium">{file.name}</p><p className="text-xs text-slate-500 mt-1">{fileSize(file.size, locale)}</p></>
+                  <>{tooLarge || uploadError ? <FileWarning className="w-8 h-8 text-red-600 mb-2" aria-hidden /> : <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" aria-hidden />}<p className="text-sm font-medium">{file.name}</p><p className="text-xs text-slate-500 mt-1">{fileSize(file.size, locale)}</p></>
                 ) : (
                   <><FileType className="w-8 h-8 text-slate-400 mb-2" aria-hidden /><p className="text-sm font-medium text-slate-700">{t("upload.cta")}</p><p className="text-xs text-slate-500 mt-1">{t("upload.hint")}</p></>
                 )}
               </label>
               {tooLarge ? <FileTooLarge id="import-file-too-large" file={file} kind="import" /> : null}
+              {uploadError ? <p id="import-file-refused" role="alert" className="text-sm text-red-700">{uploadError}</p> : null}
               {existingId ? (
                 <p role="alert" className="text-sm text-amber-900">
                   {t("upload.alreadyImported")}{" "}
