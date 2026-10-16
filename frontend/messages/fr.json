@@ -2839,7 +2839,7 @@
       "setType": "Indiquer le type sur la fiche",
       "setCoefficient": "Saisir le coefficient",
       "seeCosts": "Voir les frais du conteneur",
-      "deleteReversedCost": "Supprimer le coût annulé sur la fiche",
+      "recordReversingCredit": "Enregistrer l'avoir sur le coût qu'il annule (bouton « Avoir » de la liste des coûts)",
       "setOrderRate": "Saisir le taux de change",
       "checkOrderRate": "Vérifier le taux de la commande"
     },

@@ -2839,7 +2839,7 @@
       "setType": "Set the type on the container",
       "setCoefficient": "Enter the coefficient",
       "seeCosts": "See the container's costs",
-      "deleteReversedCost": "Delete the cancelled cost on the sheet",
+      "recordReversingCredit": "Record the credit note on the cost it cancels (the « Credit » button in the list of costs)",
       "setOrderRate": "Set the exchange rate",
       "checkOrderRate": "Check the order's rate"
     },

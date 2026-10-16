@@ -63,7 +63,7 @@ function remedy(item: Item): { key: string; href: string } | null {
     case "COST_ROWS_REFUSED":
       return { key: "openImport", href: onFirst("/imports") };
     case "CREDIT_NOTE_REVERSES_COST":
-      return { key: "deleteReversedCost", href: `${onFirst("/containers")}#journal` };
+      return { key: "recordReversingCredit", href: `${onFirst("/containers")}#journal` };
     case "PO_SPLIT":
       return { key: "openOrder", href: onFirst("/purchase-orders") };
     case "ORDERS_WITHOUT_FX_RATE":
