@@ -360,7 +360,24 @@
       "body": "It may belong to another organization or have been deleted.",
       "back": "Back to purchase orders"
     },
-    "noRate": "{currency}→{base} rate missing: value not counted"
+    "noRate": "{currency}→{base} rate missing: value unknown",
+    "rate": {
+      "title": "Exchange rate",
+      "hint": "One rate for the whole order. Enter your bank's or the customs declaration's: it replaces the ECB rate, and every landed cost of the order is recomputed.",
+      "missing": "No rate known for {currency}: this order's value is unknown and its landed costs are not computed. Enter the rate below.",
+      "current": "1 {currency} = {rate} {base}",
+      "dated": "rate of {date}",
+      "label": "Value of 1 {currency} in {base}",
+      "date": "Rate date",
+      "dateHint": "Asked for only when the order has no date.",
+      "save": "Save the rate",
+      "saving": "Saving…",
+      "saved": "Rate saved: the order's landed costs are recomputed.",
+      "invalid": "Enter a rate above zero, for example 0.9215.",
+      "failed": "The rate could not be saved.",
+      "change": "Change the rate",
+      "cancel": "Cancel"
+    }
   },
   "imports": {
     "title": "Imports",
@@ -878,7 +895,8 @@
       "import_committed": "Import committed",
       "import_undone": "Import undone",
       "cost_closed": "Estimate closed without invoice",
-      "cost_superseded": "Estimate replaced by the actual"
+      "cost_superseded": "Estimate replaced by the actual",
+      "purchase_order_updated": "Order updated"
     },
     "finding": {
       "DUPLICATE_CHARGE": "Service invoiced twice",
@@ -1042,7 +1060,8 @@
     "DUPLICATE_SKU_SAME_VALUES": "Item {sku} appears again on order {po_number} with the same quantity and price and no other container: line {line_no} was counted once. If these are two lines, number them (line number column) or add up their quantities.",
     "CURRENCY_ASSUMED": "{rows, plural, one {One amount does not say} other {# amounts do not say}} which currency {rows, plural, one {it is} other {they are}} in (no currency column, symbol or header): {rows, plural, one {it is read} other {they are read}} in {currency}. If the statement is in another currency, add a currency column and match it.",
     "UNIT_COLUMN_UNMAPPED": "Column \"{column}\" was not read: it does not say whether it holds one unit's value or the line's total. Match it to \"{field}\" if it is one unit's, or to the line-total field (divided by the quantity). Without it, costs split by weight or volume have no basis.",
-    "MAPPING_UNIT_AND_LINE_TOTAL": "{dimension, select, volume {Volume} other {Weight}}: match the per-unit column or the line-total column, not both."
+    "MAPPING_UNIT_AND_LINE_TOTAL": "{dimension, select, volume {Volume} other {Weight}}: match the per-unit column or the line-total column, not both.",
+    "PERIOD_ORDERS_WITHOUT_FX_RATE": "This month cannot be closed: some orders have no exchange rate ({orders}). The value of their goods is unknown, and the close would freeze a wrong landed cost. Set the rate on each of them, then close."
   },
   "timeline": {
     "title": "Timeline",
@@ -1401,6 +1420,9 @@
       "suppliers": "Suppliers",
       "products": "Product sheets",
       "timezone": "Time zone",
+      "supplier": "Supplier",
+      "incoterm": "Incoterm",
+      "order_date": "Order date",
       "file_name": "File",
       "rows": "Rows in the file",
       "valid_rows": "Valid rows",
@@ -2221,12 +2243,13 @@
     },
     "ready": {
       "title": "Before closing",
-      "subtitle": "None of this blocks: it is what is best settled first.",
+      "subtitle": "Only a missing exchange rate blocks the close: the rest is what is better settled first.",
       "see": "See",
       "estimates": "{count, plural, =0 {No container carries an estimate waiting for its invoice.} one {# container still carries estimated costs.} other {# containers still carry estimated costs.}}",
       "invoices": "{count, plural, =0 {No invoice waiting for review.} one {# invoice is waiting for your review.} other {# invoices are waiting for your review.}}",
       "unallocated": "{count, plural, =0 {Every cost is allocated.} one {# cost could not be allocated.} other {# costs could not be allocated.}}",
-      "nocost": "{count, plural, =0 {Every loaded container has costs.} one {# loaded container has no cost.} other {# loaded containers have no cost.}}"
+      "nocost": "{count, plural, =0 {Every loaded container has costs.} one {# loaded container has no cost.} other {# loaded containers have no cost.}}",
+      "norate": "{count, plural, =0 {Every order of the month has an exchange rate.} one {# order with no exchange rate: its value is unknown, the month cannot be closed.} other {# orders with no exchange rate: their value is unknown, the month cannot be closed.}}"
     },
     "estimates": {
       "title": "Containers still on estimates",
@@ -2717,7 +2740,8 @@
       "setType": "Set the type on the container",
       "setCoefficient": "Enter the coefficient",
       "seeCosts": "See the container's costs",
-      "deleteReversedCost": "Delete the cancelled cost on the sheet"
+      "deleteReversedCost": "Delete the cancelled cost on the sheet",
+      "setOrderRate": "Set the exchange rate"
     },
     "period": "Last quarter, {from} to {to}",
     "summary": "{blocking, plural, =0 {Nothing makes the audit wrong} one {# point would make the audit wrong} other {# points would make the audit wrong}}{limits, plural, =0 {} one { · # thing it will not be able to measure} other { · # things it will not be able to measure}}",
@@ -2727,5 +2751,10 @@
     "estimated": "estimated",
     "landedNone": "No charges allocated yet: this would only be the FOB.",
     "landedEstimated": "of which {amount} estimated, not yet invoiced"
+  },
+  "fobMissing": {
+    "total": "{count, plural, one {One order line has no exchange rate: the value of its goods is unknown.} other {# order lines have no exchange rate: the value of their goods is unknown.}} FOB, landed cost and what follows from them (coefficient, unit cost, margin) are not computed until the rate is set on the order.",
+    "line": "Order with no exchange rate: value unknown",
+    "setRate": "Set the rate on the order"
   }
 }

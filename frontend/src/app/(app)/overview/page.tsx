@@ -11,6 +11,7 @@ import Panel from "@/components/ui/Panel";
 import StatTile, { type Delta } from "@/components/ui/StatTile";
 import LoadSampleDataButton from "@/features/containers/LoadSampleDataButton";
 import RankBars, { type RankRow } from "@/features/overview/RankBars";
+import FobMissing, { FobMissingLine } from "@/features/report/FobMissing";
 import { WINDOWS, monthLabel, monthTitle, windows, type WindowMonths } from "@/features/overview/period";
 import { skuHref } from "@/features/skus/href";
 import { api } from "@/lib/api/client";
@@ -27,7 +28,7 @@ const num = (v: string | number | null | undefined) => {
 };
 
 export default async function OverviewPage({ searchParams }: { searchParams: Promise<{ months?: string; notice?: string }> }) {
-  const [sp, t, tf, locale] = await Promise.all([searchParams, getTranslations("overview"), getTranslations("costFamily"), getLocale()]);
+  const [sp, t, tf, tm, locale] = await Promise.all([searchParams, getTranslations("overview"), getTranslations("costFamily"), getTranslations("fobMissing"), getLocale()]);
   const months: WindowMonths = (WINDOWS as readonly number[]).includes(Number(sp.months)) ? (Number(sp.months) as WindowMonths) : 6;
   const { current } = windows(months);
   const cur = { period_from: current.from, period_to: current.to };
@@ -49,12 +50,14 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   // The headline figures come from the API's own overview (same numbers as the detailed reports, by
   // test); only what it does not carry — the charges, per month and per family — is read from the
   // landed-cost report of the same dates.
-  const fob = num(o.current.fob);
-  const landed = num(o.current.landed);
+  // Null while a line of the period has no exchange rate (`fob_missing_lines`): shown as a dash and
+  // said in words, never read as 0.
+  const fob = o.current.fob === null ? null : num(o.current.fob);
   const fees = Object.entries(o.by_cost_type ?? {}).reduce((sum, [type, amount]) => (type === "IMPORT_VAT" ? sum : sum + num(amount as string)), 0);
   const coef = o.current.coefficient !== null ? num(o.current.coefficient) : null;
   const coefBefore = o.previous.coefficient !== null ? num(o.previous.coefficient) : null;
-  const hasData = fob > 0 || fees > 0;
+  const unvalued = o.current.fob_missing_lines ?? 0;
+  const hasData = (fob ?? 0) > 0 || fees > 0 || unvalued > 0;
 
   const familyLabels = Object.fromEntries(COST_FAMILIES.map((f) => [f, tf(f)])) as Record<CostFamily, string>;
   const ratio = (v: number) => new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
@@ -83,21 +86,22 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
       label: monthLabel(key, locale, yearTurns),
       title: monthTitle(key, locale),
       families: foldFamilies(b?.by_cost_type as Record<string, string> | undefined),
-      note: b ? t("monthNote", { loads: b.load_count, coef: bFob > 0 ? ratio(num(b.landed) / bFob) : "—" }) : t("monthEmpty"),
+      note: b ? t("monthNote", { loads: b.load_count, coef: b.fob !== null && bFob > 0 ? ratio(num(b.landed) / bFob) : "—" }) : t("monthEmpty"),
       href: `/reports?group_by=cost_type&from=${key}-01&to=${key}-${String(new Date(Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)), 0)).getUTCDate()).padStart(2, "0")}`,
     };
   });
-  const coefSpark = current.months.map((k) => bucket.get(k)).filter((b) => b && num(b.fob) > 0).map((b) => num(b!.landed) / num(b!.fob));
+  const coefSpark = current.months.map((k) => bucket.get(k)).filter((b) => b && b.fob !== null && num(b.fob) > 0).map((b) => num(b!.landed) / num(b!.fob));
   const undated = bucket.get("unknown");
 
+  // A supplier whose goods have no known value cannot be ranked: it comes last, with a dash and why.
   const suppliers: RankRow[] = (o.by_supplier ?? [])
-    .filter((b) => num(b.fob) > 0)
+    .filter((b) => b.fob === null || num(b.fob) > 0)
     .map((b) => ({
       key: b.key,
       label: b.key === "unknown" ? t("unknownSupplier") : b.label,
-      value: (num(b.allocated) / num(b.fob)) * 100,
-      display: ratio(num(b.landed) / num(b.fob)),
-      sub: t("supplierSub", { fees: money(b.allocated, currency, locale), fob: money(b.fob, currency, locale) }),
+      value: b.fob === null ? 0 : (num(b.allocated) / num(b.fob)) * 100,
+      display: b.fob === null ? "—" : ratio(num(b.landed) / num(b.fob)),
+      sub: b.fob === null ? tm("line") : t("supplierSub", { fees: money(b.allocated, currency, locale), fob: money(b.fob, currency, locale) }),
       href: `/reports?group_by=supplier&from=${current.from}&to=${current.to}`,
     }))
     .sort((x, y) => y.value - x.value)
@@ -247,7 +251,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
               label={t("kpi.coef")}
               hint={t("kpi.coefHint")}
               value={coef !== null ? ratio(coef) : "—"}
-              sub={coef !== null ? t("kpi.coefSub", { pct: pct((coef - 1) * 100, locale) }) : undefined}
+              sub={coef !== null ? t("kpi.coefSub", { pct: pct((coef - 1) * 100, locale) }) : unvalued > 0 ? tm("line") : undefined}
               delta={comparable && coef !== null && coefBefore !== null ? { text: signed(coef - coefBefore, 2), direction: Math.abs(coef - coefBefore) < 0.005 ? "flat" : coef > coefBefore ? "up" : "down", good: coef <= coefBefore, versus } : null}
               spark={coefSpark}
             />
@@ -273,6 +277,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
           {/* The overview carries no estimated/invoiced split per period yet (needs_other_lane): until it
               does, the basis of every figure below is said in words rather than left to be guessed. */}
           <p className="-mt-3 mb-6 text-xs text-slate-500">{t("kpi.includesEstimates")}</p>
+          <FobMissing lines={unvalued} className="-mt-3 mb-6" />
 
           <div className="grid gap-6 xl:grid-cols-3 mb-6 items-start">
             <Panel
@@ -285,8 +290,12 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
               {undated && num(undated.allocated) > 0 ? <p className="mt-3 text-xs text-slate-500">{t("structure.undated", { amount: money(undated.allocated, currency, locale) })}</p> : null}
             </Panel>
 
-            <Panel title={t("breakdown.title")} subtitle={t("breakdown.subtitle", { landed: money(landed, currency, locale) })}>
-              <BreakdownBar fob={fob} families={foldFamilies(o.by_cost_type as Record<string, string> | undefined)} currency={currency} locale={locale} fobLabel={t("breakdown.fob")} familyLabels={familyLabels} ofFobLabel={t("breakdown.ofFob")} dense />
+            <Panel title={t("breakdown.title")} subtitle={t("breakdown.subtitle", { landed: money(o.current.landed, currency, locale) })}>
+              {fob === null ? (
+                <FobMissing lines={unvalued} />
+              ) : (
+                <BreakdownBar fob={fob} families={foldFamilies(o.by_cost_type as Record<string, string> | undefined)} currency={currency} locale={locale} fobLabel={t("breakdown.fob")} familyLabels={familyLabels} ofFobLabel={t("breakdown.ofFob")} dense />
+              )}
             </Panel>
           </div>
 
@@ -315,11 +324,11 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
                         const q = num(s.quantity);
                         return (
                           <tr key={s.sku} className="hover:bg-slate-50">
-                            <td className="px-5 py-2.5"><Link href={skuHref(s.sku)} className="font-mono text-blue-700 hover:underline">{s.sku}</Link></td>
+                            <td className="px-5 py-2.5"><Link href={skuHref(s.sku)} className="font-mono text-blue-700 hover:underline">{s.sku}</Link>{s.fob === null ? <FobMissingLine /> : null}</td>
                             <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">{qty(s.quantity, locale)}</td>
-                            <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">{q > 0 ? money(num(s.fob) / q, currency, locale) : "—"}</td>
+                            <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">{q > 0 && s.fob !== null ? money(num(s.fob) / q, currency, locale) : "—"}</td>
                             <td className="px-3 py-2.5 text-right tabular-nums font-medium text-slate-900">{money(s.unit_landed_cost, currency, locale)}</td>
-                            <td className="px-5 py-2.5 text-right tabular-nums text-slate-600">{num(s.fob) > 0 ? ratio(num(s.landed) / num(s.fob)) : "—"}</td>
+                            <td className="px-5 py-2.5 text-right tabular-nums text-slate-600">{s.fob !== null && num(s.fob) > 0 ? ratio(num(s.landed) / num(s.fob)) : "—"}</td>
                           </tr>
                         );
                       })}

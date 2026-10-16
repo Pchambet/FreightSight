@@ -2073,20 +2073,27 @@ export interface components {
             /** Label */
             label: string;
             /** Fob */
-            fob: string;
+            fob: string | null;
             /** Landed */
-            landed: string;
+            landed: string | null;
             /** Coefficient */
             coefficient: string | null;
+            /** Fob Missing */
+            fob_missing?: string | null;
+            /**
+             * Fob Missing Lines
+             * @default 0
+             */
+            fob_missing_lines: number;
         };
         /** AuditCompleteness */
         AuditCompleteness: {
             /** Containers */
             containers: number;
             /** Fob */
-            fob: string;
+            fob: string | null;
             /** Landed */
-            landed: string;
+            landed: string | null;
             /** Estimated */
             estimated: string;
             /** Estimated Share Pct */
@@ -2103,6 +2110,13 @@ export interface components {
             containers_not_compared?: number | null;
             /** Containers Without Date */
             containers_without_date?: number | null;
+            /** Fob Missing */
+            fob_missing?: string | null;
+            /**
+             * Fob Missing Lines
+             * @default 0
+             */
+            fob_missing_lines: number;
         };
         /** AuditDemurrageLine */
         AuditDemurrageLine: {
@@ -2205,7 +2219,7 @@ export interface components {
          */
         AuditHeadline: {
             /** Margin Overstated */
-            margin_overstated: string;
+            margin_overstated: string | null;
             /** Priced Skus */
             priced_skus: number;
             /** Unpriced Skus */
@@ -2231,15 +2245,15 @@ export interface components {
             /** Quantity */
             quantity: string;
             /** Fob */
-            fob: string;
+            fob: string | null;
             /** Landed */
-            landed: string;
+            landed: string | null;
             /** Unit Fob */
-            unit_fob: string;
+            unit_fob: string | null;
             /** Unit Landed */
-            unit_landed: string;
+            unit_landed: string | null;
             /** Approach Costs */
-            approach_costs: string;
+            approach_costs: string | null;
             /** Gap Vs Assumed */
             gap_vs_assumed: string | null;
             /** Sale Price */
@@ -2250,6 +2264,13 @@ export interface components {
             margin_real_pct: string | null;
             /** Points Lost */
             points_lost: string | null;
+            /** Fob Missing */
+            fob_missing?: string | null;
+            /**
+             * Fob Missing Lines
+             * @default 0
+             */
+            fob_missing_lines: number;
         };
         /**
          * AuditPage
@@ -2562,7 +2583,14 @@ export interface components {
              * Fob Base
              * @default 0.00
              */
-            fob_base: string;
+            fob_base: string | null;
+            /** Fob Missing */
+            fob_missing?: string | null;
+            /**
+             * Fob Missing Lines
+             * @default 0
+             */
+            fob_missing_lines: number;
             /**
              * Allocated Base
              * @default 0.00
@@ -3717,8 +3745,15 @@ export interface components {
             base_currency: string;
             /** Totals */
             totals: {
-                [key: string]: string;
+                [key: string]: string | null;
             };
+            /** Fob Missing */
+            fob_missing?: string | null;
+            /**
+             * Fob Missing Lines
+             * @default 0
+             */
+            fob_missing_lines: number;
             /**
              * Matched Pairs
              * @default 0
@@ -3893,9 +3928,9 @@ export interface components {
             /** Containers */
             containers: number;
             /** Fob */
-            fob: string;
+            fob: string | null;
             /** Landed */
-            landed: string;
+            landed: string | null;
             /** Coefficient */
             coefficient: string | null;
             /** Variance Estimated */
@@ -3910,6 +3945,13 @@ export interface components {
             demurrage_paid: string;
             /** Demurrage Avoided */
             demurrage_avoided: string;
+            /** Fob Missing */
+            fob_missing?: string | null;
+            /**
+             * Fob Missing Lines
+             * @default 0
+             */
+            fob_missing_lines: number;
         };
         /** OverviewResponse */
         OverviewResponse: {
@@ -4022,9 +4064,9 @@ export interface components {
             /** Frozen Landed */
             frozen_landed: string;
             /** Live Landed */
-            live_landed: string;
+            live_landed: string | null;
             /** Difference */
-            difference: string;
+            difference: string | null;
             /**
              * Reason
              * @enum {string}
@@ -4034,6 +4076,13 @@ export interface components {
             costs_changed: components["schemas"]["PeriodChangedCost"][];
             /** Costs Deleted */
             costs_deleted: number;
+            /** Fob Missing */
+            fob_missing?: string | null;
+            /**
+             * Fob Missing Lines
+             * @default 0
+             */
+            fob_missing_lines: number;
         };
         /** PeriodEstimatedBox */
         PeriodEstimatedBox: {
@@ -4054,9 +4103,21 @@ export interface components {
             /** Periods */
             periods: components["schemas"]["PeriodSummary"][];
         };
+        /** PeriodOrder */
+        PeriodOrder: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Po Number */
+            po_number: string;
+        };
         /**
          * PeriodReadiness
-         * @description What is better settled before closing. Never a refusal.
+         * @description What is better settled before closing. Never a refusal, except `orders_without_fx_rate`: while
+         *     an order of the month has no exchange rate, a close answers 422 PERIOD_ORDERS_WITHOUT_FX_RATE
+         *     (`params.orders`: their numbers).
          */
         PeriodReadiness: {
             /** Containers With Estimates */
@@ -4069,6 +4130,8 @@ export interface components {
             unallocated_costs: number;
             /** Containers Without Cost */
             containers_without_cost: number;
+            /** Orders Without Fx Rate */
+            orders_without_fx_rate?: components["schemas"]["PeriodOrder"][];
         };
         /** PeriodSummary */
         PeriodSummary: {
@@ -4082,9 +4145,9 @@ export interface components {
             /** Containers */
             containers: number;
             /** Fob */
-            fob: string;
+            fob: string | null;
             /** Landed */
-            landed: string;
+            landed: string | null;
             /** Coefficient */
             coefficient: string | null;
             /** By Cost Type */
@@ -4099,7 +4162,7 @@ export interface components {
              * Live Landed
              * @default 0.00
              */
-            live_landed: string;
+            live_landed: string | null;
             /** Drift */
             drift?: string | null;
             /** Drift Containers */
@@ -4112,6 +4175,13 @@ export interface components {
             acknowledged_at?: string | null;
             /** Acknowledged Note */
             acknowledged_note?: string | null;
+            /** Fob Missing */
+            fob_missing?: string | null;
+            /**
+             * Fob Missing Lines
+             * @default 0
+             */
+            fob_missing_lines: number;
         };
         /** PoLineIn */
         PoLineIn: {
@@ -4461,13 +4531,13 @@ export interface components {
             /** Label */
             label: string;
             /** Fob */
-            fob: string;
+            fob: string | null;
             /** Allocated */
             allocated: string;
             /** Vat */
             vat: string;
             /** Landed */
-            landed: string;
+            landed: string | null;
             /** Quantity */
             quantity: string;
             /** Load Count */
@@ -4478,6 +4548,13 @@ export interface components {
             by_cost_type?: {
                 [key: string]: string;
             };
+            /** Fob Missing */
+            fob_missing?: string | null;
+            /**
+             * Fob Missing Lines
+             * @default 0
+             */
+            fob_missing_lines: number;
         };
         /** ReportLine */
         ReportLine: {
@@ -4509,15 +4586,15 @@ export interface components {
             /** Quantity */
             quantity: string;
             /** Fob */
-            fob: string;
+            fob: string | null;
             /** Allocated */
             allocated: string;
             /** Vat */
             vat: string;
             /** Landed */
-            landed: string;
+            landed: string | null;
             /** Unit Landed Cost */
-            unit_landed_cost: string;
+            unit_landed_cost: string | null;
             /** Estimated */
             estimated: string;
             /** Actual */
@@ -4562,13 +4639,20 @@ export interface components {
             /** Quantity */
             quantity: string;
             /** Fob */
-            fob: string;
+            fob: string | null;
             /** Landed */
-            landed: string;
+            landed: string | null;
             /** Unit Landed Cost */
-            unit_landed_cost: string;
+            unit_landed_cost: string | null;
             /** Load Count */
             load_count: number;
+            /** Fob Missing */
+            fob_missing?: string | null;
+            /**
+             * Fob Missing Lines
+             * @default 0
+             */
+            fob_missing_lines: number;
         };
         /** ReportWarning */
         ReportWarning: {
@@ -4698,7 +4782,7 @@ export interface components {
              */
             expires_at: string;
             /** Landed */
-            landed: string;
+            landed: string | null;
             /**
              * Generated At
              * Format: date-time
@@ -4880,13 +4964,13 @@ export interface components {
             /** Quantity */
             quantity: string;
             /** Fob */
-            fob: string;
+            fob: string | null;
             /** Landed */
-            landed: string;
+            landed: string | null;
             /** Unit Fob */
-            unit_fob: string;
+            unit_fob: string | null;
             /** Unit Landed */
-            unit_landed: string;
+            unit_landed: string | null;
             /** By Cost Type */
             by_cost_type: {
                 [key: string]: string;
@@ -4897,6 +4981,8 @@ export interface components {
             };
             /** Estimated */
             estimated: string;
+            /** Fob Missing */
+            fob_missing?: string | null;
         };
         /**
          * SkuBox
@@ -4918,13 +5004,13 @@ export interface components {
             /** Quantity */
             quantity: string;
             /** Fob */
-            fob: string;
+            fob: string | null;
             /** Landed */
-            landed: string;
+            landed: string | null;
             /** Unit Fob */
-            unit_fob: string;
+            unit_fob: string | null;
             /** Unit Landed */
-            unit_landed: string;
+            unit_landed: string | null;
             /** By Cost Type */
             by_cost_type: {
                 [key: string]: string;
@@ -4935,6 +5021,13 @@ export interface components {
             };
             /** Estimated */
             estimated: string;
+            /** Fob Missing */
+            fob_missing?: string | null;
+            /**
+             * Fob Missing Lines
+             * @default 0
+             */
+            fob_missing_lines: number;
         };
         /** SkuDetailResponse */
         SkuDetailResponse: {
@@ -4989,13 +5082,13 @@ export interface components {
             /** Quantity */
             quantity: string;
             /** Fob */
-            fob: string;
+            fob: string | null;
             /** Landed */
-            landed: string;
+            landed: string | null;
             /** Unit Fob */
-            unit_fob: string;
+            unit_fob: string | null;
             /** Unit Landed */
-            unit_landed: string;
+            unit_landed: string | null;
             /** Last Unit Landed */
             last_unit_landed: string | null;
             /** Previous Unit Landed */
@@ -5020,6 +5113,13 @@ export interface components {
             last_margin_unit?: string | null;
             /** Last Margin Pct */
             last_margin_pct?: string | null;
+            /** Fob Missing */
+            fob_missing?: string | null;
+            /**
+             * Fob Missing Lines
+             * @default 0
+             */
+            fob_missing_lines: number;
         };
         /** SupplierCreate */
         SupplierCreate: {

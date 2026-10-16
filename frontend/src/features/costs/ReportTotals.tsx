@@ -1,5 +1,6 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import MetricLabel from "@/components/shared/MetricLabel";
+import { FobMissingLine } from "@/features/report/FobMissing";
 import { Money } from "@/components/shared/Money";
 import type { LandedCostReport } from "@/lib/api/client";
 import { money } from "@/lib/format";
@@ -31,6 +32,7 @@ export default async function ReportTotals<K extends TotalKey>({ report, keys, l
               {landed && hasEstimates ? <span className="rounded bg-violet-50 px-1 py-0.5 text-[11px] font-medium text-violet-800">{t("estimated")}</span> : null}
             </div>
             {landed && nothingAllocated ? <div className="text-[11px] text-slate-500 mt-0.5">{t("landedNone")}</div> : null}
+            {(k === "fob" || landed) && totals[k] === null ? <FobMissingLine /> : null}
             {landed && !nothingAllocated && hasEstimates ? <div className="text-[11px] text-violet-800 mt-0.5">{t("landedEstimated", { amount: money(estimated, cur, locale) })}</div> : null}
           </div>
         );

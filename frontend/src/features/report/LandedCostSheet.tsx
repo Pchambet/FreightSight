@@ -27,11 +27,12 @@ export type SheetHeader = {
  * what is received. The language is the document's (`locale`), never the visitor's cookie.
  */
 export default async function LandedCostSheet({ header, report, locale }: { header: SheetHeader; report: LandedCostReport; locale: "fr" | "en" }) {
-  const [t, tf, tt, tm] = await Promise.all([
+  const [t, tf, tt, tm, tv] = await Promise.all([
     getTranslations({ locale, namespace: "sheet" }),
     getTranslations({ locale, namespace: "costFamily" }),
     getTranslations({ locale, namespace: "domain.costType" }),
     getTranslations({ locale, namespace: "domain.method" }),
+    getTranslations({ locale, namespace: "fobMissing" }),
   ]);
   const cur = report.base_currency;
   const fob = Number(report.totals.fob);
@@ -91,6 +92,10 @@ export default async function LandedCostSheet({ header, report, locale }: { head
         </div>
       </section>
 
+      {/* Lines whose order has no exchange rate: their value, and every total built on it, is a dash.
+          Said in the document's language; a document sent before this existed carries no count. */}
+      {report.fob_missing_lines ? <p className="mx-8 mb-6 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{tv("total", { count: report.fob_missing_lines })}</p> : null}
+
       {fob > 0 && fees > 0 ? (
         <section className="px-8 pb-6 print:break-inside-avoid">
           <h2 className="text-sm font-semibold mb-3">{t("breakdown")}</h2>
@@ -119,12 +124,12 @@ export default async function LandedCostSheet({ header, report, locale }: { head
                 return (
                   <tr key={l.load_id} className="print:break-inside-avoid">
                     <td className={`${tdc} whitespace-nowrap`}>{l.po_number} <span className="text-slate-500">#{l.line_no}</span>{header.subjectType === "purchase_order" ? <div className="text-xs font-mono text-slate-500">{l.container_number}</div> : null}</td>
-                    <td className={tdc}><span className="font-mono">{l.sku ?? "—"}</span>{l.description ? <div className="text-xs text-slate-500">{l.description}</div> : null}</td>
+                    <td className={tdc}><span className="font-mono">{l.sku ?? "—"}</span>{l.description ? <div className="text-xs text-slate-500">{l.description}</div> : null}{l.fob_missing ? <div className="text-xs text-amber-800">{tv("line")}</div> : null}</td>
                     <td className={`${tdc} text-right tabular-nums`}>{qty(l.quantity, locale)}</td>
-                    <td className={`${tdc} text-right tabular-nums text-slate-600`}>{q > 0 ? money(Number(l.fob) / q, cur, locale) : "—"}</td>
+                    <td className={`${tdc} text-right tabular-nums text-slate-600`}>{q > 0 && l.fob !== null ? money(Number(l.fob) / q, cur, locale) : "—"}</td>
                     <td className={`${tdc} text-right tabular-nums font-semibold`}>{money(l.unit_landed_cost, cur, locale)}</td>
                     <td className={`${tdc} text-right tabular-nums text-slate-600`}>{money(l.landed, cur, locale)}</td>
-                    <td className={`${tdc} text-right tabular-nums text-slate-600`}>{Number(l.fob) > 0 ? ratio(Number(l.landed) / Number(l.fob)) : "—"}</td>
+                    <td className={`${tdc} text-right tabular-nums text-slate-600`}>{l.fob !== null && Number(l.fob) > 0 ? ratio(Number(l.landed) / Number(l.fob)) : "—"}</td>
                   </tr>
                 );
               })}

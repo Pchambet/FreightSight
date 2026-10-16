@@ -9,6 +9,7 @@ import { previewAllocation } from "@/features/actions";
 import type { LandedCostReport } from "@/lib/api/client";
 import { USER_METHODS, type CostType } from "@/lib/domain";
 import { qty, unitCost } from "@/lib/format";
+import { FobMissingLine } from "@/features/report/FobMissing";
 
 /**
  * Breakdown per PO line with a live "what if" switch: change the method per cost type and the
@@ -106,12 +107,13 @@ export default function AllocationPanel({ containerId, poId, report }: { contain
                   <td className={td}>
                     <div className="font-medium">{ln.po_number} <span className="text-slate-500 font-normal">#{ln.line_no}</span></div>
                     <div className="text-xs text-slate-500">{[ln.sku, ln.description].filter(Boolean).join(" · ") || "—"}</div>
+                    {ln.fob_missing ? <FobMissingLine href={`/purchase-orders/${ln.po_id}#taux`} /> : null}
                   </td>
                   {poId ? <td className={`${td} font-mono text-xs text-slate-600`}>{ln.container_number}</td> : null}
                   <td className={tdRight}>{qty(ln.quantity, locale)}</td>
                   <td className={`${tdRight} text-slate-600`}><Money amount={ln.fob} currency={cur} /></td>
                   <td className={`${tdRight} font-semibold`}><Money amount={ln.landed} currency={cur} /></td>
-                  <td className={`${tdRight} font-semibold text-emerald-700`}>{unitCost(ln.unit_landed_cost, cur, locale)}</td>
+                  <td className={`${tdRight} font-semibold text-emerald-700`}>{ln.unit_landed_cost === null ? "—" : unitCost(ln.unit_landed_cost, cur, locale)}</td>
                   {chargeCostTypes.map((ct) => (
                     <td key={ct} className={`${tdRight} text-blue-700`}>{ln.by_cost_type[ct] ? <Money amount={ln.by_cost_type[ct]} currency={cur} /> : <span className="text-slate-300">—</span>}</td>
                   ))}

@@ -15,6 +15,7 @@ import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
 import { reportsHubStep } from "@/features/workflow/steps";
 import { api, type DndAnalysis, type LandedCostAnalysis } from "@/lib/api/client";
 import { dateShort, daysUntil, money, pct, qty } from "@/lib/format";
+import FobMissing, { FobMissingLine } from "@/features/report/FobMissing";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("reports");
@@ -89,6 +90,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         <button type="submit" className={btnSecondary}>{t("apply")}</button>
       </form>
 
+      <FobMissing lines={a?.totals.fob_missing_lines} className="mb-6" />
+
       {a && a.buckets.length > 0 ? (
         <Panel title={t(`chart.${groupBy}.title`)} subtitle={t(`chart.${groupBy}.subtitle`)} className="mb-6">
           {groupBy === "month" ? (
@@ -100,10 +103,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               totalLabel={t("chart.total")}
             />
           ) : groupBy === "cost_type" ? (
-            <BreakdownBar fob={Number(a.totals.fob)} families={foldFamilies(a.totals.by_cost_type as Record<string, string>)} currency={cur} locale={locale} fobLabel={t("chart.fob")} familyLabels={familyLabels} ofFobLabel={t("chart.ofFob")} />
+            a.totals.fob === null ? <FobMissing lines={a.totals.fob_missing_lines} href={null} /> : <BreakdownBar fob={Number(a.totals.fob)} families={foldFamilies(a.totals.by_cost_type as Record<string, string>)} currency={cur} locale={locale} fobLabel={t("chart.fob")} familyLabels={familyLabels} ofFobLabel={t("chart.ofFob")} />
           ) : (
             <StackedRows
-              rows={a.buckets.map((b) => ({ key: b.key, label: bucketLabel(b), fob: Number(b.fob), families: foldFamilies(b.by_cost_type as Record<string, string>), display: Number(b.fob) > 0 ? ratio(Number(b.landed) / Number(b.fob)) : "—" }))}
+              rows={a.buckets.map((b) => ({ key: b.key, label: bucketLabel(b), fob: b.fob === null ? 0 : Number(b.fob), families: foldFamilies(b.by_cost_type as Record<string, string>), display: b.fob !== null && Number(b.fob) > 0 ? ratio(Number(b.landed) / Number(b.fob)) : "—" }))}
               currency={cur}
               locale={locale}
               familyLabels={familyLabels}
@@ -122,7 +125,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                 <>
                   {a.buckets.map((b) => (
                     <tr key={b.key} className="hover:bg-slate-50">
-                      <td className={td}>{bucketLabel(b)}</td>
+                      <td className={td}>{bucketLabel(b)}{b.fob === null && groupBy !== "cost_type" ? <FobMissingLine /> : null}</td>
                       <td className={tdRight}>{b.load_count}</td>
                       <td className={tdRight}>{qty(b.quantity, locale)}</td>
                       <td className={tdRight}><Money amount={b.fob} currency={cur} /></td>
@@ -150,7 +153,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <thead className="bg-slate-50"><tr><th className={th}>{t("th.sku")}</th><th className={thRight}>{t("th.quantity")}</th><th className={thRight}>{t("th.fob")}</th><th className={thRight}>{t("th.landed")}</th><th className={thRight}>{t("th.unit")}</th></tr></thead>
               <tbody className="divide-y divide-slate-200">
                 {!a || a.skus.length === 0 ? <tr><td colSpan={5} className="px-5 py-6 text-center text-sm text-slate-500">{t("empty")}</td></tr> : a.skus.map((s) => (
-                  <tr key={s.sku}><td className={`${td} font-mono`}>{s.sku}</td><td className={tdRight}>{qty(s.quantity, locale)}</td><td className={tdRight}><Money amount={s.fob} currency={cur} /></td><td className={tdRight}><Money amount={s.landed} currency={cur} /></td><td className={`${tdRight} font-medium text-emerald-700`}><Money amount={s.unit_landed_cost} currency={cur} /></td></tr>
+                  <tr key={s.sku}><td className={`${td} font-mono`}>{s.sku}{s.fob === null ? <FobMissingLine /> : null}</td><td className={tdRight}>{qty(s.quantity, locale)}</td><td className={tdRight}><Money amount={s.fob} currency={cur} /></td><td className={tdRight}><Money amount={s.landed} currency={cur} /></td><td className={`${tdRight} font-medium text-emerald-700`}><Money amount={s.unit_landed_cost} currency={cur} /></td></tr>
                 ))}
               </tbody>
             </table>

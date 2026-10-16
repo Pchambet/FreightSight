@@ -66,6 +66,9 @@ function remedy(item: Item): { key: string; href: string } | null {
       return { key: "deleteReversedCost", href: `${onFirst("/containers")}#journal` };
     case "PO_SPLIT":
       return { key: "openOrder", href: onFirst("/purchase-orders") };
+    case "ORDERS_WITHOUT_FX_RATE":
+      // The rate is set on the order itself; each order concerned is listed beside this link.
+      return { key: "setOrderRate", href: first ? `${EXAMPLE_HREF[first.kind](first.id)}#taux` : "/purchase-orders" };
     case "NO_SALE_PRICE":
       return { key: "importPrices", href: "/imports/new?kind=PRODUCTS" };
     case "NO_ASSUMED_COEFFICIENT":

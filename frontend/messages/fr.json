@@ -360,7 +360,24 @@
       "body": "Elle appartient peut-être à une autre société, ou elle a été supprimée.",
       "back": "Retour aux commandes"
     },
-    "noRate": "taux {currency}→{base} manquant : valeur non comptée"
+    "noRate": "taux {currency}→{base} manquant : valeur inconnue",
+    "rate": {
+      "title": "Taux de change",
+      "hint": "Un seul taux pour toute la commande. Saisissez celui de votre banque ou de la déclaration en douane : il remplace le taux BCE, et tous les coûts de revient de la commande sont recalculés.",
+      "missing": "Aucun taux connu pour le {currency} : la valeur de cette commande est inconnue, ses coûts de revient ne sont pas calculés. Saisissez le taux ci-dessous.",
+      "current": "1 {currency} = {rate} {base}",
+      "dated": "taux du {date}",
+      "label": "Valeur de 1 {currency} en {base}",
+      "date": "Date du taux",
+      "dateHint": "Demandée seulement si la commande n'a pas de date.",
+      "save": "Enregistrer le taux",
+      "saving": "Enregistrement…",
+      "saved": "Taux enregistré : les coûts de revient de la commande sont recalculés.",
+      "invalid": "Saisissez un taux supérieur à zéro, par exemple 0,9215.",
+      "failed": "Le taux n'a pas pu être enregistré.",
+      "change": "Modifier le taux",
+      "cancel": "Annuler"
+    }
   },
   "imports": {
     "title": "Imports",
@@ -878,7 +895,8 @@
       "import_committed": "Import validé",
       "import_undone": "Import annulé",
       "cost_closed": "Estimé clos sans facture",
-      "cost_superseded": "Estimé remplacé par le réel"
+      "cost_superseded": "Estimé remplacé par le réel",
+      "purchase_order_updated": "Commande modifiée"
     },
     "finding": {
       "DUPLICATE_CHARGE": "Prestation facturée deux fois",
@@ -1042,7 +1060,8 @@
     "PREVIEW_REQUIRED": "Faites d'abord l'aperçu de ce fichier.",
     "IMPORT_KIND_NOT_READY": "Ce type de fichier ne s'importe pas encore.",
     "DATE_IN_FUTURE": "« {value} » est une date à venir.",
-    "AMOUNT_INCLUDES_VAT": "La colonne « {column} » est toutes taxes comprises : un coût de revient se lit hors taxes. Faites correspondre la colonne du montant HT."
+    "AMOUNT_INCLUDES_VAT": "La colonne « {column} » est toutes taxes comprises : un coût de revient se lit hors taxes. Faites correspondre la colonne du montant HT.",
+    "PERIOD_ORDERS_WITHOUT_FX_RATE": "Ce mois ne peut pas être clôturé : des commandes n'ont pas de taux de change ({orders}). La valeur de leurs marchandises est inconnue, et la clôture figerait un coût de revient faux. Saisissez le taux sur chacune, puis clôturez."
   },
   "timeline": {
     "title": "Chronologie",
@@ -1401,6 +1420,9 @@
       "suppliers": "Fournisseurs",
       "products": "Fiches produit",
       "timezone": "Fuseau horaire",
+      "supplier": "Fournisseur",
+      "incoterm": "Incoterm",
+      "order_date": "Date de commande",
       "file_name": "Fichier",
       "rows": "Lignes du fichier",
       "valid_rows": "Lignes valides",
@@ -2221,12 +2243,13 @@
     },
     "ready": {
       "title": "Avant de clôturer",
-      "subtitle": "Rien de tout cela ne bloque : c'est ce qu'il vaut mieux régler d'abord.",
+      "subtitle": "Seul un taux de change manquant bloque la clôture : le reste est ce qu'il vaut mieux régler d'abord.",
       "see": "Voir",
       "estimates": "{count, plural, =0 {Aucun conteneur ne porte d'estimé en attente de facture.} one {# conteneur porte encore des coûts estimés.} other {# conteneurs portent encore des coûts estimés.}}",
       "invoices": "{count, plural, =0 {Aucune facture en attente de relecture.} one {# facture attend votre relecture.} other {# factures attendent votre relecture.}}",
       "unallocated": "{count, plural, =0 {Tous les coûts sont ventilés.} one {# coût n'a pas pu être ventilé.} other {# coûts n'ont pas pu être ventilés.}}",
-      "nocost": "{count, plural, =0 {Tous les conteneurs chargés ont des coûts.} one {# conteneur chargé n'a aucun coût.} other {# conteneurs chargés n'ont aucun coût.}}"
+      "nocost": "{count, plural, =0 {Tous les conteneurs chargés ont des coûts.} one {# conteneur chargé n'a aucun coût.} other {# conteneurs chargés n'ont aucun coût.}}",
+      "norate": "{count, plural, =0 {Toutes les commandes du mois ont un taux de change.} one {# commande sans taux de change : sa valeur est inconnue, le mois ne peut pas être clôturé.} other {# commandes sans taux de change : leur valeur est inconnue, le mois ne peut pas être clôturé.}}"
     },
     "estimates": {
       "title": "Conteneurs encore en estimé",
@@ -2717,7 +2740,8 @@
       "setType": "Indiquer le type sur la fiche",
       "setCoefficient": "Saisir le coefficient",
       "seeCosts": "Voir les frais du conteneur",
-      "deleteReversedCost": "Supprimer le coût annulé sur la fiche"
+      "deleteReversedCost": "Supprimer le coût annulé sur la fiche",
+      "setOrderRate": "Saisir le taux de change"
     },
     "period": "Dernier trimestre, du {from} au {to}",
     "summary": "{blocking, plural, =0 {Rien ne fausse l'audit} one {# point fausserait l'audit} other {# points fausseraient l'audit}}{limits, plural, =0 {} one { · # point qu'il ne pourra pas mesurer} other { · # points qu'il ne pourra pas mesurer}}",
@@ -2727,5 +2751,10 @@
     "estimated": "estimé",
     "landedNone": "Aucun frais encore ventilé : ce ne serait que le FOB.",
     "landedEstimated": "dont {amount} estimés, pas encore facturés"
+  },
+  "fobMissing": {
+    "total": "{count, plural, one {Une ligne de commande n'a pas de taux de change : la valeur de ses marchandises est inconnue.} other {# lignes de commande n'ont pas de taux de change : la valeur de leurs marchandises est inconnue.}} Le FOB, le coût de revient et ce qui en découle (coefficient, coût unitaire, marge) ne sont pas calculés tant que le taux n'est pas saisi sur la commande.",
+    "line": "Commande sans taux de change : valeur inconnue",
+    "setRate": "Saisir le taux sur la commande"
   }
 }
