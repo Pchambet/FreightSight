@@ -1393,7 +1393,11 @@
       "costs": "Costs",
       "invoices": "Invoices",
       "rate_cards": "Rate cards",
-      "shipments": "Shipments"
+      "shipments": "Shipments",
+      "purchase_orders": "Purchase orders",
+      "suppliers": "Suppliers",
+      "products": "Product sheets",
+      "timezone": "Time zone"
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "Needs review",

@@ -1393,7 +1393,11 @@
       "costs": "Coûts",
       "invoices": "Factures",
       "rate_cards": "Barèmes",
-      "shipments": "Expéditions"
+      "shipments": "Expéditions",
+      "purchase_orders": "Commandes",
+      "suppliers": "Fournisseurs",
+      "products": "Fiches produit",
+      "timezone": "Fuseau horaire"
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "À relire",

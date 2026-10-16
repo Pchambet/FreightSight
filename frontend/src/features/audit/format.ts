@@ -36,6 +36,9 @@ const MONEY_KEYS = new Set(["total_amount", "amount", "amount_base", "fob", "lan
 const HIDDEN_KEYS = new Set(["share_id", "push_id"]);
 /** Settings are one JSON column; each one that moved is a change of its own, not a blob. */
 const NESTED_KEYS = new Set(["settings"]);
+/** Text a person typed or a system named (an invoice "2026.0412", a vendor, a note): shown as written,
+ * never re-read as a decimal or a date — "2026,0412" would be another invoice. */
+const VERBATIM_KEYS = new Set(["invoice_number", "vendor", "odoo_name", "note", "close_reason", "forgotten_reason", "code", "name", "voyage", "vessel_name", "location_name"]);
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ISO_DATE_TIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
@@ -90,7 +93,7 @@ function formatValue(key: string, v: unknown, f: Formatters): string {
   if (DATE_TIME_KEYS.has(key) && typeof val === "string") return f.dateTime(val);
   if (typeof val === "string" && UUID_RE.test(val)) return f.label(val) ?? shortId(val);
   // Whatever key carries them, an ISO stamp, a "from..to" period or a decimal is never shown raw.
-  if (typeof val === "string") {
+  if (typeof val === "string" && !VERBATIM_KEYS.has(key)) {
     const range = DATE_RANGE_RE.exec(val);
     if (range) return `${f.date(range[1])} – ${f.date(range[2])}`;
     if (ISO_DATE_TIME_RE.test(val)) return f.dateTime(val);
