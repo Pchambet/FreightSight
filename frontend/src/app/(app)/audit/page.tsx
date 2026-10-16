@@ -13,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** Every action the API writes, grouped as a person looks for them: costs, invoices, files, boxes, ERP, links, months, company. */
 const ACTIONS = [
-  "cost.created", "cost.updated", "cost.superseded", "cost.closed", "cost.deleted",
+  "cost.created", "cost.estimated", "cost.updated", "cost.superseded", "cost.closed", "cost.deleted",
   "invoice.confirmed", "invoice.corrected", "invoice.rejected", "invoice.reopened",
   "import.committed", "import.undone",
   "container.loads_replaced", "container.tracking_event_added",
@@ -21,6 +21,7 @@ const ACTIONS = [
   "container.shared", "purchase_order.shared", "audit.shared", "share.revoked",
   "period.closed", "period.reopened", "period.drift_acknowledged",
   "organization.updated", "organization.sample_data_deleted",
+  "rate_card.created", "rate_card.updated", "rate_card.deleted",
 ];
 
 export default async function AuditPage({ searchParams }: { searchParams: Promise<{ entity_type?: string; entity_id?: string; action?: string; cursor?: string }> }) {
@@ -39,7 +40,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
-      {/* Twenty-four actions are a list to pick from, not a row of chips; the form works without script. */}
+      {/* Some thirty actions are a list to pick from, not a row of chips; the form works without script. */}
       <Form action="/audit" className="mb-3 flex flex-wrap items-end gap-2">
         {sp.entity_type ? <input type="hidden" name="entity_type" value={sp.entity_type} /> : null}
         {sp.entity_id ? <input type="hidden" name="entity_id" value={sp.entity_id} /> : null}

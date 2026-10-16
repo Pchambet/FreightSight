@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -25,6 +25,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.money import q2, to_base
+from app.domain.audit.service import COST_FIELDS, record, snapshot
 from app.domain.costing import engine, entry
 from app.domain.costing.service import Computation, compute
 from app.domain.costing.value import total
@@ -44,6 +45,11 @@ logger = logging.getLogger(__name__)
 
 HUNDRED = Decimal("100")
 
+#: An estimate counts on every screen as soon as it is made: who made it, and from which card, is kept.
+COST_ESTIMATED = "cost.estimated"
+#: What the history keeps of an estimate: a cost's fields, less a status its action already says.
+ESTIMATE_FIELDS = tuple(f for f in COST_FIELDS if f not in ("status", "supersedes_cost_id"))
+
 
 @dataclass(frozen=True)
 class Basis:
@@ -59,6 +65,8 @@ class Basis:
 class Estimated:
     created: list[Cost]
     skipped: dict[str, str]  # cost type -> why nothing was created
+    #: The basis of the card each estimate was made from; duty, made from the lines' tariff rates, has none.
+    basis: dict[UUID, RateBasis] = field(default_factory=dict)
 
 
 def basis_for(comp: Computation, container_id: UUID) -> Basis:
@@ -183,6 +191,7 @@ def estimate_container(
             on_voyage[cost.cost_type].add(cost.scope)
     created: list[Cost] = []
     skipped: dict[str, str] = {}
+    bases: dict[UUID, RateBasis] = {}
 
     for card in sorted(cards, key=lambda c: (c.cost_type.value, c.scope.value)):
         if card.scope not in (CostScope.CONTAINER, CostScope.SHIPMENT):
@@ -210,22 +219,22 @@ def estimate_container(
         if amount is None:
             skipped[card.cost_type.value] = f"nothing to apply {card.basis.value} to on this container"
             continue
-        created.append(
-            _estimate(
-                db,
-                fx,
-                org,
-                container,
-                cost_type=card.cost_type,
-                scope=card.scope,
-                amount=amount,
-                currency=card.currency,
-                cost_date=cost_date,
-                created_by=created_by,
-                note=f"Estimated from the {card.basis.value} rate card",
-                comp=comp,
-            )
+        estimate = _estimate(
+            db,
+            fx,
+            org,
+            container,
+            cost_type=card.cost_type,
+            scope=card.scope,
+            amount=amount,
+            currency=card.currency,
+            cost_date=cost_date,
+            created_by=created_by,
+            note=f"Estimated from the {card.basis.value} rate card",
+            comp=comp,
         )
+        created.append(estimate)
+        bases[estimate.id] = card.basis
 
     if created:
         # Duty is taken on the customs value, and the freight just estimated is part of it: without
@@ -259,7 +268,25 @@ def estimate_container(
         skipped[CostType.CUSTOMS_DUTY.value] = "a cost of this type already exists"
 
     db.flush()
-    return Estimated(created=created, skipped=skipped)
+    return Estimated(created=created, skipped=skipped, basis=bases)
+
+
+def record_estimates(db: Session, org_id: UUID, result: Estimated, *, actor_user_id: UUID | None) -> None:
+    """One history entry per estimate a person made, in the caller's transaction. The sample data
+    makes its estimates through the same code and records nothing: it is not anybody's act."""
+    for cost in result.created:
+        after = snapshot(cost, ESTIMATE_FIELDS)
+        if cost.id in result.basis:
+            after["basis"] = result.basis[cost.id].value
+        record(
+            db,
+            org_id,
+            actor_user_id=actor_user_id,
+            action=COST_ESTIMATED,
+            entity_type="cost",
+            entity_id=cost.id,
+            after=after,
+        )
 
 
 def _estimate(

@@ -922,7 +922,11 @@
       "cost_superseded": "Estimé remplacé par le réel",
       "purchase_order_updated": "Commande modifiée",
       "cost_credited": "Avoir enregistré sur un coût",
-      "cost_credit_removed": "Avoir retiré d'un coût"
+      "cost_credit_removed": "Avoir retiré d'un coût",
+      "rate_card_created": "Barème ajouté",
+      "rate_card_updated": "Barème modifié",
+      "rate_card_deleted": "Barème supprimé",
+      "cost_estimated": "Coût estimé avec les barèmes"
     },
     "finding": {
       "DUPLICATE_CHARGE": "Prestation facturée deux fois",
@@ -1393,7 +1397,8 @@
       "period": "Mois",
       "import": "Import",
       "purchase_order": "Commande",
-      "audit": "Audit"
+      "audit": "Audit",
+      "rate_card": "Barème"
     },
     "fields": {
       "status": "Statut",
@@ -1492,7 +1497,16 @@
       "credit_number": "N° d'avoir",
       "credit_vendor": "Émetteur de l'avoir",
       "credit_date": "Date de l'avoir",
-      "credit_ids": "Avoirs enregistrés"
+      "credit_ids": "Avoirs enregistrés",
+      "basis": "Base de calcul",
+      "price": "Prix du barème",
+      "hs_code": "Code SH",
+      "rateBasis": {
+        "FLAT": "Forfait",
+        "PER_100KG": "Par 100 kg",
+        "PER_CBM": "Par m³",
+        "PCT_OF_FOB": "% du FOB"
+      }
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "À relire",

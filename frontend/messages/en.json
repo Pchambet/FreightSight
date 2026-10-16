@@ -922,7 +922,11 @@
       "cost_superseded": "Estimate replaced by the actual",
       "purchase_order_updated": "Order updated",
       "cost_credited": "Credit recorded on a cost",
-      "cost_credit_removed": "Credit removed from a cost"
+      "cost_credit_removed": "Credit removed from a cost",
+      "rate_card_created": "Rate card added",
+      "rate_card_updated": "Rate card changed",
+      "rate_card_deleted": "Rate card removed",
+      "cost_estimated": "Cost estimated from the rate cards"
     },
     "finding": {
       "DUPLICATE_CHARGE": "Service invoiced twice",
@@ -1393,7 +1397,8 @@
       "period": "Month",
       "import": "Import",
       "purchase_order": "Order",
-      "audit": "Audit"
+      "audit": "Audit",
+      "rate_card": "Rate card"
     },
     "fields": {
       "status": "Status",
@@ -1492,7 +1497,16 @@
       "credit_number": "Credit note no.",
       "credit_vendor": "Credit note issuer",
       "credit_date": "Credit note date",
-      "credit_ids": "Credits recorded"
+      "credit_ids": "Credits recorded",
+      "basis": "Basis",
+      "price": "Rate card price",
+      "hs_code": "HS code",
+      "rateBasis": {
+        "FLAT": "Flat",
+        "PER_100KG": "Per 100 kg",
+        "PER_CBM": "Per m³",
+        "PCT_OF_FOB": "% of FOB"
+      }
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "Needs review",

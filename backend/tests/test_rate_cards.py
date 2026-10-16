@@ -86,6 +86,60 @@ def test_cards_can_be_edited_and_removed(client: TestClient, org: Organization) 
     assert client.get("/api/v1/organization/rate-cards").json() == []
 
 
+def test_a_card_added_changed_and_removed_is_in_the_history(client: TestClient, org: Organization) -> None:
+    # A card prices every estimate made from it: who set which price, and when, is part of the books.
+    card = add_card(client, cost_type="DRAYAGE", basis="PER_100KG", amount="1.5000", hs_code=None)
+    client.patch(f"/api/v1/organization/rate-cards/{card['id']}", json={"amount": "1.7500"})
+    client.delete(f"/api/v1/organization/rate-cards/{card['id']}")
+
+    entries = client.get("/api/v1/audit-log", params={"entity_id": card["id"]}).json()["entries"]
+    assert [(e["action"], e["entity_type"]) for e in entries] == [
+        ("rate_card.deleted", "rate_card"),
+        ("rate_card.updated", "rate_card"),
+        ("rate_card.created", "rate_card"),
+    ]
+    deleted, updated, created = entries
+    assert created["before"] is None
+    assert {**created["after"], "price": Decimal(created["after"]["price"])} == {
+        "cost_type": "DRAYAGE",
+        "scope": "CONTAINER",
+        "basis": "PER_100KG",
+        "price": Decimal("1.5"),
+        "currency": "EUR",
+        "hs_code": None,
+        "notes": None,
+    }
+    assert Decimal(updated["before"]["price"]) == Decimal("1.5")
+    assert Decimal(updated["after"]["price"]) == Decimal("1.75")
+    assert deleted["after"] is None and deleted["before"]["cost_type"] == "DRAYAGE"
+
+
+def test_the_estimates_a_person_makes_from_the_cards_are_in_the_history(
+    client: TestClient, org: Organization
+) -> None:
+    container_id = seed_container(client, hs_code="40111000")
+    add_card(client, cost_type="THC", amount="275.00")
+    add_card(client, cost_type="CUSTOMS_DUTY", amount="0.0250", hs_code="4011")
+
+    created = {c["cost_type"]: c for c in estimates(client, container_id)["created"]}
+    entries = client.get("/api/v1/audit-log", params={"action": "cost.estimated"}).json()["entries"]
+    by_cost = {e["entity_id"]: e for e in entries}
+    assert set(by_cost) == {c["id"] for c in created.values()}
+    thc, duty = by_cost[created["THC"]["id"]], by_cost[created["CUSTOMS_DUTY"]["id"]]
+    assert thc["entity_type"] == "cost"
+    assert (thc["after"]["cost_type"], thc["after"]["amount"], thc["after"]["basis"]) == (
+        "THC",
+        "275.00",
+        "FLAT",
+    )
+    assert thc["after"]["container_id"] == container_id
+    # Duty comes from the tariff rates on the lines, not from a card's basis.
+    assert (duty["after"]["amount"], "basis" in duty["after"]) == ("250.00", False)
+    # A second run creates nothing, so it records nothing.
+    estimates(client, container_id)
+    assert len(client.get("/api/v1/audit-log", params={"action": "cost.estimated"}).json()["entries"]) == 2
+
+
 # ---------------------------------------------------------------------------- applying them
 
 
