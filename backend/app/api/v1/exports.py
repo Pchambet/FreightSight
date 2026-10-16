@@ -94,6 +94,14 @@ def number(value: Decimal | float | int | None, decimal_mark: str, places: int =
     return Number(text.replace(".", decimal_mark) if decimal_mark != "." else text)
 
 
+def measure(value: Decimal | None, decimal_mark: str) -> Number:
+    """A per-unit weight or volume with all its stored digits and no trailing zero."""
+    if value is None:
+        return Number("")
+    text = f"{value:.16f}".rstrip("0").rstrip(".")
+    return Number(text.replace(".", decimal_mark) if decimal_mark != "." else text)
+
+
 def stream(rows: Iterator[list[Any]], header: list[str], locale: Locale) -> Iterator[str]:
     separator, _ = dialect(locale)
     buffer = io.StringIO()
@@ -404,8 +412,10 @@ def purchase_orders_csv(
                     line.hs_code or "",
                     number(line.quantity, mark, 4),
                     number(line.unit_price, mark, 4),
-                    number(line.unit_weight_kg, mark, 4),
-                    number(line.unit_volume_cbm, mark, 6),
+                    # Every stored digit: this file is re-imported, and 0.0001 kg rounded away on two
+                    # million parts is 200 kg of freight basis gone.
+                    measure(line.unit_weight_kg, mark),
+                    measure(line.unit_volume_cbm, mark),
                     number(line.duty_rate, mark, 4),
                     "order_date",
                 ]

@@ -154,6 +154,11 @@ class SkuLine:
     fob_missing_lines: int = 0
     containers_held: int = 0
     held_orders: list[str] = field(default_factory=list)
+    #: The quantity, and the unit purchase price, of the same goods as `unit_landed_cost`: the lines
+    #: whose container carries a charge. A row that mixed both bases read 21,25 € bought and 30,95 €
+    #: landed on two different sets of chairs.
+    charged_quantity: Decimal = Decimal(0)
+    unit_charged_fob: Decimal | None = None
 
     @property
     def fob_missing(self) -> str | None:
@@ -284,6 +289,12 @@ def _sku_line(bucket: Bucket) -> SkuLine:
         fob_missing_lines=bucket.fob_missing_lines,
         containers_held=bucket.containers_held,
         held_orders=sorted(bucket.held_orders),
+        charged_quantity=bucket.charged_quantity,
+        unit_charged_fob=(
+            q4(bucket.charged_fob / bucket.charged_quantity)
+            if bucket.charged_fob is not None and bucket.charged_lines and bucket.charged_quantity
+            else None
+        ),
     )
 
 

@@ -108,6 +108,12 @@ class Summary:
     containers_without_charge: int = 0
     containers_held: int = 0
     held_orders: list[str] = field(default_factory=list)
+    #: What the month's goods stand at, a container with no charge at its FOB: frozen at the close (what
+    #: went into the accounts) and today. The drift is measured on this basis, so on a closed month
+    #: `frozen_stock + drift == live_stock` — `landed` and `live_landed`, over the charged containers
+    #: only, do not add up with the drift as soon as a box with no charge at the close gets one.
+    frozen_stock: Decimal | None = None
+    live_stock: Decimal | None = None
 
 
 @dataclass
@@ -336,6 +342,7 @@ def _summary(
             containers_without_charge=today.uncharged,
             containers_held=today.held,
             held_orders=today.held_orders,
+            live_stock=today.stock,
         )
     # The drift of the list is the sum of the drift lines of the detail: the two cannot disagree.
     moved = _drift(db, comp, org, close, live)
@@ -364,6 +371,8 @@ def _summary(
         fob_missing_lines=missing,
         charged_fob=frozen.charged_fob,
         containers_without_charge=frozen.uncharged,
+        frozen_stock=close.landed,
+        live_stock=today.stock,
     )
 
 

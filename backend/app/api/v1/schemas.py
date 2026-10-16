@@ -43,6 +43,11 @@ Rate = Annotated[
     Decimal, PlainSerializer(lambda d: f"{d:.8f}".rstrip("0").rstrip("."), return_type=str, when_used="json")
 ]
 Pct = Annotated[Decimal, PlainSerializer(lambda d: f"{d:.2f}", return_type=str, when_used="json")]
+#: A per-unit weight or volume, with every digit stored and no trailing zero: 0.0001 kg of a part
+#: shipped two million at a time is 200 kg, and four decimals would read it as 0.0001 or as nothing.
+Measure = Annotated[
+    Decimal, PlainSerializer(lambda d: f"{d:.16f}".rstrip("0").rstrip("."), return_type=str, when_used="json")
+]
 
 
 def currency_code(v: str) -> str:
@@ -198,8 +203,8 @@ class PoLineResponse(BaseModel):
     hs_code: str | None
     quantity: Qty
     unit_price: Qty
-    unit_weight_kg: Qty | None
-    unit_volume_cbm: Qty | None
+    unit_weight_kg: Measure | None
+    unit_volume_cbm: Measure | None
     duty_rate: Rate | None
 
 
@@ -1568,6 +1573,12 @@ class PeriodSummary(BaseModel):
     #: About today's figures (`landed` while open, `live_landed` and the drift once closed).
     fob_missing: str | None = None
     fob_missing_lines: int = 0
+    #: What the month's goods stand at, a container with no charge at its FOB: frozen at the close
+    #: (what went into the accounts; null while open) and today. The drift is measured on this basis:
+    #: on a closed month `frozen_stock + drift == live_stock`, which `landed` and `live_landed` (over
+    #: the charged containers) do not satisfy once a box with no charge at the close gets one.
+    frozen_stock: Money | None = None
+    live_stock: Money | None = None
 
 
 class PeriodEstimatedBox(BaseModel):
@@ -1863,6 +1874,12 @@ class SkuSummary(BaseModel):
     #: the orders whose missing exchange rate holds them, by number: never "no charge" on a screen.
     containers_held: int = 0
     held_orders: list[str] = Field(default_factory=list)
+    #: The quantity and unit purchase price of the goods `unit_landed` is over: those whose container
+    #: carries a charge. `quantity` and `unit_fob` are over every line.
+    charged_quantity: Qty = Decimal(0)
+    unit_charged_fob: Qty | None = None
+    #: Units in containers that have actually landed: a box dated by its ETA is on its way, not received.
+    received_quantity: Qty = Decimal(0)
 
 
 class SkuArrival(BaseModel):
@@ -2179,6 +2196,10 @@ class ReportSkuLine(BaseModel):
     #: the orders whose missing exchange rate holds them, by number: never "no charge" on a screen.
     containers_held: int = 0
     held_orders: list[str] = Field(default_factory=list)
+    #: The quantity and unit purchase price of the same goods as `unit_landed_cost`: the lines whose
+    #: container carries a charge. `quantity` and `fob` are over every line; one row compares like with like.
+    charged_quantity: Qty = Decimal(0)
+    unit_charged_fob: Qty | None = None
 
 
 class LandedCostAnalysis(BaseModel):

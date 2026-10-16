@@ -15519,6 +15519,28 @@
             "type": "integer",
             "title": "Fob Missing Lines",
             "default": 0
+          },
+          "frozen_stock": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frozen Stock"
+          },
+          "live_stock": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Live Stock"
           }
         },
         "type": "object",
@@ -17369,6 +17391,22 @@
             },
             "type": "array",
             "title": "Held Orders"
+          },
+          "charged_quantity": {
+            "type": "string",
+            "title": "Charged Quantity",
+            "default": "0.0000"
+          },
+          "unit_charged_fob": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Charged Fob"
           }
         },
         "type": "object",
@@ -18837,6 +18875,27 @@
             },
             "type": "array",
             "title": "Held Orders"
+          },
+          "charged_quantity": {
+            "type": "string",
+            "title": "Charged Quantity",
+            "default": "0.0000"
+          },
+          "unit_charged_fob": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Charged Fob"
+          },
+          "received_quantity": {
+            "type": "string",
+            "title": "Received Quantity",
+            "default": "0.0000"
           }
         },
         "type": "object",

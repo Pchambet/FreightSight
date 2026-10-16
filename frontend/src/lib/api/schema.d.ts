@@ -4416,6 +4416,10 @@ export interface components {
              * @default 0
              */
             fob_missing_lines: number;
+            /** Frozen Stock */
+            frozen_stock?: string | null;
+            /** Live Stock */
+            live_stock?: string | null;
         };
         /** PoLineIn */
         PoLineIn: {
@@ -4934,6 +4938,13 @@ export interface components {
             containers_held: number;
             /** Held Orders */
             held_orders?: string[];
+            /**
+             * Charged Quantity
+             * @default 0.0000
+             */
+            charged_quantity: string;
+            /** Unit Charged Fob */
+            unit_charged_fob?: string | null;
         };
         /** ReportWarning */
         ReportWarning: {
@@ -5430,6 +5441,18 @@ export interface components {
             containers_held: number;
             /** Held Orders */
             held_orders?: string[];
+            /**
+             * Charged Quantity
+             * @default 0.0000
+             */
+            charged_quantity: string;
+            /** Unit Charged Fob */
+            unit_charged_fob?: string | null;
+            /**
+             * Received Quantity
+             * @default 0.0000
+             */
+            received_quantity: string;
         };
         /** SupplierCreate */
         SupplierCreate: {

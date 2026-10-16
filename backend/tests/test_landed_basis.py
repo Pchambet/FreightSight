@@ -317,3 +317,28 @@ def test_the_landed_cost_export_leaves_the_landed_figures_of_a_bare_container_bl
         "140.0000",
         "false",
     )
+
+
+def test_a_closed_month_s_frozen_figure_drift_and_today_s_figure_add_up(
+    client: TestClient, boxes: dict[str, Any]
+) -> None:
+    assert client.post(f"/api/v1/periods/{MONTH}/close").status_code == 201
+    late = cost(boxes["bare"], "OCEAN_FREIGHT", "125.00")
+    assert client.post("/api/v1/costs", json=late).status_code == 201
+    month = client.get(f"/api/v1/periods/{MONTH}").json()["summary"]
+    # The goods as booked at the close (the bare box at its FOB), the late freight, and today's value.
+    assert (month["frozen_stock"], month["drift"], month["live_stock"]) == ("2650.00", "125.00", "2775.00")
+    assert Decimal(month["frozen_stock"]) + Decimal(month["drift"]) == Decimal(month["live_stock"])
+
+
+def test_an_article_row_gives_its_purchase_price_on_the_goods_its_landed_cost_is_over(
+    client: TestClient, boxes: dict[str, Any]
+) -> None:
+    (a, b) = client.get("/api/v1/reports/landed-cost", params={**PERIOD, "group_by": "supplier"}).json()[
+        "skus"
+    ]
+    assert (a["quantity"], a["charged_quantity"], a["unit_charged_fob"]) == ("20.0000", "10.0000", "100.0000")
+    assert (b["charged_quantity"], b["unit_charged_fob"]) == ("0.0000", None)
+    summary = {s["sku"]: s for s in client.get("/api/v1/reports/skus").json()["skus"]}["A"]
+    assert (summary["charged_quantity"], summary["unit_charged_fob"]) == ("10.0000", "100.0000")
+    assert summary["received_quantity"] == "20.0000"

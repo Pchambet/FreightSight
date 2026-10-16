@@ -118,6 +118,12 @@ class SkuSummary:
     containers_without_charge: int = 0
     containers_held: int = 0
     held_orders: list[str] = field(default_factory=list)
+    #: The unit purchase price of the goods `unit_landed` is over: those whose container carries a
+    #: charge. `unit_fob` is over every line, `charged_quantity` says how many units this one counts.
+    unit_charged_fob: Decimal | None = None
+    #: Units in containers that have actually landed (a discharge or an arrival on record): a box still
+    #: on its way, dated by the shipment's ETA, is in `quantity` and not received.
+    received_quantity: Decimal = Decimal(0)
 
     @property
     def charged(self) -> bool:
@@ -265,6 +271,11 @@ def _summarise(summary: SkuSummary, product: Product | None, org: Organization) 
     summary.landed = None if landed is None else q2(landed)
     summary.charged_fob = None if charged_fob is None else q2(charged_fob)
     summary.charged_quantity = charged_quantity
+    summary.unit_charged_fob = _per_unit(charged_fob, charged_quantity) if charged else None
+    summary.received_quantity = sum(
+        (p.quantity for p in summary.points if p.arrived_on is not None and not p.arrival_is_estimate),
+        Decimal(0),
+    )
     summary.coefficient = coefficient(landed, charged_fob)
     # Weighted by quantity: the same article landed twice at two costs is one number, not their mean.
     summary.unit_fob = _per_unit(fob, quantity)
