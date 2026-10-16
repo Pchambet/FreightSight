@@ -12,6 +12,8 @@ import AllocationPanel from "@/features/costs/AllocationPanel";
 import CostBreakdown from "@/features/costs/CostBreakdown";
 import ReportTotals from "@/features/costs/ReportTotals";
 import EstimatePanel from "@/features/estimates/EstimatePanel";
+import RateForm from "@/features/purchase-orders/RateForm";
+import FobMissing from "@/features/report/FobMissing";
 import CostLedger from "@/features/costs/CostLedger";
 import OpenOnHash from "@/components/shared/OpenOnHash";
 import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
@@ -31,10 +33,11 @@ async function load(id: string) {
   const po = await api.GET("/api/v1/purchase-orders/{po_id}", { params: { path: { po_id: id } } });
   if (po.response.status === 404 || po.response.status === 422) return null;
   if (po.error || !po.data) throw new Error(API_ERROR);
-  const [rep, summaries, containers] = await Promise.all([
+  const [rep, summaries, containers, me] = await Promise.all([
     api.GET("/api/v1/landed-costs/purchase-orders/{po_id}", { params: { path: { po_id: id } } }),
     api.GET("/api/v1/purchase-orders"),
     api.GET("/api/v1/containers"),
+    api.GET("/api/v1/me"),
   ]);
   if (rep.error || !rep.data) throw new Error(API_ERROR);
   const summary = summaries.data?.find((p) => p.id === id);
@@ -47,6 +50,8 @@ async function load(id: string) {
   return {
     po: po.data,
     report: rep.data,
+    // Read-only members see the rate, not the form; the API refuses them either way.
+    canEdit: me.data?.role !== "VIEWER",
     firstContainer: firstContainer ? { id: firstContainer.id, number: firstContainer.container_number } : undefined,
   };
 }
@@ -62,7 +67,7 @@ export default async function PurchaseOrderPage({ params }: Params) {
   const { id } = await params;
   const data = await load(id);
   if (!data) notFound();
-  const { po, report, firstContainer } = data;
+  const { po, report, firstContainer, canEdit } = data;
   const [t, tc, errorCode, ts, locale] = await Promise.all([
     getTranslations("purchaseOrder"),
     getTranslations("common"),
@@ -83,6 +88,10 @@ export default async function PurchaseOrderPage({ params }: Params) {
         subtitle={<span>{po.supplier_name ?? t("noSupplier")} · {po.currency}{po.currency !== cur ? (po.fx_rate ? ` @ ${po.fx_rate} ${cur}` : ` · ${t("noRate", { currency: po.currency, base: cur })}`) : ""}{po.order_date ? ` · ${t("ordered", { date: dateShort(po.order_date, locale) })}` : ""}{po.incoterm ? ` · ${po.incoterm}` : ""}</span>}
         actions={report.lines.length > 0 ? <Link href={`/purchase-orders/${po.id}/report`} className={btnSecondary}><FileText className="w-4 h-4 mr-1.5" aria-hidden />{ts("actions.open")}</Link> : null}
       />
+
+      {po.currency !== cur ? (
+        <RateForm poId={po.id} currency={po.currency} base={cur} current={po.fx_rate} rateDate={po.fx_date} needsDate={!po.fx_date && !po.order_date} canEdit={canEdit} />
+      ) : null}
 
       <WorkflowNextStep step={step} />
 
@@ -116,6 +125,8 @@ export default async function PurchaseOrderPage({ params }: Params) {
           ))}
         </div>
       ) : null}
+
+      <FobMissing lines={report.fob_missing_lines} href="#taux" className="mb-6" />
 
       <ReportTotals report={report} keys={TOTALS} labels={Object.fromEntries(TOTALS.map((k) => [k, t(`totals.${k}`)])) as Record<(typeof TOTALS)[number], string>} />
 

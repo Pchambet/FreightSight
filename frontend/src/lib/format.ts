@@ -48,7 +48,8 @@ export function rate(value: string | number | null | undefined, locale: string =
   if (value === null || value === undefined) return "—";
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return "—";
-  return new Intl.NumberFormat(intl(locale), { minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(n);
+  // Eight, as recorded: a rate for a currency like the dong (0,00003650) has nothing left at six.
+  return new Intl.NumberFormat(intl(locale), { minimumFractionDigits: 2, maximumFractionDigits: 8 }).format(n);
 }
 
 /** Three-tier reading of an extraction confidence score (0–1): what a DAF acts on, not the number itself.
