@@ -1256,7 +1256,7 @@
       "pushedCost": "Coût déjà écrit dans l'ERP : document {document} ({state}).",
       "unverifiedTotal": "Aucun total lisible sur ce document : vérifiez que toutes les lignes de la facture figurent ci-dessous.",
       "defaultContainer": "Rattachée au conteneur {container} parce que la facture a été déposée pour lui.",
-      "forcedRecorded": "Confirmée malgré la facture {invoice} de {vendor} déjà enregistrée : vous avez indiqué que ce n'en est pas une copie.",
+      "forcedRecorded": "Confirmée malgré la facture {invoice} de {vendor} déjà enregistrée, comme n'en étant pas une copie.",
       "severalEstimates": "{lineCount, plural, one {Ligne {lines}} other {Lignes {lines}}} : {count} estimés « {type} » ouverts sur la même cible, aucun n'a été remplacé. Remplacez à la main celui que cette facture solde."
     },
     "line": {

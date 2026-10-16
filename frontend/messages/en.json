@@ -1256,7 +1256,7 @@
       "pushedCost": "Cost already written into the ERP: document {document} ({state}).",
       "unverifiedTotal": "No readable total on this document: check that every line of the invoice is listed below.",
       "defaultContainer": "Attached to container {container} because the invoice was uploaded for it.",
-      "forcedRecorded": "Confirmed despite invoice {invoice} from {vendor} already recorded: you said this is not a copy of it.",
+      "forcedRecorded": "Confirmed despite invoice {invoice} from {vendor} already recorded, as not a copy of it.",
       "severalEstimates": "{lineCount, plural, one {Line {lines}} other {Lines {lines}}}: {count} open “{type}” estimates on the same target, none was replaced. Replace by hand the one this invoice settles."
     },
     "line": {
