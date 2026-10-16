@@ -1992,8 +1992,9 @@
       "uncostedAction": "Voir",
       "unloaded": "{count, plural, one {# conteneur ne porte aucune ligne de commande.} other {# conteneurs ne portent aucune ligne de commande.}}",
       "unloadedAction": "Voir",
-      "held": "{count, plural, one {# conteneur a des frais saisis qui attendent d'être ventilés : ses factures sont enregistrées, mais une commande sans taux de change ou une donnée manquante empêche de les répartir.} other {# conteneurs ont des frais saisis qui attendent d'être ventilés : leurs factures sont enregistrées, mais une commande sans taux de change ou une donnée manquante empêche de les répartir.}}",
-      "heldAction": "Voir"
+      "held": "{count, plural, one {Le conteneur {containers} a des frais saisis qui attendent d'être ventilés} other {# conteneurs ({containers}) ont des frais saisis qui attendent d'être ventilés}}{orderCount, plural, =0 { : une donnée manque pour les répartir, voyez la ventilation.} one { : la commande {orders} n'a pas de taux de change. Saisissez-le, ils seront répartis aussitôt.} other { : les commandes {orders} n'ont pas de taux de change. Saisissez-les, ils seront répartis aussitôt.}}",
+      "heldAction": "Voir",
+      "heldRateAction": "Saisir le taux"
     },
     "empty": {
       "title": "Pas encore de chiffres à montrer",
@@ -2021,7 +2022,7 @@
       "varianceNone": "Aucun estimé remplacé par une facture sur la période.",
       "dndAtRisk": "{amount} en cours",
       "feesEstimated": "dont {amount} estimés",
-      "feesLeftOut": "{count, plural, one {hors # conteneur sans frais ventilés ({fob} d'achats)} other {hors # conteneurs sans frais ventilés ({fob} d'achats)}}"
+      "feesLeftOut": "{count, plural, one {hors # conteneur sans frais ventilés} other {hors # conteneurs sans frais ventilés}} {missing, plural, =0 {({fob} d'achats)} one {({fob} d'achats connus, plus # ligne sans valeur)} other {({fob} d'achats connus, plus # lignes sans valeur)}}"
     },
     "structure": {
       "title": "Frais d'approche par mois",
@@ -2858,13 +2859,15 @@
     "setRate": "Saisir le taux sur la commande"
   },
   "withoutCharge": {
-    "total": "{count, plural, one {Un conteneur n'a encore aucun frais, ni estimé ni facturé : son coût rendu ne serait que son FOB. Il n'est donc compté ni dans le coût rendu, ni dans le coefficient, ni dans les coûts unitaires et les marges ; ses marchandises restent comptées dans le FOB.} other {# conteneurs n'ont encore aucun frais, ni estimé ni facturé : leur coût rendu ne serait que leur FOB. Ils ne sont donc comptés ni dans le coût rendu, ni dans le coefficient, ni dans les coûts unitaires et les marges ; leurs marchandises restent comptées dans le FOB.}}",
+    "total": "{count, plural, one {Un conteneur n'a encore aucun frais, ni estimé ni facturé : son coût rendu ne serait que son FOB. Il est donc laissé hors du coût rendu, du coefficient, des coûts unitaires et des marges, et ses marchandises hors du prix d'achat auquel ces chiffres sont rapportés.} other {# conteneurs n'ont encore aucun frais, ni estimé ni facturé : leur coût rendu ne serait que leur FOB. Ils sont donc laissés hors du coût rendu, du coefficient, des coûts unitaires et des marges, et leurs marchandises hors du prix d'achat auquel ces chiffres sont rapportés.}}",
     "count": "{count, plural, one {# conteneur sans aucun frais, non compté} other {# conteneurs sans aucun frais, non comptés}}",
     "box": "Aucun frais, ni estimé ni facturé : ce ne serait que le FOB",
     "see": "Voir les conteneurs",
-    "held": "{count, plural, one {Un conteneur a des frais saisis qui attendent d'être ventilés} other {# conteneurs ont des frais saisis qui attendent d'être ventilés}}{orderCount, plural, =0 {.} one { : la commande {orders} n'a pas de taux de change.} other { : les commandes {orders} n'ont pas de taux de change.}} {count, plural, one {Tant qu'ils ne le sont pas, ce conteneur n'est compté ni dans le coût rendu, ni dans le coefficient, ni dans les coûts unitaires et les marges ; ses marchandises restent comptées dans le FOB.} other {Tant qu'ils ne le sont pas, ces conteneurs ne sont comptés ni dans le coût rendu, ni dans le coefficient, ni dans les coûts unitaires et les marges ; leurs marchandises restent comptées dans le FOB.}}",
+    "held": "{count, plural, one {Un conteneur a des frais saisis qui attendent d'être ventilés} other {# conteneurs ont des frais saisis qui attendent d'être ventilés}}{orderCount, plural, =0 {.} one { : la commande {orders} n'a pas de taux de change.} other { : les commandes {orders} n'ont pas de taux de change.}} {count, plural, one {Tant qu'ils ne le sont pas, ce conteneur est laissé hors du coût rendu, du coefficient, des coûts unitaires et des marges, et ses marchandises hors du prix d'achat auquel ces chiffres sont rapportés.} other {Tant qu'ils ne le sont pas, ces conteneurs sont laissés hors du coût rendu, du coefficient, des coûts unitaires et des marges, et leurs marchandises hors du prix d'achat auquel ces chiffres sont rapportés.}}",
     "heldCount": "{count, plural, one {# conteneur aux frais en attente de ventilation, non compté} other {# conteneurs aux frais en attente de ventilation, non comptés}}",
-    "heldBox": "Frais saisis, en attente de ventilation{orderCount, plural, =0 {} one { : la commande {orders} n'a pas de taux de change} other { : les commandes {orders} n'ont pas de taux de change}}"
+    "heldBox": "Frais saisis, en attente de ventilation{orderCount, plural, =0 {} one { : la commande {orders} n'a pas de taux de change} other { : les commandes {orders} n'ont pas de taux de change}}",
+    "goods": "{missing, plural, =0 {Marchandises laissées hors de ces chiffres : {fob} d'achats.} one {Marchandises laissées hors de ces chiffres : {fob} d'achats connus, plus # ligne de commande sans valeur connue.} other {Marchandises laissées hors de ces chiffres : {fob} d'achats connus, plus # lignes de commande sans valeur connue.}}",
+    "setRate": "Saisir le taux de la commande {order}"
   },
   "unallocated": {
     "held": "{count, plural, one {Coût non ventilé : {costs}.} other {# coûts non ventilés : {costs}.}}",

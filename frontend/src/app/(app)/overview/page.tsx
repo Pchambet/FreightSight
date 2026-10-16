@@ -12,7 +12,7 @@ import StatTile, { type Delta } from "@/components/ui/StatTile";
 import LoadSampleDataButton from "@/features/containers/LoadSampleDataButton";
 import RankBars, { type RankRow } from "@/features/overview/RankBars";
 import FobMissing, { FobMissingLine } from "@/features/report/FobMissing";
-import WithoutCharge, { WithoutChargeLine, leftOutText } from "@/features/report/WithoutCharge";
+import WithoutCharge, { WithoutChargeLine, heldParams, heldRate, leftOutText } from "@/features/report/WithoutCharge";
 import { WINDOWS, monthLabel, monthTitle, windows, type WindowMonths } from "@/features/overview/period";
 import { skuHref } from "@/features/skus/href";
 import { api } from "@/lib/api/client";
@@ -63,6 +63,9 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const coef = o.current.coefficient !== null ? num(o.current.coefficient) : null;
   const coefBefore = o.previous.coefficient !== null ? num(o.previous.coefficient) : null;
   const unvalued = o.current.fob_missing_lines ?? 0;
+  // Where a missing rate is entered: the order itself when there is one, never the whole list.
+  const unrated = o.current.orders_without_fx_rate ?? [];
+  const rateHref = unrated.length === 1 ? `/purchase-orders/${unrated[0].id}#taux` : "/purchase-orders";
   const hasData = (fob ?? 0) > 0 || fees > 0 || unvalued > 0;
 
   const familyLabels = Object.fromEntries(COST_FAMILIES.map((f) => [f, tf(f)])) as Record<CostFamily, string>;
@@ -118,13 +121,18 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
 
   // What needs a human today, most urgent first. Independent of the period shown.
   const atRisk = [...(o.at_risk ?? [])].sort((x, y) => (x.last_free_day ?? "9999").localeCompare(y.last_free_day ?? "9999"));
-  const todoRows: { key: string; icon: "review" | "failed" | "estimates" | "uncosted" | "held" | "unloaded"; count: number; href: string }[] = [
+  // A held box is named with the order whose rate releases it, and the action is that rate.
+  const heldBoxes = o.todo.held_containers ?? [];
+  const heldOrders = o.todo.held_orders ?? [];
+  const heldParamsTodo = { containers: heldBoxes.join(", "), ...heldParams(heldOrders.map((h) => h.po_number)) };
+  const heldHref = heldOrders.length === 1 ? `/purchase-orders/${heldOrders[0].id}#taux` : heldBoxes.length === 1 ? `/containers?view=all&q=${encodeURIComponent(heldBoxes[0])}` : "/containers?view=all";
+  const todoRows: { key: string; icon: "review" | "failed" | "estimates" | "uncosted" | "held" | "unloaded"; count: number; href: string; params?: Record<string, string | number>; action?: string }[] = [
     { key: "review", icon: "review" as const, count: o.todo.invoices_to_review, href: "/invoices" },
     { key: "failed", icon: "failed" as const, count: o.todo.invoices_failed, href: "/invoices" },
     { key: "estimates", icon: "estimates" as const, count: o.todo.estimates_awaiting_invoice, href: "/reports/variance" },
     // A box whose charges are on file but held is not one "with no cost": its invoice must not be asked for again.
     { key: "uncosted", icon: "uncosted" as const, count: o.todo.containers_without_cost - (o.todo.containers_held ?? 0), href: "/containers?view=nocost" },
-    { key: "held", icon: "held" as const, count: o.todo.containers_held ?? 0, href: "/containers" },
+    { key: "held", icon: "held" as const, count: o.todo.containers_held ?? 0, href: heldHref, params: heldParamsTodo, action: heldOrders.length === 1 ? "heldRateAction" : undefined },
     { key: "unloaded", icon: "unloaded" as const, count: o.todo.containers_without_loads, href: "/containers" },
   ].filter((r) => r.count > 0);
   const todo = atRisk.length + todoRows.length;
@@ -203,8 +211,8 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
               return (
                 <li key={r.key} className="py-2.5 flex items-center gap-3 text-sm">
                   <Icon className={`w-4 h-4 shrink-0 ${r.key === "failed" ? "text-red-600" : r.key === "review" ? "text-blue-600" : "text-slate-500"}`} aria-hidden />
-                  <span className="min-w-0 flex-1 text-slate-600">{t(`todo.${r.key}`, { count: r.count })}</span>
-                  <Link href={r.href} className="shrink-0 inline-flex items-center gap-1 text-blue-700 hover:underline">{t(`todo.${r.key}Action`)}<ArrowRight className="w-3.5 h-3.5" aria-hidden /></Link>
+                  <span className="min-w-0 flex-1 text-slate-600">{t(`todo.${r.key}` as never, { count: r.count, ...r.params } as never)}</span>
+                  <Link href={r.href} className="shrink-0 inline-flex items-center gap-1 text-blue-700 hover:underline">{t(`todo.${r.action ?? `${r.key}Action`}` as never)}<ArrowRight className="w-3.5 h-3.5" aria-hidden /></Link>
                 </li>
               );
             })}
@@ -272,7 +280,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
                 <>
                   {/* Over the same goods as the coefficient beside it and the bar below: the containers that carry a charge. */}
                   {t("kpi.feesSub", { fob: money(bare > 0 ? chargedFob : fob, currency, locale), containers: o.current.containers - bare })}
-                  {bare > 0 ? <span className="block">{t("kpi.feesLeftOut", { count: bare, fob: money(o.current.uncharged_fob ?? null, currency, locale) })}</span> : null}
+                  {bare > 0 ? <span className="block">{t("kpi.feesLeftOut", { count: bare, fob: money(o.current.uncharged_fob ?? null, currency, locale), missing: o.current.uncharged_fob_missing_lines ?? 0 })}</span> : null}
                   {estimated > 0 ? <span className="block font-medium text-violet-800">{t("kpi.feesEstimated", { amount: money(estimated, currency, locale) })}</span> : null}
                 </>
               }
@@ -296,8 +304,9 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
               href="/reports#dnd"
             />
           </div>
-          <FobMissing lines={unvalued} className="-mt-3 mb-6" />
-          <WithoutCharge of={o.current} className="-mt-3 mb-6" />
+          <FobMissing lines={unvalued} href={rateHref} className="-mt-3 mb-6" />
+          {/* Every figure of this page is over the containers that carry a charge, the goods' value included. */}
+          <WithoutCharge of={o.current} rate={heldRate(o.current, unrated)} currency={currency} className="-mt-3 mb-6" />
 
           <div className="grid gap-6 xl:grid-cols-3 mb-6 items-start">
             <Panel

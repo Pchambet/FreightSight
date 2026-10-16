@@ -1992,8 +1992,9 @@
       "uncostedAction": "See",
       "unloaded": "{count, plural, one {# container carries no order line.} other {# containers carry no order line.}}",
       "unloadedAction": "See",
-      "held": "{count, plural, one {# container has charges on file waiting to be allocated: its invoices are recorded, but an order with no exchange rate or a missing figure keeps them from being spread.} other {# containers have charges on file waiting to be allocated: their invoices are recorded, but an order with no exchange rate or a missing figure keeps them from being spread.}}",
-      "heldAction": "See"
+      "held": "{count, plural, one {Container {containers} has charges on file waiting to be allocated} other {# containers ({containers}) have charges on file waiting to be allocated}}{orderCount, plural, =0 {: a figure needed to spread them is missing, see the allocation.} one {: order {orders} has no exchange rate. Enter it and they will be spread at once.} other {: orders {orders} have no exchange rate. Enter them and they will be spread at once.}}",
+      "heldAction": "See",
+      "heldRateAction": "Enter the rate"
     },
     "empty": {
       "title": "No figures to show yet",
@@ -2021,7 +2022,7 @@
       "varianceNone": "No estimate replaced by an invoice in the period.",
       "dndAtRisk": "{amount} running",
       "feesEstimated": "of which {amount} estimated",
-      "feesLeftOut": "{count, plural, one {excluding # container with no charge allocated ({fob} of goods)} other {excluding # containers with no charge allocated ({fob} of goods)}}"
+      "feesLeftOut": "{count, plural, one {excluding # container with no charge allocated} other {excluding # containers with no charge allocated}} {missing, plural, =0 {({fob} of goods)} one {({fob} of known goods, plus # line with no value)} other {({fob} of known goods, plus # lines with no value)}}"
     },
     "structure": {
       "title": "Landing charges per month",
@@ -2858,13 +2859,15 @@
     "setRate": "Set the rate on the order"
   },
   "withoutCharge": {
-    "total": "{count, plural, one {One container has no charge yet, estimated or invoiced: its landed cost would only be its FOB. It is therefore left out of the landed cost, the coefficient, the unit costs and the margins; its goods are still counted in the FOB.} other {# containers have no charge yet, estimated or invoiced: their landed cost would only be their FOB. They are therefore left out of the landed cost, the coefficient, the unit costs and the margins; their goods are still counted in the FOB.}}",
+    "total": "{count, plural, one {One container has no charge yet, estimated or invoiced: its landed cost would only be its FOB. It is therefore left out of the landed cost, the coefficient, the unit costs and the margins, and its goods out of the purchase price those figures are set against.} other {# containers have no charge yet, estimated or invoiced: their landed cost would only be their FOB. They are therefore left out of the landed cost, the coefficient, the unit costs and the margins, and their goods out of the purchase price those figures are set against.}}",
     "count": "{count, plural, one {# container with no charge, not counted} other {# containers with no charge, not counted}}",
     "box": "No charge, estimated or invoiced: this would only be the FOB",
     "see": "See the containers",
-    "held": "{count, plural, one {One container has charges on file that are waiting to be allocated} other {# containers have charges on file that are waiting to be allocated}}{orderCount, plural, =0 {.} one {: order {orders} has no exchange rate.} other {: orders {orders} have no exchange rate.}} {count, plural, one {Until they are, this container is left out of the landed cost, the coefficient, the unit costs and the margins; its goods are still counted in the FOB.} other {Until they are, these containers are left out of the landed cost, the coefficient, the unit costs and the margins; their goods are still counted in the FOB.}}",
+    "held": "{count, plural, one {One container has charges on file that are waiting to be allocated} other {# containers have charges on file that are waiting to be allocated}}{orderCount, plural, =0 {.} one {: order {orders} has no exchange rate.} other {: orders {orders} have no exchange rate.}} {count, plural, one {Until they are, this container is left out of the landed cost, the coefficient, the unit costs and the margins, and its goods out of the purchase price those figures are set against.} other {Until they are, these containers are left out of the landed cost, the coefficient, the unit costs and the margins, and their goods out of the purchase price those figures are set against.}}",
     "heldCount": "{count, plural, one {# container with charges waiting to be allocated, not counted} other {# containers with charges waiting to be allocated, not counted}}",
-    "heldBox": "Charges on file, waiting to be allocated{orderCount, plural, =0 {} one {: order {orders} has no exchange rate} other {: orders {orders} have no exchange rate}}"
+    "heldBox": "Charges on file, waiting to be allocated{orderCount, plural, =0 {} one {: order {orders} has no exchange rate} other {: orders {orders} have no exchange rate}}",
+    "goods": "{missing, plural, =0 {Goods left out of these figures: {fob} of purchases.} one {Goods left out of these figures: {fob} of known purchases, plus # order line with no known value.} other {Goods left out of these figures: {fob} of known purchases, plus # order lines with no known value.}}",
+    "setRate": "Enter the rate of order {order}"
   },
   "unallocated": {
     "held": "{count, plural, one {Cost not allocated: {costs}.} other {# costs not allocated: {costs}.}}",
