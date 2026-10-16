@@ -6,8 +6,8 @@ and `cost_credits` keeps every reduction with the document it came from and who 
 
 `invoice_lines.credit_cost_id` is the cost a refund line reduces, chosen by the person reviewing it.
 
-Revision ID: 0037
-Revises: 0031
+Revision ID: 0034
+Revises: 0033
 """
 
 from __future__ import annotations
@@ -15,8 +15,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0037"
-down_revision: str | None = "0031"
+revision: str = "0034"
+down_revision: str | None = "0033"
 branch_labels: str | None = None
 depends_on: str | None = None
 
