@@ -11,6 +11,11 @@ updates:
     groups:
       python-minor:
         update-types: [minor, patch]
+    ignore:
+      # SQLAlchemy 2.1 retypes Select (257 mypy errors on PR #20), and inside the group it held back
+      # every other Python bump. 2.0 patches still come; lift this once the code is typed for 2.1.
+      - dependency-name: sqlalchemy
+        versions: [">=2.1"]
   - package-ecosystem: npm
     directory: /frontend
     schedule:
