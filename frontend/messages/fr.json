@@ -2309,7 +2309,7 @@
       "working": "En cours…",
       "closed": "{month} est clos.",
       "reopened": "{month} est rouvert.",
-      "blocked": "{count, plural, one {Ce mois ne peut pas être clôturé : la commande {orders} n'a pas de taux de change. Saisissez son taux pour pouvoir clôturer.} other {Ce mois ne peut pas être clôturé : les commandes {orders} n'ont pas de taux de change. Saisissez leur taux pour pouvoir clôturer.}}"
+      "blocked": "{count, plural, one {Ce mois ne peut pas être clôturé : la commande <o>{orders}</o> n'a pas de taux de change. Saisissez son taux pour pouvoir clôturer.} other {Ce mois ne peut pas être clôturé : les commandes <o>{orders}</o> n'ont pas de taux de change. Saisissez leur taux pour pouvoir clôturer.}}"
     },
     "detail": {
       "closedSubtitle": "Clos le {date} par {by}. Les chiffres ci-dessous sont ceux de la clôture.",
@@ -2338,7 +2338,8 @@
       "ofFob": "du FOB",
       "driftPosted": "Tout l'écart est comptabilisé.",
       "driftPartly": "dont {outstanding} restent à comptabiliser",
-      "frozenAtFob": "{count, plural, one {dont # conteneur sans frais, compté à son FOB} other {dont # conteneurs sans frais, comptés à leur FOB}}"
+      "frozenAtFob": "{count, plural, one {dont # conteneur sans frais, compté à son FOB} other {dont # conteneurs sans frais, comptés à leur FOB}}",
+      "counted": "{count, plural, one {# conteneur compté} other {# conteneurs comptés}}"
     },
     "ready": {
       "title": "Avant de clôturer",

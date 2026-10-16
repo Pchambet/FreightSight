@@ -13,7 +13,7 @@ import StatTile from "@/components/ui/StatTile";
 import AcknowledgeDrift from "@/features/periods/AcknowledgeDrift";
 import PeriodActions from "@/features/periods/PeriodActions";
 import FobMissing, { FobMissingLine } from "@/features/report/FobMissing";
-import WithoutCharge, { heldParams, leftOutText } from "@/features/report/WithoutCharge";
+import WithoutCharge, { heldParams, heldRate, leftOutText } from "@/features/report/WithoutCharge";
 import { isPeriodKey, periodTitle, signedMoney } from "@/features/periods/format";
 import { api } from "@/lib/api/client";
 import { dateShort, dateTimeShort, money } from "@/lib/format";
@@ -72,6 +72,10 @@ export default async function PeriodPage({ params }: Params) {
   const frozen = s.frozen_stock ?? s.landed;
   const today = s.live_stock ?? s.live_landed;
   const bareAtClose = s.containers_without_charge ?? 0;
+  // Today's landed cost and coefficient are over the containers that carry a charge: the count on
+  // their tiles is that one, what was left out said beside it.
+  const counted = s.containers - (s.containers_without_charge ?? 0);
+  const leftOut = leftOutText(tw, s);
 
   return (
     <>
@@ -84,7 +88,7 @@ export default async function PeriodPage({ params }: Params) {
 
       <FobMissing lines={s.fob_missing_lines} href={rateHref} className="mb-6" />
       {/* The landed cost and the coefficient count only the containers that carry a charge, as on the overview. */}
-      {s.fob_missing || closed ? null : <WithoutCharge of={s} href="/containers?view=nocost" className="mb-6" />}
+      {closed ? null : <WithoutCharge of={s} href="/containers?view=nocost" rate={heldRate(s, unrated)} className="mb-6" />}
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 mb-6">
         {closed ? (
@@ -95,9 +99,9 @@ export default async function PeriodPage({ params }: Params) {
             sub={<>{t("detail.onFob", { fob: money(s.fob, currency, locale) })}{bareAtClose > 0 ? <span className="block">{t("detail.frozenAtFob", { count: bareAtClose })}</span> : null}</>}
           />
         ) : (
-          <StatTile label={t("detail.liveLanded")} value={money(s.landed, currency, locale)} sub={t("detail.onFob", { fob: money(s.charged_fob ?? s.fob, currency, locale) })} />
+          <StatTile label={t("detail.liveLanded")} value={money(s.landed, currency, locale)} sub={[t("detail.onFob", { fob: money(s.charged_fob ?? s.fob, currency, locale) }), leftOut ? t("detail.counted", { count: counted }) : null].filter(Boolean).join(" · ")} />
         )}
-        <StatTile label={t("detail.coef")} value={ratio} sub={[t("detail.containers", { count: s.containers }), closed ? leftOutText(tw, s) : null].filter(Boolean).join(" · ")} />
+        <StatTile label={t("detail.coef")} value={ratio} sub={[closed || !leftOut ? t("detail.containers", { count: s.containers }) : t("detail.counted", { count: counted }), leftOut].filter(Boolean).join(" · ")} />
         {closed ? (
           <StatTile
             label={t("detail.drift")}
@@ -118,8 +122,9 @@ export default async function PeriodPage({ params }: Params) {
 
       <div className="grid gap-6 xl:grid-cols-3 items-start mb-6">
         <Panel title={closed ? t("detail.breakdownFrozen") : t("detail.breakdownLive")} className="xl:col-span-2">
-          {s.fob === null ? (
-            <FobMissing lines={s.fob_missing_lines} href={rateHref} />
+          {/* The notice above already says why a value is missing: only its consequence here, once. */}
+          {(s.charged_fob ?? s.fob) == null ? (
+            <FobMissingLine href={rateHref} />
           ) : (
             <BreakdownBar fob={Number(s.charged_fob ?? s.fob)} families={foldFamilies(s.by_cost_type as Record<string, string>)} currency={currency} locale={locale} fobLabel={t("detail.fob")} familyLabels={familyLabels} ofFobLabel={t("detail.ofFob")} />
           )}
@@ -157,7 +162,7 @@ export default async function PeriodPage({ params }: Params) {
               {[
                 { n: readiness.containers_with_estimates.length, key: "estimates", href: "/reports/variance" },
                 { n: readiness.invoices_to_review, key: "invoices", href: "/invoices?filter=review" },
-                { n: readiness.unallocated_costs, key: "unallocated", href: "/containers" },
+                { n: readiness.unallocated_costs, key: "unallocated", href: held > 0 && unrated.length > 0 ? rateHref : "/containers?view=all" },
                 { n: readiness.containers_without_cost - held, key: "nocost", href: "/containers?view=nocost" },
               ].map((r) => (
                 <li key={r.key} className="flex items-start gap-2.5">
@@ -171,7 +176,7 @@ export default async function PeriodPage({ params }: Params) {
                 <li className="flex items-start gap-2.5">
                   <Hourglass className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" aria-hidden />
                   <span className="flex-1 text-slate-700">{t("ready.held", { count: held, ...heldParams(readiness.held_orders) })}</span>
-                  <Link href={unrated.length > 0 ? rateHref : "/containers"} className="shrink-0 text-blue-700 hover:underline">{t("ready.see")}</Link>
+                  <Link href={unrated.length > 0 ? rateHref : "/containers?view=all"} className="shrink-0 text-blue-700 hover:underline">{t("ready.see")}</Link>
                 </li>
               ) : null}
             </ul>

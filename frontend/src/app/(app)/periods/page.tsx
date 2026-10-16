@@ -71,8 +71,10 @@ export default async function PeriodsPage() {
                         )}
                       </td>
                       <td className="px-3 py-3 text-right tabular-nums text-slate-600">{p.containers}</td>
-                      <td className="px-3 py-3 text-right tabular-nums text-slate-600">{money(p.fob, currency, locale)}</td>
-                      <td className="px-3 py-3 text-right tabular-nums font-medium text-slate-900">{money(p.landed, currency, locale)}{p.fob_missing && !closed ? <FobMissingLine href={`/periods/${p.period}`} /> : <WithoutChargeLine of={p} />}</td>
+                      {/* The goods the landed cost beside it is over, as on the month's own page: the
+                          containers that carry a charge, what was left out said under the landed cost. */}
+                      <td className="px-3 py-3 text-right tabular-nums text-slate-600">{money(p.containers_without_charge && p.landed !== null ? p.charged_fob : p.fob, currency, locale)}</td>
+                      <td className="px-3 py-3 text-right tabular-nums font-medium text-slate-900">{money(p.landed, currency, locale)}{p.fob_missing && !closed && p.landed === null ? <FobMissingLine href={`/periods/${p.period}`} /> : <WithoutChargeLine of={p} />}</td>
                       <td className="px-3 py-3 text-right tabular-nums text-slate-600">{ratio(p.coefficient)}</td>
                       <td className="px-5 py-3 text-right tabular-nums whitespace-nowrap">
                         {!closed ? <span className="text-slate-500">—</span> : p.drift === null ? <span className="text-slate-500">—</span> : drift === 0 ? <span className="text-slate-500">{t("noDrift")}</span> : Number(p.drift_outstanding ?? p.drift ?? 0) === 0 ? (

@@ -28,7 +28,7 @@ export default function PeriodActions({ period, title, status, canClose, canReop
   const closing = status === "open";
   if (closing ? !canClose : !canReopen) return closing ? <p className="text-xs text-slate-500 max-w-xs text-right">{t("closeNeedsRole")}</p> : null;
   if (closing && blockedBy.length > 0) {
-    return <p role="note" className="text-sm text-amber-900 max-w-sm text-right">{t("blocked", { count: blockedBy.length, orders: blockedBy.join(", ") })}</p>;
+    return <p role="note" className="text-sm text-amber-900 max-w-sm text-right">{t.rich("blocked", { count: blockedBy.length, orders: blockedBy.join(", "), o: (chunks) => <span className="whitespace-nowrap">{chunks}</span> })}</p>;
   }
 
   return (

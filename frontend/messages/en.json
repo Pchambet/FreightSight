@@ -2309,7 +2309,7 @@
       "working": "Working…",
       "closed": "{month} is closed.",
       "reopened": "{month} is reopened.",
-      "blocked": "{count, plural, one {This month cannot be closed: order {orders} has no exchange rate. Enter its rate to close it.} other {This month cannot be closed: orders {orders} have no exchange rate. Enter their rates to close it.}}"
+      "blocked": "{count, plural, one {This month cannot be closed: order <o>{orders}</o> has no exchange rate. Enter its rate to close it.} other {This month cannot be closed: orders <o>{orders}</o> have no exchange rate. Enter their rates to close it.}}"
     },
     "detail": {
       "closedSubtitle": "Closed on {date} by {by}. The figures below are those of the close.",
@@ -2338,7 +2338,8 @@
       "ofFob": "of FOB",
       "driftPosted": "The whole gap is posted.",
       "driftPartly": "of which {outstanding} still to post",
-      "frozenAtFob": "{count, plural, one {including # container with no charge, at its FOB} other {including # containers with no charge, at their FOB}}"
+      "frozenAtFob": "{count, plural, one {including # container with no charge, at its FOB} other {including # containers with no charge, at their FOB}}",
+      "counted": "{count, plural, one {# container counted} other {# containers counted}}"
     },
     "ready": {
       "title": "Before closing",
