@@ -601,7 +601,8 @@ class _Period:
                     note.get("reverses_cost_id") and not notes[key][0].get("reverses_cost_id")
                 ):
                     notes[key] = (note, job)
-        reversing: list[tuple[dict[str, Any], Cost]] = []
+        # The refund, its cost, and the share of it still counted (base-currency amounts follow it).
+        reversing: list[tuple[dict[str, Any], Cost, Decimal]] = []
         plain: list[tuple[dict[str, Any], ImportJob]] = []
         for note, job in notes.values():
             if reversed_id := note.get("reverses_cost_id"):
@@ -611,15 +612,21 @@ class _Period:
                 if cost is not None and (
                     cost.id in self.costs_in or cost.container_id in self._arrived_empty()
                 ):
-                    reversing.append((note, cost))
+                    # Recorded since as credits on the very cost it reverses: applied as far as they go.
+                    refund = abs(Decimal(note["amount"]))
+                    credited = cost.credited if cost.currency == note["currency"] else Decimal(0)
+                    if credited < refund:
+                        reversing.append((note, cost, (refund - credited) / refund))
             elif self.period_from <= date.fromisoformat(note["cost_date"]) <= self.period_to:
                 plain.append((note, job))
         return [
             *_item(
                 "CREDIT_NOTE_REVERSES_COST",
                 len(reversing),
-                self._places((cost for _, cost in reversing), self._where_even_empty),
-                amount_base=sum((abs(Decimal(note["amount_base"])) for note, _ in reversing), Decimal(0)),
+                self._places((cost for _, cost, _ in reversing), self._where_even_empty),
+                amount_base=sum(
+                    (q2(abs(Decimal(note["amount_base"])) * left) for note, _, left in reversing), Decimal(0)
+                ),
             ),
             *_item(
                 "CREDIT_NOTES_SKIPPED",
