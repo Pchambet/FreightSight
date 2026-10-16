@@ -2135,6 +2135,18 @@ class ErpPlannedLine(BaseModel):
     amount: Money
 
 
+class ErpByHand(BaseModel):
+    """A difference from a validated document that is not written for want of its split per receipt
+    line: a person enters it in the ERP."""
+
+    #: The validated document that holds the cost.
+    existing: str
+    #: What that document holds of it, in the customer's books.
+    held: Money
+    #: Our figure less what it holds: the adjustment to enter by hand.
+    difference: Money
+
+
 class ErpPlannedCost(BaseModel):
     label: str
     cost_ids: list[UUID]
@@ -2146,6 +2158,9 @@ class ErpPlannedCost(BaseModel):
     #: Which push that was. The document's name does not identify it — several documents on one
     #: container can share a name — and this is what "forget this push" needs.
     pushed_push_id: UUID | None = None
+    #: Set when the cost has changed since a validated document took it and the difference has to be
+    #: entered by hand. Such a cost is neither carried nor pushed: their books hold the old figure.
+    by_hand: ErpByHand | None = None
 
 
 class ErpLandedCostPreview(BaseModel):

@@ -11,16 +11,17 @@ import json
 import uuid
 import xmlrpc.client
 from collections.abc import Iterator
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.orm import Session
 
 from app.core.tenancy import set_current_org
-from app.domain.models import ErpPush, Organization
+from app.domain.models import ErpPush, Organization, PurchaseOrder, PurchaseOrderLine
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "odoo" / "landed_cost.json").read_text())
 ERP_KEY = base64.b64encode(b"e" * 32).decode()
@@ -1292,7 +1293,165 @@ def test_a_validated_push_whose_split_was_not_kept_is_said_rather_than_guessed(
     assert remark["blocking"] is False
     assert remark["params"]["existing"] == DOCUMENT
     assert "2766.67 → 2900.00" in remark["params"]["changes"]
+    # their books hold the old figure, not the new one: nothing reads "already in the ERP", and the
+    # cost itself says what is left to enter by hand
+    assert "already_pushed" not in [b["code"] for b in body["blockers"]]
+    assert body["already_pushed_as"] is None
+    (row,) = body["costs"]
+    assert row["pushed_as"] is None
+    assert row["amount"] == "2900.00"
+    assert row["by_hand"] == {"existing": DOCUMENT, "held": "2766.67", "difference": "133.33"}
+    assert body["pushable"] is False
+    refused = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
+    assert refused.status_code == 422
+    assert [b["code"] for b in refused.json()["blockers"]] == ["adjustment_unplaced"]
     assert len(odoo.created) == 1
+
+
+def test_a_validated_push_forgotten_before_its_state_was_kept_is_asked_of_the_erp(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A validated document let go of before the state was recorded on the push: the row still reads
+    draft, as a deleted draft's does. Taken as holding nothing, its freight went a second time on top
+    of the 2 766,67 their books keep — so the ERP is asked what it is."""
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    first = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    validate_and_forget(client, odoo, container_id, first)
+    db.execute(update(ErpPush).where(ErpPush.id == uuid.UUID(first["id"])).values(status="draft"))
+    db.commit()
+
+    body = preview(client, container_id)
+    assert body["pushable"] is False
+    assert body["total"] == "0.00"
+    assert [c["pushed_as"] for c in body["costs"]] == [DOCUMENT]
+    assert "already_pushed" in [b["code"] for b in body["blockers"]]
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 422
+    assert len(odoo.created) == 1
+
+
+def test_a_held_cost_the_engine_cannot_allocate_for_now_is_not_taken_back(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A freight split by value cannot be split at all while one order in the box has no exchange
+    rate. It still belongs to the container: taking it back would remove a real charge from their
+    books, and it would never be sent again once the rate is set."""
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    (freight,) = client.get(f"/api/v1/landed-costs/containers/{container_id}").json()["costs"]
+    by_value = {"allocation_method": "BY_VALUE"}
+    assert client.patch(f"/api/v1/costs/{freight['id']}", json=by_value).status_code == 200
+    first = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    validate_and_forget(client, odoo, container_id, first)
+
+    ours = client.get("/api/v1/purchase-orders").json()[0]
+    ours_line = client.get(f"/api/v1/purchase-orders/{ours['id']}").json()["lines"][0]["id"]
+    line = {"line_no": 1, "sku": SKU, "quantity": "50", "unit_price": "10.00"}
+    usd = client.post(
+        "/api/v1/purchase-orders",
+        json={"po_number": "P00099", "currency": "USD", "fx_rate": "0.9", "lines": [line]},
+    )
+    assert usd.status_code == 201, usd.text
+    loads = [
+        {"po_line_id": ours_line, "quantity": "100"},
+        {"po_line_id": usd.json()["lines"][0]["id"], "quantity": "50"},
+    ]
+    assert client.put(f"/api/v1/containers/{container_id}/loads", json=loads).status_code == 200
+    db.execute(
+        update(PurchaseOrder).where(PurchaseOrder.po_number == "P00099").values(fx_rate=None, fx_date=None)
+    )
+    db.flush()
+    demurrage = client.post(
+        "/api/v1/costs",
+        json={
+            "scope": "CONTAINER",
+            "target_id": container_id,
+            "cost_type": "DEMURRAGE",
+            "amount": "300.00",
+            "currency": "EUR",
+            "cost_date": "2026-03-25",
+            "invoice_number": "FA-2026-1210",
+            "allocation_method": "BY_QUANTITY",
+        },
+    )
+    assert demurrage.status_code == 201, demurrage.text
+
+    body = preview(client, container_id)
+    assert body["pushable"] is True, body["blockers"]
+    assert body["total"] == "300.00"
+    assert [c["amount"] for c in body["costs"] if c["pushed_as"] is None] == ["300.00"]
+    assert [c["amount"] for c in body["costs"] if c["pushed_as"] == DOCUMENT] == ["2766.67"]
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 201
+    assert [command[2]["price_unit"] for command in odoo.created[1]["cost_lines"]] == [300.0]
+
+    # the rate comes: the freight is split again, and it is what their books already hold
+    db.execute(
+        update(PurchaseOrder).where(PurchaseOrder.po_number == "P00099").values(fx_rate=Decimal("0.9"))
+    )
+    db.flush()
+    after = preview(client, container_id)
+    assert after["total"] == "0.00"
+    assert [b["code"] for b in after["blockers"]] == ["already_pushed"]
+
+
+def test_a_validated_cost_deleted_when_it_was_the_only_one_is_taken_back(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The container's only invoiced cost is deleted after its document was validated. The screen's
+    own advice — forget the push with a reason, then push again — has to lead somewhere: the receipt
+    is still found from the container's goods, and the amount is taken back."""
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    first = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    (cost,) = client.get(f"/api/v1/landed-costs/containers/{container_id}").json()["costs"]
+    assert client.delete(f"/api/v1/costs/{cost['id']}").status_code == 204
+    validate_and_forget(client, odoo, container_id, first)
+
+    body = preview(client, container_id)
+    assert body["pushable"] is True, body["blockers"]
+    assert body["total"] == "-2766.67"
+    (planned,) = body["costs"]
+    assert planned["label"] == "Fret maritime — facture FA-2026-0912 — Transdemo — ajustement"
+    assert [(line["move_id"], line["amount"]) for line in planned["lines"]] == [(MOVE_ID, "-2766.67")]
+
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 201
+    assert [command[2]["price_unit"] for command in odoo.created[1]["cost_lines"]] == [-2766.67]
+    assert preview(client, container_id)["total"] == "0.00"
+
+
+def test_a_change_that_moves_the_same_total_between_receipt_lines_is_adjusted(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Their books hold 333,33 and 666,67 on two lots; a corrected price makes it 500 and 500. The
+    total has not moved, each lot's valuation has: the adjustment moves the difference between them."""
+    odoo = WritableOdoo(split_move=True)
+    connect(client, odoo, monkeypatch)
+    container_id = seed_two_lines(client)
+    (cost,) = client.get(f"/api/v1/landed-costs/containers/{container_id}").json()["costs"]
+    by_value = {"allocation_method": "BY_VALUE"}
+    assert client.patch(f"/api/v1/costs/{cost['id']}", json=by_value).status_code == 200
+    first = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    validate_and_forget(client, odoo, container_id, first)
+    db.execute(
+        update(PurchaseOrderLine).where(PurchaseOrderLine.line_no == 1).values(unit_price=Decimal("20"))
+    )
+    db.flush()
+
+    body = preview(client, container_id)
+    assert body["pushable"] is True, body["blockers"]
+    (planned,) = body["costs"]
+    assert planned["pushed_as"] is None
+    assert planned["amount"] == "0.00"
+    assert {line["move_id"]: line["amount"] for line in planned["lines"]} == {
+        MOVE_ID: "166.67",
+        SPLIT_MOVE["id"]: "-166.67",
+    }
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 201
+    assert sorted(values["additional_landed_cost"] for _, values in odoo.written[-2:]) == [-166.67, 166.67]
+    assert [b["code"] for b in preview(client, container_id)["blockers"]] == ["already_pushed"]
 
 
 def test_a_draft_still_in_the_erp_is_never_forgotten_even_with_a_reason(

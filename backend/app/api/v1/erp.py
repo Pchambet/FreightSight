@@ -144,6 +144,13 @@ def _preview_response(plan: landed_cost.Plan) -> schemas.ErpLandedCostPreview:
                 ],
                 pushed_as=cost.pushed_as,
                 pushed_push_id=cost.pushed_push_id,
+                by_hand=schemas.ErpByHand(
+                    existing=cost.by_hand.existing,
+                    held=cost.by_hand.held,
+                    difference=cost.by_hand.difference,
+                )
+                if cost.by_hand
+                else None,
             )
             for cost in plan.costs
         ],

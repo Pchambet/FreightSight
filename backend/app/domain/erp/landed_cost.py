@@ -61,9 +61,12 @@ ADJUSTMENT_UNPLACED = "adjustment_unplaced"
 #: Where a document that is no longer a draft has got to. Both mean the same thing for us: it is
 #: posted or voided in someone's accounts and it will not be deleted to suit us.
 FINAL_DOCUMENT_STATES = ("done", "cancel")
-#: The one of them that holds money: a validated landed cost has posted its amounts into the stock
-#: valuation. A cancelled one posted nothing.
-POSTED_STATE = "done"
+#: What `forget` records for a push whose document was already gone from the ERP.
+GONE_STATE = "gone"
+#: Where a document we let go of holds nothing in the customer's books: a cancelled one posted
+#: nothing, and a deleted draft is gone. Every other state holds what it carried — a validated one
+#: has posted it into the stock valuation.
+HOLDS_NOTHING = ("cancel", GONE_STATE)
 
 #: Appended to what a correction document says, in the organisation's language like the rest.
 _ADJUSTMENT = {"fr": "ajustement"}
@@ -128,10 +131,22 @@ class PlannedCost:
     #: The validated document this one corrects, when what would go is a difference rather than a
     #: whole cost. Not in the API response: the label says it.
     adjusts: str | None = None
+    #: A difference from a validated document that cannot be written for want of its split per
+    #: receipt line, so a person enters it in the ERP. The cost then goes nowhere from here.
+    by_hand: ByHand | None = None
 
     @property
     def pending(self) -> bool:
-        return self.pushed_push_id is None
+        return self.pushed_push_id is None and self.by_hand is None
+
+
+@dataclass(frozen=True)
+class ByHand:
+    """What a validated document holds of a cost, against which our figure is now different."""
+
+    existing: str
+    held: Decimal
+    difference: Decimal
 
 
 @dataclass
@@ -195,7 +210,25 @@ def plan(
         blockers.append(
             Blocker(NO_CONNECTION, "This organization has no ERP connection to push anything to.")
         )
-    if not by_cost:
+    booked = _booked_costs(db, org, container, writer)
+    carried = _carried_costs(db, org, container)
+    waiting = _unallocatable_here(comp, container)
+    # Held by a validated document we let go of, and no longer counted here at all (deleted, closed,
+    # moved, re-entered under a new id when its invoice was corrected): their books still carry it,
+    # so it is taken back. Not a cost the engine cannot allocate for now: that one is still ours.
+    taken_back = [
+        key
+        for key, held in booked.items()
+        if key not in carried and held.amount and UUID(key) not in by_cost and key not in waiting
+    ]
+    allocated = {load_id for allocations in by_cost.values() for load_id in allocations}
+    load_ids = set(allocated)
+    if taken_back:
+        # What is taken back may be all that is left to write: the receipt is then found from the
+        # container's goods, not only from the costs still allocated to them.
+        load_ids |= {load_id for load_id, row in comp.load_rows.items() if row.container_id == container.id}
+    po_numbers = sorted({comp.load_rows[load_id].po_line.purchase_order.po_number for load_id in load_ids})
+    if not by_cost and not po_numbers:
         blockers.append(
             Blocker(
                 NO_COSTS,
@@ -204,13 +237,6 @@ def plan(
             )
         )
 
-    po_numbers = sorted(
-        {
-            comp.load_rows[load_id].po_line.purchase_order.po_number
-            for allocations in by_cost.values()
-            for load_id in allocations
-        }
-    )
     receipts = writer.find_receipts(po_numbers) if writer and po_numbers else []
     receipt = receipts[0] if receipts else None
     if writer and po_numbers and receipt is None:
@@ -236,17 +262,16 @@ def plan(
         )
         receipt = None
 
-    carried = _carried_costs(db, org, container)
-    booked = _booked_costs(db, org, container)
     existing = _latest_live_push(db, org, container)
-    blockers.extend(_drift_blockers(live_pushes(db, org, container), comp, by_cost, booked, org.locale))
+    blockers.extend(
+        _drift_blockers(live_pushes(db, org, container), comp, by_cost, booked, waiting, org.locale)
+    )
 
     costs: list[PlannedCost] = []
     if receipt is not None:
         blockers.extend(_currency_blockers(org, writer))
         moves = _moves_by_sku(receipt)
-        loaded = {load_id for allocations in by_cost.values() for load_id in allocations}
-        paired = _pair_by_quantity(moves, [comp.load_rows[load_id] for load_id in loaded])
+        paired = _pair_by_quantity(moves, [comp.load_rows[load_id] for load_id in allocated])
         unvalued = [line for line in receipt.lines if not line.valued]
         if unvalued:
             names = ", ".join(sorted({line.product_name for line in unvalued}))
@@ -262,56 +287,46 @@ def plan(
         for cost_id, allocations in sorted(by_cost.items(), key=lambda item: str(item[0])):
             cost = comp.cost_rows[cost_id]
             total = q2(sum(allocations.values(), Decimal("0.00")))
+            lines, unplaceable = _placed(allocations, comp, moves, paired, receipt)
             already = carried.get(str(cost_id))
             # Held by a validated document we let go of: their books keep it whatever we forget, so
             # only a difference from it is still to go.
             held = booked.get(str(cost_id)) if already is None else None
-            settled = held is not None and (held.amount is None or held.amount == total)
+            settled = held is not None and _settled(held, total, lines, complete=not unplaceable)
             holder = already or (held.push if held is not None and settled else None)
             planned = PlannedCost(
                 label=_label(cost, org.locale),
                 cost_ids=[cost_id],
                 amount=total,
+                lines=lines,
                 invoice_number=cost.invoice_number,
                 pushed_as=_name(holder) if holder else None,
                 pushed_push_id=holder.id if holder else None,
             )
             if held is not None and not settled:
                 blockers.extend(_unplaced(planned, held, receipt))
-            # By receipt line, not by order line: two of our order lines legitimately land on one
-            # move (the same SKU ordered twice, received once), and what Odoo takes is one amount
-            # per move. Keyed here so the second one adds to the first instead of replacing it.
-            by_move: dict[int, PlannedLine] = {}
-            for load_id, amount in allocations.items():
-                line = comp.load_rows[load_id].po_line
-                candidates = [paired[load_id]] if load_id in paired else _candidate_moves(moves, line)
-                if len(candidates) != 1:
-                    if planned.pending:
-                        # Only what this push would carry can block it. A cost that already went
-                        # is history; whether its line still matches today changes nothing.
-                        blockers.append(_no_single_move(line, candidates, receipt))
-                    continue
-                move = candidates[0]
-                planned_line = by_move.get(move.move_id)
-                if planned_line is None:
-                    by_move[move.move_id] = PlannedLine(
-                        move_id=move.move_id,
-                        product_name=move.product_name,
-                        sku=move.sku,
-                        quantity=move.quantity,
-                        amount=q2(amount),
-                    )
-                else:
-                    planned_line.amount = q2(planned_line.amount + amount)
-            planned.lines = list(by_move.values())
-            if held is not None and planned.pending:
-                _adjust(planned, held, receipt, org.locale)
+            if planned.pending:
+                # Only what this push would carry can block it. A cost that already went is
+                # history; whether its line still matches today changes nothing.
+                blockers.extend(unplaceable)
+                if held is not None:
+                    _adjust(planned, held, receipt, org.locale)
             costs.append(planned)
-        for key, held in sorted(booked.items()):
-            # Held there, and no longer counted here at all (deleted, moved, re-entered under a new
-            # id when its invoice was corrected): their books still carry it, so it is taken back.
-            if key in carried or not held.amount or UUID(key) in by_cost:
-                continue
+        for key in sorted(waiting & booked.keys() - carried.keys()):
+            # Still this container's, with no figure here for now: their books keep it as it is.
+            held = booked[key]
+            if held.amount is not None:
+                costs.append(
+                    PlannedCost(
+                        label=held.label,
+                        cost_ids=[UUID(key)],
+                        amount=held.amount,
+                        pushed_as=_name(held.push),
+                        pushed_push_id=held.push.id,
+                    )
+                )
+        for key in sorted(taken_back):
+            held = booked[key]
             planned = PlannedCost(label=held.label, cost_ids=[UUID(key)], amount=Decimal("0.00"))
             blockers.extend(_unplaced(planned, held, receipt))
             if planned.pending:
@@ -329,7 +344,7 @@ def plan(
         total=q2(sum((cost.amount for cost in costs if cost.pending), Decimal("0.00"))),
         existing_push=existing,
     )
-    if costs and not prepared.pending:
+    if costs and not prepared.pending and not any(cost.by_hand for cost in costs):
         joined = ", ".join(sorted({cost.pushed_as for cost in costs if cost.pushed_as}))
         blockers.append(
             Blocker(
@@ -416,6 +431,8 @@ def forget(
                 document=details,
             )
         push_row.status = document.state
+    else:
+        push_row.status = GONE_STATE
     push_row.forgotten_at = datetime.now(UTC)
     push_row.forgotten_reason = reason
     push_row.forgotten_by = actor_user_id
@@ -437,6 +454,7 @@ def _drift_blockers(
     comp: Computation,
     by_cost: dict[UUID, dict[UUID, Decimal]],
     booked: dict[str, Booked],
+    waiting: set[str],
     locale: str = "fr",
 ) -> list[Blocker]:
     """What has changed on our side since a document was written, and now differs from it.
@@ -472,8 +490,10 @@ def _drift_blockers(
             expected = Decimal(recorded) + base if recorded is not None and base is not None else None
             allocations = by_cost.get(key)
             if allocations is None:
-                if expected == 0:
-                    continue  # a cost taken back: what it was written for
+                if expected == 0 or cost_id in waiting:
+                    # Taken back, which is what it was written for; or still here with no figure
+                    # for now, which is neither gone nor changed.
+                    continue
                 cost = comp.cost_rows.get(key)
                 gone.append(
                     _label(cost, locale) if cost is not None else snapshot.get("label") or cost_id[:8]
@@ -588,6 +608,85 @@ def _pair_by_quantity(
     return {load_id: move for load_id, move in out.items() if claims[move.move_id] == 1}
 
 
+def _placed(
+    allocations: dict[UUID, Decimal],
+    comp: Computation,
+    moves: dict[str, list[ErpReceiptLine]],
+    paired: dict[UUID, ErpReceiptLine],
+    receipt: ErpReceipt,
+) -> tuple[list[PlannedLine], list[Blocker]]:
+    """A cost's amounts by receipt line, and why the order lines that fit no single line do not.
+
+    By receipt line, not by order line: two of our order lines legitimately land on one move (the
+    same SKU ordered twice, received once), and what Odoo takes is one amount per move. Keyed here so
+    the second one adds to the first instead of replacing it.
+    """
+    by_move: dict[int, PlannedLine] = {}
+    refused: list[Blocker] = []
+    for load_id, amount in allocations.items():
+        line = comp.load_rows[load_id].po_line
+        candidates = [paired[load_id]] if load_id in paired else _candidate_moves(moves, line)
+        if len(candidates) != 1:
+            refused.append(_no_single_move(line, candidates, receipt))
+            continue
+        move = candidates[0]
+        planned_line = by_move.get(move.move_id)
+        if planned_line is None:
+            by_move[move.move_id] = PlannedLine(
+                move_id=move.move_id,
+                product_name=move.product_name,
+                sku=move.sku,
+                quantity=move.quantity,
+                amount=q2(amount),
+            )
+        else:
+            planned_line.amount = q2(planned_line.amount + amount)
+    return list(by_move.values()), refused
+
+
+def _settled(held: Booked, total: Decimal, lines: list[PlannedLine], *, complete: bool) -> bool:
+    """Whether their books already hold this cost as we count it now.
+
+    The total, and the amount on each receipt line when that split was recorded and ours can be
+    placed: a change that moves money from one lot to another — a corrected weight, another method —
+    leaves the total where it was and each lot's stock valuation wrong.
+    """
+    if held.amount is None:
+        return True  # written before amounts were kept: nothing to compare against
+    if held.amount != total:
+        return False
+    if held.lines is None or not complete:
+        return True
+    ours = {line.move_id: line.amount for line in lines if line.amount}
+    return ours == {move_id: amount for move_id, amount in held.lines.items() if amount}
+
+
+def _unallocatable_here(comp: Computation, container: Container) -> set[str]:
+    """The invoiced costs the engine cannot allocate at all for now whose scope still takes in this
+    container — a split by value stops at one order without an exchange rate.
+
+    Such a cost has not left the container. What a validated document holds of it is not taken back:
+    it stays held, and is compared with our figure again once there is one.
+    """
+    here = [row for row in comp.load_rows.values() if row.container_id == container.id]
+    out: set[str] = set()
+    for unallocated in comp.result.unallocated:
+        cost = comp.cost_rows.get(unallocated.cost_id)
+        if cost is None or cost.status is not CostStatus.ACTUAL:
+            continue
+        if cost.container_id is not None:
+            meant = cost.container_id == container.id
+        elif cost.shipment_id is not None:
+            meant = cost.shipment_id == container.shipment_id
+        elif cost.po_id is not None:
+            meant = any(row.po_line.po_id == cost.po_id for row in here)
+        else:
+            meant = any(row.po_line_id == cost.po_line_id for row in here)
+        if meant:
+            out.add(str(cost.id))
+    return out
+
+
 def _no_single_move(
     line: PurchaseOrderLine, candidates: list[ErpReceiptLine], receipt: ErpReceipt
 ) -> Blocker:
@@ -679,13 +778,19 @@ class Booked:
     lines: dict[int, Decimal] | None
 
 
-def _booked_costs(db: Session, org: Organization, container: Container) -> dict[str, Booked]:
+def _booked_costs(
+    db: Session, org: Organization, container: Container, writer: ErpWriter | None
+) -> dict[str, Booked]:
     """`cost id -> what forgotten, validated documents hold of it`.
 
     Forgetting a validated landed cost frees the container, not the money: Odoo will not delete a
     posted document, so the amounts it carried stay in the stock valuation. Counting them as gone
     let the next push write the whole cost again on top of them — the goods charged twice. A
     cancelled document posted nothing and holds nothing, and a deleted draft is gone; neither is here.
+
+    A push forgotten before its document's state was recorded still reads as it was written, which
+    is how a deleted draft reads too. Taken as holding nothing, a validated one had its costs pushed
+    again in full; so the ERP is asked, and until it can be, the push goes on holding what it carried.
     """
     out: dict[str, Booked] = {}
     rows = db.scalars(
@@ -694,11 +799,16 @@ def _booked_costs(db: Session, org: Organization, container: Container) -> dict[
             ErpPush.org_id == org.id,
             ErpPush.container_id == container.id,
             ErpPush.forgotten_at.is_not(None),
-            ErpPush.status == POSTED_STATE,
+            ErpPush.status.not_in(HOLDS_NOTHING),
         )
         .order_by(ErpPush.created_at)
     )
     for push_row in rows:
+        if push_row.status not in FINAL_DOCUMENT_STATES and writer is not None:
+            document = writer.read_landed_cost(push_row.odoo_id)
+            push_row.status = document.state if document is not None else GONE_STATE
+            if push_row.status in HOLDS_NOTHING:
+                continue
         for cost_id in push_row.cost_ids:
             snapshot = (push_row.carried or {}).get(cost_id) or {}
             amount = Decimal(snapshot["amount"]) if snapshot.get("amount") is not None else None
@@ -724,15 +834,16 @@ def _unplaced(planned: PlannedCost, held: Booked, receipt: ErpReceipt) -> list[B
     """Whether a difference from a validated document can be placed on the receipt's lines.
 
     It needs what each line already holds. When that split was never recorded, or its lines are not
-    on this receipt any more, placing the difference would be a guess — so the cost stays held as it
-    is, and the gap is said for a person to write by hand rather than written onto the wrong goods.
+    on this receipt any more, placing the difference would be a guess — so nothing is written for the
+    cost, and the gap is said on it for a person to enter by hand rather than written onto the wrong
+    goods. Not as carried: their books hold the old figure, not ours.
     """
     assert held.amount is not None
     if held.lines is not None and set(held.lines) <= {line.move_id for line in receipt.lines}:
         return []
     name = _name(held.push)
     change = f"{planned.label}: {held.amount:.2f} → {planned.amount:.2f}"
-    planned.pushed_as, planned.pushed_push_id = name, held.push.id
+    planned.by_hand = ByHand(name, held.amount, q2(planned.amount - held.amount))
     return [
         Blocker(
             ADJUSTMENT_UNPLACED,
@@ -830,7 +941,8 @@ def push(
     if not prepared.pending and prepared.existing_push is not None:
         return prepared.existing_push, prepared
     if not prepared.pushable:
-        hard = prepared.hard_blockers
+        # With nothing refused outright, what stands in the way is a difference to enter by hand.
+        hard = prepared.hard_blockers or prepared.blockers
         raise Unprocessable(
             "This container cannot be pushed yet: " + "; ".join(b.message for b in hard),
             code="ERP_PUSH_BLOCKED",

@@ -11120,6 +11120,30 @@
         ],
         "title": "ErpBlocker"
       },
+      "ErpByHand": {
+        "properties": {
+          "existing": {
+            "type": "string",
+            "title": "Existing"
+          },
+          "held": {
+            "type": "string",
+            "title": "Held"
+          },
+          "difference": {
+            "type": "string",
+            "title": "Difference"
+          }
+        },
+        "type": "object",
+        "required": [
+          "existing",
+          "held",
+          "difference"
+        ],
+        "title": "ErpByHand",
+        "description": "A difference from a validated document that is not written for want of its split per receipt\nline: a person enters it in the ERP."
+      },
       "ErpConnectionCreate": {
         "properties": {
           "kind": {
@@ -11406,6 +11430,16 @@
               }
             ],
             "title": "Pushed Push Id"
+          },
+          "by_hand": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErpByHand"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
