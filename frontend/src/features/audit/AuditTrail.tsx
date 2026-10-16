@@ -4,12 +4,13 @@ import { Card } from "@/components/layout/AppShell";
 import { auditDiff, auditEntityRef, type Formatters } from "@/features/audit/format";
 import { api, type AuditEntry } from "@/lib/api/client";
 import { periodTitle } from "@/features/periods/format";
-import { dateShort, dateTimeShort, decimalDisplay, money, rate } from "@/lib/format";
+import { formatInvoiceNote } from "@/features/invoices/lineNotes";
+import { dateShort, dateTimeShort, decimalDisplay, money, qty, rate } from "@/lib/format";
 
 type Json = Record<string, unknown> | null | undefined;
 
 export async function AuditEntries({ entries, labels }: { entries: AuditEntry[]; labels?: Record<string, string> }) {
-  const [t, action, costType, method, scope, milestone, erpDocumentState, fxSource, importKind, locale] = await Promise.all([
+  const [t, action, costType, method, scope, milestone, erpDocumentState, fxSource, importKind, noteT, locale] = await Promise.all([
     getTranslations("audit"),
     getTranslations("domain.auditAction"),
     getTranslations("domain.costType"),
@@ -19,6 +20,7 @@ export async function AuditEntries({ entries, labels }: { entries: AuditEntry[];
     getTranslations("domain.erpDocumentState"),
     getTranslations("domain.fxSource"),
     getTranslations("imports.kind"),
+    getTranslations("invoices.lineNotes"),
     getLocale(),
   ]);
   // A generic fallback for a field name or enum value this table has no label for yet: never the
@@ -42,6 +44,9 @@ export async function AuditEntries({ entries, labels }: { entries: AuditEntry[];
     dateTime: (iso: string) => dateTimeShort(iso, locale),
     month: (key: string) => periodTitle(key, locale, true),
     decimal: (raw: string) => decimalDisplay(raw, locale),
+    quantity: (raw: string) => qty(raw, locale),
+    // A forced duplicate names its own currency; EUR is only the fallback, as for the amounts above.
+    invoiceNote: (note: string) => formatInvoiceNote(note, (k, v) => noteT(k as never, v as never), (code) => formatters.costType(code), locale, "EUR"),
     itemCount: (count: number) => t("itemCount", { count }),
     pair: (name: string, value: string) => t("pair", { name, value }),
     label: (id: string) => labels?.[id],

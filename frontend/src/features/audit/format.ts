@@ -21,6 +21,10 @@ export type Formatters = {
   month: (key: string) => string;
   /** A plain decimal ("1.12") with the locale's separator. */
   decimal: (raw: string) => string;
+  /** A quantity ("120.0000") the way every other screen shows one: "120". */
+  quantity: (raw: string) => string;
+  /** An invoice note code ("@forced_duplicate|…") as the sentence the review screen shows. */
+  invoiceNote: (note: string) => string;
   /** A list of records, counted: "3 éléments". */
   itemCount: (count: number) => string;
   /** One field of a record inside a value: "Conteneurs : 2" in French, "Containers: 2" in English. */
@@ -80,6 +84,9 @@ function formatValue(key: string, v: unknown, f: Formatters): string {
   // The costs a confirmation or an import wrote, a reopening or an undo deleted: counted, never listed.
   if ((key === "cost_ids" || key === "costs_deleted") && Array.isArray(val)) return f.costCount(val.length);
   if (key === "kind" && typeof val === "string") return f.importKind(val);
+  // What a person overruled to confirm an invoice: whole sentences, one after the other.
+  if (key === "notes" && Array.isArray(val) && val.length > 0 && val.every((n) => typeof n === "string")) return val.map((n) => f.invoiceNote(n)).join(" ");
+  if (key === "quantity" && (typeof val === "string" || typeof val === "number")) return f.quantity(String(val));
   if (MONEY_KEYS.has(key) && (typeof val === "string" || typeof val === "number")) return f.money(String(val));
   if (key === "fx_rate" && (typeof val === "string" || typeof val === "number")) return f.rate(String(val));
   if (key === "cost_type" && typeof val === "string") return f.costType(val);
@@ -134,8 +141,9 @@ export function auditDiff(before: Json, after: Json, f: Formatters): { key: stri
       // container_loads_replaced logs one entry per po_line_id, so the "field" is itself a uuid:
       // the page's `labels` names it "order · SKU" while the line still exists.
       label: UUID_RE.test(k) ? f.lineRef(f.label(k) ?? shortId(k)) : f.field(k),
-      from: formatValue(k, b[k], f),
-      to: formatValue(k, a[k], f),
+      // ...and its value is the quantity loaded from that line.
+      from: formatValue(UUID_RE.test(k) ? "quantity" : k, b[k], f),
+      to: formatValue(UUID_RE.test(k) ? "quantity" : k, a[k], f),
     }))
     // Nothing to nothing (absent → empty list) is not a change a reader needs to see.
     .filter((c) => c.from !== c.to);
