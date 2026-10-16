@@ -255,6 +255,10 @@ def _merged(reports: list[dict[str, Any]], job_ids: list[UUID]) -> dict[str, Any
                 out[key] = out.get(key, 0) + report[key]
         out["errors"] = [*out.get("errors", []), *report.get("errors", [])]
         out["warnings"] = [*out.get("warnings", []), *report.get("warnings", [])]
+        # Each file names its own orders left without a rate; the run names them all, once.
+        if "orders_without_rate" in report:
+            seen = set(out.get("orders_without_rate") or []) | set(report["orders_without_rate"] or [])
+            out["orders_without_rate"] = sorted(seen)
     out["import_job_ids"] = [str(job_id) for job_id in job_ids]
     return out
 

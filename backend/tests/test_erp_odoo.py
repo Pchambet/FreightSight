@@ -21,7 +21,7 @@ from app.adapters.erp.odoo import OdooConnector
 from app.core.crypto import CryptoError
 from app.core.tenancy import set_current_org
 from app.domain.erp.ports import ErpAuthError, ErpProtocolError, ErpUnavailable
-from app.domain.erp.service import open_key, seal_key, to_csv
+from app.domain.erp.service import _merged, open_key, seal_key, to_csv
 from app.domain.models import ErpConnection, ErpSyncRun, Organization
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "odoo" / "purchase_orders.json").read_text())
@@ -767,3 +767,13 @@ def test_a_full_sync_re_reads_everything(
     assert forced.status_code == 202
     assert write_date_filter(odoo.domains[-1]) is None
     assert forced.json()["detail"]["since"] is None
+
+
+def test_a_sync_read_in_several_files_names_every_order_left_without_a_rate() -> None:
+    """Each file of a long sync says which of its orders have no rate; the run's report names them all,
+    not only those of the first file."""
+    first = {"row_count": 2, "errors": [], "warnings": [], "orders_without_rate": ["P00012"]}
+    second = {"row_count": 3, "errors": [], "warnings": [], "orders_without_rate": ["P00031", "P00012"]}
+    merged = _merged([first, second], [uuid.uuid4(), uuid.uuid4()])
+    assert merged["orders_without_rate"] == ["P00012", "P00031"]
+    assert merged["row_count"] == 5
