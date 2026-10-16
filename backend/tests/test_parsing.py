@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from app.domain.imports import parsing
+from app.domain.imports.fields import FIELDS
 from app.domain.imports.parsing import (
     ColumnNumbers,
     ImportError_,
@@ -72,7 +73,6 @@ def test_excel_fr_bom_semicolon_and_aliases() -> None:
         "sku": "Réf",
         "quantity": "Qté",
         "unit_price": "Prix unitaire",
-        "unit_weight_kg": "Poids",
         "container_number": "Conteneur",
     }
     assert table.rows[0]["Fournisseur"] == "Société Générale Pneus"
@@ -145,7 +145,8 @@ def test_the_header_is_found_under_a_title_block_and_the_totals_row_is_dropped()
     mapping = suggest_mapping(ImportKind.PURCHASE_ORDERS, table.columns)
     assert mapping["po_number"] == "N° commande"
     assert mapping["sku"] == "Réf. article" and mapping["unit_price"] == "PU HT"
-    assert mapping["unit_weight_kg"] == "Poids (kg)" and mapping["unit_volume_cbm"] == "Volume (m3)"
+    # « Poids (kg) » is as often the line's weight as one piece's: a person says which (see below)
+    assert "unit_weight_kg" not in mapping and "unit_volume_cbm" not in mapping
     assert mapping["container_number"] == "N° TC"
 
 
@@ -154,7 +155,7 @@ def test_ebp_and_odoo_column_names_are_recognised() -> None:
     mapping = suggest_mapping(ImportKind.PURCHASE_ORDERS, ebp.columns)
     assert mapping["po_number"] == "N° cde" and mapping["sku"] == "Code article"
     assert mapping["description"] == "Libellé" and mapping["unit_price"] == "Prix unitaire HT"
-    assert mapping["unit_weight_kg"] == "Poids net" and mapping["unit_volume_cbm"] == "Cubage"
+    assert "unit_weight_kg" not in mapping and "unit_volume_cbm" not in mapping
 
     odoo = parse_table((FIXTURES / "imports" / "odoo_lignes_commande.csv").read_bytes())
     mapping = suggest_mapping(ImportKind.PURCHASE_ORDERS, odoo.columns)
@@ -168,6 +169,33 @@ def test_a_weight_or_volume_column_that_does_not_name_its_unit_is_ambiguous() ->
     assert not is_ambiguous_unit_column("Poids unitaire (kg)")
     assert not is_ambiguous_unit_column("unit_weight_kg")
     assert not is_ambiguous_unit_column("Volume unitaire (m³)")
+
+
+def test_a_weight_is_mapped_per_unit_or_per_line_only_when_its_header_says_which() -> None:
+    """A line total read as a unit weight multiplies that line's share of the freight by its quantity:
+    two lines of 50 kg each, 100 and 10 pieces, split 3 000 € as 2 727,27 / 272,73 instead of 1 500 /
+    1 500. A header that does not say which is left for a person to map, to one field or the other."""
+    columns = ["po_number", "sku", "Poids unitaire (kg)", "Volume total (m3)", "Poids brut", "Cubage"]
+    mapping = suggest_mapping(ImportKind.PURCHASE_ORDERS, columns)
+    assert (
+        mapping["unit_weight_kg"] == "Poids unitaire (kg)"
+        and mapping["line_volume_cbm"] == "Volume total (m3)"
+    )
+    assert "Poids brut" not in mapping.values() and "Cubage" not in mapping.values()
+    assert suggest_mapping(ImportKind.PURCHASE_ORDERS, ["Poids total ligne (kg)"]) == {
+        "line_weight_kg": "Poids total ligne (kg)"
+    }
+    # a tariff is one row per article: its weight can only be one piece's
+    assert suggest_mapping(ImportKind.PRODUCTS, ["sku", "Poids"])["unit_weight_kg"] == "Poids"
+
+
+@pytest.mark.parametrize("kind", list(FIELDS))
+def test_a_template_written_with_the_api_headers_maps_itself(kind: ImportKind) -> None:
+    for language in ("header_fr", "header_en"):
+        columns = [getattr(field, language) for field in FIELDS[kind]]
+        assert suggest_mapping(kind, columns) == {
+            field.name: getattr(field, language) for field in FIELDS[kind]
+        }, language
 
 
 def test_an_xlsx_keeps_long_numbers_readable_and_finds_its_header() -> None:

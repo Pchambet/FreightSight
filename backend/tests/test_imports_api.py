@@ -208,12 +208,23 @@ def test_a_sage_export_is_read_whole_title_block_totals_row_and_french_decimals(
     warnings = {w["code"]: w for w in report["warnings"]}
     assert warnings["HEADER_ROW_DETECTED"]["params"] == {"line": 3}
     assert "TOTALS_ROW_IGNORED" in warnings
+    # « Poids (kg) » may be one tyre or the whole line: left for a person to say, and said so
+    unmapped = [(w["field"], w["params"]) for w in report["warnings"] if w["code"] == "UNIT_COLUMN_UNMAPPED"]
+    assert unmapped == [
+        ("unit_weight_kg", {"column": "Poids (kg)"}),
+        ("unit_volume_cbm", {"column": "Volume (m3)"}),
+    ]
+
+    # the person says per unit
+    report = validate(client, job, unit_weight_kg="Poids (kg)", unit_volume_cbm="Volume (m3)")
+    warnings = {w["code"]: w for w in report["warnings"]}
     assert warnings["DECIMAL_COMMA_ASSUMED"]["params"] == {
         "column": "Poids (kg)",
         "example": "7,250",
         "comma": "decimal",
     }
     assert warnings["UNIT_COLUMN_AMBIGUOUS"]["field"] in ("unit_weight_kg", "unit_volume_cbm")
+    assert "UNIT_COLUMN_UNMAPPED" not in warnings
 
     res = client.post(f"/api/v1/imports/{job['id']}/commit", json={"on_error": "abort"})
     assert res.status_code == 200, res.text
@@ -306,6 +317,35 @@ def test_the_same_line_said_twice_without_another_container_is_flagged(client: T
     assert "DUPLICATE_SKU_SAME_VALUES" not in codes(report["warnings"])
 
 
+def test_a_line_total_weight_or_volume_is_divided_by_the_line_quantity(client: TestClient) -> None:
+    """Two lines of 50 kg each, 100 and 10 pieces: read as unit weights, a 3 000 € freight split by
+    weight went 2 727,27 / 272,73 instead of 1 500 / 1 500. Mapped as the line's total, it is one
+    piece's weight that is stored."""
+    content = (
+        b"po_number;sku;quantity;unit_price;Poids total (kg);Volume total (m3)\n"
+        b"PO-T;A;100;10,00;50;1,2\nPO-T;B;10;10,00;50;0,3\nPO-T;C;3;10,00;50;\n"
+    )
+    job = upload(client, content, "PURCHASE_ORDERS", "totals.csv")
+    assert job["mapping"]["line_weight_kg"] == "Poids total (kg)"
+    assert job["mapping"]["line_volume_cbm"] == "Volume total (m3)"
+    res = client.post(
+        f"/api/v1/imports/{job['id']}/commit", json={"mapping": job["mapping"], "on_error": "abort"}
+    )
+    assert res.status_code == 200, res.text
+    (po,) = [p for p in client.get("/api/v1/purchase-orders").json() if p["po_number"] == "PO-T"]
+    lines = {ln["sku"]: ln for ln in client.get(f"/api/v1/purchase-orders/{po['id']}").json()["lines"]}
+    assert (lines["A"]["unit_weight_kg"], lines["A"]["unit_volume_cbm"]) == ("0.5000", "0.0120")
+    assert (lines["B"]["unit_weight_kg"], lines["B"]["unit_volume_cbm"]) == ("5.0000", "0.0300")
+    assert (lines["C"]["unit_weight_kg"], lines["C"]["unit_volume_cbm"]) == ("16.6667", None)
+
+    # one dimension is said once: per unit or for the line, not both
+    again = upload(client, content, "PURCHASE_ORDERS", "totals.csv")
+    both = {**again["mapping"], "unit_weight_kg": "Poids total (kg)"}
+    res = client.post(f"/api/v1/imports/{again['id']}/validate", json={"mapping": both})
+    assert res.status_code == 422 and res.json()["code"] == "MAPPING_UNIT_AND_LINE_TOTAL"
+    assert res.json()["dimension"] == "weight"
+
+
 def test_a_currency_that_changes_inside_one_order_is_refused(client: TestClient) -> None:
     content = b"po_number;currency;sku;quantity;unit_price\nPO-X;USD;A;10;1,00\nPO-X;CNY;B;20;2,00\n"
     job = upload(client, content, "PURCHASE_ORDERS")
@@ -332,7 +372,7 @@ def test_a_foreign_order_says_which_rate_of_which_date_and_from_where(client: Te
     counted as 40 000 EUR, every share by value skewed with it. The import now applies the ECB rate
     of the order date, as the purchase-order screen does, and says so."""
     job = upload(client, (IMPORTS_FIXTURES / "ebp_commandes.csv").read_bytes(), "PURCHASE_ORDERS", "ebp.csv")
-    assert job["mapping"]["po_number"] == "N° cde" and job["mapping"]["unit_weight_kg"] == "Poids net"
+    assert job["mapping"]["po_number"] == "N° cde" and "unit_weight_kg" not in job["mapping"]
     report = validate(client, job)
     assert report["valid_rows"] == 3
     assert not [w for w in report["warnings"] if w["code"] == "FX_RATE_DEFAULTED"]

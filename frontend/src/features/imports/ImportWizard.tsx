@@ -85,8 +85,9 @@ export default function ImportWizard({
   const errors = report?.errors ?? [];
   const warnings = report?.warnings ?? [];
   // Whether a value is per unit or for the whole line is exactly what the dropdown decides, so the
-  // warning sits beside it (audit B19) once a preview has detected the ambiguity.
-  const unitColumnWarning = (field: string) => warnings.find((w) => w.code === "UNIT_COLUMN_AMBIGUOUS" && w.field === field);
+  // warning sits beside it (audit B19) once a preview has detected the ambiguity — or a weight column
+  // left unread because only a person can say which it is.
+  const unitColumnWarning = (field: string) => warnings.find((w) => (w.code === "UNIT_COLUMN_AMBIGUOUS" || w.code === "UNIT_COLUMN_UNMAPPED") && w.field === field);
   const errorRows = new Set(errors.map((e) => e.row)).size;
   const missingRequired = fields.filter((f) => f.required && !mapping[f.field]).map((f) => fieldName(f.field));
   const missingOneOf = (info?.required_one_of ?? []).filter((group) => !group.some((f) => mapping[f])).map((group) => group.map(fieldName));

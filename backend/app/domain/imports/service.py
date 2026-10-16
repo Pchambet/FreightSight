@@ -25,6 +25,7 @@ from app.domain.imports.parsing import (
     header_signature,
     infer_comma_conventions,
     is_ambiguous_unit_column,
+    looks_like,
     parse_decimal,
     parse_table,
     suggest_mapping,
@@ -50,6 +51,8 @@ NUMERIC_FIELDS = (
     "unit_price",
     "unit_weight_kg",
     "unit_volume_cbm",
+    "line_weight_kg",
+    "line_volume_cbm",
     "duty_rate",
     "line_no",
     "container_quantity",
@@ -61,6 +64,11 @@ NUMERIC_FIELDS = (
 )
 #: Fields an export may state once, on the first row of an order, and leave blank underneath.
 FORWARD_FILLED_FIELDS = ("po_number", "supplier_name", "currency")
+#: A weight or a volume, said for one piece or for the whole order line: (per unit, line total, scale).
+DIMENSIONS = {
+    "weight": ("unit_weight_kg", "line_weight_kg", Decimal("0.0001")),
+    "volume": ("unit_volume_cbm", "line_volume_cbm", Decimal("0.000001")),
+}
 
 
 @dataclass
@@ -174,6 +182,13 @@ def _check_mapping(kind: ImportKind, mapping: dict[str, str], columns: list[str]
             raise Unprocessable(
                 f"Map at least one of: {', '.join(group)}", code="MAPPING_INCOMPLETE", one_of=list(group)
             )
+    for dimension, (unit, line, _) in DIMENSIONS.items():
+        if mapping.get(unit) and mapping.get(line):
+            raise Unprocessable(
+                f"{dimension}: map the per-unit column or the line-total column, not both",
+                code="MAPPING_UNIT_AND_LINE_TOTAL",
+                dimension=dimension,
+            )
     unknown = [c for c in mapping.values() if c and c not in columns]
     if unknown:
         raise Unprocessable(
@@ -205,7 +220,7 @@ def run_job(
         kind=job.kind,
     )
     conventions = infer_comma_conventions(table, {mapping[f] for f in NUMERIC_FIELDS if mapping.get(f)})
-    _report_file_notes(table, mapping, conventions, report)
+    _report_file_notes(job.kind, table, mapping, conventions, report)
 
     nested = t.db.begin_nested()
     try:
@@ -273,6 +288,7 @@ def _remember_mapping(t: TenantSession, job: ImportJob, mapping: dict[str, str])
 
 
 def _report_file_notes(
+    kind: ImportKind,
     table: Table,
     mapping: dict[str, str],
     conventions: dict[str, ColumnNumbers],
@@ -321,6 +337,24 @@ def _report_file_notes(
                     "UNIT_COLUMN_AMBIGUOUS",
                     f"Column {column!r} does not say whether it holds one unit or the whole line; "
                     f"it is read as one unit",
+                    {"column": column},
+                )
+            )
+    mapped = set(mapping.values())
+    for column in table.columns:
+        unit = looks_like(kind, column)
+        if unit is None or column in mapped:
+            continue
+        line_total = next(line for u, line, _ in DIMENSIONS.values() if u == unit)
+        if not (mapping.get(unit) or mapping.get(line_total)):
+            # A weight the reader would not map on its own: without it the freight split by weight
+            # has no basis, and only a person can say whether it is one piece's or the line's.
+            report.warnings.append(
+                RowIssue(
+                    line,
+                    unit,
+                    "UNIT_COLUMN_UNMAPPED",
+                    f"Column {column!r} was not read: map it per unit or as the line's total",
                     {"column": column},
                 )
             )
@@ -580,6 +614,18 @@ def _set_order_rate(t: TenantSession, fx: FxService | None, po: PurchaseOrder, r
     )
 
 
+def _per_unit(r: _Row, dimension: str, quantity: Decimal | None) -> Decimal | None:
+    """One piece's weight or volume, as the file says it or divided from the line's total. The order
+    line's quantity divides it — the line's, not a container's share of it — at the column's scale."""
+    unit, line_total, scale = DIMENSIONS[dimension]
+    if r.mapping.get(unit):
+        return r.decimal(unit)
+    total = r.decimal(line_total)
+    if total is None or quantity is None or quantity <= 0:
+        return None
+    return (total / quantity).quantize(scale)
+
+
 def _apply_purchase_orders(
     t: TenantSession,
     table: Table,
@@ -625,8 +671,8 @@ def _apply_purchase_orders(
                 "currency", "INVALID_CURRENCY", f"{currency!r} is not a 3-letter ISO code", value=currency
             )
         line_no_raw = r.decimal("line_no")
-        weight = r.decimal("unit_weight_kg")
-        volume = r.decimal("unit_volume_cbm")
+        weight = _per_unit(r, "weight", quantity)
+        volume = _per_unit(r, "volume", quantity)
         duty = r.rate("duty_rate")
         order_date = r.date("order_date")
         container_number = r.container()

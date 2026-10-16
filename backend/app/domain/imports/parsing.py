@@ -98,6 +98,31 @@ TARGET_ALIASES: dict[ImportKind, dict[str, list[str]]] = {
             "cbm",
             "m3",
         ],
+        "line_weight_kg": [
+            "line_weight_kg",
+            "poids_total",
+            "poids_total_kg",
+            "poids_total_ligne",
+            "poids_total_ligne_kg",
+            "poids_ligne",
+            "poids_ligne_kg",
+            "total_weight",
+            "total_weight_kg",
+            "line_weight",
+        ],
+        "line_volume_cbm": [
+            "line_volume_cbm",
+            "volume_total",
+            "volume_total_m3",
+            "volume_total_ligne",
+            "volume_total_ligne_m3",
+            "volume_ligne",
+            "volume_ligne_m3",
+            "total_volume",
+            "total_volume_cbm",
+            "line_volume",
+            "cbm_total",
+        ],
         "hs_code": ["hs_code", "hs", "nc", "code_nc", "taric", "tariff"],
         "duty_rate": ["duty_rate", "duty", "droits", "taux_droits"],
         "container_number": [
@@ -213,9 +238,12 @@ REQUIRED: dict[ImportKind, list[str]] = {kind: required_fields(kind) for kind in
 
 # A weight or a volume column that does not name its unit is ambiguous: in a real ERP export
 # "Poids (kg)" is as often the weight of the whole line as the weight of one piece, and reading a
-# line total as a unit weight inflates that line's share of the freight by the quantity itself.
-# We keep the mapping (the field exists only per unit) but say so, loudly, next to the mapping.
+# line total as a unit weight inflates that line's share of the freight by the quantity itself. An
+# order file's ambiguous column is therefore never mapped on its own: a person maps it per unit or as
+# the line's total, and the report says so next to the mapping either way.
 _UNIT_EXPLICIT = ("unit", "unitaire", "par_unite", "par_piece", "_pce", "piece")
+#: The order fields an ambiguous header is not mapped to without a person.
+PER_UNIT_FIELDS = ("unit_weight_kg", "unit_volume_cbm")
 
 # Header rows the exporters put above the real one ("Export commandes fournisseurs", "Généré le
 # ..."), and the totals row they put under the last line, are noise between the real table and us.
@@ -530,15 +558,29 @@ def _parse_xlsx(content: bytes) -> Table:
 
 
 def suggest_mapping(kind: ImportKind, columns: list[str]) -> dict[str, str]:
-    """target field -> source column, by alias match."""
+    """target field -> source column, by alias match. An order file's weight or volume column that
+    does not say per unit or per line is left unmapped (see `_UNIT_EXPLICIT`)."""
     normalised = {normalize_header(c): c for c in columns}
     mapping: dict[str, str] = {}
     for target, aliases in TARGET_ALIASES[kind].items():
         for alias in aliases:
-            if alias in normalised and normalised[alias] not in mapping.values():
-                mapping[target] = normalised[alias]
-                break
+            column = normalised.get(alias)
+            if column is None or column in mapping.values():
+                continue
+            per_unit = kind is ImportKind.PURCHASE_ORDERS and target in PER_UNIT_FIELDS
+            if per_unit and is_ambiguous_unit_column(column):
+                continue
+            mapping[target] = column
+            break
     return mapping
+
+
+def looks_like(kind: ImportKind, column: str) -> str | None:
+    """The per-unit field an order file's unmapped column reads like — weight or volume — if any."""
+    if kind is not ImportKind.PURCHASE_ORDERS:
+        return None
+    name = normalize_header(column)
+    return next((field for field in PER_UNIT_FIELDS if name in TARGET_ALIASES[kind][field]), None)
 
 
 def header_signature(columns: list[str]) -> str:
