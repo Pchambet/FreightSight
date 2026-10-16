@@ -716,7 +716,7 @@
       },
       "never": "jamais",
       "unknown": "État non renseigné.",
-      "checkedAt": "Vérifié le {when} (UTC).",
+      "checkedAt": "Vérifié le {when} (heure de Paris).",
       "check": {
         "alert_emails": "E-mails d'alerte",
         "automatic_tracking": "Suivi automatique des conteneurs",
@@ -2394,7 +2394,7 @@
     "none": "Aucun lien pour l'instant.",
     "row": "Créé le {created} · valable jusqu'au {expires}",
     "neverOpened": "Jamais ouvert",
-    "opened": "{count, plural, one {Ouvert # fois} other {Ouvert # fois}} · dernière fois le {when} (UTC)",
+    "opened": "{count, plural, one {Ouvert # fois} other {Ouvert # fois}} · dernière fois le {when} (heure de Paris)",
     "revoke": "Retirer",
     "revoked": "Lien retiré : il ne s'ouvre plus.",
     "status": {

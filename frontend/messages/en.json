@@ -716,7 +716,7 @@
       },
       "never": "never",
       "unknown": "Status not reported.",
-      "checkedAt": "Checked on {when} (UTC).",
+      "checkedAt": "Checked on {when} (Paris time).",
       "check": {
         "alert_emails": "Alert e-mails",
         "automatic_tracking": "Automatic container tracking",
@@ -2394,7 +2394,7 @@
     "none": "No link yet.",
     "row": "Created on {created} · valid until {expires}",
     "neverOpened": "Never opened",
-    "opened": "{count, plural, one {Opened # time} other {Opened # times}} · last on {when} (UTC)",
+    "opened": "{count, plural, one {Opened # time} other {Opened # times}} · last on {when} (Paris time)",
     "revoke": "Withdraw",
     "revoked": "Link withdrawn: it no longer opens.",
     "status": {
