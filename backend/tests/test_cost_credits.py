@@ -480,6 +480,27 @@ def test_choosing_another_target_forgets_the_cost_a_refund_line_named(
     assert moved.json()["lines"][0]["credit_cost_id"] is None
 
 
+def test_a_refund_line_cannot_name_a_cost_that_is_not_on_file(
+    client: TestClient, db: Session, org: Organization, box: str
+) -> None:
+    """A cost deleted while the review screen was open, or an id that is not this organization's: the
+    line is refused by name, not left to the database's foreign key as a server error."""
+    note = upload_and_read(client, db, org, CREDIT_NOTE_MINUS_GLUED)
+    line = note["lines"][0]
+    gone = str(uuid.uuid4())
+    res = client.patch(f"/api/v1/invoices/{note['id']}/lines/{line['id']}", json={"credit_cost_id": gone})
+    assert (res.status_code, res.json()["code"], res.json()["params"]) == (
+        422,
+        "CREDIT_COST_MISMATCH",
+        {"line": "1"},
+    )
+    batch = client.patch(
+        f"/api/v1/invoices/{note['id']}/lines", json={"lines": [{"id": line["id"], "credit_cost_id": gone}]}
+    )
+    assert (batch.status_code, batch.json()["code"]) == (422, "CREDIT_COST_MISMATCH")
+    assert client.get(f"/api/v1/invoices/{note['id']}").json()["lines"][0]["credit_cost_id"] is None
+
+
 def test_two_currencies_never_add_up_on_one_cost(
     client: TestClient, db: Session, org: Organization, box: str
 ) -> None:

@@ -218,9 +218,19 @@ def get_invoice_document(invoice_id: UUID, t: TenantDep) -> Response:
     )
 
 
-def _decide(line: InvoiceLine, changes: dict[str, object]) -> None:
+def _decide(t: TenantSession, line: InvoiceLine, changes: dict[str, object]) -> None:
     """Apply a person's correction to a line. The cost a refund was said to reduce was chosen for its
     type, target and currency: when one of them changes, so does the question."""
+    named = changes.get("credit_cost_id")
+    # A cost deleted since the screen listed it, or one that is not ours: refused by name here, not by
+    # the foreign key as a server error (which would also say that another organization's id exists).
+    on_file = select(Cost.id).where(Cost.id == named, Cost.org_id == t.org_id)
+    if named is not None and t.db.scalar(on_file) is None:
+        raise Unprocessable(
+            f"The cost named on line {line.line_no} is not on file",
+            code="CREDIT_COST_MISMATCH",
+            params={"line": str(line.line_no)},
+        )
     keys = ("cost_type", "scope", "target_id", "currency")
     moved = any(getattr(line, k) != changes[k] for k in keys if k in changes)
     for field, value in changes.items():
@@ -244,7 +254,7 @@ def update_line(
     line = next((ln for ln in invoice.lines if ln.id == line_id), None)
     if line is None:
         raise NotFound("Invoice line")
-    _decide(line, payload.model_dump(exclude_unset=True))
+    _decide(t, line, payload.model_dump(exclude_unset=True))
     t.db.flush()
     t.db.commit()
     t.db.refresh(invoice)
@@ -287,7 +297,7 @@ def update_lines(
         )
     for decision in payload.lines:
         line = by_id[decision.id]
-        _decide(line, decision.model_dump(exclude_unset=True, exclude={"id"}))
+        _decide(t, line, decision.model_dump(exclude_unset=True, exclude={"id"}))
     t.db.commit()
     t.db.refresh(invoice)
     return _response(t.db, invoice)
