@@ -135,7 +135,7 @@ def test_the_landed_cost_file_tells_the_held_box_from_the_bare_one(
 def test_the_audit_counts_the_held_box_apart(client: TestClient, held: dict[str, Any]) -> None:
     day = LANDED_ON.date().isoformat()
     audit = client.get("/api/v1/reports/audit", params={"period_from": day, "period_to": day}).json()
-    assert (
-        audit["completeness"]["containers_without_cost"] == 2
-        and audit["completeness"]["containers_held"] == 1
-    )
+    completeness = audit["completeness"]
+    assert (completeness["containers_without_cost"], completeness["containers_held"]) == (2, 1)
+    (month,) = audit["coefficient_by_month"]
+    assert (month["containers_without_charge"], month["containers_held"]) == (2, 1)
