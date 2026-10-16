@@ -102,7 +102,8 @@ export default async function InvoicePage({ params }: Params) {
                 {/* `flagOnly`: the extractor kind just above already says how it was read ("Lecture
                     automatique par règles") — repeating "Lecture automatique" from the confidence
                     tier said the same thing twice. */}
-                <ConfidenceBadge value={invoice.confidence} band={confidenceBandValue} confirmed={invoice.status === "CONFIRMED"} flagOnly className="align-middle" />
+                {/* None on a rejected invoice: its « à relire » would say the invoice is still waiting. */}
+                {invoice.status === "REJECTED" ? null : <ConfidenceBadge value={invoice.confidence} band={confidenceBandValue} confirmed={invoice.status === "CONFIRMED"} flagOnly className="align-middle" />}
               </>
             ) : null}
           </p>

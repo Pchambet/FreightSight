@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { btnPrimary, btnSecondary, input } from "@/components/layout/AppShell";
 import ConfidenceBadge from "@/components/shared/ConfidenceBadge";
-import { addInvoiceLine, patchInvoiceLines, confirmInvoice, rejectInvoice, reopenInvoice, retryInvoice, updateInvoiceLine } from "@/features/actions";
+import { addInvoiceLine, patchInvoiceLines, confirmInvoice, rejectInvoice, retryInvoice, updateInvoiceLine } from "@/features/actions";
 import InvoiceContinueLinks, { type ContainerLink } from "@/features/invoices/InvoiceContinueLinks";
 import { openHeaderEditor } from "@/features/invoices/InvoiceHeaderEditor";
 import { formatInvoiceNote, isDuplicateCostNote, isInformativeNote, splitInvoiceNotes } from "@/features/invoices/lineNotes";
@@ -42,7 +42,7 @@ function needsRefundCost(line: InvoiceLineResponse, refundTo: string | null | un
   return !!line.refund && !!line.target_id && !!line.cost_type && !refundTo;
 }
 
-function LineRow({ invoiceId, line, targets, editable, confirmed, refundTo }: { invoiceId: string; line: InvoiceLineResponse; targets: Targets; editable: boolean; confirmed: boolean; refundTo: string | null }) {
+function LineRow({ invoiceId, line, targets, editable, confirmed, rejected, refundTo }: { invoiceId: string; line: InvoiceLineResponse; targets: Targets; editable: boolean; confirmed: boolean; rejected: boolean; refundTo: string | null }) {
   const t = useTranslations("invoices.line");
   const noteT = useTranslations("invoices.lineNotes");
   const typeLabel = useTranslations("domain.costType");
@@ -95,7 +95,8 @@ function LineRow({ invoiceId, line, targets, editable, confirmed, refundTo }: { 
             <span className="flex items-center gap-2 shrink-0">
               {line.refund ? <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800 ring-1 ring-inset ring-emerald-600/20">{t("refund")}</span> : null}
               {missing.length > 0 ? <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-inset ring-amber-600/20">{t("toComplete", { what: missing.join(", ") })}</span> : null}
-              <ConfidenceBadge value={line.confidence} band={line.confidence_band} confirmed={confirmed} />
+              {/* A rejected invoice has nothing left to review: « à relire » would say it is still open. */}
+              {rejected ? null : <ConfidenceBadge value={line.confidence} band={line.confidence_band} confirmed={confirmed} />}
             </span>
           </div>
           {editable ? (
@@ -409,7 +410,7 @@ export default function ReviewPanel({ invoice, targets, pageHasNextStep = false 
         </div>
       ) : null}
       <ul ref={listRef} className="divide-y divide-slate-200">
-        {lines.map((l) => <LineRow key={`${l.id}:${l.accepted}:${l.cost_type ?? ""}:${l.scope ?? ""}:${l.target_id ?? ""}:${l.amount}:${l.currency}:${l.credit_cost_id ?? ""}`} invoiceId={invoice.id} line={l} targets={targets} editable={editable} confirmed={invoice.status === "CONFIRMED"} refundTo={refunds.get(l.id) ?? null} />)}
+        {lines.map((l) => <LineRow key={`${l.id}:${l.accepted}:${l.cost_type ?? ""}:${l.scope ?? ""}:${l.target_id ?? ""}:${l.amount}:${l.currency}:${l.credit_cost_id ?? ""}`} invoiceId={invoice.id} line={l} targets={targets} editable={editable} confirmed={invoice.status === "CONFIRMED"} rejected={invoice.status === "REJECTED"} refundTo={refunds.get(l.id) ?? null} />)}
       </ul>
       {editable ? (
         <>
@@ -460,20 +461,6 @@ export default function ReviewPanel({ invoice, targets, pageHasNextStep = false 
         <div className="px-5 py-4 border-t border-slate-200 flex items-center gap-3">
           <button type="button" disabled={pending} onClick={() => run(() => retryInvoice(invoice.id), () => t("retried"))} className={btnSecondary}>{t("retry")}</button>
           <button type="button" disabled={pending} onClick={() => run(() => rejectInvoice(invoice.id), () => t("rejected"))} className="text-sm text-slate-500 hover:underline">{t("reject")}</button>
-        </div>
-      ) : null}
-      {invoice.status === "REJECTED" ? (
-        <div className="px-5 py-4 border-t border-slate-200 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            disabled={pending || lines.length === 0}
-            onClick={() => run(() => reopenInvoice(invoice.id), () => t("reopened"))}
-            className={btnPrimary}
-          >
-            {pending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-            {t("reopenAction")}
-          </button>
-          <button type="button" disabled={pending} onClick={() => run(() => retryInvoice(invoice.id), () => t("retried"))} className={btnSecondary}>{t("retry")}</button>
         </div>
       ) : null}
     </div>
