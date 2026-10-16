@@ -8,6 +8,7 @@ import Panel from "@/components/ui/Panel";
 import StatTile from "@/components/ui/StatTile";
 import ChangeBadge from "@/features/skus/ChangeBadge";
 import FobMissing, { FobMissingLine } from "@/features/report/FobMissing";
+import { WithoutChargeLine } from "@/features/report/WithoutCharge";
 import CreateSheetsButton from "@/features/skus/CreateSheetsButton";
 import { skuHref } from "@/features/skus/href";
 import { api } from "@/lib/api/client";
@@ -131,6 +132,7 @@ export default async function SkusPage({ searchParams }: { searchParams: Promise
                       {s.has_estimates ? <span className="ml-2 rounded bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium text-violet-800 ring-1 ring-inset ring-violet-600/20">{t("estimated")}</span> : null}
                       {s.description ? <div className="text-xs text-slate-500 truncate">{s.description}</div> : null}
                       {s.fob_missing ? <FobMissingLine /> : null}
+                      <WithoutChargeLine count={s.containers_without_charge} />
                     </td>
                     <td className="px-3 py-3 text-right tabular-nums text-slate-600" title={s.last_arrival_on ? t("lastArrival", { date: dateShort(s.last_arrival_on, locale) }) : undefined}>{s.arrivals}</td>
                     <td className="px-3 py-3 text-right tabular-nums text-slate-600">{qty(s.quantity, locale)}</td>

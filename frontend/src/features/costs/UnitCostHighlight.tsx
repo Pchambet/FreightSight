@@ -23,8 +23,8 @@ export default async function UnitCostHighlight({ report }: { report: LandedCost
           // An order with no exchange rate: no value, so no unit cost either side of the arrow.
           const unvalued = ln.fob === null || ln.unit_landed_cost === null;
           const fobUnit = !unvalued && Number(ln.quantity) > 0 ? Number(ln.fob) / Number(ln.quantity) : null;
-          // With no charge on the line, its "landed" cost is its FOB: not a figure to sell from.
-          const noCharge = Number(ln.allocated) === 0;
+          // With no charge on its container, the line's "landed" cost is its FOB: not a figure to sell from.
+          const noCharge = ln.without_charge;
           return (
             <li key={ln.load_id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="min-w-0">

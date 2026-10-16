@@ -13,6 +13,7 @@ import ChangeBadge from "@/features/skus/ChangeBadge";
 import CostShift from "@/features/skus/CostShift";
 import MarginHelper from "@/features/skus/MarginHelper";
 import FobMissing, { FobMissingLine } from "@/features/report/FobMissing";
+import WithoutCharge, { WithoutChargeLine } from "@/features/report/WithoutCharge";
 import ProductForm from "@/features/skus/ProductForm";
 import { skuFromSegments, skuHref } from "@/features/skus/href";
 import { api } from "@/lib/api/client";
@@ -78,8 +79,10 @@ export default async function SkuPage({ params }: Params) {
   // restock and a back-order) is one arrival. These are the API's own container figures — the two
   // last landed ones are exactly what `change_pct` compares.
   // A container whose value is unknown (an order with no exchange rate) has no unit cost to plot,
-  // but it is still the last or the previous arrival: the comparison below does not skip it.
-  const arrived = boxes.filter((b) => b.arrived_on !== null);
+  // but it is still the last or the previous arrival: the comparison below does not skip it. One
+  // with no charge at all has no landed cost either, and is no arrival to compare: the API's
+  // `last_unit_landed` skips it, and so does this page.
+  const arrived = boxes.filter((b) => b.arrived_on !== null && !b.without_charge);
   const dated = arrived.filter((b) => b.unit_landed !== null);
   const points: TrendPoint[] = dated.map((b) => ({
     key: b.container_id,
@@ -94,9 +97,10 @@ export default async function SkuPage({ params }: Params) {
   const landedOnes = arrived.filter((b) => !b.arrival_is_estimate);
   const [previous, last] = landedOnes.slice(-2);
   const salePrice = s.sale_price !== null && s.margin_pct !== null ? Number(s.sale_price) : null;
-  // The averages take every container in, those whose charges are still estimates too: say how many.
+  // The averages take in every container that carries a charge, those whose charges are still
+  // estimates too: say how many.
   const estimatedBoxes = boxes.filter((b) => Number(b.estimated) > 0).length;
-  const coefText = t("detail.coef", { coef: s.unit_fob !== null && s.unit_landed !== null && Number(s.unit_fob) > 0 ? ratio(Number(s.unit_landed) / Number(s.unit_fob)) : "—" });
+  const coefText = t("detail.coef", { coef: s.coefficient !== null ? ratio(Number(s.coefficient)) : "—" });
   // Where the missing rate is set: the first order of this article that has none.
   const unrated = arrivals.find((a) => a.fob_missing);
   const rateHref = unrated ? `/purchase-orders/${unrated.po_id}#taux` : "/purchase-orders";
@@ -111,6 +115,7 @@ export default async function SkuPage({ params }: Params) {
       />
 
       <FobMissing lines={s.fob_missing_lines} href={rateHref} className="mb-6" />
+      <WithoutCharge containers={s.containers_without_charge} className="mb-6" />
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 mb-6">
         <StatTile label={t("detail.unitLanded")} hint={t("detail.unitLandedHint")} value={money(s.unit_landed, currency, locale)} sub={estimatedBoxes > 0 ? `${coefText} · ${t("detail.withEstimates", { count: estimatedBoxes })}` : s.has_estimates ? `${coefText} · ${t("detail.withEstimatesUncounted")}` : coefText} />
@@ -181,8 +186,9 @@ export default async function SkuPage({ params }: Params) {
                     <td className="px-3 py-2.5 text-right tabular-nums font-medium text-slate-900 whitespace-nowrap">
                       {money(a.unit_landed, currency, locale)}
                       {Number(a.estimated) > 0 ? <span className="ml-1.5 rounded bg-violet-50 px-1 py-0.5 text-[11px] font-medium text-violet-800">{t("estimated")}</span> : null}
+                      {a.without_charge ? <WithoutChargeLine /> : null}
                     </td>
-                    <td className="px-5 py-2.5 text-right tabular-nums text-slate-600">{a.fob !== null && Number(a.fob) > 0 ? ratio(Number(a.landed) / Number(a.fob)) : "—"}</td>
+                    <td className="px-5 py-2.5 text-right tabular-nums text-slate-600">{a.fob !== null && a.landed !== null && Number(a.fob) > 0 ? ratio(Number(a.landed) / Number(a.fob)) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -193,8 +199,10 @@ export default async function SkuPage({ params }: Params) {
         <Panel title={t("margin.title")} subtitle={t("margin.subtitle")}>
           {s.unit_fob !== null && marginLanded !== null ? (
             <MarginHelper unitFob={Number(s.unit_fob)} unitLanded={Number(marginLanded)} marginOnLanded={s.last_unit_landed !== null ? s.last_margin_pct : s.margin_pct} salePrice={salePrice} currency={currency} />
-          ) : (
+          ) : s.fob_missing_lines ? (
             <FobMissing lines={s.fob_missing_lines} href={rateHref} />
+          ) : (
+            <WithoutCharge containers={s.containers_without_charge} href={null} />
           )}
         </Panel>
       </div>

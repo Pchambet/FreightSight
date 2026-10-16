@@ -18,7 +18,7 @@ export default async function ReportTotals<K extends TotalKey>({ report, keys, l
   const totals = report.totals;
   const estimated = totals.estimated ?? "0.00";
   const hasEstimates = Number(estimated) > 0;
-  const nothingAllocated = Number(totals.fob) > 0 && Number(totals.allocated ?? "0") === 0;
+  const nothingAllocated = report.lines.length > 0 && report.lines.every((ln) => ln.without_charge);
 
   return (
     <div className={`grid grid-cols-2 gap-3 mb-6 ${keys.length === 5 ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>

@@ -2085,6 +2085,11 @@ export interface components {
              * @default 0
              */
             fob_missing_lines: number;
+            /**
+             * Containers Without Charge
+             * @default 0
+             */
+            containers_without_charge: number;
         };
         /** AuditCompleteness */
         AuditCompleteness: {
@@ -2271,6 +2276,11 @@ export interface components {
              * @default 0
              */
             fob_missing_lines: number;
+            /**
+             * Containers Without Charge
+             * @default 0
+             */
+            containers_without_charge: number;
         };
         /**
          * AuditPage
@@ -3931,8 +3941,14 @@ export interface components {
             fob: string | null;
             /** Landed */
             landed: string | null;
+            /** Charged Fob */
+            charged_fob: string | null;
             /** Coefficient */
             coefficient: string | null;
+            /** Estimated */
+            estimated: string;
+            /** Containers Without Charge */
+            containers_without_charge: number;
             /** Variance Estimated */
             variance_estimated: string;
             /** Variance Actual */
@@ -4538,6 +4554,10 @@ export interface components {
             vat: string;
             /** Landed */
             landed: string | null;
+            /** Charged Fob */
+            charged_fob: string | null;
+            /** Coefficient */
+            coefficient: string | null;
             /** Quantity */
             quantity: string;
             /** Load Count */
@@ -4555,6 +4575,10 @@ export interface components {
              * @default 0
              */
             fob_missing_lines: number;
+            /** Estimated */
+            estimated: string;
+            /** Containers Without Charge */
+            containers_without_charge: number;
         };
         /** ReportLine */
         ReportLine: {
@@ -4607,6 +4631,11 @@ export interface components {
             };
             /** Fob Missing */
             fob_missing?: string | null;
+            /**
+             * Without Charge
+             * @default false
+             */
+            without_charge: boolean;
         };
         /**
          * ReportNote
@@ -4644,6 +4673,8 @@ export interface components {
             landed: string | null;
             /** Unit Landed Cost */
             unit_landed_cost: string | null;
+            /** Coefficient */
+            coefficient: string | null;
             /** Load Count */
             load_count: number;
             /** Fob Missing */
@@ -4653,6 +4684,10 @@ export interface components {
              * @default 0
              */
             fob_missing_lines: number;
+            /** Estimated */
+            estimated: string;
+            /** Containers Without Charge */
+            containers_without_charge: number;
         };
         /** ReportWarning */
         ReportWarning: {
@@ -4983,6 +5018,8 @@ export interface components {
             estimated: string;
             /** Fob Missing */
             fob_missing?: string | null;
+            /** Without Charge */
+            without_charge: boolean;
         };
         /**
          * SkuBox
@@ -5028,6 +5065,8 @@ export interface components {
              * @default 0
              */
             fob_missing_lines: number;
+            /** Without Charge */
+            without_charge: boolean;
         };
         /** SkuDetailResponse */
         SkuDetailResponse: {
@@ -5089,6 +5128,8 @@ export interface components {
             unit_fob: string | null;
             /** Unit Landed */
             unit_landed: string | null;
+            /** Coefficient */
+            coefficient: string | null;
             /** Last Unit Landed */
             last_unit_landed: string | null;
             /** Previous Unit Landed */
@@ -5120,6 +5161,8 @@ export interface components {
              * @default 0
              */
             fob_missing_lines: number;
+            /** Containers Without Charge */
+            containers_without_charge: number;
         };
         /** SupplierCreate */
         SupplierCreate: {

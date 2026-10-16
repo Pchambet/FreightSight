@@ -1669,7 +1669,8 @@
       "container": "Container",
       "paid": "Paid",
       "avoided": "Avoided",
-      "rule": "Rule"
+      "rule": "Rule",
+      "estimated": "Of which estimated"
     },
     "unknownRoute": "unknown route",
     "empty": "No goods arrived in the period. A container with no discharge, arrival or ETA date is not counted.",
@@ -1721,7 +1722,7 @@
         "subtitle": "What each family of charges adds to the price paid to suppliers."
       }
     },
-    "landedIncludesEstimates": "Includes charges still estimated, until their invoice replaces them."
+    "estimated": "estimated"
   },
   "workflow": {
     "nextStep": "Next step",
@@ -1932,7 +1933,7 @@
       "varianceSub": "{pairs, plural, one {# cost trued up} other {# costs trued up}}, for {estimated} estimated",
       "varianceNone": "No estimate replaced by an invoice in the period.",
       "dndAtRisk": "{amount} running",
-      "includesEstimates": "Charges still estimated are counted: a cost estimated at booking counts until its invoice replaces it. Each container's page says what is still estimated."
+      "feesEstimated": "of which {amount} estimated"
     },
     "structure": {
       "title": "Landing charges per month",
@@ -1962,7 +1963,8 @@
         "unitFob": "Unit purchase",
         "unitLanded": "Unit landed",
         "coef": "Ratio"
-      }
+      },
+      "estimated": "estimated"
     },
     "orgChanged": {
       "title": "Your last action was not saved",
@@ -2088,7 +2090,7 @@
     "detail": {
       "arrivals": "{count, plural, one {# arrival} other {# arrivals}}",
       "unitLanded": "Average unit landed cost",
-      "unitLandedHint": "Total landed cost of the SKU divided by the quantity received, all arrivals together. Import VAT excluded.",
+      "unitLandedHint": "Total landed cost of the SKU divided by the quantity received in the containers that carry charges. Import VAT excluded.",
       "coef": "landed cost ratio {coef}",
       "last": "Last arrival",
       "vsPrevious": "vs previous arrival",
@@ -2756,5 +2758,11 @@
     "total": "{count, plural, one {One order line has no exchange rate: the value of its goods is unknown.} other {# order lines have no exchange rate: the value of their goods is unknown.}} FOB, landed cost and what follows from them (coefficient, unit cost, margin) are not computed until the rate is set on the order.",
     "line": "Order with no exchange rate: value unknown",
     "setRate": "Set the rate on the order"
+  },
+  "withoutCharge": {
+    "total": "{count, plural, one {One container has no charge yet, estimated or invoiced: its landed cost would only be its FOB. It is therefore left out of the landed cost, the coefficient, the unit costs and the margins; its goods are still counted in the FOB.} other {# containers have no charge yet, estimated or invoiced: their landed cost would only be their FOB. They are therefore left out of the landed cost, the coefficient, the unit costs and the margins; their goods are still counted in the FOB.}}",
+    "count": "{count, plural, one {# container with no charge, not counted} other {# containers with no charge, not counted}}",
+    "box": "No charge, estimated or invoiced: this would only be the FOB",
+    "see": "See the containers"
   }
 }

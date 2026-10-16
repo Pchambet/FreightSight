@@ -1669,7 +1669,8 @@
       "container": "Conteneur",
       "paid": "Payé",
       "avoided": "Évité",
-      "rule": "Règle"
+      "rule": "Règle",
+      "estimated": "Dont estimé"
     },
     "unknownRoute": "route inconnue",
     "empty": "Aucune marchandise arrivée sur la période. Un conteneur sans date de déchargement, d'arrivée ni d'ETA n'est pas compté.",
@@ -1721,7 +1722,7 @@
         "subtitle": "Ce que chaque famille de frais ajoute au prix payé aux fournisseurs."
       }
     },
-    "landedIncludesEstimates": "Frais encore estimés compris, jusqu'à ce que leur facture les remplace."
+    "estimated": "estimé"
   },
   "workflow": {
     "nextStep": "Prochaine étape",
@@ -1932,7 +1933,7 @@
       "varianceSub": "{pairs, plural, one {# coût recalé} other {# coûts recalés}}, pour {estimated} estimés",
       "varianceNone": "Aucun estimé remplacé par une facture sur la période.",
       "dndAtRisk": "{amount} en cours",
-      "includesEstimates": "Les frais encore estimés sont comptés : un coût estimé à la réservation compte jusqu'à ce que sa facture le remplace. La fiche de chaque conteneur dit ce qui reste estimé."
+      "feesEstimated": "dont {amount} estimés"
     },
     "structure": {
       "title": "Frais d'approche par mois",
@@ -1962,7 +1963,8 @@
         "unitFob": "Achat unitaire",
         "unitLanded": "Rendu unitaire",
         "coef": "Coef."
-      }
+      },
+      "estimated": "estimé"
     },
     "orgChanged": {
       "title": "Votre dernière action n'a pas été enregistrée",
@@ -2088,7 +2090,7 @@
     "detail": {
       "arrivals": "{count, plural, one {# arrivage} other {# arrivages}}",
       "unitLanded": "Rendu unitaire moyen",
-      "unitLandedHint": "Coût rendu total de la référence divisé par la quantité reçue, tous arrivages confondus. TVA import exclue.",
+      "unitLandedHint": "Coût rendu total de la référence divisé par la quantité reçue dans les conteneurs qui portent des frais. TVA import exclue.",
       "coef": "coefficient d'approche {coef}",
       "last": "Dernier arrivage",
       "vsPrevious": "vs arrivage précédent",
@@ -2756,5 +2758,11 @@
     "total": "{count, plural, one {Une ligne de commande n'a pas de taux de change : la valeur de ses marchandises est inconnue.} other {# lignes de commande n'ont pas de taux de change : la valeur de leurs marchandises est inconnue.}} Le FOB, le coût de revient et ce qui en découle (coefficient, coût unitaire, marge) ne sont pas calculés tant que le taux n'est pas saisi sur la commande.",
     "line": "Commande sans taux de change : valeur inconnue",
     "setRate": "Saisir le taux sur la commande"
+  },
+  "withoutCharge": {
+    "total": "{count, plural, one {Un conteneur n'a encore aucun frais, ni estimé ni facturé : son coût rendu ne serait que son FOB. Il n'est donc compté ni dans le coût rendu, ni dans le coefficient, ni dans les coûts unitaires et les marges ; ses marchandises restent comptées dans le FOB.} other {# conteneurs n'ont encore aucun frais, ni estimé ni facturé : leur coût rendu ne serait que leur FOB. Ils ne sont donc comptés ni dans le coût rendu, ni dans le coefficient, ni dans les coûts unitaires et les marges ; leurs marchandises restent comptées dans le FOB.}}",
+    "count": "{count, plural, one {# conteneur sans aucun frais, non compté} other {# conteneurs sans aucun frais, non comptés}}",
+    "box": "Aucun frais, ni estimé ni facturé : ce ne serait que le FOB",
+    "see": "Voir les conteneurs"
   }
 }
