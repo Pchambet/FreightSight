@@ -894,7 +894,9 @@ def test_one_receipt_line_is_never_paired_with_two_of_our_lines(
 
     body = preview(client, container_id)
     assert body["pushable"] is False
-    assert "ambiguous_line" in [b["code"] for b in body["blockers"]]
+    # Both moves are P00012's lots: P00099 has no line on this receipt at all.
+    (blocker,) = [b for b in body["blockers"] if b["code"] in ("unmatched_line", "ambiguous_line")]
+    assert (blocker["code"], blocker["params"]["po_number"]) == ("unmatched_line", "P00099")
     assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 422
     assert odoo.created == []
 
@@ -936,6 +938,81 @@ def test_a_move_placed_as_an_order_s_only_line_is_not_paired_with_another_order_
     (blocker,) = [b for b in body["blockers"] if b["code"] == "ambiguous_line"]
     assert blocker["params"]["po_number"] == "P00099"
     assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 422
+    assert odoo.created == []
+
+
+def test_a_move_that_names_another_order_is_never_this_order_s_line(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """100 pieces on P00012 and 100 on P00099, and the receipt's only move of the SKU is P00012's.
+    Being the only one does not make it P00099's too: its charge would land on P00012's goods. P00099
+    has no line there, and that is what is said."""
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container = client.post("/api/v1/containers", json={"container_number": "MSCU4821990"})
+    container_id = str(container.json()["id"])
+    loads = []
+    for po_number in (PO_NUMBER, "P00099"):
+        line = {"line_no": 1, "sku": SKU, "quantity": "100", "unit_price": "10.00"}
+        po = client.post(
+            "/api/v1/purchase-orders", json={"po_number": po_number, "currency": "EUR", "lines": [line]}
+        )
+        assert po.status_code == 201, po.text
+        loads.append({"po_line_id": po.json()["lines"][0]["id"], "quantity": "100"})
+    assert client.put(f"/api/v1/containers/{container_id}/loads", json=loads).status_code == 200
+    cost = client.post(
+        "/api/v1/costs",
+        json={
+            "scope": "CONTAINER",
+            "target_id": container_id,
+            "cost_type": "OCEAN_FREIGHT",
+            "amount": "1000.00",
+            "currency": "EUR",
+            "cost_date": "2026-03-12",
+        },
+    )
+    assert cost.status_code == 201, cost.text
+
+    body = preview(client, container_id)
+    assert body["pushable"] is False
+    (blocker,) = [b for b in body["blockers"] if b["code"] in ("unmatched_line", "ambiguous_line")]
+    assert (blocker["code"], blocker["params"]["po_number"]) == ("unmatched_line", "P00099")
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 422
+    assert odoo.created == []
+
+
+def test_a_quantity_never_pairs_an_order_with_another_order_s_lot(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only P00099 is in the box, 100 pieces. The receipt has P00012's move of 100 and a move of 200
+    that names no order. The equal quantity is P00012's lot: it does not make it P00099's."""
+    odoo = WritableOdoo(split_move=True, split_order=False)
+    connect(client, odoo, monkeypatch)
+    line = {"line_no": 1, "sku": SKU, "quantity": "100", "unit_price": "10.00"}
+    po = client.post(
+        "/api/v1/purchase-orders", json={"po_number": "P00099", "currency": "EUR", "lines": [line]}
+    )
+    assert po.status_code == 201, po.text
+    container = client.post("/api/v1/containers", json={"container_number": "MSCU4821990"})
+    container_id = str(container.json()["id"])
+    loads = [{"po_line_id": po.json()["lines"][0]["id"], "quantity": "100"}]
+    assert client.put(f"/api/v1/containers/{container_id}/loads", json=loads).status_code == 200
+    cost = client.post(
+        "/api/v1/costs",
+        json={
+            "scope": "CONTAINER",
+            "target_id": container_id,
+            "cost_type": "OCEAN_FREIGHT",
+            "amount": "1000.00",
+            "currency": "EUR",
+            "cost_date": "2026-03-12",
+        },
+    )
+    assert cost.status_code == 201, cost.text
+
+    body = preview(client, container_id)
+    assert body["pushable"] is False
+    assert [b["code"] for b in body["blockers"]] == ["ambiguous_line"]
     assert odoo.created == []
 
 
@@ -1394,11 +1471,12 @@ def test_a_held_cost_the_engine_cannot_allocate_for_now_is_not_taken_back(
         update(PurchaseOrder).where(PurchaseOrder.po_number == "P00099").values(fx_rate=None, fx_date=None)
     )
     db.flush()
+    # P00012's own: the receipt has no line of P00099, whose share of a container charge is refused.
     demurrage = client.post(
         "/api/v1/costs",
         json={
-            "scope": "CONTAINER",
-            "target_id": container_id,
+            "scope": "PO",
+            "target_id": ours["id"],
             "cost_type": "DEMURRAGE",
             "amount": "300.00",
             "currency": "EUR",

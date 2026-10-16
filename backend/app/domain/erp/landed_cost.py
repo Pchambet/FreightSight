@@ -582,12 +582,17 @@ def _moves_by_sku(receipt: ErpReceipt) -> dict[str, list[ErpReceiptLine]]:
 def _candidate_moves(moves: dict[str, list[ErpReceiptLine]], line: PurchaseOrderLine) -> list[ErpReceiptLine]:
     """The receipt lines this order line could be. One is a match; anything else is a question."""
     candidates = moves.get(line.sku or "", [])
-    if len(candidates) < 2:
-        return candidates
     # The same SKU on two purchase orders is two different receipt lines, and each move says which
     # order it came from. That settles the common half of the ambiguity without guessing.
     same_order = [move for move in candidates if move.po_number == line.purchase_order.po_number]
-    return same_order or candidates
+    if same_order:
+        return same_order
+    # A move that names another order is that order's goods, even when it is the only one of the SKU:
+    # taken as ours, our charge would land on them. Only a move that names no order can be ours, and
+    # beside another order's lot it may be that order's second lot as much as ours: still a question.
+    if all(move.po_number is not None for move in candidates):
+        return []
+    return candidates
 
 
 def _pair_by_quantity(
@@ -609,8 +614,13 @@ def _pair_by_quantity(
         candidates = _candidate_moves(moves, group[0].po_line)
         if len(candidates) < 2:
             continue
+        order = group[0].po_line.purchase_order.po_number
         for load in group:
-            same_quantity = [move for move in candidates if Decimal(move.quantity) == load.quantity]
+            same_quantity = [
+                move
+                for move in candidates
+                if move.po_number in (None, order) and Decimal(move.quantity) == load.quantity
+            ]
             rivals = [other for other in group if other.quantity == load.quantity]
             if len(same_quantity) == 1 and len(rivals) == 1:
                 out[load.id] = same_quantity[0]
