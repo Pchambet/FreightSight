@@ -100,6 +100,7 @@ class WritableOdoo:
         cost_lines_reversed: bool = False,
         split_order: bool = True,
         other_order_receipt: bool = False,
+        vendor_ref: str | None = None,
     ) -> None:
         self.valued = valued
         self.receipts = receipts
@@ -115,6 +116,8 @@ class WritableOdoo:
         self.split_order = split_order
         # P00099 came in on a receipt of its own, WH/IN/00008, found only when that order is asked for.
         self.other_order_receipt = other_order_receipt
+        # The supplier's own reference on the order, which Odoo appends to the order's display name.
+        self.vendor_ref = vendor_ref
         # What the ERP company keeps its books in. Ours pushes a bare number.
         self.currency = currency
         # Odoo returns an x2many in no contractual order; on a draft adopted from an interrupted
@@ -251,6 +254,13 @@ class _Models:
                 if self.odoo.split_move:
                     # The second lot is a second order line of the same order.
                     lines.append({"id": 25, "order_id": [12, PO_NUMBER]})
+                if self.odoo.vendor_ref:
+                    # A many2one reads as the display name: "P00012 (PI-2026-55)", not the name.
+                    suffix = f" ({self.odoo.vendor_ref})"
+                    lines = [
+                        {**line, "order_id": [line["order_id"][0], line["order_id"][1] + suffix]}
+                        for line in lines
+                    ]
                 return lines
             case ("product.product", "read"):
                 if self.odoo.valued:
@@ -979,6 +989,21 @@ def test_a_move_that_names_another_order_is_never_this_order_s_line(
     assert (blocker["code"], blocker["params"]["po_number"]) == ("unmatched_line", "P00099")
     assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 422
     assert odoo.created == []
+
+
+def test_an_order_with_the_supplier_s_reference_is_still_this_order(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Odoo shows an order with its supplier's reference as "P00012 (PI-2026-55)". The move is still
+    P00012's: read as another order, every line of an order with a reference would go unmatched."""
+    odoo = WritableOdoo(vendor_ref="PI-2026-55")
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+
+    body = preview(client, container_id)
+    assert body["pushable"] is True, body["blockers"]
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 201
+    assert len(odoo.created) == 1
 
 
 def test_a_quantity_never_pairs_an_order_with_another_order_s_lot(
