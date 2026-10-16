@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.money import q2
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
-from app.domain.costing.service import Computation
+from app.domain.costing.service import Computation, charged_containers
 from app.domain.costing.value import coefficient, missing_code, total
 from app.domain.models import (
     AuditLog,
@@ -366,7 +366,7 @@ def _readiness(db: Session, comp: Computation, org: Organization, live: list[Liv
             )
             box.estimated += line.estimated
     in_month = {line.container_id for line in live}
-    costed = {comp.load_rows[a.load_id].container_id for a in comp.result.allocations}
+    costed = charged_containers(comp)
     to_review = db.scalars(
         select(Invoice.id).where(Invoice.org_id == org.id, Invoice.status == InvoiceStatus.NEEDS_REVIEW)
     )

@@ -603,9 +603,11 @@ def sku_costs_csv(
         start, end = (month_start(period), periods.month_end(period)) if period else (None, None)
         found = sku_report(t.db, compute(t.db, t.org), t.org, period_from=start, period_to=end)
         for article in found:
-            boxes = [b for b in article.boxes if not b.arrival_is_estimate]
+            # Nothing has landed: a cost price is not updated from a plan. Nor from a box with no
+            # charge, whose "cost price" would be its purchase price.
+            boxes = [b for b in article.boxes if not b.arrival_is_estimate and not b.without_charge]
             if not boxes:
-                continue  # nothing has landed: a cost price is not updated from a plan
+                continue
             kept = boxes[-1:] if basis == "last" else boxes
             quantity = sum((b.quantity for b in kept), Decimal(0))
             landed = total(b.landed for b in kept)

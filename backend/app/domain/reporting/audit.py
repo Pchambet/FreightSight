@@ -33,8 +33,8 @@ from app.core.errors import Unprocessable
 from app.core.money import q2, q4, to_base
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
 from app.domain.costing.entry import DUTY_GUARD, normalize_invoice_number, normalize_vendor, same_invoice
-from app.domain.costing.service import Computation
-from app.domain.costing.value import coefficient, total
+from app.domain.costing.service import Computation, charged_containers
+from app.domain.costing.value import total
 from app.domain.models import Container, Cost, CostStatus, Invoice, InvoiceLine, InvoiceStatus, Organization
 from app.domain.reporting.service import (
     UNKNOWN,
@@ -213,6 +213,8 @@ class Margin:
     points_lost: Decimal | None = None
     fob_missing: str | None = None
     fob_missing_lines: int = 0
+    #: The article's containers with no charge at all: in none of the figures above.
+    containers_without_charge: int = 0
 
 
 @dataclass
@@ -241,6 +243,7 @@ class CoefficientBucket:
     coefficient: Decimal | None
     fob_missing: str | None = None
     fob_missing_lines: int = 0
+    containers_without_charge: int = 0
 
 
 @dataclass
@@ -378,7 +381,7 @@ def audit_report(
         demurrage=demurrage,
         coefficient_by_month=[_coefficient(b) for b in monthly.buckets],
         coefficient_by_supplier=[_coefficient(b) for b in by_supplier.buckets],
-        coefficient=coefficient(monthly.totals.landed, monthly.totals.fob),
+        coefficient=monthly.totals.coefficient,
         assumed_coefficient=assumed,
         completeness=_completeness(db, comp, org, boxes, costs_in, monthly.totals),
         rules=RULES,
@@ -864,22 +867,27 @@ def _margins(
     articles: list[SkuSummary] = sku_report(db, comp, org, period_from=period_from, period_to=period_to)
     found: list[Margin] = []
     for article in articles:
+        if all(point.without_charge for point in article.points):
+            continue  # not one of its containers carries a charge: there is no approach cost to tell
+        # Measured on what the containers that carry a charge brought in: one with none has no
+        # approach cost to tell, and its goods would only dilute the others'.
+        fob, landed, quantity = article.charged_fob, article.landed, article.charged_quantity
+        unit_fob = None if fob is None or not quantity else q4(fob / quantity)
         margin = Margin(
             sku=article.sku,
             description=article.description,
-            quantity=article.quantity,
-            fob=article.fob,
-            landed=article.landed,
-            unit_fob=article.unit_fob,
+            quantity=quantity,
+            fob=fob,
+            landed=landed,
+            unit_fob=unit_fob,
             unit_landed=article.unit_landed,
-            approach_costs=q2(article.landed - article.fob)
-            if article.landed is not None and article.fob is not None
-            else None,
-            gap_vs_assumed=q2(article.landed - article.fob * assumed)
-            if assumed is not None and article.landed is not None and article.fob is not None
+            approach_costs=q2(landed - fob) if landed is not None and fob is not None else None,
+            gap_vs_assumed=q2(landed - fob * assumed)
+            if assumed is not None and landed is not None and fob is not None
             else None,
             fob_missing=article.fob_missing,
             fob_missing_lines=article.fob_missing_lines,
+            containers_without_charge=article.containers_without_charge,
         )
         price = article.sale_price
         # A price in another currency than the books gives no margin here either (see sku_report).
@@ -887,8 +895,8 @@ def _margins(
         # headline would add up the other articles as if they were all.
         if price is not None and price > 0 and (article.margin_unit is not None or article.fob_missing):
             margin.sale_price = price
-            if article.unit_fob is not None and article.unit_landed is not None:
-                margin.margin_on_fob_pct = ((price - article.unit_fob) / price * 100).quantize(TENTH)
+            if unit_fob is not None and article.unit_landed is not None:
+                margin.margin_on_fob_pct = ((price - unit_fob) / price * 100).quantize(TENTH)
                 margin.margin_real_pct = ((price - article.unit_landed) / price * 100).quantize(TENTH)
                 margin.points_lost = margin.margin_on_fob_pct - margin.margin_real_pct
         found.append(margin)
@@ -947,9 +955,11 @@ def _coefficient(bucket: Bucket) -> CoefficientBucket:
     return CoefficientBucket(
         key=bucket.key,
         label=bucket.label,
-        fob=bucket.fob,
+        # The goods the landed cost is measured on: a container with no charge is in neither.
+        fob=bucket.charged_fob,
         landed=bucket.landed,
-        coefficient=coefficient(bucket.landed, bucket.fob),
+        coefficient=bucket.coefficient,
+        containers_without_charge=bucket.containers_without_charge,
         fob_missing=bucket.fob_missing,
         fob_missing_lines=bucket.fob_missing_lines,
     )
@@ -988,7 +998,7 @@ def _completeness(
         counted = cost.cost_type.value not in EXCLUDED_FROM_LANDED
         if cost.status is CostStatus.ESTIMATE and in_period and counted:
             estimated += allocation.amount_base
-    costed = {comp.load_rows[a.load_id].container_id for a in comp.result.allocations}
+    costed = charged_containers(comp)
     to_review = db.scalar(
         select(func.count(Invoice.id)).where(
             Invoice.org_id == org.id, Invoice.status == InvoiceStatus.NEEDS_REVIEW

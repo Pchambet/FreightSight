@@ -17,8 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.money import q2
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
-from app.domain.costing.service import Computation
-from app.domain.costing.value import coefficient
+from app.domain.costing.service import Computation, charged_containers
 from app.domain.models import (
     Container,
     CostStatus,
@@ -51,8 +50,13 @@ class Figures:
     containers: int
     #: None, with `landed` and `coefficient`, while a line of the period has no value.
     fob: Decimal | None
+    #: Over the containers that carry a charge, and the value of their goods: see `Bucket`.
     landed: Decimal | None
+    charged_fob: Decimal | None
     coefficient: Decimal | None
+    #: The part of `landed` still resting on estimates: the audit's completeness for the same dates.
+    estimated: Decimal
+    containers_without_charge: int
     variance_estimated: Decimal
     variance_actual: Decimal
     variance: Decimal
@@ -163,7 +167,10 @@ def _figures(
         containers=len(landed_boxes),
         fob=totals.fob,
         landed=totals.landed,
-        coefficient=coefficient(totals.landed, totals.fob),
+        charged_fob=totals.charged_fob,
+        coefficient=totals.coefficient,
+        estimated=totals.estimated,
+        containers_without_charge=totals.containers_without_charge,
         variance_estimated=q2(estimated),
         variance_actual=q2(actual),
         variance=q2(actual - estimated),
@@ -190,7 +197,7 @@ def _todo(
         db.scalars(select(Container).where(Container.org_id == org.id, Container.archived_at.is_(None)))
     )
     loaded = {comp.load_rows[load.id].container_id for load in comp.loads}
-    costed = {comp.load_rows[a.load_id].container_id for a in comp.result.allocations}
+    costed = charged_containers(comp)
 
     landed = {c.id for c in active if c.discharged_at is not None or c.ata is not None}
     waiting = sum(

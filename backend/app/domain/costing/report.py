@@ -10,7 +10,7 @@ from uuid import UUID
 from app.core.money import q2, q4
 from app.domain.costing import engine
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
-from app.domain.costing.service import Computation, to_engine_cost
+from app.domain.costing.service import Computation, charged_containers, to_engine_cost
 from app.domain.costing.value import FX_RATE_MISSING, missing_code, total
 from app.domain.models import Cost, CostStatus
 
@@ -51,6 +51,9 @@ class LineReport:
     #: Why `fob`, and with it `landed` and `unit_landed_cost`, are None: its order has no exchange
     #: rate (FX_RATE_MISSING), so its value is not known rather than guessed.
     fob_missing: str | None = None
+    #: Its container carries no charge at all (see `charged_containers`): `landed` is only the FOB,
+    #: and the screens show no landed cost for it.
+    without_charge: bool = False
 
 
 @dataclass
@@ -177,6 +180,7 @@ def _report(comp: Computation, base_currency: str, load_filter: set[UUID], cost_
         matched_estimated += scoped
         detail[estimate.cost_type.value].estimated = detail[estimate.cost_type.value].estimated + scoped
 
+    charged = charged_containers(comp)
     lines: list[LineReport] = []
     for ld in comp.loads:
         if ld.id not in load_filter:
@@ -209,6 +213,7 @@ def _report(comp: Computation, base_currency: str, load_filter: set[UUID], cost_
                 variance=q2(variance_per_load.get(ld.id, ZERO)),
                 by_cost_type=by_ct,
                 fob_missing=None if ld.value_known else FX_RATE_MISSING,
+                without_charge=ld.container_id not in charged,
             )
         )
 

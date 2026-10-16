@@ -569,6 +569,9 @@ class ReportLine(BaseModel):
     #: Why `fob`, `landed` and `unit_landed_cost` are null — FX_RATE_MISSING: the order has no
     #: exchange rate. Null when they are the line's figures.
     fob_missing: str | None = None
+    #: The line's container carries no charge at all, estimated or invoiced: `landed` is only its
+    #: FOB, and every summary leaves it out of its landed figures.
+    without_charge: bool = False
 
 
 class LandedCostReport(BaseModel):
@@ -1167,6 +1170,9 @@ class AuditMargin(BaseModel):
     points_lost: Decimal | None
     fob_missing: str | None = None
     fob_missing_lines: int = 0
+    #: Containers of the article with no charge at all: their goods are in none of the figures above,
+    #: which measure what the others brought in. An article with nothing else is not listed.
+    containers_without_charge: int = 0
 
 
 class AuditDemurrageLine(BaseModel):
@@ -1190,11 +1196,14 @@ class AuditCoefficient(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     key: str
     label: str
+    #: The goods of the containers that carry a charge, and their landed cost.
     fob: Money | None
     landed: Money | None
     coefficient: Qty | None
     fob_missing: str | None = None
     fob_missing_lines: int = 0
+    #: Containers with no charge at all, left out of the three figures above.
+    containers_without_charge: int = 0
 
 
 class AuditCompleteness(BaseModel):
@@ -1566,12 +1575,21 @@ class OverviewFigures(BaseModel):
     period_to: date
     #: Containers that landed in the period (discharge, else arrival, else the shipment's ETA).
     containers: int
+    #: Every container's goods, charged or not: a fact.
     fob: Money | None
+    #: The landed cost of the containers that carry a charge, estimated or invoiced, and the value of
+    #: their goods. A container with none would only add its FOB: it is left out of both, and counted
+    #: in `containers_without_charge`. Null when none carries a charge.
     landed: Money | None
-    #: landed / fob, four decimals: 1.1400 means the goods cost 14 % more than their purchase price
-    #: once they are in the warehouse. Null when nothing landed, or with `fob` and `landed` while a
-    #: line of the period has no value (`fob_missing`).
+    charged_fob: Money | None
+    #: landed / charged_fob, four decimals: 1.1400 means the goods cost 14 % more than their purchase
+    #: price once they are in the warehouse. Null when nothing landed, or with `fob` and `landed`
+    #: while a line of the period has no value (`fob_missing`).
     coefficient: Qty | None
+    #: The part of `landed` still resting on estimates, import VAT excluded: the audit's
+    #: `completeness.estimated` for the same dates.
+    estimated: Money
+    containers_without_charge: int
     #: Estimates replaced by an invoice dated in the period, and what the invoices came to.
     variance_estimated: Money
     variance_actual: Money
@@ -1686,11 +1704,16 @@ class SkuSummary(BaseModel):
     quantity: Qty
     #: Null, with every figure built on them, while one of its lines has no value (`fob_missing`).
     fob: Money | None
+    #: Over the containers that carry a charge: one with none is in `quantity`, `fob` and `unit_fob`,
+    #: in no landed figure nor margin (`containers_without_charge`). Null when none carries one.
     landed: Money | None
     unit_fob: Qty | None
-    #: Weighted by quantity over every arrival of the period.
+    #: Weighted by quantity over every arrival of the period that carries a charge.
     unit_landed: Qty | None
-    #: The two most recent containers that have actually landed. A box still at sea is not compared.
+    #: landed over the value of the same goods.
+    coefficient: Qty | None
+    #: The two most recent containers that have actually landed and carry a charge. A box still at
+    #: sea is not compared, nor one with no charge.
     last_unit_landed: Qty | None
     previous_unit_landed: Qty | None
     #: last against previous, in per cent, one decimal, signed: "8.6", "-2.1".
@@ -1711,6 +1734,7 @@ class SkuSummary(BaseModel):
     last_margin_pct: Decimal | None = None
     fob_missing: str | None = None
     fob_missing_lines: int = 0
+    containers_without_charge: int
 
 
 class SkuArrival(BaseModel):
@@ -1734,6 +1758,8 @@ class SkuArrival(BaseModel):
     unit_by_cost_type: dict[str, Qty]
     estimated: Money
     fob_missing: str | None = None
+    #: Its container carries no charge at all: `landed` and `unit_landed` are null.
+    without_charge: bool
 
 
 class SkuBox(BaseModel):
@@ -1755,6 +1781,8 @@ class SkuBox(BaseModel):
     estimated: Money
     fob_missing: str | None = None
     fob_missing_lines: int = 0
+    #: No charge at all on this container: `landed` and `unit_landed` are null.
+    without_charge: bool
 
 
 class SkuListResponse(BaseModel):
@@ -1972,29 +2000,43 @@ class ErpSyncRunResponse(BaseModel):
 class ReportBucket(BaseModel):
     key: str
     label: str
-    #: Null, with `landed` and `freight_share_pct`, while one of its lines has no value (`fob_missing`).
+    #: Every line's goods, charged or not. Null, with `landed` and `freight_share_pct`, while one of
+    #: its lines has no value (`fob_missing`).
     fob: Money | None
     allocated: Money
     vat: Money
+    #: The landed cost of the containers that carry a charge, and the value of their goods: one with
+    #: none is left out of both and counted in `containers_without_charge`. Null when none carries
+    #: one. On a row of one charge (group_by=cost_type), `landed` is that charge.
     landed: Money | None
+    charged_fob: Money | None
+    #: landed / charged_fob; null on a row of one charge.
+    coefficient: Qty | None
     quantity: Qty
     load_count: int
-    #: Freight as a percentage of the goods. Null when there are no goods to compare it to.
+    #: Freight as a percentage of the goods it was charged on. Null when there are none.
     freight_share_pct: Pct | None = None
     by_cost_type: dict[str, Money] = Field(default_factory=dict)
     fob_missing: str | None = None
     fob_missing_lines: int = 0
+    #: The part of `landed` still resting on estimates, import VAT excluded.
+    estimated: Money
+    containers_without_charge: int
 
 
 class ReportSkuLine(BaseModel):
     sku: str
     quantity: Qty
     fob: Money | None
+    #: Over the containers that carry a charge, as the buckets'; `unit_landed_cost` over their quantity.
     landed: Money | None
     unit_landed_cost: Qty | None
+    coefficient: Qty | None
     load_count: int
     fob_missing: str | None = None
     fob_missing_lines: int = 0
+    estimated: Money
+    containers_without_charge: int
 
 
 class LandedCostAnalysis(BaseModel):

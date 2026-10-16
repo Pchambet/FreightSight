@@ -156,6 +156,21 @@ def compute(
     )
 
 
+def charged_containers(comp: Computation) -> set[UUID]:
+    """The containers that at least one landed charge reaches, estimated or invoiced.
+
+    A container with goods and no charge at all has a "landed cost" equal to its FOB, which says
+    nothing about what landing it cost. Every landed figure leaves such a container out — its goods
+    stay in the FOB, a fact — and says how many it left out: this is the one place that decides which
+    they are. Import VAT is no charge here, as it is no landed cost anywhere.
+    """
+    return {
+        comp.load_rows[a.load_id].container_id
+        for a in comp.result.allocations
+        if a.amount_base and comp.cost_rows[a.cost_id].cost_type.value not in engine.EXCLUDED_FROM_LANDED
+    }
+
+
 def recompute_org(db: Session, org: Organization) -> Computation:
     """Recompute and materialise allocations for the organization, inside the current transaction.
 
