@@ -15,7 +15,7 @@ from uuid import UUID
 
 from conftest import fake_fetcher
 from fastapi.testclient import TestClient
-from sqlalchemy import select, update
+from sqlalchemy import event, select, update
 from sqlalchemy.orm import Session
 
 from app.domain.fx.service import FxService
@@ -102,6 +102,44 @@ def test_the_worker_gives_a_missing_rate_once_the_provider_has_it(
     assert entry is not None and entry.org_id == org_id and entry.actor_user_id is None
     assert entry.entity_id == UUID(usd["id"])
     assert entry.after == {"fx_rate": "0.92", "fx_date": "2026-09-10", "fx_source": "ecb"}
+
+
+def test_the_worker_asks_for_the_rate_of_the_day_a_person_gave(client: TestClient, db: Session) -> None:
+    """A person who corrected the rate's day while the provider was down left the order with that
+    day and no rate: the worker asks for the rate of that day, not of the order date."""
+    body = {"po_number": "PO-USD", "currency": "USD", "order_date": "2026-09-10", "fx_rate": "1",
+            "lines": [{"line_no": 1, "sku": "A", "quantity": "10", "unit_price": "100"}]}  # fmt: skip
+    po = client.post("/api/v1/purchase-orders", json=body).json()
+    dated = {"fx_rate": None, "fx_date": date(2026, 8, 20), "fx_source": None}
+    db.execute(update(PurchaseOrder).where(PurchaseOrder.id == UUID(po["id"])).values(**dated))
+    db.flush()
+    assert handlers.resolve_missing_rates(db, fx=FxService(fake_fetcher)) == 1
+    found = client.get(f"/api/v1/purchase-orders/{po['id']}").json()
+    assert (found["fx_rate"], found["fx_date"], found["fx_source"]) == ("0.92", "2026-08-20", "ecb")
+
+
+def test_the_worker_locks_the_orders_it_gives_a_rate_to(client: TestClient, db: Session) -> None:
+    """A person setting the rate while the worker asks the provider would otherwise see it replaced
+    by the provider's, the history saying it was missing: the worker locks the orders it reads, and
+    leaves one a person is editing to the next run."""
+    body = {"po_number": "PO-USD", "currency": "USD", "order_date": "2026-09-10", "fx_rate": "1"}
+    po = client.post("/api/v1/purchase-orders", json=body).json()
+    missing = {"fx_rate": None, "fx_date": None, "fx_source": None}
+    db.execute(update(PurchaseOrder).where(PurchaseOrder.id == UUID(po["id"])).values(**missing))
+    db.flush()
+    statements: list[str] = []
+
+    def seen(conn: Any, cursor: Any, statement: str, *args: Any) -> None:
+        statements.append(statement)
+
+    engine = db.get_bind()
+    event.listen(engine, "before_cursor_execute", seen)
+    try:
+        assert handlers.resolve_missing_rates(db, fx=FxService(fake_fetcher)) == 1
+    finally:
+        event.remove(engine, "before_cursor_execute", seen)
+    reads = [s for s in statements if s.lstrip().startswith("SELECT") and "FROM purchase_orders" in s]
+    assert reads and "FOR UPDATE SKIP LOCKED" in reads[0]
 
 
 def test_the_audit_preparation_names_the_orders_still_at_a_defaulted_rate(

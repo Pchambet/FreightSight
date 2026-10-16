@@ -59,18 +59,23 @@ def resolve_missing(db: Session, fx: FxService, org: Organization) -> list[Purch
 
     A missing rate used to be retried only by a later import of the same file, and the ERP sync reads
     only what changed in the ERP: an order left without a rate during an outage stayed so. The day is
-    the one the import asked about — the order date, else the day the order was recorded. A currency
-    the provider does not quote stays missing, asked again at the next run.
+    the one a person gave the rate (`fx_date`, kept when its lookup failed), else the one the import
+    asked about — the order date, else the day the order was recorded. A currency the provider does
+    not quote stays missing, asked again at the next run.
+
+    The orders are locked as they are read: a person setting a rate meanwhile would otherwise see it
+    replaced by the provider's. One a person is editing right now is left to the next run.
     """
     orders = db.scalars(
         select(PurchaseOrder)
         .where(PurchaseOrder.org_id == org.id, PurchaseOrder.fx_rate.is_(None))
         .order_by(PurchaseOrder.po_number)
+        .with_for_update(skip_locked=True)
     )
     asked: dict[tuple[str, date], ResolvedRate | None] = {}
     found = []
     for po in orders:
-        on_date = po.order_date or po.created_at.date()
+        on_date = po.fx_date or po.order_date or po.created_at.date()
         key = (po.currency, on_date)
         if key not in asked:
             try:
