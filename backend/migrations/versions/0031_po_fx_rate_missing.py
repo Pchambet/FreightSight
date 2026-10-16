@@ -10,7 +10,7 @@ person's call (`fx_rate = 1 AND fx_date IS NULL` on a foreign currency is the im
 
 No new table, so no new row-level security policy.
 
-Revision ID: 0032
+Revision ID: 0031
 Revises: 0030
 """
 
@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from alembic import op
 
-revision: str = "0032"
+revision: str = "0031"
 down_revision: str | None = "0030"
 branch_labels: str | None = None
 depends_on: str | None = None
@@ -29,5 +29,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("UPDATE purchase_orders SET fx_rate = 1 WHERE fx_rate IS NULL")
+    # Writing 1 back would bring the silent rate back: the column is required again only once every
+    # order has a rate, and the downgrade fails loudly while one has none.
     op.alter_column("purchase_orders", "fx_rate", nullable=False)
