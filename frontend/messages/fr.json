@@ -1372,7 +1372,26 @@
       "costs_deleted": "Coûts supprimés",
       "kind": "Type de fichier",
       "force_duplicates": "Doublons possibles acceptés",
-      "estimates_reopened": "Estimés rouverts"
+      "estimates_reopened": "Estimés rouverts",
+      "expires_at": "Expire le",
+      "label": "Objet",
+      "redacted": "Prestataires masqués",
+      "period": "Mois",
+      "containers": "Conteneurs",
+      "fob": "FOB",
+      "landed": "Coût rendu",
+      "acknowledged_drift": "Écart passé en écriture",
+      "milestone": "Étape",
+      "last_free_day": "Dernier jour franc",
+      "odoo_model": "Type de document Odoo",
+      "deleted": "Supprimé",
+      "assumed_coefficient": "Coefficient appliqué",
+      "tracking_provider_default": "Fournisseur de suivi par défaut",
+      "alerts": "Alertes",
+      "costs": "Coûts",
+      "invoices": "Factures",
+      "rate_cards": "Barèmes",
+      "shipments": "Expéditions"
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "À relire",
@@ -1388,7 +1407,9 @@
       }
     },
     "filterLabel": "Action",
-    "filterApply": "Afficher"
+    "filterApply": "Afficher",
+    "itemCount": "{count, plural, one {# élément} other {# éléments}}",
+    "pair": "{name} : {value}"
   },
   "confidence": {
     "high": "Lecture fiable",

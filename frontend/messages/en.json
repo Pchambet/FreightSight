@@ -1372,7 +1372,26 @@
       "costs_deleted": "Costs deleted",
       "kind": "Kind of file",
       "force_duplicates": "Possible duplicates accepted",
-      "estimates_reopened": "Estimates reopened"
+      "estimates_reopened": "Estimates reopened",
+      "expires_at": "Expires on",
+      "label": "Subject",
+      "redacted": "Vendors hidden",
+      "period": "Month",
+      "containers": "Containers",
+      "fob": "FOB",
+      "landed": "Landed cost",
+      "acknowledged_drift": "Drift booked",
+      "milestone": "Milestone",
+      "last_free_day": "Last free day",
+      "odoo_model": "Odoo document type",
+      "deleted": "Deleted",
+      "assumed_coefficient": "Coefficient applied",
+      "tracking_provider_default": "Default tracking provider",
+      "alerts": "Alerts",
+      "costs": "Costs",
+      "invoices": "Invoices",
+      "rate_cards": "Rate cards",
+      "shipments": "Shipments"
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "Needs review",
@@ -1388,7 +1407,9 @@
       }
     },
     "filterLabel": "Action",
-    "filterApply": "Show"
+    "filterApply": "Show",
+    "itemCount": "{count, plural, one {# item} other {# items}}",
+    "pair": "{name}: {value}"
   },
   "confidence": {
     "high": "Reliable read",

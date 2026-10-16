@@ -108,10 +108,15 @@ export function daysUntil(isoDate: string | null | undefined): number | null {
   return Math.round((target - todayParis) / 86_400_000);
 }
 
-/** "09/09/2026 14:30" in French, "Sep 9, 2026, 2:30 PM" in English; always the browser-neutral UTC day/time of the ISO value. */
+/**
+ * "09/09/2026 14:30" in French, "09/09/2026, 14:30" in English, read on the clock of Paris: these
+ * pages render on a server whose own zone is UTC, and an action taken at 10:37 in Lyon must not be
+ * logged as 08:37 (the share dialog, rendered in the browser, already said 10:37). Same zone as
+ * `daysUntil`.
+ */
 export function dateTimeShort(value: string | null | undefined, locale: string = DEFAULT_LOCALE): string {
   if (!value) return "—";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
-  return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { dateStyle: "short", timeStyle: "short", timeZone: "UTC" }).format(d);
+  return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Paris" }).format(d);
 }

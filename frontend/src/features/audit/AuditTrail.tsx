@@ -3,7 +3,8 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { Card } from "@/components/layout/AppShell";
 import { auditDiff, auditEntityRef, type Formatters } from "@/features/audit/format";
 import { api, type AuditEntry } from "@/lib/api/client";
-import { dateShort, dateTimeShort, money, rate } from "@/lib/format";
+import { periodTitle } from "@/features/periods/format";
+import { dateShort, dateTimeShort, decimalDisplay, money, rate } from "@/lib/format";
 
 type Json = Record<string, unknown> | null | undefined;
 
@@ -39,6 +40,10 @@ export async function AuditEntries({ entries, labels }: { entries: AuditEntry[];
     importKind: (code: string) => (importKind.has(code as never) ? importKind(code as never) : t("unknownValue")),
     date: (iso: string) => dateShort(iso, locale),
     dateTime: (iso: string) => dateTimeShort(iso, locale),
+    month: (key: string) => periodTitle(key, locale, true),
+    decimal: (raw: string) => decimalDisplay(raw, locale),
+    itemCount: (count: number) => t("itemCount", { count }),
+    pair: (name: string, value: string) => t("pair", { name, value }),
     label: (id: string) => labels?.[id],
   };
   const entityLabel = (type: string) => (t.has(`entity.${type}`) ? t(`entity.${type}`) : type);
