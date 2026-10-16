@@ -905,7 +905,8 @@ def _record_failure(db: Session, org: Organization, connection_id: UUID, reason:
 def resolve_missing_rates(db: Session, *, fx: FxService | None = None) -> int:
     """Give every order still without an exchange rate the one the provider has now. Returns how many
     got one. Each organization is its own transaction, recomputed when one of its orders moved: its
-    value, and every cost split by value on its containers, was missing until then."""
+    value, and every cost split by value on its containers, was missing until then. One that fails is
+    left for the next run and does not stop the others."""
     from app.domain.costing.service import recompute_org
     from app.domain.fx.orders import resolve_missing
 
@@ -913,10 +914,15 @@ def resolve_missing_rates(db: Session, *, fx: FxService | None = None) -> int:
     resolved = 0
     for org in organizations(db):
         with tenant(db, org):
-            found = resolve_missing(db, provider, org)
-            if found:
-                recompute_org(db, org)
-            db.commit()
+            try:
+                found = resolve_missing(db, provider, org)
+                if found:
+                    recompute_org(db, org)
+                db.commit()
+            except Exception:
+                db.rollback()
+                logger.exception("missing exchange rates not resolved for org %s", org.id)
+                continue
         resolved += len(found)
     return resolved
 
