@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { btnPrimary, btnSecondary, Card } from "@/components/layout/AppShell";
 import { Money } from "@/components/shared/Money";
 import { forgetErpPush, listErpPushes, previewErpLandedCost, pushErpLandedCost, type ErpLandedCostPreview, type ErpPushResponse } from "@/features/actions";
-import { dateTimeShort } from "@/lib/format";
+import { dateTimeShort, money } from "@/lib/format";
 
 const KNOWN_BLOCKERS = new Set(["no_erp_connection", "no_actual_costs", "no_receipt", "multiple_receipts", "not_valued", "unmatched_line", "already_pushed", "pushed_cost_changed", "pushed_cost_gone", "ambiguous_line", "erp_currency_mismatch", "adjustment_unplaced"]);
 
@@ -101,7 +101,9 @@ export default function LandedCostPush({ containerId, currency, embedded = false
     return t(`blocker.${b.code}` as never, params as never);
   };
   const nothingNew = blockers.some((b) => b.code === "already_pushed");
-  const going = preview ? preview.costs.filter((c) => !c.pushed_as) : [];
+  // A cost whose difference is to be entered by hand goes nowhere from here, and is not carried either.
+  const going = preview ? preview.costs.filter((c) => !c.pushed_as && !c.by_hand) : [];
+  const signed = (amount: string) => `${amount.startsWith("-") || Number(amount) === 0 ? "" : "+"}${money(amount, currency, locale)}`;
   const latestLivePush = pushes.find((p) => !p.forgotten_at && p.record_url);
 
   return (
@@ -164,6 +166,12 @@ export default function LandedCostPush({ containerId, currency, embedded = false
                       <span className={c.pushed_as ? "" : "text-slate-800"}>
                         {c.label}
                         {c.pushed_as ? <span className="ml-2 inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-xs"><CheckCircle2 className="w-3 h-3 mr-1" />{t("pushedAs", { name: c.pushed_as })}</span> : null}
+                        {c.by_hand ? (
+                          <span className="mt-1 flex items-start text-xs text-amber-900">
+                            <AlertTriangle className="w-3.5 h-3.5 mr-1 mt-px shrink-0 text-amber-600" aria-hidden />
+                            {t("byHand", { existing: c.by_hand.existing, held: money(c.by_hand.held, currency, locale), difference: signed(c.by_hand.difference) })}
+                          </span>
+                        ) : null}
                       </span>
                       <span className={`tabular-nums ${c.pushed_as ? "line-through" : ""}`}><Money amount={c.amount} currency={currency} /></span>
                     </div>

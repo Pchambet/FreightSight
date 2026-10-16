@@ -1616,6 +1616,7 @@
         "adjustment_unplaced": "{existing} was validated with amounts that have changed since ({changes}), and its split per receipt line is not known here. Without it the difference cannot be placed on the right goods: nothing is written for this cost, enter the adjustment by hand in the ERP."
       },
       "pushedAs": "already in {name}",
+      "byHand": "{existing} holds {held} of it: the {difference} difference is to be entered by hand in the ERP",
       "willGo": "{count, plural, one {# cost will go} other {# costs will go}}",
       "nothingNew": "Nothing new to push."
     },

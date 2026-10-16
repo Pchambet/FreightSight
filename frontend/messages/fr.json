@@ -1616,6 +1616,7 @@
         "adjustment_unplaced": "{existing} a été validé avec des montants qui ont changé depuis ({changes}), et sa ventilation par ligne de réception n'est pas connue ici. Sans elle, la différence ne peut pas être placée sur la bonne marchandise : rien n'est écrit pour ce coût, saisissez l'ajustement à la main dans l'ERP."
       },
       "pushedAs": "déjà dans {name}",
+      "byHand": "{existing} en porte {held} : l'écart de {difference} est à saisir à la main dans l'ERP",
       "willGo": "{count, plural, one {# coût partira} other {# coûts partiront}}",
       "nothingNew": "Rien de nouveau à pousser."
     },

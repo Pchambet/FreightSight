@@ -2889,6 +2889,19 @@ export interface components {
             blocking: boolean;
         };
         /**
+         * ErpByHand
+         * @description A difference from a validated document that is not written for want of its split per receipt
+         *     line: a person enters it in the ERP.
+         */
+        ErpByHand: {
+            /** Existing */
+            existing: string;
+            /** Held */
+            held: string;
+            /** Difference */
+            difference: string;
+        };
+        /**
          * ErpConnectionCreate
          * @description Everything needed to reach an Odoo. The API key is sealed before it is stored.
          */
@@ -2989,6 +3002,7 @@ export interface components {
             pushed_as?: string | null;
             /** Pushed Push Id */
             pushed_push_id?: string | null;
+            by_hand?: components["schemas"]["ErpByHand"] | null;
         };
         /** ErpPlannedLine */
         ErpPlannedLine: {
