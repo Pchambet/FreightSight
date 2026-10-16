@@ -21,6 +21,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.errors import Conflict, NotFound, Unprocessable
@@ -451,8 +452,16 @@ def close_period(
                 amount_base=pending.amount_base,
             )
         )
-    db.add(close)
-    db.flush()
+    # Two requests for the same month (a double click) both pass the check above before either has
+    # written; the unique constraint decides, and the loser hears what the check would have said.
+    try:
+        with db.begin_nested():
+            db.add(close)
+            db.flush()
+    except IntegrityError as exc:
+        if getattr(getattr(exc.orig, "diag", None), "constraint_name", None) != "uq_period_closes_org_period":
+            raise
+        raise Conflict("This month is already closed", code="PERIOD_ALREADY_CLOSED") from exc
     return close
 
 
