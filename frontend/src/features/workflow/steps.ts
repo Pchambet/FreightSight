@@ -455,6 +455,20 @@ export function purchaseOrderDetailStep(
       variant: "warning",
     };
   }
+  // Its container's invoice is on file but held by another order with no rate: that rate is the step,
+  // never a second deposit of the same invoice.
+  const holders = report.held_orders ?? [];
+  if (!hasCosts && (report.containers_held ?? 0) > 0 && holders.length > 0) {
+    return {
+      descriptionKey: "poDetail.heldByOther",
+      descriptionParams: { orderCount: holders.length, orders: holders.join(", ") },
+      primary: { href: `/purchase-orders?q=${encodeURIComponent(holders[0])}`, labelKey: "poDetail.openHolder", labelParams: { order: holders[0] } },
+      secondary: container
+        ? [{ href: `/container/${container.id}`, labelKey: "poDetail.openContainer", labelParams: { container: container.number } }]
+        : [],
+      variant: "warning",
+    };
+  }
   if (!hasCosts) {
     return {
       descriptionKey: "poDetail.noCosts",

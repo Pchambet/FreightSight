@@ -1927,7 +1927,9 @@
       "seeUnitCosts": "Coûts unitaires · {container}",
       "ready": "Ventilation à jour sur cette commande.",
       "noRate": "{held, select, yes {Les frais déjà saisis sur le conteneur de cette commande attendent son taux de change pour être ventilés. Saisissez le taux ci-dessus : ils seront répartis aussitôt.} other {Cette commande n'a pas de taux de change : sa valeur est inconnue, et son coût de revient avec. Saisissez le taux ci-dessus.}}",
-      "setRate": "Saisir le taux"
+      "setRate": "Saisir le taux",
+      "heldByOther": "Les frais du conteneur de cette commande sont saisis, mais attendent d'être ventilés{orderCount, plural, one { : la commande {orders} n'a pas de taux de change. Saisissez son taux, ils seront répartis aussitôt.} other { : les commandes {orders} n'ont pas de taux de change. Saisissez leur taux, ils seront répartis aussitôt.}}",
+      "openHolder": "Ouvrir la commande {order}"
     },
     "settings": {
       "noRateCards": "Ajoutez des barèmes pour estimer fret et frais avant les factures réelles.",

@@ -1927,7 +1927,9 @@
       "seeUnitCosts": "Unit costs · {container}",
       "ready": "Allocation is up to date on this order.",
       "noRate": "{held, select, yes {The charges already entered on this order's container are waiting for its exchange rate to be allocated. Enter the rate above and they will be spread at once.} other {This order has no exchange rate: its value is unknown, and so is its landed cost. Enter the rate above.}}",
-      "setRate": "Enter the rate"
+      "setRate": "Enter the rate",
+      "heldByOther": "The charges of this order's container are on file, but waiting to be allocated{orderCount, plural, one {: order {orders} has no exchange rate. Enter its rate and they will be spread at once.} other {: orders {orders} have no exchange rate. Enter their rates and they will be spread at once.}}",
+      "openHolder": "Open order {order}"
     },
     "settings": {
       "noRateCards": "Add rate cards to estimate freight and fees before actual invoices.",
