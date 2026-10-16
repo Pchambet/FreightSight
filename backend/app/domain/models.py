@@ -396,6 +396,10 @@ class PurchaseOrder(Timestamped, OrgScoped, Base):
     #: never priced at a guessed 1.
     fx_rate: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), default=Decimal("1"))
     fx_date: Mapped[date | None] = mapped_column(Date)
+    #: Where the rate came from: ecb | ecb_latest (the provider), manual (typed on the order),
+    #: import (a rate column of the order file), same (the books' currency). None on an order written
+    #: before it was recorded, and on one whose rate is missing.
+    fx_source: Mapped[str | None] = mapped_column(String)
     incoterm: Mapped[Incoterm | None] = mapped_column(Enum(Incoterm, name="incoterm"))
     order_date: Mapped[date | None] = mapped_column(Date)
     status: Mapped[PurchaseOrderStatus] = mapped_column(
@@ -1062,6 +1066,9 @@ class PeriodCloseLine(OrgScoped, Base):
     fob: Mapped[Decimal] = mapped_column(Numeric(16, 2), nullable=False)
     landed: Mapped[Decimal] = mapped_column(Numeric(16, 2), nullable=False)
     by_cost_type: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
+    #: Its container carried no charge at the close: `landed` is its stock value, its FOB, and the
+    #: month's landed cost leaves it out. None on a line frozen before this was recorded.
+    without_charge: Mapped[bool | None] = mapped_column(Boolean)
 
     close: Mapped[PeriodClose] = relationship(back_populates="lines")
 

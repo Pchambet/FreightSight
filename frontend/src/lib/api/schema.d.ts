@@ -4288,7 +4288,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "CONTAINERS_WITHOUT_DATE" | "CONTAINERS_WITHOUT_GOODS" | "CONTAINERS_WITHOUT_COST" | "CONTAINERS_WITHOUT_FREIGHT" | "CONTAINERS_WITHOUT_DUTY" | "INVOICES_NOT_READ" | "INVOICES_TO_REVIEW" | "COST_ROWS_REFUSED" | "COSTS_UNALLOCATED" | "ORDERS_WITHOUT_FX_RATE" | "SAME_INVOICE_TWICE" | "CREDIT_NOTE_REVERSES_COST" | "CREDIT_NOTES_SKIPPED" | "PO_SPLIT" | "LINES_WITHOUT_DUTY_RATE" | "DUTY_GAP" | "DUTY_SPREAD_ON_CIF" | "CONTAINERS_WITHOUT_ROUTE" | "CONTAINERS_WITHOUT_SIZE" | "COSTS_NOT_ON_CONTAINER" | "COSTS_TYPED_OTHER" | "CLOCKS_RUNNING" | "NO_SALE_PRICE" | "NO_ASSUMED_COEFFICIENT" | "ESTIMATES_OPEN";
+            code: "CONTAINERS_WITHOUT_DATE" | "CONTAINERS_WITHOUT_GOODS" | "CONTAINERS_WITHOUT_COST" | "CONTAINERS_WITHOUT_FREIGHT" | "CONTAINERS_WITHOUT_DUTY" | "INVOICES_NOT_READ" | "INVOICES_TO_REVIEW" | "COST_ROWS_REFUSED" | "COSTS_UNALLOCATED" | "ORDERS_WITHOUT_FX_RATE" | "SAME_INVOICE_TWICE" | "CREDIT_NOTE_REVERSES_COST" | "CREDIT_NOTES_SKIPPED" | "ORDERS_RATE_UNCONFIRMED" | "PO_SPLIT" | "LINES_WITHOUT_DUTY_RATE" | "DUTY_GAP" | "DUTY_SPREAD_ON_CIF" | "CONTAINERS_WITHOUT_ROUTE" | "CONTAINERS_WITHOUT_SIZE" | "COSTS_NOT_ON_CONTAINER" | "COSTS_TYPED_OTHER" | "CLOCKS_RUNNING" | "NO_SALE_PRICE" | "NO_ASSUMED_COEFFICIENT" | "ESTIMATES_OPEN";
             /**
              * Severity
              * @enum {string}
@@ -4448,6 +4448,13 @@ export interface components {
             fx_rate: string | null;
             /** Fx Date */
             fx_date: string | null;
+            /** Fx Source */
+            fx_source?: string | null;
+            /**
+             * Rate Unconfirmed
+             * @default false
+             */
+            rate_unconfirmed: boolean;
             incoterm: components["schemas"]["Incoterm"] | null;
             /** Order Date */
             order_date: string | null;

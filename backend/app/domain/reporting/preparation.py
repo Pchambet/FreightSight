@@ -30,6 +30,7 @@ from app.core.money import q2
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
 from app.domain.costing.entry import DUTY_GUARD, normalize_invoice_number, normalize_vendor
 from app.domain.costing.service import Computation
+from app.domain.fx.orders import rate_unconfirmed
 from app.domain.models import (
     AllocationMethod,
     Container,
@@ -78,6 +79,7 @@ Code = Literal[
     "SAME_INVOICE_TWICE",
     "CREDIT_NOTE_REVERSES_COST",
     "CREDIT_NOTES_SKIPPED",
+    "ORDERS_RATE_UNCONFIRMED",
     "PO_SPLIT",
     "LINES_WITHOUT_DUTY_RATE",
     "DUTY_GAP",
@@ -108,6 +110,7 @@ CHECKS: dict[Code, tuple[Severity, Section]] = {
     "SAME_INVOICE_TWICE": ("blocking", "margins"),
     "CREDIT_NOTE_REVERSES_COST": ("blocking", "margins"),
     "CREDIT_NOTES_SKIPPED": ("limits", "findings"),
+    "ORDERS_RATE_UNCONFIRMED": ("limits", "margins"),
     "PO_SPLIT": ("limits", "margins"),
     "LINES_WITHOUT_DUTY_RATE": ("limits", "margins"),
     "DUTY_GAP": ("limits", "margins"),
@@ -188,6 +191,7 @@ def audit_preparation(
         *period.without_fx_rate(),
         *period.double_entries(),
         *period.credit_notes(),
+        *period.rate_unconfirmed(),
         *period.po_split(),
         *period.lines_without_rate(),
         *period.duty_gap(),
@@ -545,6 +549,23 @@ class _Period:
         examples = sorted(orders.values(), key=lambda po: po.po_number)
         return _item(
             "ORDERS_WITHOUT_FX_RATE",
+            len(orders),
+            (Example("purchase_order", str(po.id), po.po_number) for po in examples),
+        )
+
+    def rate_unconfirmed(self) -> list[Item]:
+        """Orders on the period's boxes still at the rate of 1 the import wrote when it had none
+        (`fx.orders.rate_unconfirmed`): their value may be dollars read as euros, which nothing here
+        can tell. Named, so a person confirms or sets each rate."""
+        orders = {
+            load.po_id: self.comp.pos[load.po_id]
+            for load in self.comp.loads
+            if load.container_id in self.boxes
+            and rate_unconfirmed(self.comp.pos[load.po_id], self.org.base_currency)
+        }
+        examples = sorted(orders.values(), key=lambda po: po.po_number)
+        return _item(
+            "ORDERS_RATE_UNCONFIRMED",
             len(orders),
             (Example("purchase_order", str(po.id), po.po_number) for po in examples),
         )

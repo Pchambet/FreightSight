@@ -15283,6 +15283,7 @@
               "SAME_INVOICE_TWICE",
               "CREDIT_NOTE_REVERSES_COST",
               "CREDIT_NOTES_SKIPPED",
+              "ORDERS_RATE_UNCONFIRMED",
               "PO_SPLIT",
               "LINES_WITHOUT_DUTY_RATE",
               "DUTY_GAP",
@@ -15967,6 +15968,22 @@
               }
             ],
             "title": "Fx Date"
+          },
+          "fx_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fx Source"
+          },
+          "rate_unconfirmed": {
+            "type": "boolean",
+            "title": "Rate Unconfirmed",
+            "default": false
           },
           "incoterm": {
             "anyOf": [

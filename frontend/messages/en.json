@@ -361,12 +361,15 @@
       "back": "Back to purchase orders"
     },
     "noRate": "{currency}→{base} rate missing: value unknown",
+    "rateUnconfirmed": "rate of 1 with no date or source: to be checked",
     "rate": {
       "title": "Exchange rate",
       "hint": "One rate for the whole order. Enter your bank's or the customs declaration's: it replaces the ECB rate, and every landed cost of the order is recomputed.",
       "missing": "No rate known for {currency}: this order's value is unknown and its landed costs are not computed. Enter the rate below.",
+      "unconfirmed": "Rate of 1 with no date or source: to be checked. This order was imported when a rate that could not be found was replaced by 1: its {currency} may be counted as {base}. Enter the right rate, or 1 if it is right: the order will no longer be flagged.",
       "current": "1 {currency} = {rate} {base}",
       "dated": "rate of {date}",
+      "source": "source: {source}",
       "label": "Value of 1 {currency} in {base}",
       "date": "Rate date (optional)",
       "dateHint": "The date is optional: the order has none, so give the day this rate is for if you know it.",
@@ -860,6 +863,7 @@
     "fxSource": {
       "ecb": "ECB",
       "ecb_latest": "latest published ECB rate",
+      "import": "imported file",
       "manual": "manual",
       "same": "same currency"
     },
@@ -965,6 +969,7 @@
     "DUPLICATE_IN_FILE": "Line {line_no} of order {po_number} appears twice in the file.",
     "DEPRECATED_COLUMN": "Column \"{column}\" (allocation percentage) is ignored: costs follow the organization's default allocation method.",
     "FX_RATE_APPLIED": "Order in {currency}: rate {rate} ({currency}→{base_currency}) applied, {source, select, ecb {the ECB rate of {rate_date}} other {the latest ECB rate published, that of {rate_date}}}. You can replace it on the order with your bank's rate.",
+    "FX_RATE_FROM_FILE": "Order in {currency}: the file's rate applied, {rate} ({currency}→{base_currency}). It is kept as given: only another rate, typed on the order or given by a file, replaces it.",
     "FX_RATE_DEFAULTED": "Order in {currency}: no exchange rate known as of {rate_date}, rate {rate} ({currency}→{base_currency}, source: default) was applied. Correct it on the order.",
     "FX_RATE_MISSING": "Order in {currency}: no {currency}→{base_currency} exchange rate known for {rate_date}. Its value stays missing — never read 1 for 1 — until a rate is set on the order; costs split by value on its containers stay unallocated until then.",
     "MISSING_FX_RATE": "Exchange rate missing on an order: its value in the base currency is unknown, so this cost cannot be split by value. Set the rate on the order, or choose another method.",
@@ -2714,6 +2719,7 @@
       "SAME_INVOICE_TWICE": "{count, plural, one {# invoice is recorded twice: the landed cost counts it twice.} other {# invoices are recorded twice: the landed cost counts them twice.}}",
       "CREDIT_NOTES_SKIPPED": "{count, plural, one {# credit note left out at import: check it does not refund a finding.} other {# credit notes left out at import: check none refunds a finding.}}",
       "PO_SPLIT": "{count, plural, one {# order is spread over several containers: its loads need checking.} other {# orders are spread over several containers: their loads need checking.}}",
+      "ORDERS_RATE_UNCONFIRMED": "{count, plural, one {# foreign-currency order has a rate of 1, with no date or source: set when no rate was found, it may make the value of its goods wrong (dollars counted as euros). To be checked.} other {# foreign-currency orders have a rate of 1, with no date or source: set when no rate was found, it may make the value of their goods wrong (dollars counted as euros). To be checked.}}",
       "LINES_WITHOUT_DUTY_RATE": "{count, plural, one {# order line without a duty rate: its duty follows the CIF value.} other {# order lines without a duty rate: their duty follows the CIF value.}}",
       "DUTY_GAP": "{count, plural, one {On # container, the duty paid differs from the theoretical duty by more than {pct}%: a wrong rate, or an origin preference not applied.} other {On # containers, the duty paid differs from the theoretical duty by more than {pct}%: wrong rates, or an origin preference not applied.}}",
       "DUTY_SPREAD_ON_CIF": "{count, plural, one {The duty of # container is spread on the CIF value, not along each line's duty.} other {The duty of # containers is spread on the CIF value, not along each line's duty.}}",
@@ -2746,7 +2752,8 @@
       "setCoefficient": "Enter the coefficient",
       "seeCosts": "See the container's costs",
       "deleteReversedCost": "Delete the cancelled cost on the sheet",
-      "setOrderRate": "Set the exchange rate"
+      "setOrderRate": "Set the exchange rate",
+      "checkOrderRate": "Check the order's rate"
     },
     "period": "Last quarter, {from} to {to}",
     "summary": "{blocking, plural, =0 {Nothing makes the audit wrong} one {# point would make the audit wrong} other {# points would make the audit wrong}}{limits, plural, =0 {} one { · # thing it will not be able to measure} other { · # things it will not be able to measure}}",

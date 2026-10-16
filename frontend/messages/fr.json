@@ -361,12 +361,15 @@
       "back": "Retour aux commandes"
     },
     "noRate": "taux {currency}→{base} manquant : valeur inconnue",
+    "rateUnconfirmed": "taux 1 sans date ni source : à vérifier",
     "rate": {
       "title": "Taux de change",
       "hint": "Un seul taux pour toute la commande. Saisissez celui de votre banque ou de la déclaration en douane : il remplace le taux BCE, et tous les coûts de revient de la commande sont recalculés.",
       "missing": "Aucun taux connu pour le {currency} : la valeur de cette commande est inconnue, ses coûts de revient ne sont pas calculés. Saisissez le taux ci-dessous.",
+      "unconfirmed": "Taux 1 sans date ni source : à vérifier. Cette commande a été importée quand un taux introuvable était remplacé par 1 : ses {currency} sont peut-être comptés comme des {base}. Saisissez le bon taux, ou 1 s'il est juste : la commande ne sera plus signalée.",
       "current": "1 {currency} = {rate} {base}",
       "dated": "taux du {date}",
+      "source": "source : {source}",
       "label": "Valeur de 1 {currency} en {base}",
       "date": "Date du taux (facultative)",
       "dateHint": "La date est facultative : la commande n'en a pas, indiquez le jour auquel ce taux correspond si vous le connaissez.",
@@ -860,6 +863,7 @@
     "fxSource": {
       "ecb": "BCE",
       "ecb_latest": "dernier taux BCE publié",
+      "import": "fichier importé",
       "manual": "manuel",
       "same": "même devise"
     },
@@ -971,6 +975,7 @@
     "DUPLICATE_IN_FILE": "La ligne {line_no} de la commande {po_number} apparaît deux fois dans le fichier.",
     "DEPRECATED_COLUMN": "La colonne « {column} » (pourcentage de répartition) est ignorée : la répartition suit la méthode par défaut de l'organisation.",
     "FX_RATE_APPLIED": "Commande en {currency} : taux {rate} ({currency}→{base_currency}) appliqué, {source, select, ecb {taux BCE du {rate_date}} other {dernier taux BCE publié, celui du {rate_date}}}. Vous pouvez le remplacer sur la commande par le taux de votre banque.",
+    "FX_RATE_FROM_FILE": "Commande en {currency} : taux du fichier appliqué, {rate} ({currency}→{base_currency}). Il est gardé tel quel : seul un autre taux, saisi sur la commande ou donné par un fichier, le remplace.",
     "FX_RATE_DEFAULTED": "Commande en {currency} : aucun taux de change connu au {rate_date}, le taux {rate} ({currency}→{base_currency}, source : taux par défaut) a été appliqué. Corrigez-le sur la commande.",
     "FX_RATE_MISSING": "Commande en {currency} : aucun taux de change {currency}→{base_currency} connu au {rate_date}. Sa valeur reste manquante — jamais lue à 1 pour 1 — tant qu'un taux n'est pas saisi sur la commande ; les frais ventilés à la valeur sur ses conteneurs restent non répartis d'ici là.",
     "MISSING_FX_RATE": "Taux de change manquant sur une commande : sa valeur en devise de base est inconnue, ce frais ne peut pas être réparti à la valeur. Saisissez le taux sur la commande, ou choisissez une autre méthode.",
@@ -2714,6 +2719,7 @@
       "SAME_INVOICE_TWICE": "{count, plural, one {# facture est enregistrée deux fois : le coût de revient la compte deux fois.} other {# factures sont enregistrées deux fois : le coût de revient les compte deux fois.}}",
       "CREDIT_NOTES_SKIPPED": "{count, plural, one {# avoir écarté à l'import : vérifiez qu'il ne rembourse pas un constat.} other {# avoirs écartés à l'import : vérifiez qu'aucun ne rembourse un constat.}}",
       "PO_SPLIT": "{count, plural, one {# commande est répartie sur plusieurs conteneurs : ses chargements sont à vérifier.} other {# commandes sont réparties sur plusieurs conteneurs : leurs chargements sont à vérifier.}}",
+      "ORDERS_RATE_UNCONFIRMED": "{count, plural, one {# commande en devise étrangère a un taux de 1, sans date ni source : mis faute d'en trouver un, il fausse peut-être la valeur de ses marchandises (des dollars comptés comme des euros). À vérifier.} other {# commandes en devise étrangère ont un taux de 1, sans date ni source : mis faute d'en trouver un, il fausse peut-être la valeur de leurs marchandises (des dollars comptés comme des euros). À vérifier.}}",
       "LINES_WITHOUT_DUTY_RATE": "{count, plural, one {# ligne de commande sans taux de droits : ses droits suivent la valeur CIF.} other {# lignes de commande sans taux de droits : leurs droits suivent la valeur CIF.}}",
       "DUTY_GAP": "{count, plural, one {Sur # conteneur, les droits payés s'écartent de plus de {pct} % des droits théoriques : un taux faux, ou une préférence d'origine non appliquée.} other {Sur # conteneurs, les droits payés s'écartent de plus de {pct} % des droits théoriques : des taux faux, ou une préférence d'origine non appliquée.}}",
       "DUTY_SPREAD_ON_CIF": "{count, plural, one {Les droits de # conteneur sont répartis sur la valeur CIF, pas selon les droits de chaque ligne.} other {Les droits de # conteneurs sont répartis sur la valeur CIF, pas selon les droits de chaque ligne.}}",
@@ -2746,7 +2752,8 @@
       "setCoefficient": "Saisir le coefficient",
       "seeCosts": "Voir les frais du conteneur",
       "deleteReversedCost": "Supprimer le coût annulé sur la fiche",
-      "setOrderRate": "Saisir le taux de change"
+      "setOrderRate": "Saisir le taux de change",
+      "checkOrderRate": "Vérifier le taux de la commande"
     },
     "period": "Dernier trimestre, du {from} au {to}",
     "summary": "{blocking, plural, =0 {Rien ne fausse l'audit} one {# point fausserait l'audit} other {# points fausseraient l'audit}}{limits, plural, =0 {} one { · # point qu'il ne pourra pas mesurer} other { · # points qu'il ne pourra pas mesurer}}",

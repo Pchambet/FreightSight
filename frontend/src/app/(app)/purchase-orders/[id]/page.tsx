@@ -85,12 +85,12 @@ export default async function PurchaseOrderPage({ params }: Params) {
       <Breadcrumb backHref="/purchase-orders" backLabel={t("breadcrumb")} />
       <PageHeader
         title={po.po_number}
-        subtitle={<span>{po.supplier_name ?? t("noSupplier")} · {po.currency}{po.currency !== cur ? (po.fx_rate ? ` @ ${po.fx_rate} ${cur}` : ` · ${t("noRate", { currency: po.currency, base: cur })}`) : ""}{po.order_date ? ` · ${t("ordered", { date: dateShort(po.order_date, locale) })}` : ""}{po.incoterm ? ` · ${po.incoterm}` : ""}</span>}
+        subtitle={<span>{po.supplier_name ?? t("noSupplier")} · {po.currency}{po.currency !== cur ? (po.fx_rate ? ` @ ${po.fx_rate} ${cur}${po.rate_unconfirmed ? ` · ${t("rateUnconfirmed")}` : ""}` : ` · ${t("noRate", { currency: po.currency, base: cur })}`) : ""}{po.order_date ? ` · ${t("ordered", { date: dateShort(po.order_date, locale) })}` : ""}{po.incoterm ? ` · ${po.incoterm}` : ""}</span>}
         actions={report.lines.length > 0 ? <Link href={`/purchase-orders/${po.id}/report`} className={btnSecondary}><FileText className="w-4 h-4 mr-1.5" aria-hidden />{ts("actions.open")}</Link> : null}
       />
 
       {po.currency !== cur ? (
-        <RateForm poId={po.id} currency={po.currency} base={cur} current={po.fx_rate} rateDate={po.fx_date} needsDate={!po.fx_date && !po.order_date} canEdit={canEdit} />
+        <RateForm poId={po.id} currency={po.currency} base={cur} current={po.fx_rate} rateDate={po.fx_date} source={po.fx_source ?? null} unconfirmed={po.rate_unconfirmed ?? false} needsDate={!po.fx_date && !po.order_date} canEdit={canEdit} />
       ) : null}
 
       <WorkflowNextStep step={step} />

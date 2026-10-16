@@ -247,6 +247,14 @@ class PurchaseOrderResponse(BaseModel):
     #: Null when no rate could be had for the order's currency: its value is missing until one is set.
     fx_rate: Rate | None
     fx_date: date | None
+    #: Where the rate came from: ecb, ecb_latest, manual, import, same. Null on an order written before
+    #: it was recorded — a foreign one at a rate of 1 with no date is to be checked
+    #: (`rate_unconfirmed`) — and on one with no rate.
+    fx_source: str | None = None
+    #: A foreign-currency order at a rate of exactly 1, with no date and no source: what the import
+    #: wrote when it had no rate, before a missing rate was left empty. Its value may be wrong until a
+    #: person confirms or sets the rate.
+    rate_unconfirmed: bool = False
     incoterm: Incoterm | None
     order_date: date | None
     status: PurchaseOrderStatus

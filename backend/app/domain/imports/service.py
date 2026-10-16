@@ -14,6 +14,7 @@ from sqlalchemy import ColumnElement, Numeric, func, select
 from app.core.errors import Conflict, Unprocessable
 from app.core.tenancy import TenantSession
 from app.domain.costing.service import recompute_org
+from app.domain.fx.orders import IMPORT
 from app.domain.fx.service import FxService
 from app.domain.imports.fields import REQUIRED_ONE_OF
 from app.domain.imports.parsing import (
@@ -621,16 +622,34 @@ def _forward_filled_rows(table: Table, mapping: dict[str, str], report: ImportRe
     return rows
 
 
-def _set_order_rate(t: TenantSession, fx: FxService | None, po: PurchaseOrder, r: _Row) -> None:
-    """Give a foreign-currency order the ECB rate of its date, and say which one was used.
+def _set_order_rate(
+    t: TenantSession, fx: FxService | None, po: PurchaseOrder, r: _Row, given: Decimal | None = None
+) -> None:
+    """Give a foreign-currency order the rate its file gives, else the ECB rate of its date, and say
+    which one was used.
 
     It used to get 1 every time, with a warning: a 40 000 $ order counted as 40 000 €, a FOB about
     15 % too high until somebody noticed, and with it every share allocated by value. The rate of
     the order date (today without one) is what the purchase-order screen applies; the import now
     does the same, and says so with the three things a CFO needs: which rate, of which day, from
     where. When no rate can be had the rate stays missing — never 1 — until a person sets it on the
-    order or a later import finds one; the engine then says the order's value is missing.
+    order, a later import finds one or the provider has it (`fx.orders.resolve_missing`); the engine
+    then says the order's value is missing.
+
+    A rate the file gives is a person's word, for a currency the ECB does not quote or the bank's own
+    rate: it is kept as given, and a later edit of the order's dates does not look it up again.
     """
+    if given is not None:
+        po.fx_rate, po.fx_date, po.fx_source = given, po.order_date, IMPORT
+        r.warn(
+            "fx_rate",
+            "FX_RATE_FROM_FILE",
+            f"PO in {po.currency}: rate {given} from the file applied",
+            currency=po.currency,
+            base_currency=t.org.base_currency,
+            rate=str(given),
+        )
+        return
     on_date = po.order_date or datetime.now(UTC).date()
     resolved = None
     if fx is not None:
@@ -639,7 +658,7 @@ def _set_order_rate(t: TenantSession, fx: FxService | None, po: PurchaseOrder, r
         except Unprocessable:
             resolved = None
     if resolved is None:
-        po.fx_rate, po.fx_date = None, None
+        po.fx_rate, po.fx_date, po.fx_source = None, None, None
         r.warn(
             "currency",
             "FX_RATE_MISSING",
@@ -650,7 +669,7 @@ def _set_order_rate(t: TenantSession, fx: FxService | None, po: PurchaseOrder, r
             rate_date=on_date.isoformat(),
         )
         return
-    po.fx_rate, po.fx_date = resolved.rate, resolved.rate_date
+    po.fx_rate, po.fx_date, po.fx_source = resolved.rate, resolved.rate_date, resolved.source
     r.warn(
         "currency",
         "FX_RATE_APPLIED",
@@ -732,6 +751,7 @@ def _apply_purchase_orders(
         volume = _per_unit(r, "volume", quantity)
         duty = r.rate("duty_rate")
         order_date = r.date("order_date")
+        given_rate = r.decimal("fx_rate", positive=True)
         container_number = r.container()
         container_qty = r.decimal("container_quantity", positive=True)
         if r.failed or po_number is None or quantity is None or unit_price is None:
@@ -827,6 +847,7 @@ def _apply_purchase_orders(
                     supplier_id=supplier.id if supplier else None,
                     currency=currency,
                     fx_rate=Decimal("1"),
+                    fx_source="same",
                     order_date=order_date,
                 )
             )
@@ -834,7 +855,7 @@ def _apply_purchase_orders(
             report.purchase_orders_created += 1
             if currency != t.org.base_currency:
                 rate_tried.add(po_number)
-                _set_order_rate(t, fx, po, r)
+                _set_order_rate(t, fx, po, r, given_rate)
         else:
             changed = False
             if supplier and po.supplier_id != supplier.id:
@@ -843,10 +864,13 @@ def _apply_purchase_orders(
                 po.order_date, changed = order_date, True
             if changed:
                 report.purchase_orders_updated += 1
-            if po.fx_rate is None and po_number not in rate_tried:
-                # An order left without a rate gets one as soon as a later file finds it.
+            foreign = po.currency != t.org.base_currency
+            restated = given_rate is not None and given_rate != po.fx_rate
+            if foreign and (po.fx_rate is None or restated) and po_number not in rate_tried:
+                # An order left without a rate gets one as soon as a later file finds it, and a file
+                # that states another rate replaces it.
                 rate_tried.add(po_number)
-                _set_order_rate(t, fx, po, r)
+                _set_order_rate(t, fx, po, r, given_rate)
 
         line = t.db.scalar(
             select(PurchaseOrderLine).where(
@@ -936,6 +960,8 @@ def _apply_legacy(
                     po_number=po_number,
                     supplier_id=supplier.id if supplier else None,
                     currency=t.org.base_currency,
+                    fx_rate=Decimal("1"),
+                    fx_source="same",
                 )
             )
             t.db.flush()
