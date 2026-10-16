@@ -96,3 +96,11 @@ test("files and redirects carry no page policy", async ({ request }) => {
   expect(redirect.status()).toBe(307);
   expect(redirect.headers()["content-security-policy"]).toBeUndefined();
 });
+
+test("a route handler whose path looks like an Open Graph image still goes through Clerk", async ({ request }) => {
+  // Skipping Clerk there made auth() throw: a 500 instead of the sign-in redirect.
+  for (const path of ["/api/exports/opengraph-image", "/api/invoices/twitter-image/document"]) {
+    const response = await request.get(path, { maxRedirects: 0 });
+    expect(response.status(), path).toBe(307);
+  }
+});

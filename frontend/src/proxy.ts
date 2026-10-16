@@ -125,8 +125,11 @@ function forwardRequestHeaders(res: Response, req: NextRequest, extra: Record<st
 
 export default async function proxy(req: NextRequest, event: NextFetchEvent) {
   const { pathname } = req.nextUrl;
-  const res = WITHOUT_CLERK.test(pathname) ? NextResponse.next() : ((await clerk(req, event)) ?? NextResponse.next());
-  if (ROUTE_HANDLER.test(pathname) || res.headers.has("location")) return res;
+  const handler = ROUTE_HANDLER.test(pathname);
+  // A route handler always goes through Clerk, even one whose path ends like an Open Graph image:
+  // without the middleware its auth() throws, a 500 instead of the sign-in redirect.
+  const res = !handler && WITHOUT_CLERK.test(pathname) ? NextResponse.next() : ((await clerk(req, event)) ?? NextResponse.next());
+  if (handler || res.headers.has("location")) return res;
 
   const nonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
   const policy = contentSecurityPolicy(nonce);
