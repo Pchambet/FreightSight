@@ -1393,6 +1393,48 @@ def test_a_validated_push_whose_split_was_not_kept_is_said_rather_than_guessed(
     assert len(odoo.created) == 1
 
 
+def test_a_difference_to_enter_by_hand_is_refused_even_beside_a_live_push(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same difference as above, on a container that also has a later push still live: a click
+    is not answered with that push as if everything had gone, it is refused for what is left."""
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    first = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    row = db.get(ErpPush, uuid.UUID(first["id"]))
+    assert row is not None
+    row.carried = {
+        key: {"amount": value["amount"], "label": value["label"]} for key, value in row.carried.items()
+    }
+    db.commit()
+    validate_and_forget(client, odoo, container_id, first)
+    demurrage = {
+        "scope": "CONTAINER",
+        "target_id": container_id,
+        "cost_type": "DEMURRAGE",
+        "amount": "300.00",
+        "currency": "EUR",
+        "cost_date": "2026-03-25",
+        "invoice_number": "FA-2026-1210",
+    }
+    assert client.post("/api/v1/costs", json=demurrage).status_code == 201
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 201
+    freight = next(
+        c
+        for c in client.get(f"/api/v1/landed-costs/containers/{container_id}").json()["costs"]
+        if c["cost_type"] == "OCEAN_FREIGHT"
+    )
+    assert client.patch(f"/api/v1/costs/{freight['id']}", json={"amount": "2900.00"}).status_code == 200
+
+    body = preview(client, container_id)
+    assert [c["by_hand"]["difference"] for c in body["costs"] if c["by_hand"]] == ["133.33"]
+    refused = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
+    assert refused.status_code == 422, refused.text
+    assert [b["code"] for b in refused.json()["blockers"]] == ["adjustment_unplaced"]
+    assert len(odoo.created) == 2
+
+
 def test_a_validated_push_forgotten_before_its_state_was_kept_is_asked_of_the_erp(
     client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
 ) -> None:

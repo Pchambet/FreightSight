@@ -961,11 +961,13 @@ def push(
     Only the costs that are still pending: a landed cost adds to the stock valuation rather than
     replacing it, so re-sending a cost an earlier document already holds charges the goods twice —
     in someone else's books, where we would not be the ones to notice. When nothing is pending the
-    most recent push comes back instead of an error, so clicking twice is not a mistake.
+    most recent push comes back instead of an error, so clicking twice is not a mistake — unless a
+    difference is left to enter by hand: answered with that push, it would read as all in the ERP.
     """
     lock_container(db, container.id)
     prepared = plan(db, org, container, writer, connection)
-    if not prepared.pending and prepared.existing_push is not None:
+    by_hand = any(cost.by_hand for cost in prepared.costs)
+    if not prepared.pending and prepared.existing_push is not None and not by_hand:
         return prepared.existing_push, prepared
     if not prepared.pushable:
         # With nothing refused outright, what stands in the way is a difference to enter by hand.
