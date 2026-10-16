@@ -114,6 +114,17 @@ def test_a_card_added_changed_and_removed_is_in_the_history(client: TestClient, 
     assert deleted["after"] is None and deleted["before"]["cost_type"] == "DRAYAGE"
 
 
+def test_a_card_sent_back_with_the_same_price_written_otherwise_is_not_a_change(
+    client: TestClient, org: Organization
+) -> None:
+    # « 1.5 » is the price stored as « 1.5000 »: the history must not say the price moved.
+    card = add_card(client, cost_type="DRAYAGE", basis="PER_100KG", amount="1.5000")
+    res = client.patch(f"/api/v1/organization/rate-cards/{card['id']}", json={"amount": "1.5"})
+    assert res.status_code == 200, res.text
+    entries = client.get("/api/v1/audit-log", params={"entity_id": card["id"]}).json()["entries"]
+    assert [e["action"] for e in entries] == ["rate_card.created"]
+
+
 def test_the_estimates_a_person_makes_from_the_cards_are_in_the_history(
     client: TestClient, org: Organization
 ) -> None:

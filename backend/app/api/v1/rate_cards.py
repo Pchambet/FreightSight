@@ -78,11 +78,13 @@ def create_rate_card(payload: schemas.RateCardIn, t: TenantDep, p: WriterDep) ->
 def update_rate_card(card_id: UUID, payload: schemas.RateCardUpdate, t: TenantDep, p: WriterDep) -> RateCard:
     card = t.get_or_404(RateCard, card_id, "Rate card")
     before = _card(card)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    # Compared as values, not as the history's strings: « 1.5 » sent back for a stored « 1.5000 » is
+    # the same price, and an entry saying it moved would be false.
+    changes = {f: v for f, v in payload.model_dump(exclude_unset=True).items() if getattr(card, f) != v}
+    for field, value in changes.items():
         setattr(card, field, value)
-    after = _card(card)
-    if after != before:
-        _record(t, p.user_id, RATE_CARD_UPDATED, card, before=before, after=after)
+    if changes:
+        _record(t, p.user_id, RATE_CARD_UPDATED, card, before=before, after=_card(card))
     t.db.commit()
     t.db.refresh(card)
     return card
