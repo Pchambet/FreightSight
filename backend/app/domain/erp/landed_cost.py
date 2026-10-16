@@ -555,7 +555,7 @@ def _candidate_moves(moves: dict[str, list[ErpReceiptLine]], line: PurchaseOrder
 
 
 def _pair_by_quantity(
-    moves: dict[str, list[ErpReceiptLine]], loads: Iterable[ContainerLoad]
+    moves: dict[str, list[ErpReceiptLine]], loads: list[ContainerLoad]
 ) -> dict[UUID, ErpReceiptLine]:
     """`load id -> its move`, for the loads whose SKU sits on several moves that quantities settle.
 
@@ -579,8 +579,12 @@ def _pair_by_quantity(
             if len(same_quantity) == 1 and len(rivals) == 1:
                 out[load.id] = same_quantity[0]
     # Across groups too: a move with no order of its own is a candidate for every order of the SKU,
-    # and two of them finding "their" move of 100 there would put both charges on the same goods.
+    # and two of them finding "their" move of 100 there would put both charges on the same goods. A
+    # load placed on its order's only move claims that move as well.
     claims = Counter(move.move_id for move in out.values())
+    for load in loads:
+        if load.id not in out and len(single := _candidate_moves(moves, load.po_line)) == 1:
+            claims[single[0].move_id] += 1
     return {load_id: move for load_id, move in out.items() if claims[move.move_id] == 1}
 
 

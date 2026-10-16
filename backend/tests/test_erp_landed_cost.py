@@ -97,6 +97,7 @@ class WritableOdoo:
         split_quantity: float = 200.0,
         currency: str = "EUR",
         cost_lines_reversed: bool = False,
+        split_order: bool = True,
     ) -> None:
         self.valued = valued
         self.receipts = receipts
@@ -108,6 +109,8 @@ class WritableOdoo:
         # there are two delivery dates, and the one that used to lose half of the split.
         self.split_move = split_move
         self.split_quantity = split_quantity
+        # False: the second lot came in on no purchase order line, so it names no order at all.
+        self.split_order = split_order
         # What the ERP company keeps its books in. Ours pushes a bare number.
         self.currency = currency
         # Odoo returns an x2many in no contractual order; on a draft adopted from an interrupted
@@ -153,6 +156,8 @@ class WritableOdoo:
             moves.append(EXTRA_MOVE)
         if self.split_move:
             moves.append({**SPLIT_MOVE, "quantity": self.split_quantity})
+            if not self.split_order:
+                moves[-1]["purchase_line_id"] = False
         return moves
 
     def cost_line_rows(self) -> dict[int, dict[str, Any]]:
@@ -881,6 +886,46 @@ def test_one_receipt_line_is_never_paired_with_two_of_our_lines(
     body = preview(client, container_id)
     assert body["pushable"] is False
     assert "ambiguous_line" in [b["code"] for b in body["blockers"]]
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 422
+    assert odoo.created == []
+
+
+def test_a_move_placed_as_an_order_s_only_line_is_not_paired_with_another_order_too(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """100 pieces on P00012 and 100 on P00099; the receipt has P00012's move of 100 and a move of 200
+    that names no order. P00012's goods are that order's only move; P00099 has none of its own, and
+    its quantity finds the same move of 100 — both charges would land on P00012's goods."""
+    odoo = WritableOdoo(split_move=True, split_order=False)
+    connect(client, odoo, monkeypatch)
+    container = client.post("/api/v1/containers", json={"container_number": "MSCU4821990"})
+    container_id = str(container.json()["id"])
+    loads = []
+    for po_number in (PO_NUMBER, "P00099"):
+        line = {"line_no": 1, "sku": SKU, "quantity": "100", "unit_price": "10.00"}
+        po = client.post(
+            "/api/v1/purchase-orders", json={"po_number": po_number, "currency": "EUR", "lines": [line]}
+        )
+        assert po.status_code == 201, po.text
+        loads.append({"po_line_id": po.json()["lines"][0]["id"], "quantity": "100"})
+    assert client.put(f"/api/v1/containers/{container_id}/loads", json=loads).status_code == 200
+    cost = client.post(
+        "/api/v1/costs",
+        json={
+            "scope": "CONTAINER",
+            "target_id": container_id,
+            "cost_type": "OCEAN_FREIGHT",
+            "amount": "1000.00",
+            "currency": "EUR",
+            "cost_date": "2026-03-12",
+        },
+    )
+    assert cost.status_code == 201, cost.text
+
+    body = preview(client, container_id)
+    assert body["pushable"] is False
+    (blocker,) = [b for b in body["blockers"] if b["code"] == "ambiguous_line"]
+    assert blocker["params"]["po_number"] == "P00099"
     assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 422
     assert odoo.created == []
 
