@@ -35,7 +35,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.money import q2
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
-from app.domain.costing.service import Computation, charged_containers
+from app.domain.costing.service import Computation, charged_containers, held_containers, held_orders
 from app.domain.costing.value import coefficient, missing_code, total
 from app.domain.models import (
     AuditLog,
@@ -72,6 +72,9 @@ class LiveLine:
     po_id: UUID
     #: Its container carries no charge at all: `landed` is its stock value, its FOB.
     without_charge: bool = False
+    #: Of those, its container's charges are entered but held, by these orders' missing rates when
+    #: they are what holds them (`held_containers`). Not frozen: a closed month's lines never had any.
+    held: tuple[str, ...] | None = None
 
 
 @dataclass
@@ -103,6 +106,8 @@ class Summary:
     fob_missing_lines: int = 0
     charged_fob: Decimal | None = None
     containers_without_charge: int = 0
+    containers_held: int = 0
+    held_orders: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -130,6 +135,9 @@ class Readiness:
     invoices_to_review: int
     unallocated_costs: int
     containers_without_cost: int
+    #: Of those, the ones whose charges are entered but held, and the orders holding them.
+    containers_held: int = 0
+    held_orders: list[str] = field(default_factory=list)
     orders_without_fx_rate: list[OrderRef] = field(default_factory=list)
 
 
@@ -198,6 +206,7 @@ def live_lines(comp: Computation) -> dict[str, list[LiveLine]]:
             estimated[allocation.load_id] += allocation.amount_base
 
     charged = charged_containers(comp)
+    held = held_containers(comp)
     months: dict[str, list[LiveLine]] = defaultdict(list)
     for load in comp.loads:
         row = comp.load_rows[load.id]
@@ -221,6 +230,7 @@ def live_lines(comp: Computation) -> dict[str, list[LiveLine]]:
                 estimated=q2(estimated.get(load.id, ZERO)),
                 po_id=load.po_id,
                 without_charge=row.container_id not in charged,
+                held=held.get(row.container_id),
             )
         )
     return months
@@ -251,6 +261,8 @@ class _Figures:
     charged_fob: Decimal | None
     uncharged: int
     by_type: dict[str, Decimal]
+    held: int = 0
+    held_orders: list[str] = field(default_factory=list)
 
 
 def _totals(lines: list[LiveLine] | list[FrozenLine]) -> _Figures:
@@ -260,6 +272,7 @@ def _totals(lines: list[LiveLine] | list[FrozenLine]) -> _Figures:
             by_type[cost_type] += Decimal(str(amount))
     uncharged = uncharged_containers(lines)
     charged = [line for line in lines if line.container_id not in uncharged]
+    held = [line for line in lines if isinstance(line, LiveLine) and line.held is not None]
     fob = total(line.fob for line in lines)
     stock = total(line.landed for line in lines)
     landed = total(line.landed for line in charged) if charged or not lines else None
@@ -272,6 +285,8 @@ def _totals(lines: list[LiveLine] | list[FrozenLine]) -> _Figures:
         charged_fob=None if landed is None or charged_fob is None else q2(charged_fob),
         uncharged=len(uncharged),
         by_type=dict(sorted(by_type.items())),
+        held=len({line.container_id for line in held}),
+        held_orders=sorted({order for line in held for order in line.held or ()}),
     )
 
 
@@ -319,6 +334,8 @@ def _summary(
             fob_missing_lines=missing,
             charged_fob=today.charged_fob,
             containers_without_charge=today.uncharged,
+            containers_held=today.held,
+            held_orders=today.held_orders,
         )
     # The drift of the list is the sum of the drift lines of the detail: the two cannot disagree.
     moved = _drift(db, comp, org, close, live)
@@ -420,6 +437,7 @@ def _readiness(db: Session, comp: Computation, org: Organization, live: list[Liv
             box.estimated += line.estimated
     in_month = {line.container_id for line in live}
     costed = charged_containers(comp)
+    held = held_containers(comp)
     to_review = db.scalars(
         select(Invoice.id).where(Invoice.org_id == org.id, Invoice.status == InvoiceStatus.NEEDS_REVIEW)
     )
@@ -429,6 +447,8 @@ def _readiness(db: Session, comp: Computation, org: Organization, live: list[Liv
         invoices_to_review=len(list(to_review)),
         unallocated_costs=len(comp.result.unallocated),
         containers_without_cost=len(in_month - costed),
+        containers_held=len(in_month & held.keys()),
+        held_orders=held_orders(held, in_month),
         orders_without_fx_rate=orders_without_fx_rate(comp, live),
     )
 

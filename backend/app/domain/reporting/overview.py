@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.money import q2
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
-from app.domain.costing.service import Computation, charged_containers
+from app.domain.costing.service import Computation, charged_containers, held_containers
 from app.domain.models import (
     Container,
     CostStatus,
@@ -57,6 +57,8 @@ class Figures:
     #: The part of `landed` still resting on estimates: the audit's completeness for the same dates.
     estimated: Decimal
     containers_without_charge: int
+    containers_held: int
+    held_orders: list[str]
     variance_estimated: Decimal
     variance_actual: Decimal
     variance: Decimal
@@ -72,6 +74,8 @@ class Todo:
     invoices_to_review: int
     invoices_failed: int
     containers_without_cost: int
+    #: Of those, the ones whose charges are entered but held (`held_containers`).
+    containers_held: int
     containers_without_loads: int
     estimates_awaiting_invoice: int
     containers_overdue: int
@@ -171,6 +175,8 @@ def _figures(
         coefficient=totals.coefficient,
         estimated=totals.estimated,
         containers_without_charge=totals.containers_without_charge,
+        containers_held=totals.containers_held,
+        held_orders=sorted(totals.held_orders),
         variance_estimated=q2(estimated),
         variance_actual=q2(actual),
         variance=q2(actual - estimated),
@@ -198,6 +204,7 @@ def _todo(
     )
     loaded = {comp.load_rows[load.id].container_id for load in comp.loads}
     costed = charged_containers(comp)
+    held = held_containers(comp)
 
     landed = {c.id for c in active if c.discharged_at is not None or c.ata is not None}
     waiting = sum(
@@ -212,6 +219,7 @@ def _todo(
         invoices_to_review=invoices(InvoiceStatus.NEEDS_REVIEW),
         invoices_failed=invoices(InvoiceStatus.FAILED),
         containers_without_cost=sum(1 for c in active if c.id in loaded and c.id not in costed),
+        containers_held=sum(1 for c in active if c.id in held),
         containers_without_loads=sum(1 for c in active if c.id not in loaded),
         estimates_awaiting_invoice=waiting,
         containers_overdue=len(overdue),

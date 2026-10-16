@@ -31,6 +31,7 @@ def _serialize(r: rpt.Report) -> schemas.LandedCostReport:
             "matched_estimated": r.matched_estimated,
             "matched_actual": r.matched_actual,
             "unforecast_actual": r.unforecast_actual,
+            "unallocated_actual": r.unallocated_actual,
         },
         matched_pairs=r.matched_pairs,
         completeness=r.completeness,
@@ -47,6 +48,8 @@ def _serialize(r: rpt.Report) -> schemas.LandedCostReport:
         fob_missing_lines=r.fob_missing_lines,
         coefficient=r.coefficient,
         containers_without_charge=r.containers_without_charge,
+        containers_held=r.containers_held,
+        held_orders=r.held_orders,
     )
 
 

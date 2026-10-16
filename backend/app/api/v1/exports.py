@@ -157,7 +157,8 @@ def landed_costs_csv(
     missing: an export whose total is quietly short of the invoices is an export nobody can use.
 
     A line whose container carries no charge at all has no landed figures — they would only repeat its
-    FOB — and says so in `without_charge`, as the report's lines do.
+    FOB — and says so in `without_charge`, as the report's lines do; `charges_held` tells the box whose
+    charges are on file but cannot be placed, and `held_orders` the orders with no rate holding them.
     """
     _, mark = dialect(locale)
     comp = compute(t.db, t.org)
@@ -183,8 +184,11 @@ def landed_costs_csv(
         "unit_landed_cost",
         # Why the three cells before are empty: a line with no value is never written as 0.
         "fob_missing",
-        # Why `landed` and `unit_landed_cost` are empty: its container carries no charge at all.
+        # Why `landed` and `unit_landed_cost` are empty: no charge reaches its container. Either none
+        # was entered, or one was and is held — by the orders named next, when a missing rate is why.
         "without_charge",
+        "charges_held",
+        "held_orders",
         *cost_types,
         "unallocated",
         "unallocated_reason",
@@ -221,6 +225,8 @@ def landed_costs_csv(
                 number(None if ln.without_charge else ln.unit_landed_cost, mark, 4),
                 ln.fob_missing or "",
                 "true" if ln.without_charge else "false",
+                "true" if ln.charges_held else "false",
+                " ".join(ln.held_orders),
                 *[number(ln.by_cost_type.get(ct), mark) for ct in cost_types],
                 "",
                 "",
@@ -240,6 +246,8 @@ def landed_costs_csv(
                 "",
                 "",
                 f"{cost.cost_type.value} {cost.invoice_number or ''} {cost.cost_date.isoformat()}".strip(),
+                "",
+                "",
                 "",
                 "",
                 "",

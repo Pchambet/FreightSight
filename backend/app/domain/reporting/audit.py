@@ -33,7 +33,7 @@ from app.core.errors import Unprocessable
 from app.core.money import q2, q4, to_base
 from app.domain.costing.engine import EXCLUDED_FROM_LANDED
 from app.domain.costing.entry import DUTY_GUARD, normalize_invoice_number, normalize_vendor, same_invoice
-from app.domain.costing.service import Computation, charged_containers
+from app.domain.costing.service import Computation, charged_containers, held_containers
 from app.domain.costing.value import total
 from app.domain.models import Container, Cost, CostStatus, Invoice, InvoiceLine, InvoiceStatus, Organization
 from app.domain.reporting.service import (
@@ -268,6 +268,8 @@ class Completeness:
     containers_without_date: int | None = None
     fob_missing: str | None = None
     fob_missing_lines: int = 0
+    #: Of `containers_without_cost`, those whose charges are entered but held (`held_containers`).
+    containers_held: int = 0
 
 
 @dataclass
@@ -1032,6 +1034,7 @@ def _completeness(
         fob_missing_lines=totals.fob_missing_lines,
         invoices_to_review=int(to_review or 0),
         containers_without_cost=sum(1 for c in boxes if c not in costed),
+        containers_held=len(boxes.keys() & held_containers(comp).keys()),
         fx_sources=dict(Counter(cost.fx_source for cost in costs_in.values())),
         containers_not_compared=sum(1 for c in boxes.values() if _route(c)[0] == UNKNOWN or not _size(c)),
         containers_without_date=len(undated),

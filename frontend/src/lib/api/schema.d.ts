@@ -948,7 +948,8 @@ export interface paths {
          *     missing: an export whose total is quietly short of the invoices is an export nobody can use.
          *
          *     A line whose container carries no charge at all has no landed figures — they would only repeat its
-         *     FOB — and says so in `without_charge`, as the report's lines do.
+         *     FOB — and says so in `without_charge`, as the report's lines do; `charges_held` tells the box whose
+         *     charges are on file but cannot be placed, and `held_orders` the orders with no rate holding them.
          */
         get: operations["landed_costs_csv_api_v1_exports_landed_costs_csv_get"];
         put?: never;
@@ -2156,6 +2157,11 @@ export interface components {
             invoices_to_review: number;
             /** Containers Without Cost */
             containers_without_cost: number;
+            /**
+             * Containers Held
+             * @default 0
+             */
+            containers_held: number;
             /** Fx Sources */
             fx_sources: {
                 [key: string]: number;
@@ -3929,6 +3935,13 @@ export interface components {
              * @default 0
              */
             containers_without_charge: number;
+            /**
+             * Containers Held
+             * @default 0
+             */
+            containers_held: number;
+            /** Held Orders */
+            held_orders?: string[];
             /** Fob Missing */
             fob_missing?: string | null;
             /**
@@ -4121,6 +4134,13 @@ export interface components {
             estimated: string;
             /** Containers Without Charge */
             containers_without_charge: number;
+            /**
+             * Containers Held
+             * @default 0
+             */
+            containers_held: number;
+            /** Held Orders */
+            held_orders?: string[];
             /** Variance Estimated */
             variance_estimated: string;
             /** Variance Actual */
@@ -4169,6 +4189,11 @@ export interface components {
             invoices_failed: number;
             /** Containers Without Cost */
             containers_without_cost: number;
+            /**
+             * Containers Held
+             * @default 0
+             */
+            containers_held: number;
             /** Containers Without Loads */
             containers_without_loads: number;
             /** Estimates Awaiting Invoice */
@@ -4318,6 +4343,13 @@ export interface components {
             unallocated_costs: number;
             /** Containers Without Cost */
             containers_without_cost: number;
+            /**
+             * Containers Held
+             * @default 0
+             */
+            containers_held: number;
+            /** Held Orders */
+            held_orders?: string[];
             /** Orders Without Fx Rate */
             orders_without_fx_rate?: components["schemas"]["PeriodOrder"][];
         };
@@ -4349,6 +4381,13 @@ export interface components {
              * @default 0
              */
             containers_without_charge: number;
+            /**
+             * Containers Held
+             * @default 0
+             */
+            containers_held: number;
+            /** Held Orders */
+            held_orders?: string[];
             /** Closed At */
             closed_at?: string | null;
             /** Closed By Name */
@@ -4765,6 +4804,13 @@ export interface components {
             estimated: string;
             /** Containers Without Charge */
             containers_without_charge: number;
+            /**
+             * Containers Held
+             * @default 0
+             */
+            containers_held: number;
+            /** Held Orders */
+            held_orders?: string[];
         };
         /** ReportLine */
         ReportLine: {
@@ -4822,6 +4868,13 @@ export interface components {
              * @default false
              */
             without_charge: boolean;
+            /**
+             * Charges Held
+             * @default false
+             */
+            charges_held: boolean;
+            /** Held Orders */
+            held_orders?: string[];
         };
         /**
          * ReportNote
@@ -4874,6 +4927,13 @@ export interface components {
             estimated: string;
             /** Containers Without Charge */
             containers_without_charge: number;
+            /**
+             * Containers Held
+             * @default 0
+             */
+            containers_held: number;
+            /** Held Orders */
+            held_orders?: string[];
         };
         /** ReportWarning */
         ReportWarning: {
@@ -5206,6 +5266,13 @@ export interface components {
             fob_missing?: string | null;
             /** Without Charge */
             without_charge: boolean;
+            /**
+             * Charges Held
+             * @default false
+             */
+            charges_held: boolean;
+            /** Held Orders */
+            held_orders?: string[];
         };
         /**
          * SkuBox
@@ -5253,6 +5320,13 @@ export interface components {
             fob_missing_lines: number;
             /** Without Charge */
             without_charge: boolean;
+            /**
+             * Charges Held
+             * @default false
+             */
+            charges_held: boolean;
+            /** Held Orders */
+            held_orders?: string[];
         };
         /** SkuDetailResponse */
         SkuDetailResponse: {
@@ -5349,6 +5423,13 @@ export interface components {
             fob_missing_lines: number;
             /** Containers Without Charge */
             containers_without_charge: number;
+            /**
+             * Containers Held
+             * @default 0
+             */
+            containers_held: number;
+            /** Held Orders */
+            held_orders?: string[];
         };
         /** SupplierCreate */
         SupplierCreate: {

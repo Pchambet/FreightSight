@@ -3979,7 +3979,7 @@
           "exports"
         ],
         "summary": "Landed Costs Csv",
-        "description": "One row per load, and the same numbers as the on-screen report \u2014 because they are its numbers.\n\nThe export used to add the allocations up a second way and forgot what every other surface of the\nproduct applies: import VAT is recoverable and does not belong in a landed cost. The file the\nfinance director reconciles against his trial balance was inflated by exactly the VAT he claims\nback. It now reads `organization_report`, so the CSV and the container report cannot diverge\nagain, and the VAT stands in a column of its own.\n\nThe period is read against the arrival date, like the landed-cost report on screen; a cost that\nnever reached a container has no arrival date, so the trailing `UNALLOCATED` rows are filed under\ntheir own date and say so in `period_basis`. Their amounts are what the sum of `allocated` is\nmissing: an export whose total is quietly short of the invoices is an export nobody can use.\n\nA line whose container carries no charge at all has no landed figures \u2014 they would only repeat its\nFOB \u2014 and says so in `without_charge`, as the report's lines do.",
+        "description": "One row per load, and the same numbers as the on-screen report \u2014 because they are its numbers.\n\nThe export used to add the allocations up a second way and forgot what every other surface of the\nproduct applies: import VAT is recoverable and does not belong in a landed cost. The file the\nfinance director reconciles against his trial balance was inflated by exactly the VAT he claims\nback. It now reads `organization_report`, so the CSV and the container report cannot diverge\nagain, and the VAT stands in a column of its own.\n\nThe period is read against the arrival date, like the landed-cost report on screen; a cost that\nnever reached a container has no arrival date, so the trailing `UNALLOCATED` rows are filed under\ntheir own date and say so in `period_basis`. Their amounts are what the sum of `allocated` is\nmissing: an export whose total is quietly short of the invoices is an export nobody can use.\n\nA line whose container carries no charge at all has no landed figures \u2014 they would only repeat its\nFOB \u2014 and says so in `without_charge`, as the report's lines do; `charges_held` tells the box whose\ncharges are on file but cannot be placed, and `held_orders` the orders with no rate holding them.",
         "operationId": "landed_costs_csv_api_v1_exports_landed_costs_csv_get",
         "parameters": [
           {
@@ -8557,6 +8557,11 @@
           "containers_without_cost": {
             "type": "integer",
             "title": "Containers Without Cost"
+          },
+          "containers_held": {
+            "type": "integer",
+            "title": "Containers Held",
+            "default": 0
           },
           "fx_sources": {
             "additionalProperties": {
@@ -14203,6 +14208,18 @@
             "title": "Containers Without Charge",
             "default": 0
           },
+          "containers_held": {
+            "type": "integer",
+            "title": "Containers Held",
+            "default": 0
+          },
+          "held_orders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Held Orders"
+          },
           "fob_missing": {
             "anyOf": [
               {
@@ -14738,6 +14755,18 @@
             "type": "integer",
             "title": "Containers Without Charge"
           },
+          "containers_held": {
+            "type": "integer",
+            "title": "Containers Held",
+            "default": 0
+          },
+          "held_orders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Held Orders"
+          },
           "variance_estimated": {
             "type": "string",
             "title": "Variance Estimated"
@@ -14872,6 +14901,11 @@
           "containers_without_cost": {
             "type": "integer",
             "title": "Containers Without Cost"
+          },
+          "containers_held": {
+            "type": "integer",
+            "title": "Containers Held",
+            "default": 0
           },
           "containers_without_loads": {
             "type": "integer",
@@ -15251,6 +15285,18 @@
             "type": "integer",
             "title": "Containers Without Cost"
           },
+          "containers_held": {
+            "type": "integer",
+            "title": "Containers Held",
+            "default": 0
+          },
+          "held_orders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Held Orders"
+          },
           "orders_without_fx_rate": {
             "items": {
               "$ref": "#/components/schemas/PeriodOrder"
@@ -15343,6 +15389,18 @@
             "type": "integer",
             "title": "Containers Without Charge",
             "default": 0
+          },
+          "containers_held": {
+            "type": "integer",
+            "title": "Containers Held",
+            "default": 0
+          },
+          "held_orders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Held Orders"
           },
           "closed_at": {
             "anyOf": [
@@ -16978,6 +17036,18 @@
           "containers_without_charge": {
             "type": "integer",
             "title": "Containers Without Charge"
+          },
+          "containers_held": {
+            "type": "integer",
+            "title": "Containers Held",
+            "default": 0
+          },
+          "held_orders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Held Orders"
           }
         },
         "type": "object",
@@ -17127,6 +17197,18 @@
             "type": "boolean",
             "title": "Without Charge",
             "default": false
+          },
+          "charges_held": {
+            "type": "boolean",
+            "title": "Charges Held",
+            "default": false
+          },
+          "held_orders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Held Orders"
           }
         },
         "type": "object",
@@ -17275,6 +17357,18 @@
           "containers_without_charge": {
             "type": "integer",
             "title": "Containers Without Charge"
+          },
+          "containers_held": {
+            "type": "integer",
+            "title": "Containers Held",
+            "default": 0
+          },
+          "held_orders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Held Orders"
           }
         },
         "type": "object",
@@ -18213,6 +18307,18 @@
           "without_charge": {
             "type": "boolean",
             "title": "Without Charge"
+          },
+          "charges_held": {
+            "type": "boolean",
+            "title": "Charges Held",
+            "default": false
+          },
+          "held_orders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Held Orders"
           }
         },
         "type": "object",
@@ -18349,6 +18455,18 @@
           "without_charge": {
             "type": "boolean",
             "title": "Without Charge"
+          },
+          "charges_held": {
+            "type": "boolean",
+            "title": "Charges Held",
+            "default": false
+          },
+          "held_orders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Held Orders"
           }
         },
         "type": "object",
@@ -18707,6 +18825,18 @@
           "containers_without_charge": {
             "type": "integer",
             "title": "Containers Without Charge"
+          },
+          "containers_held": {
+            "type": "integer",
+            "title": "Containers Held",
+            "default": 0
+          },
+          "held_orders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Held Orders"
           }
         },
         "type": "object",

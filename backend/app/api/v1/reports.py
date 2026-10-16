@@ -133,6 +133,8 @@ def _bucket(bucket: reporting.Bucket) -> schemas.ReportBucket:
         fob_missing_lines=bucket.fob_missing_lines,
         estimated=bucket.estimated,
         containers_without_charge=bucket.containers_without_charge,
+        containers_held=bucket.containers_held,
+        held_orders=sorted(bucket.held_orders),
     )
 
 
@@ -149,6 +151,8 @@ def _sku_line(line: reporting.SkuLine) -> schemas.ReportSkuLine:
         fob_missing_lines=line.fob_missing_lines,
         estimated=line.estimated,
         containers_without_charge=line.containers_without_charge,
+        containers_held=line.containers_held,
+        held_orders=line.held_orders,
     )
 
 

@@ -45,7 +45,9 @@ HEADERS_FR: dict[str, str] = {
     "landed": "Coût de revient rendu",
     "unit_landed_cost": "Coût de revient unitaire",
     "fob_missing": "Pourquoi le FOB manque",
-    "without_charge": "Conteneur sans frais",
+    "without_charge": "Conteneur sans frais ventilés",
+    "charges_held": "Frais en attente de ventilation",
+    "held_orders": "Commandes sans taux qui les bloquent",
     "containers_without_charge": "Conteneurs sans frais",
     "unallocated": "Non ventilé",
     "unallocated_reason": "Raison du non-ventilé",
@@ -259,6 +261,7 @@ VALUES_FR: dict[str, dict[str, str]] = {
     "period_basis": PERIOD_BASIS_FR,
     "fob_missing": {"FX_RATE_MISSING": "Commande sans taux de change"},
     "without_charge": YES_NO_FR,
+    "charges_held": YES_NO_FR,
 }
 
 
