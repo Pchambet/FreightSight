@@ -1116,7 +1116,7 @@ def test_after_a_validated_document_is_forgotten_only_the_difference_is_pushed(
     (planned,) = body["costs"]
     assert planned["pushed_as"] is None
     assert planned["amount"] == "133.33"
-    assert planned["label"] == "Fret maritime — facture FA-2026-0912 — Transitex — ajustement"
+    assert planned["label"] == "Fret maritime — facture FA-2026-0912 — Transdemo — ajustement"
     assert [(line["move_id"], line["amount"]) for line in planned["lines"]] == [(MOVE_ID, "133.33")]
 
     second = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
@@ -1180,7 +1180,7 @@ def test_a_cost_re_entered_after_a_validated_push_is_netted_against_what_their_b
             "currency": "EUR",
             "cost_date": "2026-03-12",
             "invoice_number": "FA-2026-0912",
-            "vendor": "Transitex",
+            "vendor": "Transdemo",
         },
     )
     assert new.status_code == 201, new.text
@@ -1190,8 +1190,8 @@ def test_a_cost_re_entered_after_a_validated_push_is_netted_against_what_their_b
     assert body["total"] == "133.33"
     going = {c["label"]: c["amount"] for c in body["costs"] if c["pushed_as"] is None}
     assert going == {
-        "Fret maritime — facture FA-2026-0912 — Transitex": "2900.00",
-        "Fret maritime — facture FA-2026-0912 — Transitex — ajustement": "-2766.67",
+        "Fret maritime — facture FA-2026-0912 — Transdemo": "2900.00",
+        "Fret maritime — facture FA-2026-0912 — Transdemo — ajustement": "-2766.67",
     }
 
     assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 201

@@ -14,7 +14,7 @@ type Report = Schemas["ImportReport"];
 /**
  * A costs file's preview says the money before anything else — what would enter the landed costs, by
  * type and by currency, what it replaces, what it leaves out because it is already in the books —
- * then asks for what it could not type: one choice per wording (« FACT TRANSITEX », « 6241 ») rather
+ * then asks for what it could not type: one choice per wording (« FACT TRANSDEMO », « 6241 ») rather
  * than one per line. A mixed wording (« débours », « droits et taxes ») is never offered here: its
  * rows are errors that say to split the line, since import VAT must never enter a landed cost.
  */

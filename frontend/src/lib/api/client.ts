@@ -98,7 +98,7 @@ api.use(authHeaders);
  * estimate that bears the number. Each entry of `errors` describes one such cost as
  * `@recorded|type|vendor|number|amount in the base currency|scope|creation day|ACTUAL or ESTIMATE`
  * (a « | » in a vendor's name arrives as « / », so the positions hold), and the sentence names each
- * invoice once — « Cette facture est déjà enregistrée (TRANSITEX · FA 2026 0912, le 18/09/2026 —
+ * invoice once — « Cette facture est déjà enregistrée (TRANSDEMO · FA 2026 0912, le 18/09/2026 —
  * Fret maritime 3 830,00 €) : … » — rather than repeat a field name per cost.
  */
 const RECORDED = new Set(["INVOICE_ALREADY_RECORDED", "INVOICE_LINE_ALREADY_RECORDED"]);
@@ -112,7 +112,7 @@ async function recordedSentence(p: Problem): Promise<string> {
   ]);
   const base = org.data?.base_currency ?? "EUR";
   // One invoice usually carries several costs: its vendor, number and day are said once, then each
-  // cost — « TRANSITEX · FA 2026 0912, le 18/09/2026 — Fret maritime 2 450,00 €, THC 285,00 € ». The
+  // cost — « TRANSDEMO · FA 2026 0912, le 18/09/2026 — Fret maritime 2 450,00 €, THC 285,00 € ». The
   // eighth field says whether what carries the number is a real cost or an estimate: an estimate that
   // bears the number is not « an invoice already recorded », and is said apart.
   const groups = { actual: new Map<string, string[]>(), estimate: new Map<string, string[]>() };
