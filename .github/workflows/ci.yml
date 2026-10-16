@@ -4,9 +4,15 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Weekly, with no push: an advisory published on Tuesday for a locked dependency surfaces by Monday
+  # instead of turning the next unrelated push red.
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # The event is in the key so that a push to main does not cancel the weekly run, or the reverse.
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -17,11 +23,13 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
+      # A scheduled or manual run has no diff to filter on: it checks everything.
+      backend: ${{ steps.filter.outputs.backend || 'true' }}
+      frontend: ${{ steps.filter.outputs.frontend || 'true' }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
         id: filter
         with:
           filters: |
@@ -31,6 +39,7 @@ jobs:
               - '.github/workflows/ci.yml'
             frontend:
               - 'frontend/**'
+              - 'backend/openapi.json'
               - '.github/workflows/ci.yml'
 
   backend:
@@ -76,11 +85,11 @@ jobs:
           echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-18
       - run: uv sync --frozen --all-groups
-      # Known vulnerabilities in the locked Python dependencies (npm audit covers the front-end side).
-      - run: uv export --frozen --no-hashes --no-emit-project -o /tmp/requirements.txt && uvx pip-audit -r /tmp/requirements.txt --disable-pip --no-deps
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy .
+      # The committed contract is what the front end's types are generated from.
+      - run: uv run python scripts/export_openapi.py --check
       - run: uv run alembic upgrade head
       - run: uv run alembic check
       - run: uv run pytest -rs --cov=app --cov-report=term-missing
@@ -101,6 +110,8 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
+      # The generated types must be those of the committed contract (backend/openapi.json).
+      - run: npm run api:types && git diff --exit-code -- src/lib/api/schema.d.ts
       - run: npx tsc --noEmit
       - run: npm run build
         env:
@@ -144,6 +155,22 @@ jobs:
           name: playwright-report
           path: frontend/playwright-report/
           retention-days: 7
+
+  # Known vulnerabilities in the locked dependencies, apart from the build and test jobs: a new
+  # advisory turns this job red, not the verdict on the code that was pushed.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - run: uv export --frozen --no-hashes --no-emit-project -o /tmp/requirements.txt && uvx pip-audit -r /tmp/requirements.txt --disable-pip --no-deps
+        working-directory: backend
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      # Production dependencies only: what ships to the browser and the server.
+      - run: npm audit --omit=dev
+        working-directory: frontend
 
   secrets:
     runs-on: ubuntu-latest
