@@ -89,6 +89,9 @@ export default async function SkuPage({ params }: Params) {
   const landedOnes = dated.filter((b) => !b.arrival_is_estimate);
   const [previous, last] = landedOnes.slice(-2);
   const salePrice = s.sale_price !== null && s.margin_pct !== null ? Number(s.sale_price) : null;
+  // The averages take every container in, those whose charges are still estimates too: say how many.
+  const estimatedBoxes = boxes.filter((b) => Number(b.estimated) > 0).length;
+  const coefText = t("detail.coef", { coef: Number(s.unit_fob) > 0 ? ratio(Number(s.unit_landed) / Number(s.unit_fob)) : "—" });
 
   return (
     <>
@@ -99,17 +102,17 @@ export default async function SkuPage({ params }: Params) {
       />
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 mb-6">
-        <StatTile label={t("detail.unitLanded")} hint={t("detail.unitLandedHint")} value={money(s.unit_landed, currency, locale)} sub={t("detail.coef", { coef: Number(s.unit_fob) > 0 ? ratio(Number(s.unit_landed) / Number(s.unit_fob)) : "—" })} />
+        <StatTile label={t("detail.unitLanded")} hint={t("detail.unitLandedHint")} value={money(s.unit_landed, currency, locale)} sub={estimatedBoxes > 0 ? `${coefText} · ${t("detail.withEstimates", { count: estimatedBoxes })}` : s.has_estimates ? `${coefText} · ${t("detail.withEstimatesUncounted")}` : coefText} />
         <StatTile label={t("detail.last")} hint={t("kpi.changeHint")} value={s.last_unit_landed !== null ? money(s.last_unit_landed, currency, locale) : "—"} sub={s.change_pct !== null ? <><ChangeBadge value={s.change_pct} locale={locale} /> <span className="ml-1">{t("detail.vsPrevious")}</span></> : t("detail.oneArrival")} spark={landedOnes.map((a) => Number(a.unit_landed))} />
         <StatTile label={t("detail.unitFob")} value={money(s.unit_fob, currency, locale)} sub={t("detail.quantity", { qty: qty(s.quantity, locale) })} />
         <StatTile
           label={t("detail.margin")}
           hint={t("kpi.marginHint")}
-          value={s.margin_pct !== null ? pct(s.margin_pct, locale) : "—"}
+          value={s.margin_pct !== null ? pct(s.margin_pct, locale, 1) : "—"}
           tone={s.margin_pct !== null && Number(s.margin_pct) < 0 ? "danger" : "default"}
           sub={
             s.margin_unit !== null && s.sale_price !== null
-              ? [t("detail.marginSub", { unit: money(s.margin_unit, currency, locale), price: money(s.sale_price, currency, locale) }), s.last_margin_pct != null ? t("detail.marginLast", { margin: pct(s.last_margin_pct, locale) }) : null].filter(Boolean).join(" · ")
+              ? [t("detail.marginSub", { unit: money(s.margin_unit, currency, locale), price: money(s.sale_price, currency, locale) }), s.last_margin_pct != null ? t("detail.marginLast", { margin: pct(s.last_margin_pct, locale, 1) }) : null].filter(Boolean).join(" · ")
               : s.sale_price !== null
                 ? t("detail.marginOtherCurrency")
                 : t("kpi.noPrice")
@@ -174,7 +177,7 @@ export default async function SkuPage({ params }: Params) {
         </Panel>
 
         <Panel title={t("margin.title")} subtitle={t("margin.subtitle")}>
-          <MarginHelper unitFob={Number(s.unit_fob)} unitLanded={Number(s.last_unit_landed ?? s.unit_landed)} salePrice={salePrice} currency={currency} />
+          <MarginHelper unitFob={Number(s.unit_fob)} unitLanded={Number(s.last_unit_landed ?? s.unit_landed)} marginOnLanded={s.last_unit_landed !== null ? s.last_margin_pct : s.margin_pct} salePrice={salePrice} currency={currency} />
         </Panel>
       </div>
 

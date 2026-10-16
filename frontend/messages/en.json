@@ -2057,7 +2057,9 @@
       "margin": "Margin at average landed cost",
       "marginSub": "{unit} per unit, sold {price} excl. VAT",
       "marginOtherCurrency": "Selling price in another currency: no margin computed.",
-      "marginLast": "{margin} on the last arrival"
+      "marginLast": "{margin} on the last arrival",
+      "withEstimates": "including {count, plural, one {# container still estimated} other {# containers still estimated}}",
+      "withEstimatesUncounted": "including costs still estimated"
     },
     "trend": {
       "title": "Unit cost, arrival after arrival",

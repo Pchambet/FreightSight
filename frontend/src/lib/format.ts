@@ -69,10 +69,11 @@ export function qty(value: string | number, locale: string = DEFAULT_LOCALE): st
   return new Intl.NumberFormat(intl(locale), { maximumFractionDigits: 4 }).format(n);
 }
 
-export function pct(value: string | number, locale: string = DEFAULT_LOCALE): string {
+/** `digits`: the precision the figure has — a margin the API rounds to 0.1 is not shown as "20,60 %". */
+export function pct(value: string | number, locale: string = DEFAULT_LOCALE, digits = 2): string {
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return "—";
-  return `${new Intl.NumberFormat(intl(locale), { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)} %`;
+  return `${new Intl.NumberFormat(intl(locale), { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(n)} %`;
 }
 
 /** Numeric in French (08/09/2026), abbreviated month in English (08 Sep 2026). */

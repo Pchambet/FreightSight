@@ -2057,7 +2057,9 @@
       "margin": "Marge au coût rendu moyen",
       "marginSub": "{unit} par unité, vendu {price} HT",
       "marginOtherCurrency": "Prix de vente dans une autre devise : pas de marge calculée.",
-      "marginLast": "{margin} sur le dernier arrivage"
+      "marginLast": "{margin} sur le dernier arrivage",
+      "withEstimates": "dont {count, plural, one {# conteneur encore estimé} other {# conteneurs encore estimés}}",
+      "withEstimatesUncounted": "dont des coûts encore estimés"
     },
     "trend": {
       "title": "Coût unitaire, arrivage après arrivage",
