@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
@@ -577,7 +578,10 @@ def _pair_by_quantity(
             rivals = [other for other in group if other.quantity == load.quantity]
             if len(same_quantity) == 1 and len(rivals) == 1:
                 out[load.id] = same_quantity[0]
-    return out
+    # Across groups too: a move with no order of its own is a candidate for every order of the SKU,
+    # and two of them finding "their" move of 100 there would put both charges on the same goods.
+    claims = Counter(move.move_id for move in out.values())
+    return {load_id: move for load_id, move in out.items() if claims[move.move_id] == 1}
 
 
 def _no_single_move(

@@ -843,6 +843,47 @@ def test_one_sku_on_two_receipt_lines_is_refused_when_quantities_do_not_pair_the
     assert list(db.scalars(select(ErpPush))) == []
 
 
+def test_one_receipt_line_is_never_paired_with_two_of_our_lines(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """100 pieces on our order P00012 and 100 on P00099, one receipt holding moves of 100 and 200.
+
+    Quantities pair one line with one move, never one move with two lines: each order taken alone
+    finds "its" move of 100, and both charges would land on those goods while the 200 got nothing.
+    """
+    odoo = WritableOdoo(split_move=True)
+    connect(client, odoo, monkeypatch)
+    container = client.post("/api/v1/containers", json={"container_number": "MSCU4821990"})
+    container_id = str(container.json()["id"])
+    loads = []
+    for po_number in (PO_NUMBER, "P00099"):
+        line = {"line_no": 1, "sku": SKU, "quantity": "100", "unit_price": "10.00"}
+        po = client.post(
+            "/api/v1/purchase-orders", json={"po_number": po_number, "currency": "EUR", "lines": [line]}
+        )
+        assert po.status_code == 201, po.text
+        loads.append({"po_line_id": po.json()["lines"][0]["id"], "quantity": "100"})
+    assert client.put(f"/api/v1/containers/{container_id}/loads", json=loads).status_code == 200
+    cost = client.post(
+        "/api/v1/costs",
+        json={
+            "scope": "CONTAINER",
+            "target_id": container_id,
+            "cost_type": "OCEAN_FREIGHT",
+            "amount": "1000.00",
+            "currency": "EUR",
+            "cost_date": "2026-03-12",
+        },
+    )
+    assert cost.status_code == 201, cost.text
+
+    body = preview(client, container_id)
+    assert body["pushable"] is False
+    assert "ambiguous_line" in [b["code"] for b in body["blockers"]]
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 422
+    assert odoo.created == []
+
+
 def test_our_charges_are_paired_with_their_lines_by_identity_not_by_rank(
     client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
 ) -> None:
