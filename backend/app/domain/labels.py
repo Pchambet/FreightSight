@@ -213,6 +213,7 @@ YES_NO_FR = {"true": "oui", "false": "non"}
 UNALLOCATED_REASON_FR = {
     "MISSING_BASIS": "Base de ventilation manquante (poids, volume ou valeur)",
     "MISSING_DUTY_RATE": "Taux de droits manquant",
+    "MISSING_FX_RATE": "Taux de change manquant",
     "INVALID_MANUAL_SPLIT": "Répartition manuelle invalide",
     "NO_TARGET": "Aucun chargement visé",
     "ALL_WEIGHTS_ZERO": "Toutes les bases de ventilation sont nulles",
