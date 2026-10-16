@@ -51,6 +51,8 @@ export default defineRailway(() => {
   // Nightly encrypted pg_dump to Scaleway Object Storage (Paris). Dumps as the OWNER role: with the
   // application role, Row Level Security would silently drop every tenant row from the backup.
   // The secrets (SCW_*, BACKUP_ENCRYPTION_KEY) live on the FreightSight service and are referenced.
+  // Each success is written to `job_runs` (ops.backup), where the worker's freshness check reads it
+  // without storage credentials of its own.
   const Backup = service("backup", {
     source: github("Pchambet/FreightSight", { checkSuites: false, rootDirectory: "/backend" }),
     build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "/backend/Dockerfile" },
@@ -65,6 +67,8 @@ export default defineRailway(() => {
       SCW_SECRET_KEY: "${{FreightSight.SCW_SECRET_KEY}}",
       SCW_BUCKET: "${{FreightSight.SCW_BUCKET}}",
       SCW_REGION: "${{FreightSight.SCW_REGION}}",
+      // A failed or unrecorded backup is logged at ERROR: without a DSN that line is read by nobody.
+      SENTRY_DSN: "${{FreightSight.SENTRY_DSN}}",
       PYTHONDONTWRITEBYTECODE: "1",
       PYTHONUNBUFFERED: "1",
       UV_COMPILE_BYTECODE: "1",

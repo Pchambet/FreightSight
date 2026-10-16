@@ -120,9 +120,10 @@ def heartbeat(timestamp: int) -> None:
     retry=RetryStrategy(max_attempts=2, exponential_wait=300),
 )
 def check_backup_freshness(timestamp: int) -> None:
-    """Look in the bucket. The nightly backup shouts when it fails; nothing shouted when it stopped
-    running at all."""
-    outcome = handlers.check_backup_freshness(now=_moment(timestamp))
+    """Look at what the backups left. The nightly backup shouts when it fails; nothing shouted when it
+    stopped running at all."""
+    with handlers.session() as db:
+        outcome = handlers.record_backup_freshness(db, now=_moment(timestamp))
     logger.info("backup freshness: %s", outcome)
 
 

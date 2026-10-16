@@ -8,6 +8,7 @@ Level Security applies to it too. Nothing here reads across organizations.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from collections.abc import Callable, Iterator
@@ -1005,30 +1006,68 @@ def weekly_reminder_due(db: Session, moment: datetime) -> bool:
 
 
 def check_backup_freshness(
+    db: Session | None = None,
     *,
     now: datetime | None = None,
     env: dict[str, str] | None = None,
     client: Any | None = None,
 ) -> str:
-    """Look at the bucket rather than at the job that is supposed to fill it.
+    """Look at what the backups left behind rather than at the job that is supposed to make them.
 
     Returns `ok`, `skipped`, `missing`, `stale` or `shrunk`. The nightly backup already fails loudly
     when it runs and cannot finish — but the failure mode that matters is the one where it stops
     running at all, or where a credential is removed: then nothing fails, because nothing happens,
-    and the only trace is an absence in a bucket nobody opens. A backup that suddenly holds a third
-    less than the one before is the other silent one: a dump taken against the wrong database, or a
-    `pg_dump` that stopped early and still exited zero.
+    and the only trace is an absence nobody looks at. A backup that suddenly holds a third less than
+    the one before is the other silent one: a dump taken against the wrong database, or a `pg_dump`
+    that stopped early and still exited zero.
 
-    Skipped in silence when there is no S3 configuration, because that is a development machine.
+    The bucket when this process can read it; otherwise the row each successful backup writes in
+    `job_runs` — production's worker holds no storage credentials, and the check used to skip there
+    every night. Skipped only off production with nothing recorded: a development machine.
     """
+    from app.ops.backup import RUN_NAME
+
+    source = env if env is not None else dict(os.environ)
+    moment = now or datetime.now(UTC)
+    if all(source.get(name) for name in ("SCW_ACCESS_KEY", "SCW_SECRET_KEY", "SCW_BUCKET")):
+        found = _newest_in_bucket(source, client)
+        where = "the bucket"
+    elif db is not None:
+        found = _newest_recorded(db)
+        where = f"job_runs.{RUN_NAME}"
+    else:
+        found, where = None, ""
+    if found is None:
+        if where != "the bucket" and source.get("APP_ENV") != "prod":
+            logger.info("backup freshness not checked: no backup configured on this deployment")
+            return "skipped"
+        logger.error("no backup at all", extra={"looked_in": where})
+        return "missing"
+    key, taken, size, previous = found
+    if moment - taken > BACKUP_MAX_AGE:
+        logger.error(
+            "the newest backup is older than the window",
+            extra={"key": key, "taken_at": taken.isoformat(), "hours": BACKUP_MAX_AGE / HOUR},
+        )
+        return "stale"
+    if previous and size < previous * BACKUP_SHRINK_RATIO:
+        logger.error(
+            "the newest backup is much smaller than the one before it",
+            extra={"key": key, "size_bytes": size, "previous_bytes": previous},
+        )
+        return "shrunk"
+    logger.info("backup is fresh", extra={"key": key, "size_bytes": size})
+    return "ok"
+
+
+#: The newest backup: its key, when it was taken, its size, and the size of the one before it.
+NewestBackup = tuple[str, datetime, int, int | None]
+
+
+def _newest_in_bucket(source: dict[str, str], client: Any | None) -> NewestBackup | None:
     from app.adapters.s3 import S3Client
     from app.ops.backup import KEY_PREFIX, KEY_RE
 
-    source = env if env is not None else dict(os.environ)
-    if not all(source.get(name) for name in ("SCW_ACCESS_KEY", "SCW_SECRET_KEY", "SCW_BUCKET")):
-        logger.info("backup freshness not checked: no bucket configured on this deployment")
-        return "skipped"
-    moment = now or datetime.now(UTC)
     prefix = f"{KEY_PREFIX}/{source.get('APP_ENV', 'dev')}/"
     s3 = client or S3Client(
         source["SCW_BUCKET"],
@@ -1041,27 +1080,41 @@ def check_backup_freshness(
     # is not a backup taken today.
     dated = sorted((obj for obj in s3.list(prefix) if KEY_RE.search(obj.key)), key=lambda o: o.key)
     if not dated:
-        logger.error("no backup in the bucket at all", extra={"prefix": prefix})
-        return "missing"
+        return None
     newest = dated[-1]
     match = KEY_RE.search(newest.key)
     assert match is not None  # the filter above just proved it
     year, month, day, hhmm = match.groups()
     taken = datetime(int(year), int(month), int(day), int(hhmm[:2]), int(hhmm[2:]), tzinfo=UTC)
-    if moment - taken > BACKUP_MAX_AGE:
-        logger.error(
-            "the newest backup is older than the window",
-            extra={"key": newest.key, "taken_at": taken.isoformat(), "hours": BACKUP_MAX_AGE / HOUR},
-        )
-        return "stale"
-    if len(dated) > 1 and dated[-2].size and newest.size < dated[-2].size * BACKUP_SHRINK_RATIO:
-        logger.error(
-            "the newest backup is much smaller than the one before it",
-            extra={"key": newest.key, "size_bytes": newest.size, "previous_bytes": dated[-2].size},
-        )
-        return "shrunk"
-    logger.info("backup is fresh", extra={"key": newest.key, "size_bytes": newest.size})
-    return "ok"
+    return newest.key, taken, newest.size, dated[-2].size if len(dated) > 1 else None
+
+
+def _newest_recorded(db: Session) -> NewestBackup | None:
+    from app.ops.backup import RUN_NAME
+
+    row = db.execute(
+        text("SELECT last_run_at, detail FROM job_runs WHERE name = :name"), {"name": RUN_NAME}
+    ).first()
+    if row is None:
+        return None
+    detail = json.loads(row.detail or "{}")
+    return (
+        detail.get("key", ""),
+        row.last_run_at,
+        int(detail.get("size_bytes") or 0),
+        detail.get("previous_bytes"),
+    )
+
+
+def record_backup_freshness(
+    db: Session, *, now: datetime | None = None, env: dict[str, str] | None = None
+) -> str:
+    """Check, and leave the verdict where Settings → service status and `python -m app.doctor` read it."""
+    moment = now or datetime.now(UTC)
+    outcome = check_backup_freshness(db, now=moment, env=env)
+    if outcome != "skipped":
+        note_job_run(db, BACKUP_FRESHNESS_JOB, moment, failures=0 if outcome == "ok" else 1, detail=outcome)
+    return outcome
 
 
 # ---------------------------------------------------------------------------- helpers for the tasks
