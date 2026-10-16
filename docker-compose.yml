@@ -2,7 +2,7 @@ services:
   db:
     # The major CI and production run. The 18 images keep their data in /var/lib/postgresql/18/docker
     # and want the volume one level up. A `pgdata` volume made by the old postgres:17 service will not
-    # open: dump it first (or drop it with `docker compose down -v`), see docs/04_ops_railway_vercel.md.
+    # open: dump it first, or drop it with `docker compose down -v` (the ops runbook has both).
     image: postgres:18
     environment:
       POSTGRES_USER: fs

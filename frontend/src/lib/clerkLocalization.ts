@@ -10,7 +10,7 @@ import { enUS, frFR } from "@clerk/localizations";
 const fr = {
   ...frFR,
   formFieldInputPlaceholder__signUpPassword: "Choisissez un mot de passe",
-  formFieldInput__emailAddress_format: "Format attendu : nom@exemple.fr",
+  formFieldInput__emailAddress_format: "Format attendu : nom@example.com",
   identityPreviewEditButton__emailAddress: "Modifier l'adresse e-mail",
   identityPreviewEditButton__identifier: "Modifier l'identifiant",
   identityPreviewEditButton__phoneNumber: "Modifier le numéro de téléphone",

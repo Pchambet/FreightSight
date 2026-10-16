@@ -4,8 +4,8 @@ import { notFound } from "next/navigation";
 import { prose } from "@/features/marketing/legalProse";
 import { site } from "@/lib/site";
 
-// Conditions générales de vente, drafted in docs/legal/cgv.md (which says why each clause reads as it
-// does). Rendered only when the seller's identity is complete and the owner has dated the terms
+// Conditions générales de vente, drafted with the owner's legal notes (which say why each clause reads
+// as it does). Rendered only when the seller's identity is complete and the owner has dated the terms
 // (site.termsEffectiveDate): terms that name no seller, or that nobody has approved, bind no one.
 export const metadata: Metadata = {
   title: "Conditions générales de vente",

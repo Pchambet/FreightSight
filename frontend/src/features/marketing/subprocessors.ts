@@ -1,6 +1,6 @@
 // The one list of the service's sub-processors, read by /securite and /confidentialite so the two pages
 // cannot disagree. Each transfer mechanism is the one the provider's own DPA or privacy policy states;
-// the sources, and the date they were read, are in docs/legal/README.md. A provider changes here first.
+// the sources, and the date they were read, are in the owner's legal notes. A provider changes here first.
 
 export type Subprocessor = {
   name: string;

@@ -7,7 +7,7 @@ import { SUBPROCESSORS, SUBPROCESSORS_PENDING, type Subprocessor } from "@/featu
 import { site } from "@/lib/site";
 
 // Art. 13 GDPR information. Every statement here is checked against the code or the providers' own
-// pages (docs/legal/politique-de-confidentialite.md gives the source of each); change both together.
+// pages (the owner's legal notes give the source of each); change both together.
 const UPDATED = "16 octobre 2026";
 const description = "Quelles données personnelles FreightSight traite, pourquoi, combien de temps, chez qui, et vos droits.";
 
