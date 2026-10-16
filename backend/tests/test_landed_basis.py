@@ -340,6 +340,8 @@ def test_an_article_row_gives_its_purchase_price_on_the_goods_its_landed_cost_is
     ]
     assert (a["quantity"], a["charged_quantity"], a["unit_charged_fob"]) == ("20.0000", "10.0000", "100.0000")
     assert (b["charged_quantity"], b["unit_charged_fob"]) == ("0.0000", None)
+    # The goods' value beside the landed cost, over the same lines: 1 000 € landed at 1 400 €.
+    assert (a["charged_fob"], a["landed"]) == ("1000.00", "1400.00") and b["charged_fob"] is None
     summary = {s["sku"]: s for s in client.get("/api/v1/reports/skus").json()["skus"]}["A"]
     assert (summary["charged_quantity"], summary["unit_charged_fob"]) == ("10.0000", "100.0000")
     assert summary["received_quantity"] == "20.0000"

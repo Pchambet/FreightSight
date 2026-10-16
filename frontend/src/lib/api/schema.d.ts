@@ -4957,6 +4957,8 @@ export interface components {
             charged_quantity: string;
             /** Unit Charged Fob */
             unit_charged_fob?: string | null;
+            /** Charged Fob */
+            charged_fob?: string | null;
         };
         /** ReportWarning */
         ReportWarning: {

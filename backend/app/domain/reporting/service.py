@@ -159,6 +159,8 @@ class SkuLine:
     #: landed on two different sets of chairs.
     charged_quantity: Decimal = Decimal(0)
     unit_charged_fob: Decimal | None = None
+    #: The goods' value of those same lines: what `landed` is to be read against.
+    charged_fob: Decimal | None = None
 
     @property
     def fob_missing(self) -> str | None:
@@ -290,6 +292,7 @@ def _sku_line(bucket: Bucket) -> SkuLine:
         containers_held=bucket.containers_held,
         held_orders=sorted(bucket.held_orders),
         charged_quantity=bucket.charged_quantity,
+        charged_fob=bucket.charged_fob,
         unit_charged_fob=(
             q4(bucket.charged_fob / bucket.charged_quantity)
             if bucket.charged_fob is not None and bucket.charged_lines and bucket.charged_quantity

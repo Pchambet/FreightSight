@@ -1760,6 +1760,8 @@
     "dndEmpty": "No demurrage paid or avoided in the period.",
     "atRiskTitle": "At risk now (still at terminal)",
     "skuAverageHint": "Weighted average across containers — unit cost may differ per container.",
+    "skuLeftOutQty": "+ {quantity} not counted",
+    "skuLeftOutFob": "+ {amount} not counted",
     "notEstimable": "not estimable",
     "dndRule": {
       "noAlert": "No risk alert and no pickup date recorded: nothing to estimate.",

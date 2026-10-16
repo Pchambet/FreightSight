@@ -2214,6 +2214,9 @@ class ReportSkuLine(BaseModel):
     #: container carries a charge. `quantity` and `fob` are over every line; one row compares like with like.
     charged_quantity: Qty = Decimal(0)
     unit_charged_fob: Qty | None = None
+    #: The goods' value of those same lines, what `landed` is over. Null when none is charged or one
+    #: of them has no value.
+    charged_fob: Money | None = None
 
 
 class LandedCostAnalysis(BaseModel):

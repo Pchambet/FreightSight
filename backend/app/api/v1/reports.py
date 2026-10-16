@@ -154,6 +154,7 @@ def _sku_line(line: reporting.SkuLine) -> schemas.ReportSkuLine:
         containers_held=line.containers_held,
         held_orders=line.held_orders,
         charged_quantity=line.charged_quantity,
+        charged_fob=line.charged_fob,
         unit_charged_fob=line.unit_charged_fob,
     )
 

@@ -17428,6 +17428,17 @@
               }
             ],
             "title": "Unit Charged Fob"
+          },
+          "charged_fob": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Charged Fob"
           }
         },
         "type": "object",

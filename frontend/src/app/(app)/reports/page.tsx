@@ -167,9 +167,22 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50"><tr><th className={th}>{t("th.sku")}</th><th className={thRight}>{t("th.quantity")}</th><th className={thRight}>{t("th.fob")}</th><th className={thRight}>{t("th.landed")}</th><th className={thRight}>{t("th.unit")}</th></tr></thead>
               <tbody className="divide-y divide-slate-200">
-                {!a || a.skus.length === 0 ? <tr><td colSpan={5} className="px-5 py-6 text-center text-sm text-slate-500">{t("empty")}</td></tr> : a.skus.map((s) => (
-                  <tr key={s.sku}><td className={`${td} font-mono`}>{s.sku}{Number(s.estimated) > 0 ? estimatedBadge : null}{s.fob === null ? <FobMissingLine /> : null}<WithoutChargeLine of={s} /></td><td className={tdRight}>{qty(s.quantity, locale)}</td><td className={tdRight}><Money amount={s.fob} currency={cur} /></td><td className={tdRight}><Money amount={s.landed} currency={cur} /></td><td className={`${tdRight} font-medium text-emerald-700`}><Money amount={s.unit_landed_cost} currency={cur} /></td></tr>
-                ))}
+                {!a || a.skus.length === 0 ? <tr><td colSpan={5} className="px-5 py-6 text-center text-sm text-slate-500">{t("empty")}</td></tr> : a.skus.map((s) => {
+                  // One basis per row: the quantity and the goods' value the landed cost is over (the
+                  // containers that carry a charge), what was left out said under each.
+                  const counted = Number(s.charged_quantity ?? 0) > 0 && s.containers_without_charge > 0;
+                  const leftQty = counted ? Number(s.quantity) - Number(s.charged_quantity) : 0;
+                  const leftFob = counted && s.fob !== null && s.charged_fob != null ? (Math.round(Number(s.fob) * 100) - Math.round(Number(s.charged_fob) * 100)) / 100 : null;
+                  return (
+                    <tr key={s.sku}>
+                      <td className={`${td} font-mono`}>{s.sku}{Number(s.estimated) > 0 ? estimatedBadge : null}{s.fob === null ? <FobMissingLine /> : null}<WithoutChargeLine of={s} /></td>
+                      <td className={tdRight}>{qty(counted ? s.charged_quantity : s.quantity, locale)}{leftQty > 0 ? <span className="block text-xs text-slate-500">{t("skuLeftOutQty", { quantity: qty(leftQty, locale) })}</span> : null}</td>
+                      <td className={tdRight}><Money amount={counted ? s.charged_fob ?? null : s.fob} currency={cur} />{leftFob !== null && leftFob > 0 ? <span className="block text-xs text-slate-500">{t("skuLeftOutFob", { amount: money(leftFob, cur, locale) })}</span> : null}</td>
+                      <td className={tdRight}><Money amount={s.landed} currency={cur} /></td>
+                      <td className={`${tdRight} font-medium text-emerald-700`}><Money amount={s.unit_landed_cost} currency={cur} /></td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </ScrollRegion>

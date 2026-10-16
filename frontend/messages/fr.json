@@ -1760,6 +1760,8 @@
     "dndEmpty": "Aucune surestarie payée ou évitée sur la période.",
     "atRiskTitle": "À risque maintenant (encore au terminal)",
     "skuAverageHint": "Moyenne pondérée sur tous les conteneurs — le coût unitaire peut varier selon le conteneur.",
+    "skuLeftOutQty": "+ {quantity} non comptées",
+    "skuLeftOutFob": "+ {amount} non comptés",
     "notEstimable": "non estimable",
     "dndRule": {
       "noAlert": "Aucune alerte de risque ni date d'enlèvement enregistrées : rien à estimer.",
