@@ -11,7 +11,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from typing import Literal
+from typing import Any, Literal
 
 from charset_normalizer import from_bytes
 
@@ -282,9 +282,17 @@ CommaMeaning = Literal["auto", "decimal", "thousands"]
 MAX_ROWS = 100_000
 MAX_COLUMNS = 200
 MAX_CELLS = 2_000_000
-#: What a workbook may weigh once unzipped. Its shared strings are loaded whole even when the sheet
-#: is streamed, and zipped repetition inflates a thousandfold.
+#: What a workbook may weigh once unzipped: zipped repetition inflates a thousandfold. Only the sheet
+#: is streamed, so this bounds the sheet; the parts read whole have caps of their own.
 MAX_XLSX_INFLATED_BYTES = 200 * 1024 * 1024
+#: What each part openpyxl parses whole into a tree (styles, workbook, manifest, relations, properties)
+#: may weigh unzipped. The tree costs about thirty times the text: 36 MB of empty `<xf/>` styles took
+#: 1.2 GB. Excel's own ceiling of 64 000 cell styles fits well under it.
+MAX_XLSX_PART_BYTES = 8 * 1024 * 1024
+#: What the shared strings may weigh unzipped: they are read whole too, one Python string each, about
+#: eight times the text for short ones (33 MB of 8-letter labels took 250 MB). A hundred thousand rows
+#: with three distinct labels each fit.
+MAX_XLSX_STRINGS_BYTES = 24 * 1024 * 1024
 
 
 class ImportError_(ValueError):
@@ -517,11 +525,46 @@ def _cell_text(value: object) -> str:
     return str(value).strip()
 
 
-def _parse_xlsx(content: bytes) -> Table:
+def _refuse_past(part: zipfile.ZipInfo, cap: int) -> None:
+    # The declared size bounds what is inflated: the zip reader stops there and fails the CRC.
+    if part.file_size > cap:
+        raise ImportError_(
+            "XLSX_TOO_LARGE", f"{part.filename} is {part.file_size} bytes once unzipped", limit=cap // 2**20
+        )
+
+
+class _Parts(zipfile.ZipFile):
+    """The workbook's archive as openpyxl reads it: every part it parses whole goes through `read`,
+    the sheet and the shared strings through `open`, streamed."""
+
+    def read(self, name: str | zipfile.ZipInfo, pwd: bytes | None = None) -> bytes:
+        _refuse_past(name if isinstance(name, zipfile.ZipInfo) else self.getinfo(name), MAX_XLSX_PART_BYTES)
+        return super().read(name, pwd)
+
+
+def _load_workbook(content: bytes) -> Any:
     try:
-        import openpyxl
+        from openpyxl.reader.excel import ExcelReader
+        from openpyxl.xml.constants import SHARED_STRINGS
     except ImportError as e:  # pragma: no cover
         raise ImportError_("XLSX_UNSUPPORTED", "XLSX support is not installed.") from e
+
+    class Reader(ExcelReader):  # type: ignore[misc]
+        def read_strings(self) -> None:
+            # Found as openpyxl finds them, by their declared type: the part's name is the file's to choose.
+            strings = self.package.find(SHARED_STRINGS)
+            if strings is not None:
+                _refuse_past(self.archive.getinfo(strings.PartName[1:]), MAX_XLSX_STRINGS_BYTES)
+            super().read_strings()
+
+    reader = Reader(io.BytesIO(content), read_only=True, data_only=True)
+    reader.archive.close()
+    reader.archive = _Parts(io.BytesIO(content))
+    reader.read()
+    return reader.wb
+
+
+def _parse_xlsx(content: bytes) -> Table:
     try:
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
             inflated = sum(item.file_size for item in archive.infolist())
@@ -535,7 +578,7 @@ def _parse_xlsx(content: bytes) -> Table:
             limit=MAX_XLSX_INFLATED_BYTES // (1024 * 1024),
         )
     try:
-        wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+        wb = _load_workbook(content)
         try:
             ws = wb.worksheets[0]
             # The sheet's own <dimension> is not believed: one stray formatted cell at XFD1048576 made
@@ -551,6 +594,8 @@ def _parse_xlsx(content: bytes) -> Table:
     except ImportError_:
         raise
     except Exception as e:
+        if isinstance(e.__cause__, ImportError_):
+            raise e.__cause__ from None  # a cap, wrapped by openpyxl in its own ValueError
         # Whatever openpyxl trips on inside a zip — a missing part, broken XML — is the file's fault,
         # and the person can do something about it; a 500 tells them nothing.
         raise ImportError_("XLSX_UNREADABLE", f"The workbook cannot be read: {type(e).__name__}") from e

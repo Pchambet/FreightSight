@@ -318,6 +318,72 @@ def test_a_workbook_that_inflates_past_the_cap_is_refused_before_it_is_read(
     assert exc.value.code == "XLSX_TOO_LARGE"
 
 
+def _with_part(content: bytes, name: str, data: bytes, content_type: str, rel_type: str) -> bytes:
+    """The same workbook with one more part, declared in the manifest and the workbook's relations."""
+    source, out = zipfile.ZipFile(io.BytesIO(content)), io.BytesIO()
+    ns = "http://schemas.openxmlformats.org"
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as target:
+        for item in source.infolist():
+            if item.filename == name:
+                continue
+            part = source.read(item.filename)
+            if item.filename == "[Content_Types].xml":
+                override = f'<Override PartName="/{name}" ContentType="{content_type}"/></Types>'
+                part = part.replace(b"</Types>", override.encode())
+            if item.filename == "xl/_rels/workbook.xml.rels":
+                rel = f'<Relationship Id="rId99" Type="{ns}/officeDocument/2006/relationships/{rel_type}" '
+                rel += f'Target="/{name}"/></Relationships>'
+                part = part.replace(b"</Relationships>", rel.encode())
+            target.writestr(item, part)
+        target.writestr(name, data)
+    return out.getvalue()
+
+
+def test_a_workbook_part_parsed_whole_is_refused_past_its_own_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """openpyxl builds a tree of every part but the sheet: an 89 KB workbook whose styles hold two
+    million empty `<xf/>` — 36 MB unzipped, far under the archive's cap — took 22 s and 1.2 GB."""
+    monkeypatch.setattr(parsing, "MAX_XLSX_PART_BYTES", 20_000)
+    ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+    styles = f'<styleSheet {ns}><cellXfs count="5000">{"<xf/>" * 5000}</cellXfs></styleSheet>'.encode()
+    content = _xlsx(["po_number", "sku"], ["PO-1", "A"])
+    source, out = zipfile.ZipFile(io.BytesIO(content)), io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as target:
+        for item in source.infolist():
+            data = styles if item.filename == "xl/styles.xml" else source.read(item.filename)
+            target.writestr(item, data)
+    with pytest.raises(ImportError_) as exc:
+        parse_table(out.getvalue(), "f.xlsx")
+    assert exc.value.code == "XLSX_TOO_LARGE"
+
+    # the sheet itself is streamed and capped by its rows, not by this
+    rows: list[list[object]] = [[f"PO-{i}", "A"] for i in range(2000)]
+    long = _xlsx(["po_number", "sku"], *rows)
+    assert zipfile.ZipFile(io.BytesIO(long)).getinfo("xl/worksheets/sheet1.xml").file_size > 20_000
+    assert len(parse_table(long, "f.xlsx").rows) == 2000
+
+
+def test_a_workbook_whose_shared_strings_inflate_past_their_cap_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The shared strings are read whole, one Python string each: a 414 KB workbook of ten million
+    "x" took 49 s and a gigabyte before a single row was looked at."""
+    monkeypatch.setattr(parsing, "MAX_XLSX_STRINGS_BYTES", 20_000)
+    ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+    strings = f'<sst {ns} count="2000" uniqueCount="2000">{"<si><t>x</t></si>" * 2000}</sst>'.encode()
+    content = _with_part(
+        _xlsx(["po_number", "sku"], ["PO-1", "A"]),
+        "xl/sharedStrings.xml",
+        strings,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml",
+        "sharedStrings",
+    )
+    with pytest.raises(ImportError_) as exc:
+        parse_table(content, "f.xlsx")
+    assert exc.value.code == "XLSX_TOO_LARGE"
+    monkeypatch.setattr(parsing, "MAX_XLSX_STRINGS_BYTES", 40_000)
+    assert parse_table(content, "f.xlsx").rows == [{"po_number": "PO-1", "sku": "A"}]
+
+
 @pytest.mark.parametrize(
     "content",
     [
