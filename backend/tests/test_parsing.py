@@ -490,6 +490,66 @@ def test_a_cell_longer_than_a_spreadsheet_holds_is_refused_by_name(monkeypatch: 
     assert longest.rows[0]["sku"] == "x" * 1000
 
 
+def test_every_xml_element_of_the_workbook_counts_whatever_its_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only rows and cells were counted: 50 million `<v/>` inside one cell, or unknown tags beside the
+    rows, are a 200 KB upload that cost 25 s of the API's one process, each element a Python call."""
+    monkeypatch.setattr(parsing, "MAX_XLSX_ELEMENTS", 300)
+    content = _xlsx(["po_number", "sku"], ["PO-1", "A"])
+    assert parse_table(content, "f.xlsx").rows == [{"po_number": "PO-1", "sku": "A"}]
+    for filler in (b'<row r="3"><c r="A3">' + b"<v/>" * 300 + b"</c></row>", b"<x/>" * 300):
+        with pytest.raises(ImportError_) as exc:
+            parse_table(_with_rows(content, filler), "f.xlsx")
+        assert exc.value.code == "TOO_MANY_CELLS"
+    ns = b'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+    styles = b"<styleSheet %s><cellXfs>%s</cellXfs></styleSheet>" % (ns, b"<xf/>" * 300)
+    with pytest.raises(ImportError_) as exc:
+        parse_table(_rewritten(content, {"xl/styles.xml": styles}), "f.xlsx")
+    assert exc.value.code == "TOO_MANY_CELLS"
+
+
+def test_a_number_format_longer_than_excel_writes_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Which styles are dates is openpyxl's test, a regular expression quadratic in a format's unclosed
+    `[`: one 40 000-character format named by fifty styles, a 4 KB upload, cost 52 s — and one 8 MB format,
+    hours. Excel's own formats stop at 255 characters, and each is tested once, not once per style."""
+    ns = b'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+
+    def styled(code: bytes) -> bytes:
+        styles = b'<styleSheet %s><numFmts><numFmt numFmtId="164" formatCode="%s"/></numFmts>' % (ns, code)
+        styles += b"<cellXfs>%s</cellXfs></styleSheet>" % (b'<xf numFmtId="164"/>' * 50)
+        return _rewritten(_xlsx(["po_number", "sku"], ["PO-1", "A"]), {"xl/styles.xml": styles})
+
+    started = time.monotonic()
+    with pytest.raises(ImportError_) as exc:
+        parse_table(styled(b"[" * 40_000), "f.xlsx")
+    assert exc.value.code == "XLSX_UNREADABLE" and time.monotonic() - started < 1
+    calls: list[str] = []
+
+    def is_date_format(code: str) -> bool:
+        calls.append(code)
+        return False
+
+    monkeypatch.setattr("openpyxl.styles.numbers.is_date_format", is_date_format)
+    assert parse_table(styled(b"[" * 255), "f.xlsx").rows == [{"po_number": "PO-1", "sku": "A"}]
+    assert calls.count("[" * 255) == 1
+
+
+def test_an_xml_token_larger_than_a_spreadsheet_writes_is_refused_as_it_comes() -> None:
+    """Expat keeps a tag or a comment whole until it ends: one 150 MB attribute, a 154 KB upload, took
+    760 MB — its text, then a Python string of it. A cell's text comes in pieces and is not one."""
+    content = _xlsx(["po_number", "sku"], ["PO-1", "A"])
+    huge = b"a" * (parsing.MAX_XML_TOKEN_BYTES + 2 * 65536)  # seen once the next chunk of 64 KB is in
+    for token in (b'<row r="3" x="%s"/>' % huge, b"<!--%s-->" % huge, b"<%s/>" % huge):
+        with pytest.raises(ImportError_) as exc:
+            parse_table(_with_rows(content, token), "f.xlsx")
+        assert exc.value.code == "XLSX_UNREADABLE"
+    cell = b'<row r="3"><c r="A3" t="inlineStr"><is><t>%s</t></is></c></row>' % (
+        b"x" * parsing.MAX_CELL_CHARS
+    )
+    assert (
+        len(parse_table(_with_rows(content, cell), "f.xlsx").rows[1]["po_number"]) == parsing.MAX_CELL_CHARS
+    )
+
+
 def _shared_strings(content: bytes) -> bytes:
     """The same workbook with its text in a shared strings part, as Excel writes it: one entry in rich
     runs, one with a phonetic reading that is not part of the text."""

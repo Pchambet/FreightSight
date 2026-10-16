@@ -305,6 +305,16 @@ MAX_XLSX_STRINGS_BYTES = 24 * 1024 * 1024
 MAX_SHEET_ROWS = 1_048_576
 #: The longest cell read, as the CSV reader's: Excel's own ceiling is 32 767 characters.
 MAX_CELL_CHARS = 131_072
+#: The XML elements read in a workbook, every part and every name together: each one costs a Python
+#: call, and those the caps above do not count — 50 million `<v/>` inside one cell, a 200 KB upload —
+#: cost 25 s. Two million cells written inline (`<c><is><t>`) and a million rows fit.
+MAX_XLSX_ELEMENTS = 4 * MAX_CELLS
+#: The longest tag or comment read: expat keeps one whole until it ends, so one 150 MB attribute took
+#: 760 MB. A spreadsheet's tags are a few dozen bytes; a cell's text is no token, it comes in pieces.
+MAX_XML_TOKEN_BYTES = 256 * 1024
+#: Excel's own ceiling on a number format. Which styles are dates is openpyxl's regular expression,
+#: quadratic in a format's unclosed `[`: one 8 MB format cost hours.
+MAX_NUMBER_FORMAT_CHARS = 255
 
 
 class ImportError_(ValueError):
@@ -585,6 +595,26 @@ def _no_dtd(*_: object) -> None:
     raise ImportError_("XLSX_UNREADABLE", "The workbook declares a DTD")
 
 
+class _Budget:
+    """The elements a workbook may still hold, counted across all its parts as expat meets them."""
+
+    def __init__(self) -> None:
+        self.left = MAX_XLSX_ELEMENTS
+
+    def spent(self) -> ImportError_:
+        # Past it, the file holds more than a sheet of two million cells writes: said as such.
+        return _too_many("cells")
+
+    def counted(self, start: Callable[[str, dict[str, str]], None]) -> Callable[[str, dict[str, str]], None]:
+        def counting(tag: str, attrs: dict[str, str]) -> None:
+            self.left -= 1
+            if self.left < 0:
+                raise self.spent()
+            start(tag, attrs)
+
+        return counting
+
+
 def _stream(
     archive: zipfile.ZipFile,
     name: str,
@@ -593,24 +623,34 @@ def _stream(
     end: Callable[[str], None] | None = None,
     text: Callable[[str], None] | None = None,
 ) -> None:
-    """Run expat over one part of the archive, checked against `cap` before a byte is inflated."""
+    """Run expat over one part of the archive, checked against `cap` before a byte is inflated. `start`
+    counts each element against the workbook's budget: `_Budget.counted`, or the sheet's own."""
     part = archive.getinfo(name)
     _refuse_past(part, cap)
     parser = pyexpat.ParserCreate(namespace_separator=" ")
     parser.buffer_text = True
+    # Parsed as it comes, so that where the parser stands says how much of the input one unfinished
+    # token holds. A token is capped, so reading it again on each chunk stays linear.
+    parser.SetReparseDeferralEnabled(False)
     parser.StartDoctypeDeclHandler = _no_dtd
     parser.StartElementHandler = start
     if end is not None:
         parser.EndElementHandler = end
     if text is not None:
         parser.CharacterDataHandler = text
+    fed = 0
     with archive.open(part) as source:
         while chunk := source.read(1 << 16):
             parser.Parse(chunk, False)
+            fed += len(chunk)
+            if fed - max(parser.CurrentByteIndex, 0) > MAX_XML_TOKEN_BYTES:
+                raise ImportError_(
+                    "XLSX_UNREADABLE", f"A tag of {name} runs past {MAX_XML_TOKEN_BYTES} bytes"
+                )
     parser.Parse(b"", True)
 
 
-def _relations(archive: zipfile.ZipFile, part: str) -> dict[str, tuple[str, str]]:
+def _relations(archive: zipfile.ZipFile, part: str, budget: _Budget) -> dict[str, tuple[str, str]]:
     """A part's relations: id -> (type, target), the target as a name in the archive."""
     folder, name = posixpath.split(part)
     relations: dict[str, tuple[str, str]] = {}
@@ -622,7 +662,9 @@ def _relations(archive: zipfile.ZipFile, part: str) -> dict[str, tuple[str, str]
                 target = target[1:] if target.startswith("/") else posixpath.normpath(f"{folder}/{target}")
             relations.setdefault(attrs.get("Id", ""), (attrs.get("Type", ""), target))
 
-    _stream(archive, posixpath.join(folder, "_rels", f"{name}.rels"), MAX_XLSX_PART_BYTES, start)
+    _stream(
+        archive, posixpath.join(folder, "_rels", f"{name}.rels"), MAX_XLSX_PART_BYTES, budget.counted(start)
+    )
     return relations
 
 
@@ -633,7 +675,7 @@ class _Workbook:
     date1904: bool
 
 
-def _locate(archive: zipfile.ZipFile) -> _Workbook:
+def _locate(archive: zipfile.ZipFile, budget: _Budget) -> _Workbook:
     """The first worksheet, the shared strings and the calendar, found as openpyxl finds them: the
     workbook and the strings by their declared types, the sheet through the workbook's relations."""
     overrides: dict[str, str] = {}
@@ -645,7 +687,7 @@ def _locate(archive: zipfile.ZipFile) -> _Workbook:
         elif tag == f"{_TYPES_NS}Default":
             defaults.add(attrs.get("ContentType", ""))
 
-    _stream(archive, "[Content_Types].xml", MAX_XLSX_PART_BYTES, manifest)
+    _stream(archive, "[Content_Types].xml", MAX_XLSX_PART_BYTES, budget.counted(manifest))
     workbook = next((overrides[kind] for kind in _WORKBOOK_TYPES if kind in overrides), None)
     if workbook is None and defaults.intersection(_WORKBOOK_TYPES):
         workbook = "xl/workbook.xml"
@@ -661,8 +703,8 @@ def _locate(archive: zipfile.ZipFile) -> _Workbook:
         elif tag == f"{_SHEET_NS}workbookPr":
             calendar.append(attrs.get("date1904", ""))
 
-    _stream(archive, workbook, MAX_XLSX_PART_BYTES, entries)
-    relations = _relations(archive, workbook)
+    _stream(archive, workbook, MAX_XLSX_PART_BYTES, budget.counted(entries))
+    relations = _relations(archive, workbook, budget)
     names = set(archive.namelist())
     for sheet_id in filter(None, sheets):
         kind, target = relations[sheet_id]
@@ -675,7 +717,7 @@ def _locate(archive: zipfile.ZipFile) -> _Workbook:
     raise ImportError_("XLSX_UNREADABLE", "The workbook holds no worksheet")
 
 
-def _date_styles(archive: zipfile.ZipFile) -> tuple[set[int], set[int]]:
+def _date_styles(archive: zipfile.ZipFile, budget: _Budget) -> tuple[set[int], set[int]]:
     """The cell styles that show a number as a date, and those that show it as a duration."""
     from openpyxl.styles.numbers import BUILTIN_FORMATS, is_date_format, is_timedelta_format
 
@@ -699,17 +741,24 @@ def _date_styles(archive: zipfile.ZipFile) -> tuple[set[int], set[int]]:
         if tag == f"{_SHEET_NS}cellXfs":
             in_cell_styles = False
 
-    _stream(archive, "xl/styles.xml", MAX_XLSX_PART_BYTES, start, end)
-    codes = [custom[i] if i in custom else BUILTIN_FORMATS.get(i) for i in formats]
-    dates = {style for style, code in enumerate(codes) if is_date_format(code)}
-    return dates, {style for style, code in enumerate(codes) if is_timedelta_format(code)}
+    _stream(archive, "xl/styles.xml", MAX_XLSX_PART_BYTES, budget.counted(start), end)
+    codes = {i: custom[i] if i in custom else BUILTIN_FORMATS.get(i) for i in set(formats)}
+    if any(len(code) > MAX_NUMBER_FORMAT_CHARS for code in codes.values() if code):
+        raise ImportError_(
+            "XLSX_UNREADABLE", f"A number format runs past {MAX_NUMBER_FORMAT_CHARS} characters"
+        )
+    # Each format tested once, however many styles name it.
+    date_ids = {i for i, code in codes.items() if is_date_format(code)}
+    duration_ids = {i for i, code in codes.items() if is_timedelta_format(code)}
+    dates = {style for style, i in enumerate(formats) if i in date_ids}
+    return dates, {style for style, i in enumerate(formats) if i in duration_ids}
 
 
 def _too_long() -> ImportError_:
     return ImportError_("XLSX_UNREADABLE", f"A cell holds more than {MAX_CELL_CHARS} characters")
 
 
-def _shared_strings(archive: zipfile.ZipFile, name: str | None) -> list[str]:
+def _shared_strings(archive: zipfile.ZipFile, name: str | None, budget: _Budget) -> list[str]:
     """Each entry's text as Excel shows it: its runs joined, its phonetic reading left out."""
     strings: list[str] = []
     if name is None:
@@ -743,7 +792,7 @@ def _shared_strings(archive: zipfile.ZipFile, name: str | None) -> list[str]:
                 raise _too_long()
             parts.append(data)
 
-    _stream(archive, name, MAX_XLSX_STRINGS_BYTES, start, end, text)
+    _stream(archive, name, MAX_XLSX_STRINGS_BYTES, budget.counted(start), end, text)
     return strings
 
 
@@ -767,10 +816,12 @@ class _Sheet:
     Its handlers run once per element of a sheet that can hold millions of them: they are written for
     that, with no call they can avoid."""
 
-    def __init__(self, strings: list[str], dates: set[int], durations: set[int], date1904: bool) -> None:
+    def __init__(
+        self, budget: _Budget, strings: list[str], dates: set[int], durations: set[int], date1904: bool
+    ) -> None:
         from openpyxl.utils.datetime import MAC_EPOCH, WINDOWS_EPOCH, from_excel, from_ISO8601
 
-        self.strings, self.dates, self.durations = strings, dates, durations
+        self.budget, self.strings, self.dates, self.durations = budget, strings, dates, durations
         self.epoch = MAC_EPOCH if date1904 else WINDOWS_EPOCH
         self.from_excel, self.from_iso = from_excel, from_ISO8601
         self.kept = _Bounded()
@@ -784,6 +835,10 @@ class _Sheet:
         self.capturing = self.inline = self.phonetic = False
 
     def start(self, tag: str, attrs: dict[str, str]) -> None:
+        budget = self.budget
+        budget.left -= 1
+        if budget.left < 0:
+            raise budget.spent()
         if tag == _CELL:
             self.cell_elements += 1
             if self.cell_elements > MAX_CELLS:
@@ -868,8 +923,10 @@ class _Sheet:
 
 
 def _read_first_sheet(archive: zipfile.ZipFile) -> list[list[str]]:
-    workbook = _locate(archive)
-    sheet = _Sheet(_shared_strings(archive, workbook.strings), *_date_styles(archive), workbook.date1904)
+    budget = _Budget()
+    workbook = _locate(archive, budget)
+    strings = _shared_strings(archive, workbook.strings, budget)
+    sheet = _Sheet(budget, strings, *_date_styles(archive, budget), workbook.date1904)
     _stream(archive, workbook.sheet, MAX_XLSX_INFLATED_BYTES, sheet.start, sheet.end, sheet.text)
     return sheet.kept.rows
 
