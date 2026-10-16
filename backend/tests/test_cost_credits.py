@@ -580,3 +580,52 @@ def test_a_negative_line_with_nothing_to_net_against_reduces_the_cost_on_file(
     assert (res.json()["costs_created"], res.json()["credits_created"]) == (3, 1)
     reduced = cost_of(client, freight["id"])
     assert (reduced["amount"], reduced["credits"][0]["credit_number"]) == ("2850.00", "FA-2026-1001")
+
+
+# ---------------------------------------------------------------------------- the other doors
+
+
+def test_a_credited_line_keyed_in_again_on_its_order_is_still_the_line_on_file(
+    client: TestClient, box: str
+) -> None:
+    """The guard against one invoice line counted twice compares the amount invoiced. A refund lowers
+    what the cost amounts to, never what was invoiced: the same line typed again at the other end of
+    the same order is the same 3 000 € charge, refused by name."""
+    (listed,) = client.get("/api/v1/purchase-orders").json()
+    po = client.get(f"/api/v1/purchase-orders/{listed['id']}").json()
+    on_order = client.post(
+        "/api/v1/costs",
+        json={"scope": "PO", "target_id": po["id"], "cost_type": "OCEAN_FREIGHT", "amount": "3000.00",
+              "currency": "EUR", "cost_date": "2026-03-12", "vendor": "TRANSDEMO SAS",
+              "invoice_number": "FA-2026-0912"},
+    ).json()  # fmt: skip
+    assert credit(client, on_order["id"], "400.00").status_code == 201
+    again = client.post(
+        "/api/v1/costs",
+        json={"scope": "PO_LINE", "target_id": po["lines"][0]["id"], "cost_type": "OCEAN_FREIGHT",
+              "amount": "3000.00", "currency": "EUR", "cost_date": "2026-03-12", "vendor": "Transdemo",
+              "invoice_number": "FA 2026 0912"},
+    )  # fmt: skip
+    assert (again.status_code, again.json()["code"]) == (422, "INVOICE_LINE_ALREADY_RECORDED")
+
+
+def test_a_costs_file_whose_cost_a_credit_has_reduced_is_not_taken_back_under_it(
+    client: TestClient, box: str
+) -> None:
+    """Taking a ledger back deletes its costs: a credit on one would go with it, out of the history
+    and off the credit note that took it. Refused, as deleting the cost by hand is."""
+    from test_imports_costs import commit, ledger, preview, upload
+
+    job = upload(client, ledger(f"12/03/2026;TRANSDEMO;F-1;Fret maritime;;3 000,00;EUR;{BOX};;"))
+    preview(client, job)
+    commit(client, job)
+    (freight,) = client.get("/api/v1/costs", params={"target_id": box}).json()
+    assert credit(client, freight["id"], "400.00").status_code == 201
+
+    res = client.delete(f"/api/v1/imports/{job['id']}")
+    assert (res.status_code, res.json()["code"]) == (422, "COST_HAS_CREDITS")
+    assert res.json()["params"] == {"credit_number": "AV-1", "count": "1"}
+    assert (cost_of(client, freight["id"])["amount"], len(cost_of(client, freight["id"])["credits"])) == (
+        "2600.00",
+        1,
+    )
