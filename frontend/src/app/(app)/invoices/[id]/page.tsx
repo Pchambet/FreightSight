@@ -67,11 +67,10 @@ export default async function InvoicePage({ params }: Params) {
     continueContainers.map((c) => ({ id: c.id, number: c.container_number })),
     next ? { id: next.id, waiting: waiting.length } : undefined,
   );
-  // `extractor_kind` (RULES/MODEL/UNKNOWN) and each line's `confidence_band` (HIGH/MEDIUM/LOW) are
-  // new fields the generated schema does not carry yet (needs_other_lane) — read through a narrow
-  // type rather than the raw `extractor` string ("regex") a DAF cannot make sense of.
-  const extractorKindValue = (invoice as { extractor_kind?: string }).extractor_kind ?? "";
-  const confidenceBandValue = (invoice as { confidence_band?: "HIGH" | "MEDIUM" | "LOW" }).confidence_band;
+  // How it was read (RULES/MODEL/UNKNOWN), rather than the raw `extractor` string ("regex") a DAF
+  // cannot make sense of.
+  const extractorKindValue = invoice.extractor_kind;
+  const confidenceBandValue = invoice.confidence_band;
   // Costs, not lines: lines of one type on one target and currency become one cost, which each of
   // them points to (freight + bunker surcharge on one container).
   const confirmedCostCount = new Set(lines.map((l) => l.cost_id).filter(Boolean)).size;
@@ -112,7 +111,7 @@ export default async function InvoicePage({ params }: Params) {
       </div>
 
       {inProgress ? <div className="rounded-md border border-blue-200 bg-blue-50 text-blue-800 text-sm px-4 py-3 mb-6 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />{t("reading")} <span className="text-blue-600/70">{t("readingHint")}</span></div> : null}
-      {/* invoice.error is a raw, uncoded backend string (extractor failure detail) — never shown verbatim to a DAF; see needs_other_lane. */}
+      {/* invoice.error is the extractor's own failure detail, in English and without a code: never shown verbatim to a DAF. */}
       {invoice.status === "FAILED" ? <div className="rounded-md border border-red-200 bg-red-50 text-red-800 text-sm px-4 py-3 mb-6"><span className="font-medium">{t("failedTitle")}</span></div> : null}
       {/* The API's own band, not a threshold of ours: at 0.7 a reading the badge calls « à relire » (0.60, a
           rule-based reading) was also called « faible » here, above lines that add up to the total. */}

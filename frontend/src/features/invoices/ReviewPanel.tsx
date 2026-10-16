@@ -69,7 +69,7 @@ function LineRow({ invoiceId, line, targets, editable, confirmed }: { invoiceId:
             <div className="text-sm font-medium text-slate-900 truncate">{line.line_no}. {line.description}</div>
             <span className="flex items-center gap-2 shrink-0">
               {missing.length > 0 ? <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-inset ring-amber-600/20">{t("toComplete", { what: missing.join(", ") })}</span> : null}
-              <ConfidenceBadge value={line.confidence} band={(line as { confidence_band?: "HIGH" | "MEDIUM" | "LOW" }).confidence_band} confirmed={confirmed} />
+              <ConfidenceBadge value={line.confidence} band={line.confidence_band} confirmed={confirmed} />
             </span>
           </div>
           {editable ? (

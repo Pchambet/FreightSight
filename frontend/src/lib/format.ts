@@ -94,8 +94,7 @@ export function dateShort(value: string | null | undefined, locale: string = DEF
  * server process's own TZ (which nothing here controls; see docker-compose, out of scope here).
  * The screens read that date against, and the app is sold to, France: comparing against a UTC
  * midnight read a day behind between 00:00 and 02:00 Paris time in summer, since UTC midnight is
- * still "yesterday evening" there (needs_other_lane flagged this drift against the backend, which
- * now counts in the port's own calendar). Reading Europe/Paris explicitly fixes that regardless of
+ * still "yesterday evening" there, while the backend counts in the port's own calendar. Reading Europe/Paris explicitly fixes that regardless of
  * how the server itself is configured.
  */
 export function daysUntil(isoDate: string | null | undefined): number | null {
