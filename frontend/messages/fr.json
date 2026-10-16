@@ -1403,6 +1403,7 @@
       "timezone": "Fuseau horaire",
       "file_name": "Fichier",
       "rows": "Lignes du fichier",
+      "valid_rows": "Lignes valides",
       "refused": "Lignes refusées",
       "lines_created": "Lignes de commande créées",
       "lines_updated": "Lignes de commande mises à jour",

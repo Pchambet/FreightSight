@@ -1403,6 +1403,7 @@
       "timezone": "Time zone",
       "file_name": "File",
       "rows": "Rows in the file",
+      "valid_rows": "Valid rows",
       "refused": "Rows refused",
       "lines_created": "PO lines created",
       "lines_updated": "PO lines updated",

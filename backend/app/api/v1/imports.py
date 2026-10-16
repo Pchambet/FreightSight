@@ -194,10 +194,13 @@ def _named(t: TenantSession, job: ImportJob) -> dict[str, object]:
 
 
 def _counted(job: ImportJob) -> dict[str, object]:
-    """What the file wrote and refused, as its report counted it: a row refused is a row with an error."""
+    """What the file wrote and refused, as its report counted it: a row refused is a row with an error.
+    A box or an order the file contradicts is left out whole while only one of its rows carries the
+    error, so the rows that went in are stated too: `rows - valid_rows` is everything left out."""
     report = job.report
     return {
         "rows": job.row_count,
+        "valid_rows": report.get("valid_rows"),
         "refused": len({issue["row"] for issue in report.get("errors", [])}),
         **{name: report.get(name) for name in HISTORY_COUNTERS[job.kind]},
     }

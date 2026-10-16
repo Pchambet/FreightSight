@@ -49,6 +49,7 @@ def test_an_order_file_is_in_the_history(client: TestClient) -> None:
         "kind": "PURCHASE_ORDERS",
         "file_name": "commandes.csv",
         "rows": 3,
+        "valid_rows": 2,
         "refused": 1,
         "lines_created": 2,
         "lines_updated": 0,
@@ -65,9 +66,10 @@ def test_a_legacy_file_is_in_the_history(client: TestClient) -> None:
     )
     assert client.post(f"/api/v1/imports/{job}/commit", json={}).status_code == 200
     after = entry(client, job, "import.committed")
-    assert (after["kind"], after["file_name"], after["rows"], after["refused"]) == (
+    assert (after["kind"], after["file_name"], after["rows"], after["valid_rows"], after["refused"]) == (
         "LEGACY_PO_CONTAINER",
         "ancien.csv",
+        1,
         1,
         0,
     )
@@ -88,10 +90,29 @@ def test_a_tracking_sheet_is_in_the_history(client: TestClient) -> None:
         "kind": "CONTAINERS",
         "file_name": "suivi.csv",
         "rows": 2,
+        "valid_rows": 1,
         "refused": 1,
         "containers_created": 1,
         "containers_updated": 0,
     }
+
+
+def test_a_box_the_file_contradicts_counts_all_its_rows_as_left_out(client: TestClient) -> None:
+    """Two rows of one box that disagree: the box is refused whole, though only one row carries the
+    error — the history says how many rows went in, so the rows left out add up."""
+    job = upload(
+        client,
+        "CONTAINERS",
+        "suivi.csv",
+        "N° conteneur;Type de conteneur;ETA",
+        "MSCU4821994;40HC;08/03/2026",
+        "MSCU4821994;40HC;09/03/2026",
+        "TGHU1234567;40HC;10/03/2026",
+    )
+    committed(client, job)
+    after = entry(client, job, "import.committed")
+    assert (after["rows"], after["valid_rows"], after["refused"]) == (3, 1, 1)
+    assert after["containers_created"] == 1
 
 
 def test_a_tariff_is_in_the_history(client: TestClient) -> None:
@@ -103,6 +124,7 @@ def test_a_tariff_is_in_the_history(client: TestClient) -> None:
         "kind": "PRODUCTS",
         "file_name": "tarif-2.csv",
         "rows": 3,
+        "valid_rows": 2,
         "refused": 1,
         "products_created": 1,
         "products_updated": 1,
@@ -131,6 +153,7 @@ def test_a_costs_file_and_its_undo_are_in_the_history(client: TestClient) -> Non
         "kind": "COSTS",
         "file_name": "grand-livre.csv",
         "rows": 3,
+        "valid_rows": 2,
         "refused": 1,
         "costs_skipped": 0,
         "cost_dates": "2026-03-12..2026-03-28",
