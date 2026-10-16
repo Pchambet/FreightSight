@@ -55,6 +55,7 @@ NUMERIC_FIELDS = (
     "line_weight_kg",
     "line_volume_cbm",
     "duty_rate",
+    "fx_rate",
     "line_no",
     "container_quantity",
     "total_value",
@@ -63,6 +64,9 @@ NUMERIC_FIELDS = (
     "credit",
     "sale_price",
 )
+#: How far an order file's rate may stand from the ECB's of the same day: a bank's own rate or a
+#: rate agreed with the supplier sits within a few per cent of it; one a tenth away is a mistake.
+FILE_RATE_TOLERANCE = Decimal("0.10")
 #: Fields an export may state once, on the first row of an order, and leave blank underneath.
 FORWARD_FILLED_FIELDS = ("po_number", "supplier_name", "currency")
 
@@ -682,6 +686,40 @@ def _set_order_rate(
     )
 
 
+def _file_rate_refused(
+    t: TenantSession, fx: FxService | None, r: _Row, currency: str, given: Decimal, on_date: date
+) -> bool:
+    """Refuse a rate the file gives when the ECB's rate of the day says it cannot be right, with both.
+
+    A French export usually quotes 1 EUR = 1,087 USD, the other way round from the field: taken as
+    given it puts the order's FOB, and every share allocated by value, about 17 % too high, with
+    only a warning to say so. Without an ECB rate to compare (a currency it does not quote, the
+    provider down) the file's rate is kept as given and the warning says where it came from.
+    """
+    if fx is None:
+        return False
+    try:
+        reference = fx.resolve(t.db, t.org.base_currency, currency, on_date)
+    except Unprocessable:
+        return False
+    ecb = reference.rate
+    if abs(given - ecb) <= ecb * FILE_RATE_TOLERANCE:
+        return False
+    inverted = abs(1 - given * ecb) <= given * ecb * FILE_RATE_TOLERANCE
+    r.error(
+        "fx_rate",
+        "FX_RATE_INVERTED" if inverted else "FX_RATE_FAR_FROM_ECB",
+        f"rate {given} for {currency} is {'the inverse of' if inverted else 'far from'} the ECB rate "
+        f"{ecb} of {reference.rate_date.isoformat()}",
+        currency=currency,
+        base_currency=t.org.base_currency,
+        rate=f"{given.normalize():f}",
+        ecb_rate=f"{ecb.normalize():f}",
+        rate_date=reference.rate_date.isoformat(),
+    )
+    return True
+
+
 def _per_unit(r: _Row, dimension: str, quantity: Decimal | None) -> Decimal | None:
     """One piece's weight or volume, as the file says it or divided from the line's total. The order
     line's quantity divides it — the line's, not a container's share of it — at the column's scale."""
@@ -720,6 +758,8 @@ def _apply_purchase_orders(
     occurrences: dict[tuple[str, str], int] = {}
     next_line_no: dict[str, int] = {}
     rate_tried: set[str] = set()
+    # The rate the file gives each order, from whichever of its lines gives it first.
+    file_rates: dict[str, Decimal] = {}
     rows = _forward_filled_rows(table, mapping, report)
     for idx, raw in enumerate(rows, start=table.header_row + 1):
         r = _Row(idx, raw, mapping, report, conventions)
@@ -770,6 +810,12 @@ def _apply_purchase_orders(
                 row_currency=currency,
             )
             continue
+        order_currency = po.currency if po is not None else currency
+        foreign = order_currency != t.org.base_currency
+        if foreign and given_rate is not None and (po is None or given_rate != po.fx_rate):
+            on_date = order_date or (po.order_date if po is not None else None) or datetime.now(UTC).date()
+            if _file_rate_refused(t, fx, r, order_currency, given_rate, on_date):
+                continue
         sku = r.text("sku")
         repeated_line = False
         if line_no_raw is not None:
@@ -840,6 +886,7 @@ def _apply_purchase_orders(
                 occurrences[key] = seen + 1
 
         supplier = _get_or_create_supplier(t, r.text("supplier_name"), report)
+        created = po is None
         if po is None:
             po = t.add(
                 PurchaseOrder(
@@ -853,9 +900,6 @@ def _apply_purchase_orders(
             )
             t.db.flush()
             report.purchase_orders_created += 1
-            if currency != t.org.base_currency:
-                rate_tried.add(po_number)
-                _set_order_rate(t, fx, po, r, given_rate)
         else:
             changed = False
             if supplier and po.supplier_id != supplier.id:
@@ -864,13 +908,28 @@ def _apply_purchase_orders(
                 po.order_date, changed = order_date, True
             if changed:
                 report.purchase_orders_updated += 1
-            foreign = po.currency != t.org.base_currency
-            restated = given_rate is not None and given_rate != po.fx_rate
-            if foreign and (po.fx_rate is None or restated) and po_number not in rate_tried:
-                # An order left without a rate gets one as soon as a later file finds it, and a file
-                # that states another rate replaces it.
-                rate_tried.add(po_number)
-                _set_order_rate(t, fx, po, r, given_rate)
+        if foreign:
+            kept = file_rates.get(po_number)
+            if given_rate is not None and kept is not None and given_rate != kept:
+                r.warn(
+                    "fx_rate",
+                    "FX_RATE_DIFFERS_IN_ORDER",
+                    f"{po_number}: rate {given_rate} differs from {kept} given on an earlier line; "
+                    f"{kept} is kept",
+                    po_number=po_number,
+                    rate=str(given_rate),
+                    kept=str(kept),
+                )
+            elif given_rate is not None and kept is None:
+                # The file's rate, on whichever line of the order it comes: it replaces the one a
+                # lookup gave an earlier line, and the order's own rate when the file states another.
+                file_rates[po_number] = given_rate
+                if created or given_rate != po.fx_rate:
+                    _set_order_rate(t, fx, po, r, given_rate)
+            elif kept is None and po_number not in rate_tried and (created or po.fx_rate is None):
+                # An order left without a rate gets one as soon as a later file finds it.
+                _set_order_rate(t, fx, po, r)
+            rate_tried.add(po_number)
 
         line = t.db.scalar(
             select(PurchaseOrderLine).where(

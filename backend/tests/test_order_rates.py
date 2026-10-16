@@ -76,6 +76,56 @@ def test_a_file_stating_another_rate_replaces_it_and_the_same_rate_changes_nothi
     assert not [w for w in report["warnings"] if w["code"].startswith("FX_")]
 
 
+def test_a_file_rate_the_wrong_way_round_or_far_from_the_ecb_is_refused_with_both_rates(
+    client: TestClient,
+) -> None:
+    # A French export often quotes 1 EUR = 1,087 USD, the other way round from the field: taken as
+    # given it would make the order's FOB about 17 % too high.
+    head = "N° commande;Devise;Taux de change;Date de commande;Référence;Quantité;Prix unitaire\n"
+    report = imported(
+        client,
+        f"{head}PO-INV;USD;1,087;2026-09-10;A;10;100\n"
+        f"PO-FAR;USD;0,75;2026-09-10;B;10;100\n"
+        f"PO-OK;USD;0,90;2026-09-10;C;10;100\n".encode(),
+    )
+    reference = {"currency": "USD", "base_currency": "EUR", "ecb_rate": "0.92", "rate_date": "2026-09-10"}
+    assert [(e["code"], e["params"]) for e in report["errors"]] == [
+        ("FX_RATE_INVERTED", {**reference, "rate": "1.087"}),
+        ("FX_RATE_FAR_FROM_ECB", {**reference, "rate": "0.75"}),
+    ]
+    found = orders(client)
+    assert set(found) == {"PO-OK"}
+    assert (found["PO-OK"]["fx_rate"], found["PO-OK"]["fx_source"]) == ("0.9", "import")
+
+
+def test_a_rate_given_on_a_later_line_of_an_order_is_taken_and_a_second_one_is_named(
+    client: TestClient,
+) -> None:
+    head = "N° commande;Devise;Taux de change;Date de commande;Référence;Quantité;Prix unitaire\n"
+    report = imported(
+        client,
+        f"{head}PO-USD;USD;;2026-09-10;A;10;100\n"
+        f"PO-USD;USD;0,91;2026-09-10;B;10;100\n"
+        f"PO-USD;USD;0,93;2026-09-10;C;10;100\n".encode(),
+    )
+    assert [(w["code"], w["params"]) for w in report["warnings"] if w["code"].startswith("FX_")] == [
+        (
+            "FX_RATE_APPLIED",
+            {
+                "currency": "USD",
+                "base_currency": "EUR",
+                "rate": "0.92",
+                "rate_date": "2026-09-10",
+                "source": "ecb",
+            },
+        ),
+        ("FX_RATE_FROM_FILE", {"currency": "USD", "base_currency": "EUR", "rate": "0.91"}),
+        ("FX_RATE_DIFFERS_IN_ORDER", {"po_number": "PO-USD", "rate": "0.93", "kept": "0.91"}),
+    ]
+    usd = orders(client)["PO-USD"]
+    assert (usd["fx_rate"], usd["fx_source"], len(usd["lines"])) == ("0.91", "import", 3)
+
+
 def test_the_worker_gives_a_missing_rate_once_the_provider_has_it(
     client: TestClient, db: Session, org_id: UUID
 ) -> None:
