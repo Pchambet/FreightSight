@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.orm import Session
 
 from app.core.tenancy import set_current_org
@@ -561,9 +561,11 @@ def test_a_per_unit_weight_and_volume_keep_every_stored_digit(client: TestClient
     line = {"line_no": 1, "sku": "VIS", "quantity": "2000000", "unit_price": "0.01", "unit_weight_kg": "1.5"}
     body = {"po_number": "PO-VIS", "currency": "EUR", "order_date": "2026-09-01", "lines": [line]}
     order = client.post("/api/v1/purchase-orders", json=body).json()
-    exact = {"unit_weight_kg": Decimal("0.00012345678901"), "unit_volume_cbm": Decimal("0.0000012345678901")}
-    db.query(PurchaseOrderLine).filter(PurchaseOrderLine.id == uuid.UUID(order["lines"][0]["id"])).update(
-        exact
+    weight, volume = Decimal("0.00012345678901"), Decimal("0.0000012345678901")
+    db.execute(
+        update(PurchaseOrderLine)
+        .where(PurchaseOrderLine.id == uuid.UUID(order["lines"][0]["id"]))
+        .values(unit_weight_kg=weight, unit_volume_cbm=volume)
     )
     db.flush()
 
