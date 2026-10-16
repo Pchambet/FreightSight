@@ -135,6 +135,16 @@ export default function ImportWizard({
     const force = next.forceDuplicates ?? forceDuplicates;
     startTransition(async () => {
       const result = await validateImport(job.id, mapping, { defaultCostType: defaultCostType || null, labelTypes: types, forceDuplicates: force });
+      if (!result.ok && "report" in result) {
+        // Nothing to import, but the refusals are the answer: the review shows them, import disabled.
+        setMappingError(null);
+        setLabelTypes(types);
+        setForceDuplicates(force);
+        setJob({ ...job, report: result.report });
+        setChanged(null);
+        setStep("review");
+        return;
+      }
       if (!result.ok) {
         const message = "oneOf" in result ? t("mapping.oneOf", { count: result.oneOf.length, fields: result.oneOf.map(fieldName).join(", ") }) : result.error;
         if (step !== "mapping") toast.error(message);

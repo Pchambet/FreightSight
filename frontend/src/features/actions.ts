@@ -549,7 +549,7 @@ export async function validateImport(
   importId: string,
   mapping: Record<string, string>,
   options: { defaultCostType?: CostType | null; labelTypes?: Record<string, CostType>; forceDuplicates?: boolean } = {},
-): Promise<ActionResult<ImportJobResponse> | { ok: false; error: string; oneOf: string[] }> {
+): Promise<ActionResult<ImportJobResponse> | { ok: false; error: string; oneOf: string[] } | { ok: false; error: string; report: Schemas["ImportReport"] }> {
   await protectAction();
   const { data, error } = await api.POST("/api/v1/imports/{import_id}/validate", {
     params: { path: { import_id: importId } },
@@ -561,9 +561,11 @@ export async function validateImport(
     },
   });
   if (error || !data) {
-    const p = error as (Problem & { one_of?: string[] }) | undefined;
+    const p = error as (Problem & { one_of?: string[]; report?: Schemas["ImportReport"] }) | undefined;
     // Columns that go together (a credit column needs its account): the screen names them by their headers.
     if (p?.code === "MAPPING_INCOMPLETE" && p.one_of?.length) return { ok: false, error: "", oneOf: p.one_of };
+    // Every row refused: the report says which and why, row by row, where a bare sentence would not.
+    if (p?.code === "NO_VALID_ROWS" && p.report) return { ok: false, error: "", report: p.report };
     if (p?.code === "INVOICE_LINE_ALREADY_RECORDED" && !p.errors?.length) {
       const t = await getTranslations("importWizard.review");
       return { ok: false, error: t("lineRecordedMeanwhile") };

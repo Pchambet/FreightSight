@@ -109,6 +109,9 @@ def test_no_valid_rows_is_422(client: TestClient) -> None:
     res = client.post(f"/api/v1/imports/{job['id']}/validate", json={"mapping": job["mapping"]})
     assert res.status_code == 422 and res.json()["code"] == "NO_VALID_ROWS"
     assert len(res.json()["report"]["errors"]) == 2
+    # the imports list counts the refused rows, not "0 errors" on a file where nothing passed
+    listed = next(j for j in client.get("/api/v1/imports").json() if j["id"] == job["id"])
+    assert listed["status"] == "PARSED" and listed["error_count"] == 2
 
 
 def test_over_allocation_in_file_is_a_row_error(client: TestClient) -> None:

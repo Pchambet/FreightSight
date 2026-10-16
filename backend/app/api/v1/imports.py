@@ -173,6 +173,9 @@ def validate_import(
         job.mapping = payload.mapping
         job.status = ImportStatus.PARSED  # a preview that failed is no preview to commit
         job.report = {"error": e.message, "code": e.code, **e.extra}
+        # A file whose every row was refused carries those refusals: the list must not read "0 errors".
+        refused = e.extra.get("report")
+        job.error_count = len(refused.get("errors", [])) if isinstance(refused, dict) else 0
         t.db.commit()
         raise
     t.db.commit()
