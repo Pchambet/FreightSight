@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import ScrollRegion from "@/components/shared/ScrollRegion";
 import { monthTitle } from "@/features/overview/period";
+import { WithoutChargeLine } from "@/features/report/WithoutCharge";
 import type { Schemas } from "@/lib/api/client";
 import { dateShort, money, qty } from "@/lib/format";
 
@@ -244,7 +245,7 @@ export default async function AuditSheet({ audit, header, locale }: { audit: Aud
                   <tbody className="divide-y divide-slate-100">
                     {audit.margins.map((m) => (
                       <tr key={m.sku} className="print:break-inside-avoid">
-                        <td className={tdc}><span className="font-mono">{m.sku}</span>{m.description ? <div className="text-xs text-slate-500">{m.description}</div> : null}{m.fob_missing ? <div className="text-xs text-amber-800">{tv("line")}</div> : null}</td>
+                        <td className={tdc}><span className="font-mono">{m.sku}</span>{m.description ? <div className="text-xs text-slate-500">{m.description}</div> : null}{m.fob_missing ? <div className="text-xs text-amber-800">{tv("line")}</div> : null}<WithoutChargeLine count={m.containers_without_charge ?? 0} /></td>
                         <td className={`${tdc} text-right tabular-nums text-slate-600`}>{qty(m.quantity, locale)}</td>
                         <td className={`${tdc} text-right tabular-nums text-slate-600`}>{eur(m.unit_fob)}</td>
                         <td className={`${tdc} text-right tabular-nums`}>{eur(m.unit_landed)}</td>
@@ -345,7 +346,7 @@ export default async function AuditSheet({ audit, header, locale }: { audit: Aud
                     <tbody className="divide-y divide-slate-100">
                       {rows.map((r) => (
                         <tr key={r.key}>
-                          <td className={tdc}>{kind === "month" ? (r.key === "unknown" ? t("coefficient.noDate") : monthTitle(r.key, locale)) : r.key === "unknown" ? t("coefficient.noSupplier") : r.label}{r.fob_missing ? <div className="text-xs text-amber-800">{tv("line")}</div> : null}</td>
+                          <td className={tdc}>{kind === "month" ? (r.key === "unknown" ? t("coefficient.noDate") : monthTitle(r.key, locale)) : r.key === "unknown" ? t("coefficient.noSupplier") : r.label}{r.fob_missing ? <div className="text-xs text-amber-800">{tv("line")}</div> : null}<WithoutChargeLine count={r.containers_without_charge ?? 0} /></td>
                           <td className={`${tdc} text-right tabular-nums text-slate-600`}>{eur(r.fob)}</td>
                           <td className={`${tdc} text-right tabular-nums text-slate-600`}>{eur(r.landed)}</td>
                           <td className={`${tdc} text-right tabular-nums font-semibold whitespace-nowrap`}>
