@@ -135,8 +135,9 @@ reconnaissent seules), *Valider (à blanc)*, lire l'aperçu — **rien n'est enc
   type et de ce montant existe déjà sur ce conteneur* (la facture est dans le journal du comptable).
   Comme ces lignes sont des doublons, aucun bouton ne les retient en bloc : **cochez une ligne à
   la main** (*Accepter*).
-- [ ] Essayer *Confirmer* : **refusé**, l'outil dit que cette facture est déjà enregistrée. Cliquer
-  *Rejeter*.
+- [ ] Essayer *Confirmer* : **refusé**, *Cette facture figure déjà dans les coûts* (avec le jour où ses
+  coûts ont été enregistrés) : c'est la même facture reçue deux fois. Cliquer *Rejeter* : *Facture
+  rejetée : aucun coût n'a été créé.*
 
 > **Valeur :** la même facture envoyée deux fois, par mail puis par courrier, ne sera jamais comptée deux
 > fois.
