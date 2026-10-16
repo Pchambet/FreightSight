@@ -49,7 +49,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </div>
           <div>
             <div className="font-semibold text-slate-900 mb-2">Données</div>
-            <p>Hébergé à {site.hostingRegion}. Une base isolée par société, aucun modèle entraîné sur vos données. <Link href="/securite" className="text-blue-700 underline underline-offset-2 hover:no-underline">Page sécurité</Link>.</p>
+            <p>Hébergé à {site.hostingRegion}. Données isolées par société jusque dans la base, aucun modèle entraîné sur vos données. <Link href="/securite" className="text-blue-700 underline underline-offset-2 hover:no-underline">Page sécurité</Link>.</p>
           </div>
           <div>
             <div className="font-semibold text-slate-900 mb-2">Contact</div>
