@@ -17,8 +17,10 @@ import { reopenInvoice } from "@/features/actions";
  * costs it reduced: said so, rather than « the costs will be deleted ». An invoice that did both —
  * created costs and reduced one on file — says both.
  */
-export default function ReopenConfirmedAction({ invoiceId, costsCreated, costsCredited = 0 }: { invoiceId: string; costsCreated: number; costsCredited?: number }) {
+export default function ReopenConfirmedAction({ invoiceId, costsCreated, costsCredited = 0, creditNote = false }: { invoiceId: string; costsCreated: number; costsCredited?: number; creditNote?: boolean }) {
   const t = useTranslations("invoices.detail");
+  // A credit note is named as one: « Rouvrir cette facture » over an avoir read as the wrong document.
+  const kind = creditNote ? "credit" : "invoice";
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -32,7 +34,7 @@ export default function ReopenConfirmedAction({ invoiceId, costsCreated, costsCr
       toast.success(
         costsCredited && costsCreated
           ? t("reopenedMixed", { created: costsCreated, credited: costsCredited })
-          : costsCredited ? t("reopenedCredit", { count: costsCredited }) : t("reopenedConfirmed", { count: costsCreated }),
+          : costsCredited ? t("reopenedCredit", { kind, count: costsCredited }) : t("reopenedConfirmed", { count: costsCreated }),
       );
       router.refresh();
     });
@@ -51,11 +53,11 @@ export default function ReopenConfirmedAction({ invoiceId, costsCreated, costsCr
       </button>
       <ConfirmDialog
         open={open}
-        title={t("reopenConfirmedTitle")}
+        title={t("reopenConfirmedTitle", { kind })}
         body={
           costsCredited && costsCreated
             ? t("reopenMixedBody", { created: costsCreated, credited: costsCredited })
-            : costsCredited ? t("reopenCreditBody", { count: costsCredited }) : t("reopenConfirmedBody", { count: costsCreated })
+            : costsCredited ? t("reopenCreditBody", { kind, count: costsCredited }) : t("reopenConfirmedBody", { count: costsCreated })
         }
         confirmLabel={costsCredited ? t("reopenCreditConfirm") : t("reopenConfirmedConfirm")}
         cancelLabel={t("reopenConfirmedCancel")}

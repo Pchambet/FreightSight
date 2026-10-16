@@ -135,7 +135,7 @@ export default async function InvoicePage({ params }: Params) {
               ? t("creditNoteBanner", { count: creditedCostCount, date: dateShort(invoice.created_at, locale) })
               : t("confirmedBanner", { count: confirmedCostCount, date: dateShort(invoice.created_at, locale) })}
           </p>
-          <ReopenConfirmedAction invoiceId={invoice.id} costsCreated={confirmedCostCount} costsCredited={creditedCostCount} />
+          <ReopenConfirmedAction invoiceId={invoice.id} costsCreated={confirmedCostCount} costsCredited={creditedCostCount} creditNote={invoice.credit_note} />
         </div>
       ) : null}
       {invoice.status === "REJECTED" ? (
