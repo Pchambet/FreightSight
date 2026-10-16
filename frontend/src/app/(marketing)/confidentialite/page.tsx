@@ -45,7 +45,7 @@ const PROCESSING = [
     data: "E-mail, nom, identifiant de connexion, société(s) et rôle ; le journal des actions (qui a importé, validé ou modifié quoi, et quand) ; à l'activation des alertes, l'e-mail des destinataires.",
     why: "Vous connecter, gérer les invitations et les rôles, garder la preuve de qui a validé un coût, envoyer les alertes.",
     basis: "Intérêt légitime à fournir le service souscrit par votre société et à en garder la traçabilité (art. 6.1.f).",
-    keep: "Tant que votre société utilise le service ; supprimé sous 30 jours après la suppression de la société. Une copie chiffrée subsiste dans les sauvegardes jusqu'à leur expiration : 30 jours pour les quotidiennes, 12 mois pour les mensuelles.",
+    keep: "Tant que votre société utilise le service ; supprimé avec les données de la société, sous 30 jours après la fin de son contrat ou sur sa demande. Une copie chiffrée subsiste dans les sauvegardes jusqu'à leur expiration : 30 jours pour les quotidiennes, 12 mois pour les mensuelles.",
   },
 ];
 

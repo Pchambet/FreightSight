@@ -83,6 +83,6 @@ l'e-mail pour créer un compte (Clerk, connexion par e-mail ou Google) ; le rest
   page : clé `EXTRACTION_API_KEY` absente en production, DSN Sentry en région UE, offre Sentry, durée
   des journaux Vercel, noms des cookies Clerk.
 - [À TENIR par Pierre] la purge des échanges prospects à 3 ans, et la suppression sous 30 jours
-  (outillage absent, `README.md` section 4).
+  (`python -m app.erase` et `docs/04_ops_railway_vercel.md` §9, pas encore joués en production).
 - Si la page devait exister en anglais : le site public n'a pas de version anglaise aujourd'hui, la page
   n'en a donc pas non plus.

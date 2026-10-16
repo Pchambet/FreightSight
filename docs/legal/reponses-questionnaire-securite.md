@@ -8,7 +8,7 @@ ouvrés », `securite/page.tsx:90`) et de check-list interne avant de répondre 
 Chaque réponse est marquée **VRAI AUJOURD'HUI** (vérifié dans le code ou la configuration en
 production au 17/09/2026) ou **PRÉVU** (construit mais pas encore activé, ou pas encore fait), avec la
 preuve. Rien n'est marqué VRAI AUJOURD'HUI sans une source vérifiable dans le dépôt. Questions 3, 13,
-16, 19, 20, 22, 23 et 24 mises à jour le 16 octobre 2026 ; les sources des prestataires sont dans
+16, 19, 20, 22, 23, 24 et 26 mises à jour le 16 octobre 2026 ; les sources des prestataires sont dans
 `docs/legal/README.md`.
 
 ---
@@ -214,8 +214,10 @@ sur demande, par des requêtes limitées à l'organisation ; cette procédure n'
 **26. Que se passe-t-il si le client résilie ?**
 Suppression définitive de l'organisation exécutée sous 30 jours et confirmée par écrit ; les
 sauvegardes chiffrées résiduelles suivent leur propre cycle de rétention (30 jours glissants,
-12 mensuelles) avant expiration complète. **VRAI AUJOURD'HUI** — `securite/page.tsx:84`,
-`docs/backups-questions.md` §4.
+12 mensuelles) avant expiration complète, soit douze mois au plus après la suppression. **PRÉVU** — la
+commande existe (`python -m app.erase`, une transaction, journal d'audit compris) avec son runbook
+(`docs/04_ops_railway_vercel.md` §9 : Clerk, documents hors base et sauvegardes) ; elle n'a pas encore
+été jouée en production. `docs/backups-questions.md` §4 pour la rétention.
 
 **27. Les fichiers de factures sont-ils sauvegardés séparément des autres données ?**
 Aujourd'hui les documents sont en base, donc inclus dans la sauvegarde de la base. Si les fichiers

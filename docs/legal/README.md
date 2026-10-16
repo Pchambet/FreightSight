@@ -85,10 +85,11 @@ Dans les brouillons de contrats, les seuls `[À COMPLÉTER]` d'identité restant
 ## 4. Engagements désormais publiés, à tenir
 
 - **Supprimer une société sous 30 jours** sur demande et le confirmer par écrit (`/securite`,
-  `/confidentialite`, CGV art. 6). Aucun outil ne le fait aujourd'hui. La procédure doit couvrir :
-  les tables de la société, ses utilisateurs dans Clerk, et le journal d'audit — `audit_log` est en
-  ajout seul, un déclencheur refuse `DELETE` même au propriétaire
-  (`backend/migrations/versions/0008_audit_log.py`) : il faut une procédure documentée pour l'effacer.
+  `/confidentialite`, CGV art. 6). La base : `python -m app.erase`, qui supprime en une transaction
+  chaque ligne de la société, journal d'audit compris (son déclencheur d'ajout seul n'est levé que dans
+  cette transaction). Le reste à la main : Clerk, documents en stockage objet s'il est activé, Sentry ;
+  les sauvegardes expirent seules, douze mois au plus. Procédure : `docs/04_ops_railway_vercel.md` §9,
+  pas encore jouée en production.
 - **Effacer les échanges avec un prospect 3 ans après son dernier message** (boîte Gmail comprise).
 - **Avant d'activer** la lecture par IA (`EXTRACTION_API_KEY`), les alertes e-mail (`RESEND_API_KEY`)
   ou le suivi automatique : mettre à jour `subprocessors.ts` (et le paragraphe IA de `/securite` et

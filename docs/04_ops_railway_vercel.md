@@ -297,3 +297,74 @@ docker compose down -v && docker compose up -d --build
 
 La restauration se plaint du rôle `freightsight_app`, absent d'un volume neuf, et sort en code 1 :
 les données sont bien là, et l'API locale se connecte en `fs`, qui n'en a pas besoin.
+
+## 9. Supprimer une société en fin de contrat
+
+L'engagement publié (`/securite`, `/confidentialite`, CGV art. 6, DPA h) : les données d'une société
+sont supprimées sous 30 jours, sur demande ou en fin de contrat, et la suppression lui est confirmée par
+écrit. Les sauvegardes chiffrées en gardent une copie jusqu'à leur expiration, 12 mois au plus.
+Ce runbook n'a pas encore été joué en production.
+
+**1. Avant.** Remettre l'export au client s'il le demande. Noter l'identifiant de la société (son `id`,
+son identifiant Clerk `org_…` ou son slug) et son nom exact.
+
+**2. Clerk d'abord.** Tableau de bord Clerk → Organizations → la société → Delete, puis Users : supprimer
+chacun de ses membres qui n'appartient à aucune autre société. Dans cet ordre, parce que l'API recrée
+une organisation vide à la première connexion d'une organisation Clerk qu'elle ne connaît pas
+(`backend/app/core/auth.py`) : tant que l'organisation Clerk existe, quelqu'un peut la faire renaître.
+
+**3. La base : `python -m app.erase`.** La commande tourne en propriétaire des tables
+(`MIGRATIONS_DATABASE_URL`), dans le conteneur de l'API : l'hôte Postgres n'est joignable que par le
+réseau privé de Railway.
+
+```bash
+railway ssh -s FreightSight -e production
+# puis, dans le conteneur :
+python -m app.erase <id | org_… | slug>                          # à blanc : rien n'est supprimé
+python -m app.erase <id | org_… | slug> --confirm '<nom exact ou slug>'
+```
+
+À blanc, elle affiche qui est connecté (et s'il est superuser), les lignes de la société table par
+table, ses utilisateurs qui n'appartiennent à aucune autre société, et ses documents rangés hors de la
+base. Avec `--confirm`, elle supprime en **une seule transaction** :
+
+- chaque ligne de la société dans chaque table qui porte un `org_id`, journal d'audit compris. Les tables
+  sont lues dans le catalogue, comme le fait `backend/tests/test_rls_coverage.py` : une table ajoutée
+  demain est couverte sans toucher à la commande ;
+- puis la ligne `organizations` de la société et ses utilisateurs sans autre société (`users`).
+
+Elle refuse, et ne supprime rien, si la confirmation n'est pas exactement le nom ou le slug, ou si la
+suppression toucherait une ligne d'une autre société : une clé étrangère sans cascade fait échouer
+Postgres, et une cascade (qui passe outre la RLS) est vue parce que la transaction compare, table par
+table, ce que Postgres dit avoir supprimé et modifié à ce qu'elle a compté de la société.
+
+**Le verrou du journal d'audit.** Le déclencheur `audit_log_append_only` (migration `0008`) est
+désactivé dans la transaction, juste avant que les lignes du journal partent, et réactivé juste après ;
+un `ALTER TABLE` est transactionnel, donc un échec le laisse tel quel. La RLS n'est jamais levée : la
+commande pose `app.org_id` sur la société, ce qui suffit à un propriétaire non superuser (la RLS forcée
+le lie) et ne change rien pour un superuser, que la clause `WHERE org_id` borne. Sur Railway, le
+propriétaire est `PGUSER` du service PostgresEU (`postgres`, le rôle créé par l'image, superuser a
+priori — non vérifié : la commande l'affiche). Les deux cas sont testés
+(`backend/tests/test_erase.py`).
+
+**Effet sur le service.** Pendant les quelques secondes de la transaction, `audit_log` est verrouillé en
+écriture : les actions de l'API qui écrivent au journal attendent. Au-delà de 10 s d'attente d'un verrou
+(`lock_timeout`), la commande échoue sans rien supprimer : la relancer. Choisir une heure calme.
+
+**4. Ce qui vit hors de la base, à supprimer à la main le même jour.**
+
+| Où | Quoi | Comment |
+|---|---|---|
+| Clerk | l'organisation et ses utilisateurs | étape 2 |
+| Stockage objet des documents | les factures PDF et autres documents, seulement si `DOCUMENTS_S3_*` est réglé sur l'API | la commande affiche « documents in object storage under `<id>/` » ; alors `aws s3 rm s3://$DOCUMENTS_S3_BUCKET/<id>/ --recursive --endpoint-url https://s3.fr-par.scw.cloud`. Sans ces variables, documents et fichiers importés sont en base (`document_blobs`, `import_jobs.content`) et la commande les a supprimés |
+| Sentry | des traces d'erreur peuvent citer un identifiant ou un libellé (`send_default_pii` est coupé) | chercher l'`id` de la société dans les issues et supprimer celles qui la citent ; le reste expire avec la rétention de l'offre (30 à 90 jours) |
+| Sauvegardes Scaleway | une copie chiffrée complète de la base, donc de la société | rien à faire : elles expirent (30 quotidiennes, et la première de chacun des 12 derniers mois), donc **12 mois au plus** après la suppression. On ne retire pas une société d'un dump chiffré |
+| Volume Railway | Railway sauvegarde son propre volume (§6) | rétention propre à Railway, non vérifiée : la lire dans le tableau de bord du service PostgresEU |
+| File de jobs | `procrastinate_jobs` garde les identifiants passés aux tâches (société, facture), sans contenu | rien |
+
+**5. Après une restauration.** Une sauvegarde antérieure à la suppression ramène la société. Tenir la
+liste des sociétés supprimées (id, date) et relancer `python -m app.erase` pour chacune sur la base
+restaurée, avant de la remettre en service.
+
+**6. Confirmer par écrit** au client : la date, ce que la commande a affiché (tables et lignes), Clerk et
+documents supprimés, et la date à laquelle la dernière sauvegarde qui le contient aura expiré.
