@@ -110,14 +110,17 @@ def audit_entry(cost: Cost, credit: CostCredit, *, applied: bool) -> tuple[dict[
     the credit's own figures on the side that holds it."""
     other = cost.amount + credit.amount if applied else cost.amount - credit.amount
     # The type on both sides, unchanged: it is what names a cost in the history.
+    # `currency` says what `amount` and `credited` are in: a credit on a dollar cost is in dollars.
     now: dict[str, Any] = {
         "cost_type": cost.cost_type,
         "amount": cost.amount,
+        "currency": cost.currency,
         "amount_base": cost.amount_base,
     }
     then: dict[str, Any] = {
         "cost_type": cost.cost_type,
         "amount": other,
+        "currency": cost.currency,
         "amount_base": to_base(other, cost.fx_rate),
     }
     held: dict[str, Any] = {
