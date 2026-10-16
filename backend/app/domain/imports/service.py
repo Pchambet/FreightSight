@@ -67,10 +67,12 @@ FORWARD_FILLED_FIELDS = ("po_number", "supplier_name", "currency")
 
 
 def _capacity(column: ColumnElement[Any]) -> Decimal:
-    """The first value a column cannot hold: 10^(digits before the point), 2^31 for an integer."""
+    """The first value a column cannot hold: 10^(digits before the point) less half its last decimal,
+    which the database rounds up to it before it checks the digits; 2^31 for an integer."""
     kind = column.type
     if isinstance(kind, Numeric):
-        return Decimal(10) ** ((kind.precision or 0) - (kind.scale or 0))
+        scale = kind.scale or 0
+        return Decimal(10) ** ((kind.precision or 0) - scale) - Decimal(5).scaleb(-scale - 1)
     return Decimal(2**31)
 
 
@@ -82,20 +84,23 @@ def _step(column: ColumnElement[Any]) -> Decimal:
 
 
 #: Where each number of a file is written. A value its column cannot hold made the database refuse the
-#: whole file, a 500 on the preview; the row says so instead. A product's weight and volume have the same
-#: digits before the point as an order line's.
+#: whole file, a 500 on the preview; the row says so instead. A field written to several columns is held
+#: to the narrowest: a product's weight keeps four decimals where an order line's keeps fourteen.
 CAPACITY = {
-    field: _capacity(column)
-    for field, column in {
-        "quantity": PurchaseOrderLine.__table__.c.quantity,
-        "unit_price": PurchaseOrderLine.__table__.c.unit_price,
-        "unit_weight_kg": PurchaseOrderLine.__table__.c.unit_weight_kg,
-        "unit_volume_cbm": PurchaseOrderLine.__table__.c.unit_volume_cbm,
-        "duty_rate": PurchaseOrderLine.__table__.c.duty_rate,
-        "line_no": PurchaseOrderLine.__table__.c.line_no,
-        "container_quantity": ContainerLoad.__table__.c.quantity,
-        "total_value": PurchaseOrderLine.__table__.c.unit_price,
-        "sale_price": Product.__table__.c.sale_price,
+    field: min(_capacity(column) for column in columns)
+    for field, columns in {
+        "quantity": (PurchaseOrderLine.__table__.c.quantity,),
+        "unit_price": (PurchaseOrderLine.__table__.c.unit_price,),
+        "unit_weight_kg": (PurchaseOrderLine.__table__.c.unit_weight_kg, Product.__table__.c.unit_weight_kg),
+        "unit_volume_cbm": (
+            PurchaseOrderLine.__table__.c.unit_volume_cbm,
+            Product.__table__.c.unit_volume_cbm,
+        ),
+        "duty_rate": (PurchaseOrderLine.__table__.c.duty_rate, Product.__table__.c.duty_rate),
+        "line_no": (PurchaseOrderLine.__table__.c.line_no,),
+        "container_quantity": (ContainerLoad.__table__.c.quantity,),
+        "total_value": (PurchaseOrderLine.__table__.c.unit_price,),
+        "sale_price": (Product.__table__.c.sale_price,),
     }.items()
 }
 #: A weight or a volume, said for one piece or for the whole order line: (per unit, line total, the

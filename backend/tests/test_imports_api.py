@@ -394,6 +394,20 @@ def test_a_number_the_books_cannot_hold_is_refused_on_its_row(client: TestClient
     assert report["valid_rows"] == 1
 
 
+def test_a_number_that_rounds_past_its_column_is_refused_on_its_row(client: TestClient) -> None:
+    """The database rounds to the column's decimals before it checks the digits: 9 999 999 999,99999
+    pieces fit under the cap and round to ten billion, which the column cannot hold — a 500 for the file.
+    A product's weight is kept to four decimals, an order line's to fourteen: the narrower one decides."""
+    orders = b"po_number;sku;quantity;unit_price\nPO-R;A;9999999999,99999;1,00\nPO-R;B;10;1,00\n"
+    report = validate(client, upload(client, orders, "PURCHASE_ORDERS", "round.csv"))
+    assert [(e["row"], e["field"], e["code"]) for e in report["errors"]] == [
+        (2, "quantity", "NUMBER_TOO_LARGE")
+    ]
+    products = b"sku;unit_weight_kg\nA;99999999,99996\nB;1,5\n"
+    report = validate(client, upload(client, products, "PRODUCTS", "products.csv"))
+    assert [(e["row"], e["code"]) for e in report["errors"]] == [(2, "NUMBER_TOO_LARGE")]
+
+
 def test_a_currency_that_changes_inside_one_order_is_refused(client: TestClient) -> None:
     content = b"po_number;currency;sku;quantity;unit_price\nPO-X;USD;A;10;1,00\nPO-X;CNY;B;20;2,00\n"
     job = upload(client, content, "PURCHASE_ORDERS")
