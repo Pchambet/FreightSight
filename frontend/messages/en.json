@@ -1298,7 +1298,9 @@
       "creditsConfirmed": "{count, plural, one {# cost reduced by the credit} other {# costs reduced by the credit}}",
       "reopenCreditBody": "{count, plural, one {The credit will be removed from the cost it reduces, which gets its amount back.} other {The credit will be removed from the # costs it reduces, which get their amounts back.}} The document goes back to review; nothing else is touched.",
       "reopenCreditConfirm": "Reopen and remove the credit",
-      "reopenedCredit": "Credit note reopened: {count, plural, one {# cost got its amount back} other {# costs got their amounts back}}."
+      "reopenedCredit": "Credit note reopened: {count, plural, one {# cost got its amount back} other {# costs got their amounts back}}.",
+      "reopenMixedBody": "{created, plural, one {The cost this confirmation created will be deleted} other {The # costs this confirmation created will be deleted}}, and {credited, plural, one {the cost it reduced gets its amount back.} other {the # costs it reduced get their amounts back.}} The invoice goes back to review; nothing else is touched.",
+      "reopenedMixed": "Invoice reopened: {created, plural, one {# cost deleted} other {# costs deleted}}, {credited, plural, one {# cost got its amount back} other {# costs got their amounts back}}."
     },
     "lineNotes": {
       "singleContainer": "Charged to {container}, the only container named on the invoice.",

@@ -74,7 +74,8 @@ export default async function InvoicePage({ params }: Params) {
   // Costs, not lines: lines of one type on one target and currency become one cost, which each of
   // them points to (freight + bunker surcharge on one container).
   const confirmedCostCount = new Set(lines.map((l) => l.cost_id).filter(Boolean)).size;
-  // A credit note creates no cost: it reduces costs already invoiced, each one named on its lines.
+  // A credit note creates no cost: it reduces costs already invoiced, each one named on its lines. An
+  // invoice can too, with a discount that has no charge of its type beside it.
   const creditedCostCount = new Set(lines.map((l) => (l.refund ? l.credit_cost_id : null)).filter(Boolean)).size;
 
   return (
@@ -130,7 +131,7 @@ export default async function InvoicePage({ params }: Params) {
               ? t("creditNoteBanner", { count: creditedCostCount, date: dateShort(invoice.created_at, locale) })
               : t("confirmedBanner", { count: confirmedCostCount, date: dateShort(invoice.created_at, locale) })}
           </p>
-          <ReopenConfirmedAction invoiceId={invoice.id} costsCreated={confirmedCostCount} costsCredited={invoice.credit_note ? creditedCostCount : 0} />
+          <ReopenConfirmedAction invoiceId={invoice.id} costsCreated={confirmedCostCount} costsCredited={creditedCostCount} />
         </div>
       ) : null}
       {invoice.status === "REJECTED" ? (

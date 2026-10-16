@@ -1298,7 +1298,9 @@
       "creditsConfirmed": "{count, plural, one {# coût réduit par l'avoir} other {# coûts réduits par l'avoir}}",
       "reopenCreditBody": "{count, plural, one {L'avoir sera retiré du coût qu'il réduit, qui retrouve son montant.} other {L'avoir sera retiré des # coûts qu'il réduit, qui retrouvent leur montant.}} Le document repasse à relire ; rien d'autre n'est touché.",
       "reopenCreditConfirm": "Rouvrir et retirer l'avoir",
-      "reopenedCredit": "Avoir rouvert : {count, plural, one {# coût a retrouvé son montant} other {# coûts ont retrouvé leur montant}}."
+      "reopenedCredit": "Avoir rouvert : {count, plural, one {# coût a retrouvé son montant} other {# coûts ont retrouvé leur montant}}.",
+      "reopenMixedBody": "{created, plural, one {Le coût créé par cette confirmation sera supprimé} other {Les # coûts créés par cette confirmation seront supprimés}}, et {credited, plural, one {le coût qu'elle a réduit retrouve son montant.} other {les # coûts qu'elle a réduits retrouvent leur montant.}} La facture repasse à relire ; rien d'autre n'est touché.",
+      "reopenedMixed": "Facture rouverte : {created, plural, one {# coût supprimé} other {# coûts supprimés}}, {credited, plural, one {# coût a retrouvé son montant} other {# coûts ont retrouvé leur montant}}."
     },
     "lineNotes": {
       "singleContainer": "Facturé sur {container}, seul conteneur mentionné sur la facture.",
