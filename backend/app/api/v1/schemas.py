@@ -2063,7 +2063,8 @@ class ErpPushResponse(BaseModel):
     odoo_name: str | None
     #: Deep link into the customer's Odoo web client for this document.
     record_url: str | None = None
-    #: Always `draft`: validating a landed cost posts entries in someone else's books.
+    #: `draft` when written: validating a landed cost posts entries in someone else's books. A
+    #: forgotten push keeps the state its document was found in (`done`, `cancel`) when let go of.
     status: str
     #: The costs this document carries — the subset that was still pending when it was written.
     cost_ids: list[UUID]

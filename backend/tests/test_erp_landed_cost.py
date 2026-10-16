@@ -1028,8 +1028,183 @@ def test_a_validated_document_is_forgotten_against_a_reason(
     entry = client.get("/api/v1/audit-log", params={"action": "erp.push_forgotten"}).json()["entries"][0]
     assert entry["after"]["document_state"] == "done"
 
-    # and the container lives again: what the document carries can be pushed once more
-    assert preview(client, container_id)["pushable"] is True
+    # and what it carries stays carried: it is in their stock valuation, and pushing it again would
+    # charge the same freight to the same goods twice
+    body = preview(client, container_id)
+    assert body["pushable"] is False
+    assert body["total"] == "0.00"
+    assert [c["pushed_as"] for c in body["costs"]] == [DOCUMENT]
+    assert "already_pushed" in [b["code"] for b in body["blockers"]]
+    refused = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
+    assert refused.status_code == 422
+    assert len(odoo.created) == 1
+
+
+def validate_and_forget(
+    client: TestClient, odoo: WritableOdoo, container_id: str, push: dict[str, Any]
+) -> None:
+    """The accountant validates the draft, and we let go of it later with a reason."""
+    odoo.documents[push["odoo_id"]]["state"] = "done"
+    res = client.delete(
+        f"/api/v1/containers/{container_id}/erp/pushes/{push['id']}",
+        params={"reason": "facture corrigée après validation"},
+    )
+    assert res.status_code == 200, res.text
+
+
+def test_after_a_validated_document_is_forgotten_only_the_difference_is_pushed(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The forwarder corrects its invoice after the accountant validated our document.
+
+    Their books hold 2 766,67 on these goods and cannot lose it. The correction is the difference,
+    in a document of its own — never the corrected amount in full on top of the old one.
+    """
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    first = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    (cost,) = client.get(f"/api/v1/landed-costs/containers/{container_id}").json()["costs"]
+    assert client.patch(f"/api/v1/costs/{cost['id']}", json={"amount": "2900.00"}).status_code == 200
+    validate_and_forget(client, odoo, container_id, first)
+
+    body = preview(client, container_id)
+    assert body["blockers"] == []
+    assert body["pushable"] is True
+    assert body["total"] == "133.33"
+    (planned,) = body["costs"]
+    assert planned["pushed_as"] is None
+    assert planned["amount"] == "133.33"
+    assert planned["label"] == "Fret maritime — facture FA-2026-0912 — Transitex — ajustement"
+    assert [(line["move_id"], line["amount"]) for line in planned["lines"]] == [(MOVE_ID, "133.33")]
+
+    second = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost")
+    assert second.status_code == 201, second.text
+    assert len(odoo.created) == 2
+    assert odoo.created[1]["name"] == f"{DOCUMENT} — ajustement"
+    (line_command,) = odoo.created[1]["cost_lines"]
+    assert line_command[2]["price_unit"] == 133.33
+    assert odoo.written[-1][1] == {"additional_landed_cost": 133.33}
+
+    # both documents together hold the corrected figure: nothing left, and nothing has drifted
+    after = preview(client, container_id)
+    assert after["total"] == "0.00"
+    assert [b["code"] for b in after["blockers"]] == ["already_pushed"]
+
+
+def test_the_difference_lands_on_each_receipt_line_by_what_that_line_already_holds(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two lots, two moves: the correction leaves each move at our new figure, not the total alone."""
+    odoo = WritableOdoo(split_move=True)
+    connect(client, odoo, monkeypatch)
+    container_id = seed_two_lines(client)
+    first = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    (cost,) = client.get(f"/api/v1/landed-costs/containers/{container_id}").json()["costs"]
+    assert client.patch(f"/api/v1/costs/{cost['id']}", json={"amount": "1300.00"}).status_code == 200
+    validate_and_forget(client, odoo, container_id, first)
+
+    (planned,) = preview(client, container_id)["costs"]
+    assert planned["amount"] == "300.00"
+    # 333.33 + 666.67 held; 433.33 + 866.67 now
+    assert {line["move_id"]: line["amount"] for line in planned["lines"]} == {
+        MOVE_ID: "100.00",
+        SPLIT_MOVE["id"]: "200.00",
+    }
+
+
+def test_a_cost_re_entered_after_a_validated_push_is_netted_against_what_their_books_hold(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Correcting an invoice deletes its cost and confirms a new one, with a new id.
+
+    Matched on ids alone, the new cost looks never pushed and goes in full while the validated
+    document keeps the old one. So the cost their books still hold and we no longer count is taken
+    back in the same document that carries its replacement: what is written is the difference.
+    """
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    first = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    validate_and_forget(client, odoo, container_id, first)
+    (old,) = client.get(f"/api/v1/landed-costs/containers/{container_id}").json()["costs"]
+    assert client.delete(f"/api/v1/costs/{old['id']}").status_code == 204
+    new = client.post(
+        "/api/v1/costs",
+        json={
+            "scope": "CONTAINER",
+            "target_id": container_id,
+            "cost_type": "OCEAN_FREIGHT",
+            "amount": "2900.00",
+            "currency": "EUR",
+            "cost_date": "2026-03-12",
+            "invoice_number": "FA-2026-0912",
+            "vendor": "Transitex",
+        },
+    )
+    assert new.status_code == 201, new.text
+
+    body = preview(client, container_id)
+    assert body["pushable"] is True, body["blockers"]
+    assert body["total"] == "133.33"
+    going = {c["label"]: c["amount"] for c in body["costs"] if c["pushed_as"] is None}
+    assert going == {
+        "Fret maritime — facture FA-2026-0912 — Transitex": "2900.00",
+        "Fret maritime — facture FA-2026-0912 — Transitex — ajustement": "-2766.67",
+    }
+
+    assert client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").status_code == 201
+    assert sorted(c[2]["price_unit"] for c in odoo.created[1]["cost_lines"]) == [-2766.67, 2900.0]
+    after = preview(client, container_id)
+    assert after["total"] == "0.00"
+    assert [b["code"] for b in after["blockers"]] == ["already_pushed"]
+
+
+def test_a_cancelled_document_forgotten_gives_its_costs_back_in_full(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A cancelled landed cost posted nothing: its costs are in nobody's books."""
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    pushed = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    odoo.documents[pushed["odoo_id"]]["state"] = "cancel"
+    res = client.delete(
+        f"/api/v1/containers/{container_id}/erp/pushes/{pushed['id']}", params={"reason": "annulé dans Odoo"}
+    )
+    assert res.status_code == 200, res.text
+
+    body = preview(client, container_id)
+    assert body["pushable"] is True
+    assert body["total"] == "2766.67"
+    assert [c["pushed_as"] for c in body["costs"]] == [None]
+
+
+def test_a_validated_push_whose_split_was_not_kept_is_said_rather_than_guessed(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A push written before the split per receipt line was recorded: the difference cannot be
+    placed on lines without knowing what each one already holds, so it is said and not written."""
+    odoo = WritableOdoo()
+    connect(client, odoo, monkeypatch)
+    container_id = seed_container(client)
+    first = client.post(f"/api/v1/containers/{container_id}/erp/landed-cost").json()
+    row = db.get(ErpPush, uuid.UUID(first["id"]))
+    assert row is not None
+    row.carried = {
+        key: {"amount": value["amount"], "label": value["label"]} for key, value in row.carried.items()
+    }
+    db.commit()
+    (cost,) = client.get(f"/api/v1/landed-costs/containers/{container_id}").json()["costs"]
+    assert client.patch(f"/api/v1/costs/{cost['id']}", json={"amount": "2900.00"}).status_code == 200
+    validate_and_forget(client, odoo, container_id, first)
+
+    body = preview(client, container_id)
+    assert body["total"] == "0.00"
+    (remark,) = [b for b in body["blockers"] if b["code"] == "adjustment_unplaced"]
+    assert remark["params"]["existing"] == DOCUMENT
+    assert "2766.67 → 2900.00" in remark["params"]["changes"]
+    assert len(odoo.created) == 1
 
 
 def test_a_draft_still_in_the_erp_is_never_forgotten_even_with_a_reason(

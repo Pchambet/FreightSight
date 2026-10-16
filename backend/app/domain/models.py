@@ -938,6 +938,8 @@ class ErpPush(OrgScoped, Base):
     Never deleted. A push can be *forgotten* — when the draft it made was deleted in the ERP and its
     costs have to become pushable again — and forgetting is a row that says so, with a reason and an
     audit entry. Deleting it would erase the only evidence that we once wrote in someone's books.
+    A validated document forgotten that way still holds what it posted, so its `carried` amounts go
+    on counting and only a difference from them is pushed again.
     """
 
     __tablename__ = "erp_pushes"
@@ -950,10 +952,10 @@ class ErpPush(OrgScoped, Base):
     container_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("containers.id"), nullable=False)
     #: The costs this push carried, as strings, so the row survives a cost being deleted.
     cost_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
-    #: What each of them was when it was written — `cost id -> {"amount": "2766.67", "label": …}` —
-    #: so a cost edited or deleted afterwards is noticed and still has a name: the draft in the ERP
-    #: carries the old figure, and nothing over there says so.
-    carried: Mapped[dict[str, dict[str, str]]] = mapped_column(JSONB, nullable=False, default=dict)
+    #: What each of them was when it was written — `cost id -> {"amount": "2766.67", "label": …,
+    #: "lines": {move id: amount}}` — so a cost edited or deleted afterwards is noticed and still has a
+    #: name: the draft in the ERP carries the old figure, and nothing over there says so.
+    carried: Mapped[dict[str, dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=dict)
     odoo_model: Mapped[str] = mapped_column(String, nullable=False)
     odoo_id: Mapped[int] = mapped_column(Integer, nullable=False)
     odoo_name: Mapped[str | None] = mapped_column(String)
@@ -969,7 +971,8 @@ class ErpPush(OrgScoped, Base):
 
     @property
     def live(self) -> bool:
-        """Still holding its costs. A forgotten push holds nothing."""
+        """Still holding its costs. A forgotten push holds nothing new, save what a validated
+        document posted: that stays counted (see `landed_cost._booked_costs`)."""
         return self.forgotten_at is None
 
 
