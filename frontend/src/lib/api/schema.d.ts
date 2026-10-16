@@ -4218,6 +4218,10 @@ export interface components {
              * @default 0
              */
             containers_held: number;
+            /** Held Containers */
+            held_containers?: string[];
+            /** Held Orders */
+            held_orders?: components["schemas"]["PeriodOrder"][];
             /** Containers Without Loads */
             containers_without_loads: number;
             /** Estimates Awaiting Invoice */

@@ -81,8 +81,11 @@ class Todo:
     invoices_to_review: int
     invoices_failed: int
     containers_without_cost: int
-    #: Of those, the ones whose charges are entered but held (`held_containers`).
+    #: Of those, the ones whose charges are entered but held (`held_containers`), by number, and the
+    #: orders with no rate holding them: what to open, and where the rate goes.
     containers_held: int
+    held_containers: list[str]
+    held_orders: list[UnratedOrder]
     containers_without_loads: int
     estimates_awaiting_invoice: int
     containers_overdue: int
@@ -216,6 +219,10 @@ def _todo(
     loaded = {comp.load_rows[load.id].container_id for load in comp.loads}
     costed = charged_containers(comp)
     held = held_containers(comp)
+    boxes = sorted(c.container_number for c in active if c.id in held)
+    numbers = {order for c in active for order in held.get(c.id, ())}
+    unrated = (UnratedOrder(po.id, po.po_number) for po in comp.pos.values() if po.po_number in numbers)
+    orders = sorted(unrated, key=lambda o: o.po_number)
 
     landed = {c.id for c in active if c.discharged_at is not None or c.ata is not None}
     waiting = sum(
@@ -230,7 +237,9 @@ def _todo(
         invoices_to_review=invoices(InvoiceStatus.NEEDS_REVIEW),
         invoices_failed=invoices(InvoiceStatus.FAILED),
         containers_without_cost=sum(1 for c in active if c.id in loaded and c.id not in costed),
-        containers_held=sum(1 for c in active if c.id in held),
+        containers_held=len(boxes),
+        held_containers=boxes,
+        held_orders=orders,
         containers_without_loads=sum(1 for c in active if c.id not in loaded),
         estimates_awaiting_invoice=waiting,
         containers_overdue=len(overdue),

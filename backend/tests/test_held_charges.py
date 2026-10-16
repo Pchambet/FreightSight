@@ -128,6 +128,10 @@ def test_the_goods_left_out_are_given_at_their_known_value_with_the_orders_to_ra
     assert (totals["charged_lines"], totals["charged_quantity"]) == (0, "0.0000")
     assert analysis["orders_without_fx_rate"] == unrated
 
+    # What needs a person names the box and the order whose rate releases its charges.
+    todo = client.get("/api/v1/reports/overview").json()["todo"]
+    assert (todo["held_containers"], todo["held_orders"]) == (["CMAU4437293"], unrated)
+
 
 def test_every_summary_tells_the_held_container_from_the_bare_one(
     client: TestClient, held: dict[str, Any]

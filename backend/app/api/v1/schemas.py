@@ -1757,8 +1757,11 @@ class OverviewTodo(BaseModel):
     #: Active containers carrying goods and not one cost, and active containers carrying nothing.
     containers_without_cost: int
     #: Of those, the ones whose charges are entered but held (an order with no exchange rate, most
-    #: often): their invoice is on file, and must not be asked for again.
+    #: often): their invoice is on file, and must not be asked for again. By number, with the orders
+    #: whose missing rate holds them.
     containers_held: int = 0
+    held_containers: list[str] = Field(default_factory=list)
+    held_orders: list[PeriodOrder] = Field(default_factory=list)
     containers_without_loads: int
     #: Estimates on containers that have landed and that no invoice has replaced yet.
     estimates_awaiting_invoice: int

@@ -14941,6 +14941,20 @@
             "title": "Containers Held",
             "default": 0
           },
+          "held_containers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Held Containers"
+          },
+          "held_orders": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodOrder"
+            },
+            "type": "array",
+            "title": "Held Orders"
+          },
           "containers_without_loads": {
             "type": "integer",
             "title": "Containers Without Loads"
