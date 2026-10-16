@@ -79,6 +79,7 @@ def test_the_container_says_its_charges_are_held_and_counts_them_as_invoiced(
     assert all(line["charges_held"] and line["held_orders"] == ["PO-VND"] for line in report["lines"])
     # Invoiced, not placed: the strip counts them, and knows which cost types were billed.
     assert report["totals"]["actual"] == "0.00" and report["totals"]["unallocated_actual"] == "525.00"
+    assert report["totals"]["invoiced"] == "525.00"
     detail = report["by_cost_type_detail"]
     assert detail["OCEAN_FREIGHT"]["actual"] == "145.00" and detail["THC"]["actual"] == "380.00"
 

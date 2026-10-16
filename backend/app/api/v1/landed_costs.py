@@ -32,6 +32,7 @@ def _serialize(r: rpt.Report) -> schemas.LandedCostReport:
             "matched_actual": r.matched_actual,
             "unforecast_actual": r.unforecast_actual,
             "unallocated_actual": r.unallocated_actual,
+            "invoiced": r.actual + r.unallocated_actual,
         },
         matched_pairs=r.matched_pairs,
         completeness=r.completeness,

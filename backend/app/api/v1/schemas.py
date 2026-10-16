@@ -647,7 +647,8 @@ class LandedCostReport(BaseModel):
     base_currency: str
     #: fob, allocated, vat, landed, charged_fob, unallocated, estimated, actual, variance,
     #: matched_estimated, matched_actual, unforecast_actual, unallocated_actual (the invoiced part of
-    #: `unallocated`, import VAT excluded: invoiced, not placed). `fob` is every line's goods, charged or
+    #: `unallocated`, import VAT excluded: invoiced, not placed), invoiced (actual + unallocated_actual:
+    #: everything invoiced on this scope, placed or not). `fob` is every line's goods, charged or
     #: not. `landed` is over the lines whose container carries a charge, and `charged_fob` their goods:
     #: a container with no charge at all (its lines' `without_charge`) would only add its FOB, so it is
     #: left out of both and counted in `containers_without_charge`. `landed` and `charged_fob` are null
