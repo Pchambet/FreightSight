@@ -453,6 +453,33 @@ def test_a_sync_imports_the_orders_and_is_idempotent(
     assert all(run["status"] == "SUCCEEDED" for run in runs)
 
 
+def test_a_sync_larger_than_one_import_file_goes_through_in_several(
+    client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A first sync reads the whole history, and an Odoo with years of orders holds more lines than a
+    file a person may upload. Refused by that cap, the run failed, the watermark never moved and every
+    night read everything again to fail again: no order ever arrived. The sync goes in files that fit,
+    each order whole in one of them; a person's file is still held to the cap."""
+    from app.domain.imports import parsing
+
+    connect(client, FakeOdoo(), monkeypatch)
+    monkeypatch.setattr(parsing, "MAX_ROWS", 3)  # a header and two lines per file
+
+    res = client.post("/api/v1/erp/sync")
+    assert res.status_code == 202, res.text
+    run = res.json()
+    assert run["status"] == "SUCCEEDED"
+    assert (run["purchase_orders"], run["lines"]) == (3, 5)
+    assert run["detail"]["lines_created"] == 5
+    assert len(run["detail"]["import_job_ids"]) == 3
+    orders = client.get("/api/v1/purchase-orders").json()
+    assert sorted(o["po_number"] for o in orders) == ["P00008", "P00009", "P00010"]
+
+    content, _ = to_csv(connector(FakeOdoo()).fetch_purchase_orders())
+    with pytest.raises(parsing.ImportError_):
+        parsing.parse_table(content, "orders.csv")
+
+
 def test_a_failed_sync_leaves_a_run_that_says_why(
     client: TestClient, db: Session, org: Organization, monkeypatch: pytest.MonkeyPatch
 ) -> None:
