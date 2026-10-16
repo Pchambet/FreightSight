@@ -142,7 +142,7 @@ npm run typecheck && npm run lint && npm run build
 ```
 
 Production must connect to Postgres as the non-superuser role `freightsight_app` created by migration
-0003, otherwise Row Level Security is bypassed. CI runs the same commands against a Postgres 18 service (production runs 18; the local compose file still ships 17).
+0003, otherwise Row Level Security is bypassed. CI, production and the local compose file all run Postgres 18.
 
 ## License
 
