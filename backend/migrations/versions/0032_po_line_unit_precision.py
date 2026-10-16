@@ -8,7 +8,7 @@ The digits before the point are unchanged, so every value already stored fits as
 
 No new table, so no new row-level security policy.
 
-Revision ID: 0034
+Revision ID: 0032
 Revises: 0031
 """
 
@@ -17,7 +17,7 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0034"
+revision: str = "0032"
 down_revision: str | None = "0031"
 branch_labels: str | None = None
 depends_on: str | None = None
