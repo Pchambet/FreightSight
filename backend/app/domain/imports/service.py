@@ -9,7 +9,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, Numeric, func, select
 
 from app.core.errors import Conflict, Unprocessable
 from app.core.tenancy import TenantSession
@@ -64,10 +64,50 @@ NUMERIC_FIELDS = (
 )
 #: Fields an export may state once, on the first row of an order, and leave blank underneath.
 FORWARD_FILLED_FIELDS = ("po_number", "supplier_name", "currency")
-#: A weight or a volume, said for one piece or for the whole order line: (per unit, line total, scale).
+
+
+def _capacity(column: ColumnElement[Any]) -> Decimal:
+    """The first value a column cannot hold: 10^(digits before the point), 2^31 for an integer."""
+    kind = column.type
+    if isinstance(kind, Numeric):
+        return Decimal(10) ** ((kind.precision or 0) - (kind.scale or 0))
+    return Decimal(2**31)
+
+
+def _step(column: ColumnElement[Any]) -> Decimal:
+    """The smallest step a numeric column keeps: 0.0001 for four decimals."""
+    kind = column.type
+    assert isinstance(kind, Numeric)
+    return Decimal(1).scaleb(-(kind.scale or 0))
+
+
+#: Where each number of a file is written. A value its column cannot hold made the database refuse the
+#: whole file, a 500 on the preview; the row says so instead. A product's weight and volume have the same
+#: digits before the point as an order line's.
+CAPACITY = {
+    field: _capacity(column)
+    for field, column in {
+        "quantity": PurchaseOrderLine.__table__.c.quantity,
+        "unit_price": PurchaseOrderLine.__table__.c.unit_price,
+        "unit_weight_kg": PurchaseOrderLine.__table__.c.unit_weight_kg,
+        "unit_volume_cbm": PurchaseOrderLine.__table__.c.unit_volume_cbm,
+        "duty_rate": PurchaseOrderLine.__table__.c.duty_rate,
+        "line_no": PurchaseOrderLine.__table__.c.line_no,
+        "container_quantity": ContainerLoad.__table__.c.quantity,
+        "total_value": PurchaseOrderLine.__table__.c.unit_price,
+        "sale_price": Product.__table__.c.sale_price,
+    }.items()
+}
+#: A weight or a volume, said for one piece or for the whole order line: (per unit, line total, the
+#: per-unit column's scale). That scale carries ten more decimals than a line total is read to, so that
+#: the pieces of a line of up to ten billion add back up to its total: 120 kg over 2 000 000 labels is
+#: 0,00006 kg each, not the 0,0001 kg — 200 kg for the line — a four-decimal column kept.
 DIMENSIONS = {
-    "weight": ("unit_weight_kg", "line_weight_kg", Decimal("0.0001")),
-    "volume": ("unit_volume_cbm", "line_volume_cbm", Decimal("0.000001")),
+    dimension: (unit, line, _step(PurchaseOrderLine.__table__.c[unit]))
+    for dimension, unit, line in (
+        ("weight", "unit_weight_kg", "line_weight_kg"),
+        ("volume", "unit_volume_cbm", "line_volume_cbm"),
+    )
 }
 
 
@@ -402,6 +442,9 @@ class _Row:
         except ImportError_ as e:
             self.error(field, e.code, e.message, value=raw)
             return None
+        if v is not None and field in CAPACITY and abs(v) >= CAPACITY[field]:
+            self.error(field, "NUMBER_TOO_LARGE", f"{field} {raw!r} is larger than it can be", value=raw)
+            return None
         if v is not None and positive and v <= 0:
             self.error(field, "NOT_POSITIVE", f"{field} must be > 0, got {v}", value=str(v))
             return None
@@ -624,7 +667,14 @@ def _per_unit(r: _Row, dimension: str, quantity: Decimal | None) -> Decimal | No
     total = r.decimal(line_total)
     if total is None or quantity is None or quantity <= 0:
         return None
-    return (total / quantity).quantize(scale)
+    per_unit = total / quantity
+    if abs(per_unit) >= CAPACITY[unit]:
+        raw = r.text(line_total)
+        r.error(
+            line_total, "NUMBER_TOO_LARGE", f"{line_total} {raw!r} is more than a piece can be", value=raw
+        )
+        return None
+    return per_unit.quantize(scale)
 
 
 def _apply_purchase_orders(

@@ -428,8 +428,10 @@ class PurchaseOrderLine(OrgScoped, Base):
     hs_code: Mapped[str | None] = mapped_column(String)
     quantity: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)  # in PO currency
-    unit_weight_kg: Mapped[Decimal | None] = mapped_column(Numeric(12, 4))
-    unit_volume_cbm: Mapped[Decimal | None] = mapped_column(Numeric(12, 6))
+    # Ten decimals more than a line total is read to: one piece of a line given as its total (see
+    # imports/service.py DIMENSIONS) must add back up to that total.
+    unit_weight_kg: Mapped[Decimal | None] = mapped_column(Numeric(22, 14))
+    unit_volume_cbm: Mapped[Decimal | None] = mapped_column(Numeric(22, 16))
     duty_rate: Mapped[Decimal | None] = mapped_column(Numeric(7, 4))  # 0.0450 = 4.5 %
 
     purchase_order: Mapped[PurchaseOrder] = relationship(back_populates="lines")

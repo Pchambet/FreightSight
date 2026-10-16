@@ -955,6 +955,7 @@
     "IMPORT_ALREADY_DONE": "This import has already been committed.",
     "REQUIRED": "Value required.",
     "NOT_A_NUMBER": "\"{value}\" is not a number.",
+    "NUMBER_TOO_LARGE": "\"{value}\" is too large for this column. Check the value and its unit.",
     "NOT_A_DATE": "\"{value}\" is not a recognised date (accepted: 31/12/2026, 31.12.2026, 2026-12-31).",
     "NOT_POSITIVE": "The value must be greater than zero ({value}).",
     "NEGATIVE": "The unit price cannot be negative ({value}).",

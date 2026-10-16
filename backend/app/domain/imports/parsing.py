@@ -276,6 +276,9 @@ _COMMA_GROUP_RE = re.compile(r",(\d*)")
 _LEADING_ZERO_COMMA_RE = re.compile(r"^[+-]?0?,\d")
 
 CommaMeaning = Literal["auto", "decimal", "thousands"]
+#: Past this no column a file's number is written to holds it — the widest, an amount to the cent, stops
+#: just under — and the database refused the whole file with a 500 where the row should say so.
+MAX_NUMBER = Decimal(10) ** 12
 
 
 #: What one file may hold. The upload is capped at 10 MB, but a 10 MB CSV is 1.75 million rows (half a
@@ -1080,6 +1083,12 @@ def parse_decimal(raw: str | None, *, comma: CommaMeaning = "auto") -> Decimal |
         else:
             s = s.replace(",", "")
     try:
-        return Decimal(s)
+        value = Decimal(s)
     except InvalidOperation as e:
         raise ImportError_("NOT_A_NUMBER", f"{raw!r} is not a number") from e
+    if not value.is_finite():
+        # « Infinity » and « NaN » are numbers to Decimal, and the first division by one raised a 500.
+        raise ImportError_("NOT_A_NUMBER", f"{raw!r} is not a number")
+    if abs(value) >= MAX_NUMBER:
+        raise ImportError_("NUMBER_TOO_LARGE", f"{raw!r} is larger than any figure the books hold")
+    return value

@@ -41,6 +41,22 @@ def test_parse_decimal_formats() -> None:
         parse_decimal("12,5 pcs")
 
 
+@pytest.mark.parametrize("value", ["Infinity", "-inf", "NaN", "sNaN"])
+def test_a_value_that_is_no_finite_number_is_refused_by_name(value: str) -> None:
+    """Decimal reads « Infinity » and « NaN » as numbers: a line total divided by them raised a 500."""
+    with pytest.raises(ImportError_) as exc:
+        parse_decimal(value)
+    assert exc.value.code == "NOT_A_NUMBER"
+
+
+@pytest.mark.parametrize("value", ["1e30", "1E+12", "1 000 000 000 000", "-1e12"])
+def test_a_number_no_column_of_the_books_holds_is_refused_by_name(value: str) -> None:
+    with pytest.raises(ImportError_) as exc:
+        parse_decimal(value)
+    assert exc.value.code == "NUMBER_TOO_LARGE"
+    assert parse_decimal("999 999 999 999,99") == Decimal("999999999999.99")
+
+
 def test_normalize_header_strips_accents_and_punctuation() -> None:
     assert normalize_header("N° commande") == "n_commande"
     assert normalize_header(" Qté ") == "qte"
@@ -136,7 +152,7 @@ def test_a_number_in_scientific_notation_with_a_comma_is_refused() -> None:
     with pytest.raises(ImportError_) as exc:
         parse_decimal("3,70012E+12")
     assert exc.value.code == "AMBIGUOUS_SCIENTIFIC"
-    assert parse_decimal("3.70012E+12") == Decimal("3.70012E+12")  # unambiguous, still accepted
+    assert parse_decimal("3.70012E+5") == Decimal("370012")  # unambiguous, still accepted
 
 
 def test_the_header_is_found_under_a_title_block_and_the_totals_row_is_dropped() -> None:

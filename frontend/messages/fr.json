@@ -961,6 +961,7 @@
     "IMPORT_ALREADY_DONE": "Cet import a déjà été validé.",
     "REQUIRED": "Valeur obligatoire.",
     "NOT_A_NUMBER": "« {value} » n'est pas un nombre.",
+    "NUMBER_TOO_LARGE": "« {value} » est trop grand pour cette colonne. Vérifiez la valeur et son unité.",
     "NOT_A_DATE": "« {value} » n'est pas une date reconnue (formats acceptés : 31/12/2026, 31.12.2026, 2026-12-31).",
     "NOT_POSITIVE": "La valeur doit être supérieure à zéro ({value}).",
     "NEGATIVE": "Le prix unitaire ne peut pas être négatif ({value}).",
