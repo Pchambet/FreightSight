@@ -22,7 +22,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.errors import Conflict, Unprocessable
@@ -70,6 +70,19 @@ HOLDS_NOTHING = ("cancel", GONE_STATE)
 
 #: Appended to what a correction document says, in the organisation's language like the rest.
 _ADJUSTMENT = {"fr": "ajustement"}
+
+#: The first key of the advisory lock that makes the writes into the ERP for one container take turns.
+#: The second is the container, so that two containers never wait for each other.
+_ERP_LOCK = 0x46534550  # "FSEP"
+
+
+def lock_container(db: Session, container_id: UUID) -> None:
+    """Take this container's turn at the ERP for this transaction. A push plans from the pushes on
+    file, then writes into the ERP: two at once each plan without the other's document, and the same
+    charge — or the same take-back — lands twice in someone else's books. A forget reads the push it
+    lets go of, which another one may be letting go of too. Released at commit or rollback."""
+    key = int.from_bytes(container_id.bytes[:4], "big", signed=True)
+    db.execute(text("SELECT pg_advisory_xact_lock(:space, :key)"), {"space": _ERP_LOCK, "key": key})
 
 
 def marker_for(cost_ids: Iterable[UUID | str]) -> str:
@@ -402,6 +415,8 @@ def forget(
     Returns the document as it was found, so the caller can put its state in the audit trail: what
     was forgotten, and what it was.
     """
+    lock_container(db, push_row.container_id)
+    db.refresh(push_row)  # as the push that held the turn before this one left it
     if push_row.forgotten_at is not None:
         raise Conflict("This push has already been forgotten.", code="ERP_PUSH_ALREADY_FORGOTTEN")
     if writer is None:
@@ -938,6 +953,7 @@ def push(
     in someone else's books, where we would not be the ones to notice. When nothing is pending the
     most recent push comes back instead of an error, so clicking twice is not a mistake.
     """
+    lock_container(db, container.id)
     prepared = plan(db, org, container, writer, connection)
     if not prepared.pending and prepared.existing_push is not None:
         return prepared.existing_push, prepared

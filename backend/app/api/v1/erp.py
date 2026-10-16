@@ -206,25 +206,27 @@ def push_landed_cost(container_id: UUID, t: TenantDep, p: WriterDep) -> schemas.
     if connection is None:
         raise NotFound("ERP connection")
     writer = service.writer_for(connection)
-    record, _ = landed_cost.push(t.db, t.org, container, writer, connection, created_by=p.user_id)
-    record_audit(
-        t.db,
-        t.org_id,
-        actor_user_id=p.user_id,
-        action=ERP_LANDED_COST_PUSHED,
-        entity_type="container",
-        entity_id=container.id,
-        after={
-            "odoo_model": record.odoo_model,
-            "odoo_id": record.odoo_id,
-            "odoo_name": record.odoo_name,
-            "status": record.status,
-            "cost_ids": record.cost_ids,
-            # False on a normal push; True when an interrupted attempt had already created the
-            # draft and this one filled it in rather than making a second.
-            "adopted": bool(record.response.get("freightsight_adopted")),
-        },
-    )
+    record, plan = landed_cost.push(t.db, t.org, container, writer, connection, created_by=p.user_id)
+    if record is not plan.existing_push:
+        # Answered with the push already there, nothing was written: the history says so by silence.
+        record_audit(
+            t.db,
+            t.org_id,
+            actor_user_id=p.user_id,
+            action=ERP_LANDED_COST_PUSHED,
+            entity_type="container",
+            entity_id=container.id,
+            after={
+                "odoo_model": record.odoo_model,
+                "odoo_id": record.odoo_id,
+                "odoo_name": record.odoo_name,
+                "status": record.status,
+                "cost_ids": record.cost_ids,
+                # False on a normal push; True when an interrupted attempt had already created the
+                # draft and this one filled it in rather than making a second.
+                "adopted": bool(record.response.get("freightsight_adopted")),
+            },
+        )
     t.db.commit()
     t.db.refresh(record)
     return _push_response(record, connection)
