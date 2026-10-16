@@ -202,8 +202,10 @@ export default function ImportWizard({
   // Before → after, in money for a costs file, in rows otherwise.
   const changedFigure = (r: Report) => (r.money ? money(r.money.total_base, baseCurrency, locale) : t("review.rowsCount", { count: r.valid_rows }));
 
+  // Whether the file puts its orders in containers is whether it has a container column: a file read
+  // again creates and changes no load, yet its orders are in their containers all the same.
   const ordersOutcome = job && step === "done" && job.kind === "PURCHASE_ORDERS"
-    ? { withoutRate: job.report.orders_without_rate ?? [], loaded: (job.report.loads_created ?? 0) + (job.report.loads_updated ?? 0) > 0 }
+    ? { withoutRate: job.report.orders_without_rate ?? [], loaded: Boolean(mapping.container_number) }
     : undefined;
   const wizardStep = importWizardStep(step, job !== null && step === "upload", errors.length > 0, activeKind, ordersOutcome);
 
