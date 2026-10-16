@@ -34,11 +34,6 @@ type Params = { params: Promise<{ id: string }> };
 const API_ERROR = "api_error";
 const TOTALS = ["fob", "allocated", "vat", "landed", "unallocated"] as const;
 
-// `LandedCostReport.notes` (a rule applied to a cost that WAS allocated, e.g. duty spread on customs
-// value for lines with no tariff rate — see backend/app/api/v1/schemas.py::ReportNote). Typed here,
-// not in the generated schema, until it is regenerated from the OpenAPI document (needs_other_lane).
-type ReportNote = { cost_id: string; code: string; message: string; load_ids: string[]; load_labels: string[] };
-
 async function load(id: string): Promise<{ container: Schemas["ContainerDetail"]; report: LandedCostReport; loads: LoadResponse[]; pos: PurchaseOrderSummary[]; shipmentRef: string | null; events: TrackingEventResponse[]; etaHistory: EtaHistoryResponse[]; subscription: Schemas["TrackingSubscriptionResponse"] | null; erpConnected: boolean; invoicesToReview: number } | null> {
   const c = await api.GET("/api/v1/containers/{container_id}", { params: { path: { container_id: id } } });
   if (c.response.status === 404 || c.response.status === 422) return null;
@@ -139,12 +134,11 @@ export default async function ContainerPage({ params }: Params) {
 
       {/* `report.notes`: a rule applied to a cost that WAS allocated (e.g. duty spread on customs
           value for lines with no tariff rate) — kept apart from `warnings` on purpose, since a note
-          carries no amount and is never "non ventilé" (see needs_other_lane on report.notes). Read
-          through a narrow type until the generated client is regenerated to carry the field. */}
-      {(report as { notes?: ReportNote[] }).notes?.length ? (
+          carries no amount and is never "non ventilé". */}
+      {report.notes?.length ? (
         <div className="rounded-md border border-slate-200 bg-slate-50 text-slate-700 text-sm px-4 py-3 space-y-1 mb-6">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">{t("notesTitle")}</div>
-          {((report as { notes?: ReportNote[] }).notes ?? []).map((n) => (
+          {(report.notes ?? []).map((n) => (
             <div key={n.cost_id} className="flex gap-2">
               <Info className="w-4 h-4 mt-0.5 shrink-0 text-slate-400" />
               <span>
