@@ -72,7 +72,10 @@ revoir si un outil d'analytics, un widget Cal.com intégré ou un replay de sess
 ## Droits
 
 Accès, rectification, effacement, limitation, portabilité, opposition (art. 15 à 22) ; réponse sous un
-mois, prolongeable de deux mois (art. 12.3) ; réclamation à la CNIL (https://www.cnil.fr/fr/plaintes).
+mois, prolongeable de deux mois (art. 12.3) ; réclamation à la CNIL (https://www.cnil.fr/fr/plaintes) ;
+directives sur le sort des données après le décès (art. 85 de la loi n° 78-17, qui oblige tout service
+en ligne à en informer l'utilisateur). La page dit aussi quelle donnée est obligatoire (art. 13.2.e) :
+l'e-mail pour créer un compte (Clerk, connexion par e-mail ou Google) ; le reste est facultatif.
 
 ## Ce qui reste
 

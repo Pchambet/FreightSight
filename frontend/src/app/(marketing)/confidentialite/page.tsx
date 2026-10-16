@@ -114,6 +114,7 @@ export default function PrivacyPage() {
           </tbody>
         </table>
       </ScrollRegion>
+      <p className={prose.p}>Une adresse e-mail est nécessaire pour créer un compte : sans elle, l&apos;application ne peut pas être utilisée. Nous écrire ou réserver un appel reste facultatif.</p>
       <p className={prose.p}>Aucune décision automatisée ni aucun profilage. Aucune donnée n&apos;est vendue, louée ou utilisée pour entraîner un modèle. Si vous choisissez de vous connecter avec Google, Google sait que vous vous connectez à FreightSight, selon sa propre politique.</p>
 
       <h2 className={prose.h2}>Qui reçoit ces données</h2>
@@ -134,7 +135,7 @@ export default function PrivacyPage() {
       <p className={prose.p}>Le site ne dépose aucun cookie de mesure d&apos;audience, de publicité ou de réseau social. Seuls des cookies strictement nécessaires sont utilisés, ce qui ne demande pas de consentement : les cookies de Clerk qui permettent de se connecter et de le rester, et, dans l&apos;application, un cookie qui retient la langue choisie pendant un an.</p>
 
       <h2 className={prose.h2}>Vos droits</h2>
-      <p className={prose.p}>Vous pouvez demander l&apos;accès à vos données, leur rectification, leur effacement, la limitation de leur traitement, leur portabilité, et vous opposer à un traitement fondé sur notre intérêt légitime. Écrivez à <a href={`mailto:${site.contactEmail}`} className={prose.link}>{site.contactEmail}</a> : la réponse est donnée sous un mois, délai que le RGPD permet de prolonger de deux mois pour une demande complexe, en vous prévenant.</p>
+      <p className={prose.p}>Vous pouvez demander l&apos;accès à vos données, leur rectification, leur effacement, la limitation de leur traitement, leur portabilité, et vous opposer à un traitement fondé sur notre intérêt légitime. Écrivez à <a href={`mailto:${site.contactEmail}`} className={prose.link}>{site.contactEmail}</a> : la réponse est donnée sous un mois, délai que le RGPD permet de prolonger de deux mois pour une demande complexe, en vous prévenant. Vous pouvez aussi nous indiquer des directives sur la conservation, l&apos;effacement et la communication de vos données après votre décès (article 85 de la loi Informatique et Libertés).</p>
       <p className={prose.p}>Si vous estimez que vos droits ne sont pas respectés, vous pouvez adresser une réclamation à la CNIL : <a href="https://www.cnil.fr/fr/plaintes" className={prose.link}>www.cnil.fr/fr/plaintes</a>.</p>
 
       <h2 className={prose.h2}>Sécurité</h2>
