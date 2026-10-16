@@ -357,7 +357,8 @@
       "title": "Commande introuvable",
       "body": "Elle appartient peut-être à une autre société, ou elle a été supprimée.",
       "back": "Retour aux commandes"
-    }
+    },
+    "noRate": "taux {currency}→{base} manquant : valeur non comptée"
   },
   "imports": {
     "title": "Imports",
@@ -946,6 +947,8 @@
     "DEPRECATED_COLUMN": "La colonne « {column} » (pourcentage de répartition) est ignorée : la répartition suit la méthode par défaut de l'organisation.",
     "FX_RATE_APPLIED": "Commande en {currency} : taux {rate} ({currency}→{base_currency}) appliqué, {source, select, ecb {taux BCE du {rate_date}} other {dernier taux BCE publié, celui du {rate_date}}}. Vous pouvez le remplacer sur la commande par le taux de votre banque.",
     "FX_RATE_DEFAULTED": "Commande en {currency} : aucun taux de change connu au {rate_date}, le taux {rate} ({currency}→{base_currency}, source : taux par défaut) a été appliqué. Corrigez-le sur la commande.",
+    "FX_RATE_MISSING": "Commande en {currency} : aucun taux de change {currency}→{base_currency} connu au {rate_date}. Sa valeur reste manquante — jamais lue à 1 pour 1 — tant qu'un taux n'est pas saisi sur la commande ; les frais ventilés à la valeur sur ses conteneurs restent non répartis d'ici là.",
+    "MISSING_FX_RATE": "Taux de change manquant sur une commande : sa valeur en devise de base est inconnue, ce frais ne peut pas être réparti à la valeur. Saisissez le taux sur la commande, ou choisissez une autre méthode.",
     "NOT_AN_ACTUAL": "Seul un coût réel peut remplacer un estimé.",
     "SELF_SUPERSEDE": "Un coût ne peut pas se remplacer lui-même.",
     "NOT_AN_ESTIMATE": "Le coût visé n'est pas un estimé.",
@@ -2632,6 +2635,7 @@
       "INVOICES_NOT_READ": "{count, plural, one {# facture n'est pas encore lue.} other {# factures ne sont pas encore lues.}}",
       "INVOICES_TO_REVIEW": "{count, plural, one {# facture attend votre relecture.} other {# factures attendent votre relecture.}}",
       "COSTS_UNALLOCATED": "{count, plural, one {# coût n'est réparti sur aucune ligne} other {# coûts ne sont répartis sur aucune ligne}} : {reason}",
+      "ORDERS_WITHOUT_FX_RATE": "{count, plural, one {# commande sans taux de change : la valeur de ses marchandises est inconnue, ses marges et les frais répartis à la valeur seraient faux.} other {# commandes sans taux de change : la valeur de leurs marchandises est inconnue, leurs marges et les frais répartis à la valeur seraient faux.}}",
       "SAME_INVOICE_TWICE": "{count, plural, one {# facture est enregistrée deux fois : le coût de revient la compte deux fois.} other {# factures sont enregistrées deux fois : le coût de revient les compte deux fois.}}",
       "CREDIT_NOTES_SKIPPED": "{count, plural, one {# avoir écarté à l'import : vérifiez qu'il ne rembourse pas un constat.} other {# avoirs écartés à l'import : vérifiez qu'aucun ne rembourse un constat.}}",
       "PO_SPLIT": "{count, plural, one {# commande est répartie sur plusieurs conteneurs : ses chargements sont à vérifier.} other {# commandes sont réparties sur plusieurs conteneurs : leurs chargements sont à vérifier.}}",

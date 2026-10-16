@@ -81,7 +81,7 @@ export default async function PurchaseOrderPage({ params }: Params) {
       <Breadcrumb backHref="/purchase-orders" backLabel={t("breadcrumb")} />
       <PageHeader
         title={po.po_number}
-        subtitle={<span>{po.supplier_name ?? t("noSupplier")} · {po.currency}{po.currency !== cur ? ` @ ${po.fx_rate} ${cur}` : ""}{po.order_date ? ` · ${t("ordered", { date: dateShort(po.order_date, locale) })}` : ""}{po.incoterm ? ` · ${po.incoterm}` : ""}</span>}
+        subtitle={<span>{po.supplier_name ?? t("noSupplier")} · {po.currency}{po.currency !== cur ? (po.fx_rate ? ` @ ${po.fx_rate} ${cur}` : ` · ${t("noRate", { currency: po.currency, base: cur })}`) : ""}{po.order_date ? ` · ${t("ordered", { date: dateShort(po.order_date, locale) })}` : ""}{po.incoterm ? ` · ${po.incoterm}` : ""}</span>}
         actions={report.lines.length > 0 ? <Link href={`/purchase-orders/${po.id}/report`} className={btnSecondary}><FileText className="w-4 h-4 mr-1.5" aria-hidden />{ts("actions.open")}</Link> : null}
       />
 

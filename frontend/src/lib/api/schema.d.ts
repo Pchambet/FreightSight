@@ -1298,7 +1298,9 @@ export interface paths {
          * Create Import
          * @description Upload a CSV/XLSX. Returns detected columns and a suggested (or remembered) mapping.
          *
-         *     Nothing is written yet.
+         *     Nothing is written yet. A plain `def`, so the parsing runs in the thread pool: as `async def` it
+         *     held the only event loop for the seconds a large file takes, and every tenant waited. The body is
+         *     read no further than one byte past the cap.
          */
         post: operations["create_import_api_v1_imports_post"];
         delete?: never;
@@ -4181,7 +4183,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "CONTAINERS_WITHOUT_DATE" | "CONTAINERS_WITHOUT_GOODS" | "CONTAINERS_WITHOUT_COST" | "CONTAINERS_WITHOUT_FREIGHT" | "CONTAINERS_WITHOUT_DUTY" | "INVOICES_NOT_READ" | "INVOICES_TO_REVIEW" | "COST_ROWS_REFUSED" | "COSTS_UNALLOCATED" | "SAME_INVOICE_TWICE" | "CREDIT_NOTE_REVERSES_COST" | "CREDIT_NOTES_SKIPPED" | "PO_SPLIT" | "LINES_WITHOUT_DUTY_RATE" | "DUTY_GAP" | "DUTY_SPREAD_ON_CIF" | "CONTAINERS_WITHOUT_ROUTE" | "CONTAINERS_WITHOUT_SIZE" | "COSTS_NOT_ON_CONTAINER" | "COSTS_TYPED_OTHER" | "CLOCKS_RUNNING" | "NO_SALE_PRICE" | "NO_ASSUMED_COEFFICIENT" | "ESTIMATES_OPEN";
+            code: "CONTAINERS_WITHOUT_DATE" | "CONTAINERS_WITHOUT_GOODS" | "CONTAINERS_WITHOUT_COST" | "CONTAINERS_WITHOUT_FREIGHT" | "CONTAINERS_WITHOUT_DUTY" | "INVOICES_NOT_READ" | "INVOICES_TO_REVIEW" | "COST_ROWS_REFUSED" | "COSTS_UNALLOCATED" | "ORDERS_WITHOUT_FX_RATE" | "SAME_INVOICE_TWICE" | "CREDIT_NOTE_REVERSES_COST" | "CREDIT_NOTES_SKIPPED" | "PO_SPLIT" | "LINES_WITHOUT_DUTY_RATE" | "DUTY_GAP" | "DUTY_SPREAD_ON_CIF" | "CONTAINERS_WITHOUT_ROUTE" | "CONTAINERS_WITHOUT_SIZE" | "COSTS_NOT_ON_CONTAINER" | "COSTS_TYPED_OTHER" | "CLOCKS_RUNNING" | "NO_SALE_PRICE" | "NO_ASSUMED_COEFFICIENT" | "ESTIMATES_OPEN";
             /**
              * Severity
              * @enum {string}
@@ -4338,7 +4340,7 @@ export interface components {
             /** Currency */
             currency: string;
             /** Fx Rate */
-            fx_rate: string;
+            fx_rate: string | null;
             /** Fx Date */
             fx_date: string | null;
             incoterm: components["schemas"]["Incoterm"] | null;
@@ -4372,7 +4374,7 @@ export interface components {
             /** Line Count */
             line_count: number;
             /** Fob Base */
-            fob_base: string;
+            fob_base: string | null;
             /** Container Numbers */
             container_numbers: string[];
         };
@@ -4521,6 +4523,8 @@ export interface components {
             by_cost_type: {
                 [key: string]: string;
             };
+            /** Fob Missing */
+            fob_missing?: string | null;
         };
         /**
          * ReportNote

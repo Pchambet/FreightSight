@@ -46,6 +46,9 @@ class LineReport:
     #: Invoiced minus expected, on the estimates that have been replaced. Signed: positive is worse.
     variance: Decimal = ZERO
     by_cost_type: dict[str, Decimal] = field(default_factory=dict)
+    #: Why `fob`, and with it `landed` and `unit_landed_cost`, are not this line's figures: its order
+    #: has no exchange rate (FX_RATE_MISSING), so its value is left out rather than guessed.
+    fob_missing: str | None = None
 
 
 @dataclass
@@ -200,6 +203,7 @@ def _report(comp: Computation, base_currency: str, load_filter: set[UUID], cost_
                 actual=q2(per_load_status.get(ld.id, {}).get("actual", ZERO)),
                 variance=q2(variance_per_load.get(ld.id, ZERO)),
                 by_cost_type=by_ct,
+                fob_missing=None if ld.value_known else "FX_RATE_MISSING",
             )
         )
 

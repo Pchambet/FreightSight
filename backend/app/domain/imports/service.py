@@ -579,8 +579,9 @@ def _set_order_rate(t: TenantSession, fx: FxService | None, po: PurchaseOrder, r
     It used to get 1 every time, with a warning: a 40 000 $ order counted as 40 000 €, a FOB about
     15 % too high until somebody noticed, and with it every share allocated by value. The rate of
     the order date (today without one) is what the purchase-order screen applies; the import now
-    does the same. Only when no rate can be had does the order fall back to 1, and the warning says
-    so with the three things a CFO needs: which rate, of which day, from where.
+    does the same, and says so with the three things a CFO needs: which rate, of which day, from
+    where. When no rate can be had the rate stays missing — never 1 — until a person sets it on the
+    order or a later import finds one; the engine then says the order's value is missing.
     """
     on_date = po.order_date or datetime.now(UTC).date()
     resolved = None
@@ -590,15 +591,15 @@ def _set_order_rate(t: TenantSession, fx: FxService | None, po: PurchaseOrder, r
         except Unprocessable:
             resolved = None
     if resolved is None:
+        po.fx_rate, po.fx_date = None, None
         r.warn(
             "currency",
-            "FX_RATE_DEFAULTED",
-            f"PO in {po.currency}: no rate known, fx_rate set to 1; adjust it on the PO",
+            "FX_RATE_MISSING",
+            f"PO in {po.currency}: no rate known for {on_date.isoformat()}; its value is missing "
+            f"until a rate is set on the PO",
             currency=po.currency,
             base_currency=t.org.base_currency,
-            rate="1",
             rate_date=on_date.isoformat(),
-            source="DEFAULT",
         )
         return
     po.fx_rate, po.fx_date = resolved.rate, resolved.rate_date
@@ -644,6 +645,7 @@ def _apply_purchase_orders(
     line_containers: dict[tuple[str, str, int], set[str | None]] = {}
     occurrences: dict[tuple[str, str], int] = {}
     next_line_no: dict[str, int] = {}
+    rate_tried: set[str] = set()
     rows = _forward_filled_rows(table, mapping, report)
     for idx, raw in enumerate(rows, start=table.header_row + 1):
         r = _Row(idx, raw, mapping, report, conventions)
@@ -776,6 +778,7 @@ def _apply_purchase_orders(
             t.db.flush()
             report.purchase_orders_created += 1
             if currency != t.org.base_currency:
+                rate_tried.add(po_number)
                 _set_order_rate(t, fx, po, r)
         else:
             changed = False
@@ -785,6 +788,10 @@ def _apply_purchase_orders(
                 po.order_date, changed = order_date, True
             if changed:
                 report.purchase_orders_updated += 1
+            if po.fx_rate is None and po_number not in rate_tried:
+                # An order left without a rate gets one as soon as a later file finds it.
+                rate_tried.add(po_number)
+                _set_order_rate(t, fx, po, r)
 
         line = t.db.scalar(
             select(PurchaseOrderLine).where(

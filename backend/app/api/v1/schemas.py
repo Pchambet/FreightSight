@@ -244,7 +244,8 @@ class PurchaseOrderResponse(BaseModel):
     supplier_id: UUID | None
     supplier_name: str | None = None
     currency: str
-    fx_rate: Rate
+    #: Null when no rate could be had for the order's currency: its value is missing until one is set.
+    fx_rate: Rate | None
     fx_date: date | None
     incoterm: Incoterm | None
     order_date: date | None
@@ -259,7 +260,8 @@ class PurchaseOrderSummary(BaseModel):
     supplier_name: str | None
     currency: str
     line_count: int
-    fob_base: Money
+    #: Null when the order has no exchange rate: a value in the base currency cannot be said.
+    fob_base: Money | None
     container_numbers: list[str]
 
 
@@ -561,6 +563,9 @@ class ReportLine(BaseModel):
     actual: Money
     variance: Money
     by_cost_type: dict[str, Money]
+    #: A code when `fob`, `landed` and `unit_landed_cost` leave the goods' value out because it cannot
+    #: be said — FX_RATE_MISSING: the order has no exchange rate. Null when they are the line's figures.
+    fob_missing: str | None = None
 
 
 class LandedCostReport(BaseModel):

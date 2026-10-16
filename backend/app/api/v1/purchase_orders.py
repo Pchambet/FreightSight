@@ -88,7 +88,9 @@ def list_purchase_orders(
                 supplier_name=po.supplier.name if po.supplier else None,
                 currency=po.currency,
                 line_count=len(po.lines),
-                fob_base=q2(sum((ln.quantity * ln.unit_price * po.fx_rate for ln in po.lines), Decimal(0))),
+                fob_base=None
+                if po.fx_rate is None
+                else q2(sum((ln.quantity * ln.unit_price * po.fx_rate for ln in po.lines), Decimal(0))),
                 container_numbers=sorted(numbers),
             )
         )

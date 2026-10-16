@@ -14921,6 +14921,7 @@
               "INVOICES_TO_REVIEW",
               "COST_ROWS_REFUSED",
               "COSTS_UNALLOCATED",
+              "ORDERS_WITHOUT_FX_RATE",
               "SAME_INVOICE_TWICE",
               "CREDIT_NOTE_REVERSES_COST",
               "CREDIT_NOTES_SKIPPED",
@@ -15587,7 +15588,14 @@
             "title": "Currency"
           },
           "fx_rate": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fx Rate"
           },
           "fx_date": {
@@ -15703,7 +15711,14 @@
             "title": "Line Count"
           },
           "fob_base": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fob Base"
           },
           "container_numbers": {
@@ -16170,6 +16185,17 @@
             },
             "type": "object",
             "title": "By Cost Type"
+          },
+          "fob_missing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fob Missing"
           }
         },
         "type": "object",

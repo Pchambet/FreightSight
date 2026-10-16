@@ -357,7 +357,8 @@
       "title": "Purchase order not found",
       "body": "It may belong to another organization or have been deleted.",
       "back": "Back to purchase orders"
-    }
+    },
+    "noRate": "{currency}→{base} rate missing: value not counted"
   },
   "imports": {
     "title": "Imports",
@@ -940,6 +941,8 @@
     "DEPRECATED_COLUMN": "Column \"{column}\" (allocation percentage) is ignored: costs follow the organization's default allocation method.",
     "FX_RATE_APPLIED": "Order in {currency}: rate {rate} ({currency}→{base_currency}) applied, {source, select, ecb {the ECB rate of {rate_date}} other {the latest ECB rate published, that of {rate_date}}}. You can replace it on the order with your bank's rate.",
     "FX_RATE_DEFAULTED": "Order in {currency}: no exchange rate known as of {rate_date}, rate {rate} ({currency}→{base_currency}, source: default) was applied. Correct it on the order.",
+    "FX_RATE_MISSING": "Order in {currency}: no {currency}→{base_currency} exchange rate known for {rate_date}. Its value stays missing — never read 1 for 1 — until a rate is set on the order; costs split by value on its containers stay unallocated until then.",
+    "MISSING_FX_RATE": "Exchange rate missing on an order: its value in the base currency is unknown, so this cost cannot be split by value. Set the rate on the order, or choose another method.",
     "NOT_AN_ACTUAL": "Only an actual cost can replace an estimate.",
     "SELF_SUPERSEDE": "A cost cannot replace itself.",
     "NOT_AN_ESTIMATE": "The targeted cost is not an estimate.",
@@ -2632,6 +2635,7 @@
       "INVOICES_NOT_READ": "{count, plural, one {# invoice is not read yet.} other {# invoices are not read yet.}}",
       "INVOICES_TO_REVIEW": "{count, plural, one {# invoice is waiting for your review.} other {# invoices are waiting for your review.}}",
       "COSTS_UNALLOCATED": "{count, plural, one {# cost is spread over no line} other {# costs are spread over no line}}: {reason}",
+      "ORDERS_WITHOUT_FX_RATE": "{count, plural, one {# order with no exchange rate: its goods have no known value, so its margins and the costs split by value would be wrong.} other {# orders with no exchange rate: their goods have no known value, so their margins and the costs split by value would be wrong.}}",
       "SAME_INVOICE_TWICE": "{count, plural, one {# invoice is recorded twice: the landed cost counts it twice.} other {# invoices are recorded twice: the landed cost counts them twice.}}",
       "CREDIT_NOTES_SKIPPED": "{count, plural, one {# credit note left out at import: check it does not refund a finding.} other {# credit notes left out at import: check none refunds a finding.}}",
       "PO_SPLIT": "{count, plural, one {# order is spread over several containers: its loads need checking.} other {# orders are spread over several containers: their loads need checking.}}",

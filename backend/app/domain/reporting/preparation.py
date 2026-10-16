@@ -74,6 +74,7 @@ Code = Literal[
     "INVOICES_TO_REVIEW",
     "COST_ROWS_REFUSED",
     "COSTS_UNALLOCATED",
+    "ORDERS_WITHOUT_FX_RATE",
     "SAME_INVOICE_TWICE",
     "CREDIT_NOTE_REVERSES_COST",
     "CREDIT_NOTES_SKIPPED",
@@ -103,6 +104,7 @@ CHECKS: dict[Code, tuple[Severity, Section]] = {
     "INVOICES_TO_REVIEW": ("blocking", "findings"),
     "COST_ROWS_REFUSED": ("blocking", "margins"),
     "COSTS_UNALLOCATED": ("blocking", "margins"),
+    "ORDERS_WITHOUT_FX_RATE": ("blocking", "margins"),
     "SAME_INVOICE_TWICE": ("blocking", "margins"),
     "CREDIT_NOTE_REVERSES_COST": ("blocking", "margins"),
     "CREDIT_NOTES_SKIPPED": ("limits", "findings"),
@@ -183,6 +185,7 @@ def audit_preparation(
         *period.invoices("INVOICES_TO_REVIEW", (InvoiceStatus.NEEDS_REVIEW,)),
         *period.refused_rows(),
         *period.unallocated(),
+        *period.without_fx_rate(),
         *period.double_entries(),
         *period.credit_notes(),
         *period.po_split(),
@@ -530,6 +533,21 @@ class _Period:
                 params={"reason": reason},
             )
         return items
+
+    def without_fx_rate(self) -> list[Item]:
+        """Orders on the period's boxes with no exchange rate: their goods have no value in the base
+        currency, so every margin and every split by value they touch would be wrong."""
+        orders = {
+            load.po_id: self.comp.pos[load.po_id]
+            for load in self.comp.loads
+            if load.container_id in self.boxes and not load.value_known
+        }
+        examples = sorted(orders.values(), key=lambda po: po.po_number)
+        return _item(
+            "ORDERS_WITHOUT_FX_RATE",
+            len(orders),
+            (Example("purchase_order", str(po.id), po.po_number) for po in examples),
+        )
 
     def double_entries(self) -> list[Item]:
         """One invoice recorded twice: the landed cost counts it twice until one copy goes."""

@@ -392,7 +392,9 @@ class PurchaseOrder(Timestamped, OrgScoped, Base):
     po_number: Mapped[str] = mapped_column(String, nullable=False)
     supplier_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("suppliers.id"), index=True)
     currency: Mapped[str] = mapped_column(CHAR(3), nullable=False)
-    fx_rate: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False, default=Decimal("1"))
+    #: None when no rate could be had for a foreign currency: the order's value is then missing,
+    #: never priced at a guessed 1.
+    fx_rate: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), default=Decimal("1"))
     fx_date: Mapped[date | None] = mapped_column(Date)
     incoterm: Mapped[Incoterm | None] = mapped_column(Enum(Incoterm, name="incoterm"))
     order_date: Mapped[date | None] = mapped_column(Date)

@@ -96,7 +96,8 @@ def to_engine_load(row: ContainerLoad) -> engine.Load:
         po_id=po.id,
         po_line_id=line.id,
         quantity=row.quantity,
-        unit_price_base=q4(line.unit_price * po.fx_rate),
+        # No rate, no value: never the order's own figure read as if it were in the base currency.
+        unit_price_base=None if po.fx_rate is None else q4(line.unit_price * po.fx_rate),
         unit_weight_kg=line.unit_weight_kg,
         unit_volume_cbm=line.unit_volume_cbm,
         duty_rate=line.duty_rate,

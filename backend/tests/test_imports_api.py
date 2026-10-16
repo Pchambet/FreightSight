@@ -382,13 +382,47 @@ def test_a_foreign_order_says_which_rate_of_which_date_and_from_where(client: Te
     assert fx["params"]["source"].startswith("ecb") and len(fx["params"]["rate_date"]) == 10
 
 
-def test_a_currency_nobody_quotes_falls_back_to_one_and_says_so(client: TestClient) -> None:
-    content = b"po_number;currency;order_date;sku;quantity;unit_price\nPO-XTS;XTS;2026-09-10;A;10;100,00\n"
+def test_an_order_no_rate_is_known_for_keeps_its_rate_missing_and_its_figures_say_so(
+    client: TestClient,
+) -> None:
+    """When no rate could be had — the ECB down, a currency it does not quote — the order was written
+    at 1:1 for good, its dollars read as euros in every landed cost after it. Its rate stays missing
+    now: the order says so, a cost split by value on its box refuses to guess, and its lines say why
+    their value is not counted."""
+    content = (
+        b"po_number;currency;order_date;sku;quantity;unit_price;container_number\n"
+        b"PO-XTS;XTS;2026-09-10;A;10;100,00;MSCU1234567\n"
+        b"PO-EUR;EUR;2026-09-10;B;10;100,00;MSCU1234567\n"
+    )
     job = upload(client, content, "PURCHASE_ORDERS")
     report = validate(client, job)
-    fx = next(w for w in report["warnings"] if w["code"] == "FX_RATE_DEFAULTED")
-    assert fx["params"]["rate"] == "1" and fx["params"]["source"] == "DEFAULT"
-    assert fx["params"]["rate_date"] == "2026-09-10"
+    assert "FX_RATE_DEFAULTED" not in codes(report["warnings"])
+    (fx,) = [w for w in report["warnings"] if w["code"] == "FX_RATE_MISSING"]
+    assert fx["params"] == {"currency": "XTS", "base_currency": "EUR", "rate_date": "2026-09-10"}
+    res = client.post(f"/api/v1/imports/{job['id']}/commit", json={"on_error": "abort"})
+    assert res.status_code == 200, res.text
+
+    pos = {p["po_number"]: p for p in client.get("/api/v1/purchase-orders").json()}
+    assert pos["PO-XTS"]["fob_base"] is None and pos["PO-EUR"]["fob_base"] == "1000.00"
+    assert client.get(f"/api/v1/purchase-orders/{pos['PO-XTS']['id']}").json()["fx_rate"] is None
+
+    (box,) = client.get("/api/v1/containers").json()
+    body = {"scope": "CONTAINER", "target_id": box["id"], "cost_type": "DRAYAGE", "amount": "300.00",
+            "currency": "EUR", "cost_date": "2026-09-12", "allocation_method": "BY_VALUE"}  # fmt: skip
+    assert client.post("/api/v1/costs", json=body).status_code == 201
+    landed = client.get(f"/api/v1/landed-costs/containers/{box['id']}").json()
+    assert {ln["po_number"]: ln["fob_missing"] for ln in landed["lines"]} == {
+        "PO-XTS": "FX_RATE_MISSING",
+        "PO-EUR": None,
+    }
+    assert landed["totals"]["fob"] == "1000.00"  # the known value only, never 1:1
+    assert [(w["code"], w["amount_base"]) for w in landed["warnings"]] == [("MISSING_FX_RATE", "300.00")]
+
+    # the rate a person sets on the order is the one every figure then uses
+    patched = client.patch(f"/api/v1/purchase-orders/{pos['PO-XTS']['id']}", json={"fx_rate": "0.5"})
+    assert patched.status_code == 200, patched.text
+    landed = client.get(f"/api/v1/landed-costs/containers/{box['id']}").json()
+    assert landed["totals"]["fob"] == "1500.00" and landed["warnings"] == []
 
 
 def test_an_erp_sync_is_labelled_as_a_sync_not_as_a_dropped_file(
