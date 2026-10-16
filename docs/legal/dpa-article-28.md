@@ -159,10 +159,10 @@ Responsable de traitement selon l'article e), et s'appliquerait à tous les clie
   `docs/backups-questions.md` §1).
 - **Sauvegardes hors hébergeur principal** : une copie chiffrée complète chaque nuit chez Scaleway à
   Paris, hors de Railway ; 30 sauvegardes quotidiennes et 12 mensuelles conservées
-  (`securite/page.tsx:87`, `docs/04_ops_railway_vercel.md` §6). [À VÉRIFIER à la signature : la restauration
-  et son test en intégration continue sont en cours de correction (diagnostic D2-F1 : une base
-  restaurée n'était pas lisible par le rôle applicatif) ; ne rien affirmer sur la restauration avant
-  que ce correctif soit livré et qu'une restauration complète ait été rejouée].
+  (`/securite`, `docs/04_ops_railway_vercel.md` §6). La restauration est rejouée en intégration continue
+  à chaque changement du back-end et chaque semaine, sur PostgreSQL 18 comme la production, jusqu'à
+  relire les données restaurées avec les droits de l'application. [À VÉRIFIER à la signature : aucune
+  restauration n'a encore été prouvée sur la production elle-même.]
 - **Contrôle d'accès** : authentification confiée à Clerk (connexion par e-mail ou Google, double
   authentification disponible, organisations avec rôles) ; l'API ne fait confiance qu'à un jeton de
   session signé, vérifié contre les clés publiques de Clerk, restreint au domaine de l'application

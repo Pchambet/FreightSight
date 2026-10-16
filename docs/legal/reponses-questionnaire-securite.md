@@ -76,13 +76,13 @@ Oui, AES-256-GCM, clé détenue par FreightSight et non par Scaleway. **VRAI AUJ
 faite dans ce dépôt].
 
 **12. Une restauration a-t-elle déjà été testée avec succès ?**
-[À VÉRIFIER avant tout envoi : la restauration est en cours de correction (diagnostic D2-F1 : une base
-restaurée n'était pas lisible par le rôle applicatif, et le test de CI ne pouvait pas le voir). La
-réponse ci-dessous date du 17/09/2026 et ne doit pas être reprise telle quelle.]
-Un aller-retour complet (dump, chiffrement, déchiffrement, restauration, comparaison ligne par ligne) a
-été vérifié à la main sur Postgres 17 local (28 tables, lignes attendues). **PRÉVU pour la production**
-— aucune restauration n'a encore été prouvée sur l'environnement de production lui-même, et le test
-automatisé se saute en CI tant qu'un client PostgreSQL 17 n'y est pas installé.
+[À VÉRIFIER avant tout envoi : aucune restauration n'a encore été prouvée sur la production elle-même.]
+L'intégration continue rejoue l'aller-retour complet (dump, chiffrement, déchiffrement, restauration
+dans une base neuve, relecture des données sous le rôle applicatif soumis à la RLS) sur PostgreSQL 18,
+la majeure de la production, à chaque changement du back-end et chaque semaine ; un échec y fait
+échouer la CI au lieu d'être sauté. Depuis le 16/10/2026, une copie restaurée redonne ses droits au
+rôle applicatif (diagnostic D2-F1). **PRÉVU pour la production** — restaurer la dernière sauvegarde de
+production dans une base séparée au redémarrage (`docs/04_ops_railway_vercel.md` §6 et §7).
 `docs/backups-questions.md` §3, confirmé par `docs/plan/audit-2026-09-17/F1-verifications-prod.md` §3
 (« reste vrai : aucune restauration n'a été prouvée sur la prod »).
 

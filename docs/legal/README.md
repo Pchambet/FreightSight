@@ -98,8 +98,9 @@ Dans les brouillons de contrats, les seuls `[À COMPLÉTER]` d'identité restant
 - **Changer de prestataire de prise de rendez-vous** (`NEXT_PUBLIC_BOOKING_URL`) : la page
   `/confidentialite` ne liste Cal.com que si l'URL commence par `https://cal.com/` ; un autre outil
   doit y être ajouté.
-- La phrase de `/securite` sur la restauration testée en continu est en cours de correction par ailleurs
-  (lot « ops ») : ne pas la reprendre dans un questionnaire avant ce correctif.
+- La phrase de `/securite` sur la restauration dit, depuis le 16 octobre 2026, ce que la CI rejoue : à
+  chaque changement du back-end et chaque semaine, jusqu'à relire la copie sous le rôle applicatif.
+  Aucune restauration n'a encore été prouvée sur la production elle-même : ne pas l'affirmer.
 
 ## Sources (lues le 16 octobre 2026)
 
