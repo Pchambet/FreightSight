@@ -725,11 +725,15 @@ def _date_styles(archive: zipfile.ZipFile, budget: _Budget) -> tuple[set[int], s
         return set(), set()
     custom: dict[int, str] = {}
     formats: list[int] = []
-    in_cell_styles = False
+    in_cell_styles = in_formats = False
 
     def start(tag: str, attrs: dict[str, str]) -> None:
-        nonlocal in_cell_styles
-        if tag == f"{_SHEET_NS}numFmt":
+        nonlocal in_cell_styles, in_formats
+        # Only the formats of <numFmts> say how a cell reads: a conditional format's own, in <dxfs>,
+        # may reuse an id with another code, and read as a cell's it turned a date into a number.
+        if tag == f"{_SHEET_NS}numFmts":
+            in_formats = True
+        elif in_formats and tag == f"{_SHEET_NS}numFmt":
             custom[int(attrs["numFmtId"])] = attrs.get("formatCode", "")
         elif tag == f"{_SHEET_NS}cellXfs":
             in_cell_styles = True
@@ -737,9 +741,11 @@ def _date_styles(archive: zipfile.ZipFile, budget: _Budget) -> tuple[set[int], s
             formats.append(int(attrs.get("numFmtId", 0)))
 
     def end(tag: str) -> None:
-        nonlocal in_cell_styles
+        nonlocal in_cell_styles, in_formats
         if tag == f"{_SHEET_NS}cellXfs":
             in_cell_styles = False
+        elif tag == f"{_SHEET_NS}numFmts":
+            in_formats = False
 
     _stream(archive, "xl/styles.xml", MAX_XLSX_PART_BYTES, budget.counted(start), end)
     codes = {i: custom[i] if i in custom else BUILTIN_FORMATS.get(i) for i in set(formats)}

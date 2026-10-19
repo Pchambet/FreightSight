@@ -5,7 +5,7 @@ import re
 import time
 import zipfile
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -505,6 +505,26 @@ def test_every_xml_element_of_the_workbook_counts_whatever_its_name(monkeypatch:
     with pytest.raises(ImportError_) as exc:
         parse_table(_rewritten(content, {"xl/styles.xml": styles}), "f.xlsx")
     assert exc.value.code == "TOO_MANY_CELLS"
+
+
+def test_a_conditional_format_s_number_format_does_not_change_a_cell_s() -> None:
+    """A conditional format brings its own number formats, in `<dxfs>`, and may reuse a cell format's
+    id: only those of `<numFmts>` say how a cell reads, so a date stays a date."""
+    openpyxl = pytest.importorskip("openpyxl")
+    wb = openpyxl.Workbook()
+    wb.active.append(["po_number", "order_date"])
+    wb.active.append(["PO-1", date(2026, 7, 15)])
+    wb.active["B2"].number_format = "dd/mm/yyyy"
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    content = buffer.getvalue()
+    baseline = parse_table(content, "f.xlsx").rows
+    styles = zipfile.ZipFile(io.BytesIO(content)).read("xl/styles.xml").decode()
+    (date_id,) = re.findall(r'numFmtId="(\d+)" formatCode="dd/mm/yyyy"', styles)
+    dxf = f'<dxfs count="1"><dxf><numFmt numFmtId="{date_id}" formatCode="0.00"/></dxf></dxfs>'
+    styles = re.sub(r"<dxfs[^>]*/>|<dxfs.*?</dxfs>", "", styles)
+    styles = styles.replace("</styleSheet>", dxf + "</styleSheet>")
+    assert parse_table(_rewritten(content, {"xl/styles.xml": styles.encode()}), "f.xlsx").rows == baseline
 
 
 def test_a_number_format_longer_than_excel_writes_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
