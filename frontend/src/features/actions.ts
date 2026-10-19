@@ -15,8 +15,12 @@ async function fail<T>(error: unknown, fallbackKey: string): Promise<ActionResul
   return { ok: false, error: await problemMessage(error, t(fallbackKey)) };
 }
 
-function normalizeAmount(raw: string): string | null {
-  const s = raw.trim().replace(/[\s  ]/g, "");
+function normalizeAmount(raw: string, { signed = false }: { signed?: boolean } = {}): string | null {
+  let s = raw.trim().replace(/[\s  ]/g, "");
+  // A line of an invoice is typed as printed: a refund keeps its minus sign (« - » or « − »). Every
+  // other amount here is positive, and a sign there is refused like any other stray character.
+  const sign = signed && /^[-−]/.test(s) ? "-" : "";
+  if (sign) s = s.slice(1);
   if (!s) return null;
   let n = s;
   if (n.includes(",") && n.includes(".")) n = n.lastIndexOf(",") > n.lastIndexOf(".") ? n.replace(/\./g, "").replace(",", ".") : n.replace(/,/g, "");
@@ -24,7 +28,7 @@ function normalizeAmount(raw: string): string | null {
     const [head, tail] = [n.slice(0, n.lastIndexOf(",")), n.slice(n.lastIndexOf(",") + 1)];
     n = tail.length <= 2 ? `${head}.${tail}` : n.replace(/,/g, "");
   }
-  return /^\d+(\.\d{1,4})?$/.test(n) ? n : null;
+  return /^\d+(\.\d{1,4})?$/.test(n) ? sign + n : null;
 }
 
 // ---------------------------------------------------------------------------- costs
@@ -251,7 +255,7 @@ export async function updateInvoiceLine(
   await protectAction();
   const body = { ...patch };
   if (typeof body.amount === "string") {
-    const n = normalizeAmount(body.amount);
+    const n = normalizeAmount(body.amount, { signed: true });
     if (!n) return await fail(null, "invoices.line.failed");
     body.amount = n;
   }
@@ -348,7 +352,7 @@ export async function addInvoiceLine(
   input: { description?: string; amount: string; currency?: string; cost_type?: CostType; scope?: CostScope; target_id?: string },
 ): Promise<ActionResult<null>> {
   await protectAction();
-  const amount = normalizeAmount(input.amount);
+  const amount = normalizeAmount(input.amount, { signed: true });
   if (amount === null) {
     const t = await getTranslations("costs.form");
     return { ok: false, error: t("amountInvalid") };

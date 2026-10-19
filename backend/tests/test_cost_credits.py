@@ -451,6 +451,51 @@ def test_with_several_costs_to_reduce_a_person_names_the_one(
     )
 
 
+def test_a_refund_line_keeps_its_minus_sign_when_a_person_corrects_it(
+    client: TestClient, db: Session, org: Organization, box: str
+) -> None:
+    """The review screen sends a line back whole — its amount with its sign — whatever a person
+    changed on it: choosing the cost a refund reduces must not be refused for the minus it carries."""
+    charge(client, box, "3000.00")
+    second = charge(client, box, "2500.00", number="FA-2026-0950")
+    note = upload_and_read(client, db, org, CREDIT_NOTE_MINUS_GLUED)
+    (line,) = note["lines"]
+    whole = {k: line[k] for k in ("amount", "currency", "cost_type", "scope", "target_id")}
+    res = client.patch(
+        f"/api/v1/invoices/{note['id']}/lines/{line['id']}",
+        json={**whole, "accepted": True, "credit_cost_id": second["id"]},
+    )
+    assert res.status_code == 200, res.text
+    assert client.post(f"/api/v1/invoices/{note['id']}/confirm").status_code == 200
+    assert cost_of(client, second["id"])["amount"] == "50.00"
+
+    # a line of nothing is still no line
+    zero = client.patch(f"/api/v1/invoices/{note['id']}/lines/{line['id']}", json={"amount": "0.00"})
+    assert zero.status_code == 422
+
+
+def test_a_refund_line_the_reading_missed_is_added_with_its_minus_sign(
+    client: TestClient, db: Session, org: Organization, box: str
+) -> None:
+    """A credit note printed with minus signs: the line the reading missed is typed as it is printed,
+    and the refund is the sum of both, not one netted against the other."""
+    freight = charge(client, box, "3000.00")
+    note = upload_and_read(client, db, org, CREDIT_NOTE_MINUS_GLUED)
+    added = client.post(
+        f"/api/v1/invoices/{note['id']}/lines",
+        json={"description": "Remise fret", "amount": "-300.00", "cost_type": "OCEAN_FREIGHT",
+              "scope": "CONTAINER", "target_id": box},
+    )  # fmt: skip
+    assert added.status_code == 201, added.text
+    accept(client, client.get(f"/api/v1/invoices/{note['id']}").json())
+    res = client.post(f"/api/v1/invoices/{note['id']}/confirm")
+    assert res.status_code == 200, res.text
+    assert (cost_of(client, freight["id"])["amount"], cost_of(client, freight["id"])["credited"]) == (
+        "250.00",
+        "2750.00",
+    )
+
+
 def test_a_credit_note_printed_with_positive_figures_is_still_a_refund(
     client: TestClient, db: Session, org: Organization, box: str
 ) -> None:

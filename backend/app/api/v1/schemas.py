@@ -1101,10 +1101,18 @@ class InvoiceResponse(InvoiceSummary):
     notes: list[str] = Field(default_factory=list)
 
 
+def _a_line_amount(v: Decimal | None) -> Decimal | None:
+    """A line of an invoice is a charge or, with its minus sign, a refund — never nothing."""
+    if v is not None and v == 0:
+        raise ValueError("A line's amount cannot be zero")
+    return v
+
+
 class InvoiceLineUpdate(BaseModel):
     """A correction made by a person. Everything is optional; nothing is inferred."""
 
-    amount: Decimal | None = Field(default=None, gt=0, max_digits=14, decimal_places=2)
+    #: Negative on a refund line, as printed: the screen sends the line back whole, sign included.
+    amount: Decimal | None = Field(default=None, max_digits=14, decimal_places=2)
     currency: str | None = None
     cost_type: CostType | None = None
     scope: CostScope | None = None
@@ -1118,6 +1126,8 @@ class InvoiceLineUpdate(BaseModel):
     @classmethod
     def _currency(cls, v: str | None) -> str | None:
         return None if v is None else currency_code(v)
+
+    _amount = field_validator("amount")(_a_line_amount)
 
 
 class InvoiceLineDecision(InvoiceLineUpdate):
@@ -1163,7 +1173,8 @@ class InvoiceLineCreate(BaseModel):
     """
 
     description: str = Field(default="", max_length=500)
-    amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
+    #: Negative for a refund the reading missed on a credit note printed with minus signs.
+    amount: Decimal = Field(max_digits=14, decimal_places=2)
     currency: str | None = None  # the invoice's own, when not stated
     cost_type: CostType | None = None
     scope: CostScope | None = None
@@ -1173,6 +1184,8 @@ class InvoiceLineCreate(BaseModel):
     @classmethod
     def _currency(cls, v: str | None) -> str | None:
         return None if v is None else currency_code(v)
+
+    _amount = field_validator("amount")(_a_line_amount)
 
 
 class InvoiceConfirmRequest(BaseModel):

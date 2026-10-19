@@ -13285,8 +13285,7 @@
           "amount": {
             "anyOf": [
               {
-                "type": "number",
-                "exclusiveMinimum": 0.0
+                "type": "number"
               },
               {
                 "type": "string",
@@ -13351,8 +13350,7 @@
           "amount": {
             "anyOf": [
               {
-                "type": "number",
-                "exclusiveMinimum": 0.0
+                "type": "number"
               },
               {
                 "type": "string",
@@ -13598,8 +13596,7 @@
           "amount": {
             "anyOf": [
               {
-                "type": "number",
-                "exclusiveMinimum": 0.0
+                "type": "number"
               },
               {
                 "type": "string",
