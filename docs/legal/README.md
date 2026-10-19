@@ -29,6 +29,9 @@ dans le sitemap. Champ vide = 404, pas de lien. Il n'y a rien d'autre à toucher
 
 ## 1. À remplir (dans `frontend/src/lib/site.ts`)
 
+Fait le 19 octobre 2026 : nom, forme (EI), SIREN 109 186 510, adresse et directeur de la publication.
+Reste le téléphone de l'éditeur : c'est le seul champ qui manque pour publier `/mentions-legales`.
+
 | Champ | Ce qu'il faut y mettre | D'où ça vient |
 |---|---|---|
 | `publisher.legalName` | « Pierre Chambet » pour un entrepreneur individuel, la dénomination pour une société | Immatriculation (guichet unique INPI) |
@@ -39,8 +42,8 @@ dans le sitemap. Champ vide = 404, pas de lien. Il n'y a rien d'autre à toucher
 | `publisher.address` | Adresse du domicile (EI) ou du siège (société), ou de la domiciliation | — |
 | `publisher.phone` | Un numéro où l'on peut joindre l'éditeur (exigé par l'art. 6-III de la LCEN) | — |
 | `publisher.publicationDirector` | En pratique « Pierre Chambet » | — |
-| `hosts[0].phone` (Vercel) | Vercel ne publie aucun numéro sur ses pages légales : le demander au support | Support Vercel |
-| `hosts[1].phone` (Railway) | Même chose pour Railway | Support Railway |
+| `hosts[0].phone` (Vercel) | Vercel ne publie aucun numéro : la page affiche son contact (`hosts[0].contact`) en attendant | Support Vercel |
+| `hosts[1].phone` (Railway) | Même chose pour Railway (`hosts[1].contact`) | Support Railway |
 | `termsEffectiveDate` | La date d'entrée en vigueur des CGV (« 1er décembre 2026 »), **seulement après avoir lu `cgv.md` et tranché la section 2 ci-dessous** | Décision de Pierre |
 
 Une fois l'entité immatriculée, `/confidentialite` nomme automatiquement l'entité comme responsable du
@@ -52,9 +55,9 @@ Dans les brouillons de contrats, les seuls `[À COMPLÉTER]` d'identité restant
 
 ## 2. À décider
 
-1. **Forme juridique** (micro-entreprise ou SASU) — et, avant tout, relire son contrat de travail
-   (clause d'exclusivité, non-concurrence) : diagnostic D7, points F8 et F9. Rien ne se publie ni ne se
-   facture sans SIREN.
+1. **Forme juridique** : tranchée, entrepreneur individuel inscrit le 26 août 2026 (SIREN 109 186 510).
+   Reste à vérifier le régime de TVA (franchise en base ou non) avant la première facture, et la
+   compatibilité avec le contrat de travail (diagnostic D7, points F8 et F9).
 2. **CGV** (`cgv.md`) : plafond de responsabilité (proposé : 12 mois de sommes payées), délai de
    paiement (proposé : 30 jours date de facture), abonnement mensuel résiliable en fin de mois,
    suspension 15 jours après mise en demeure. Ce sont des propositions prudentes, pas des obligations.

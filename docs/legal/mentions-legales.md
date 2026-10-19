@@ -23,24 +23,24 @@ professionnel d'un site accessible en France affiche, dès la mise en ligne,
 Amendes affichées par service-public : jusqu'à 75 000 € pour une personne physique, 375 000 € pour une
 personne morale.
 
-## 1. Éditeur — [À COMPLÉTER par Pierre, dans `site.ts`]
+## 1. Éditeur — rempli le 19 octobre 2026, sauf le téléphone
 
 | Mention | Champ de `site.publisher` | Valeur |
 |---|---|---|
-| Nom ou dénomination | `legalName` | [À COMPLÉTER : après immatriculation] |
-| Forme juridique (et capital pour une société) | `legalForm` | [À COMPLÉTER : décision D7-F8] |
-| SIREN | `siren` | [À COMPLÉTER : après immatriculation] |
-| Registre | `registry` | [À COMPLÉTER : « RCS <ville> » pour une société ; vide pour un EI] |
-| TVA intracommunautaire | `vatNumber` | Vide en franchise en base (art. 293 B du CGI) |
-| Adresse | `address` | [À COMPLÉTER] |
-| Téléphone | `phone` | [À COMPLÉTER] |
+| Nom ou dénomination | `legalName` | Pierre Chambet |
+| Forme juridique (et capital pour une société) | `legalForm` | Entrepreneur individuel (EI), inscrit le 26 août 2026 (INSEE, RNE), NAF 6201Z |
+| SIREN | `siren` | 109 186 510 (siège : SIRET 109 186 510 00011) |
+| Registre | `registry` | Vide : entrepreneur individuel |
+| TVA intracommunautaire | `vatNumber` | Vide en franchise en base (art. 293 B du CGI). [À VÉRIFIER par Pierre : le FR48109186510 affiché par les annuaires est calculé depuis le SIREN, il ne prouve pas un assujettissement] |
+| Adresse | `address` | 211 chemin du Pré Montclair, 74330 Poisy (adresse du siège déclarée ; une domiciliation la remplacerait) |
+| Téléphone | `phone` | [À COMPLÉTER par Pierre : c'est le seul champ qui manque pour publier la page] |
 | E-mail | `email` | `pierrechambet@gmail.com` (déjà affiché sur le site) ; à remplacer par une adresse sur domaine propre quand il existe |
 
-## 2. Directeur de la publication — [À COMPLÉTER par Pierre]
+## 2. Directeur de la publication — rempli
 
-`site.publisher.publicationDirector` : en pratique « Pierre Chambet ».
+`site.publisher.publicationDirector` : Pierre Chambet.
 
-## 3. Hébergeurs — rempli, sauf les téléphones
+## 3. Hébergeurs — rempli ; un contact à la place du téléphone
 
 Le site (pages et interface) et l'application (API, base de données) sont hébergés séparément ; les deux
 sont listés, car l'obligation vise quiconque stocke ce que le service publie.
@@ -50,7 +50,7 @@ sont listés, car l'obligation vise quiconque stocke ce que le service publie.
 | Rôle | Site et interface (fonctions serveur région Paris `cdg1`, CDN mondial) | API et base de données (région Amsterdam `europe-west4-drams3a`) |
 | Adresse | 440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis | 548 Market St PMB 68956, San Francisco, CA 94104, États-Unis |
 | Source de l'adresse | https://vercel.com/legal/privacy-policy (1er juin 2026), aussi dans https://vercel.com/legal/terms | https://railway.com/legal/dpa (annexe B) |
-| Téléphone | [À COMPLÉTER : non publié par Vercel, à demander au support] | [À COMPLÉTER : non publié par Railway, à demander au support] |
+| Téléphone | Non publié par Vercel : la page donne https://vercel.com/contact | Non publié par Railway : la page donne https://help.railway.com |
 
 L'ancienne adresse « 340 S Lemon Ave, Walnut » de Railway, citée par le premier brouillon, n'est plus
 celle de ses pages légales.
