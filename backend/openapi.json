@@ -3821,6 +3821,77 @@
         }
       }
     },
+    "/api/v1/containers/{container_id}/erp/landed-cost/by-hand": {
+      "post": {
+        "tags": [
+          "erp"
+        ],
+        "summary": "Enter By Hand",
+        "description": "Say that the difference shown on a cost is entered by hand in the ERP, so the next change on\nit asks only for its own. Answers the preview as it now stands.",
+        "operationId": "enter_by_hand_api_v1_containers__container_id__erp_landed_cost_by_hand_post",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Container Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ErpByHandEntered"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErpLandedCostPreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/containers/{container_id}/erp/pushes": {
       "get": {
         "tags": [
@@ -11512,6 +11583,34 @@
         ],
         "title": "ErpByHand",
         "description": "A difference from a validated document that is not written for want of its split per receipt\nline: a person enters it in the ERP."
+      },
+      "ErpByHandEntered": {
+        "properties": {
+          "cost_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Cost Id"
+          },
+          "difference": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)"
+              }
+            ],
+            "title": "Difference"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cost_id",
+          "difference"
+        ],
+        "title": "ErpByHandEntered",
+        "description": "A person says the difference shown on a cost is entered by hand in the ERP: the one shown, signed."
       },
       "ErpConnectionCreate": {
         "properties": {

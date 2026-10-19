@@ -879,6 +879,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/containers/{container_id}/erp/landed-cost/by-hand": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enter By Hand
+         * @description Say that the difference shown on a cost is entered by hand in the ERP, so the next change on
+         *     it asks only for its own. Answers the preview as it now stands.
+         */
+        post: operations["enter_by_hand_api_v1_containers__container_id__erp_landed_cost_by_hand_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/containers/{container_id}/erp/pushes": {
         parameters: {
             query?: never;
@@ -3040,6 +3061,19 @@ export interface components {
             held: string;
             /** Difference */
             difference: string;
+        };
+        /**
+         * ErpByHandEntered
+         * @description A person says the difference shown on a cost is entered by hand in the ERP: the one shown, signed.
+         */
+        ErpByHandEntered: {
+            /**
+             * Cost Id
+             * Format: uuid
+             */
+            cost_id: string;
+            /** Difference */
+            difference: number | string;
         };
         /**
          * ErpConnectionCreate
@@ -7763,6 +7797,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErpPushResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enter_by_hand_api_v1_containers__container_id__erp_landed_cost_by_hand_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                container_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ErpByHandEntered"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpLandedCostPreview"];
                 };
             };
             /** @description Validation Error */

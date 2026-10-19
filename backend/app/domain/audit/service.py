@@ -47,6 +47,7 @@ PERIOD_DRIFT_ACKNOWLEDGED = "period.drift_acknowledged"
 TRACKING_EVENT_ADDED = "container.tracking_event_added"
 ERP_LANDED_COST_PUSHED = "erp.landed_cost_pushed"
 ERP_PUSH_FORGOTTEN = "erp.push_forgotten"
+ERP_BY_HAND_ENTERED = "erp.by_hand_entered"
 
 
 def jsonable(value: Any) -> Any:

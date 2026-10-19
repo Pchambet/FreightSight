@@ -7,7 +7,7 @@ import { AlertTriangle, CheckCircle2, ExternalLink, History, Info, Loader2, Refr
 import { toast } from "sonner";
 import { btnPrimary, btnSecondary, Card } from "@/components/layout/AppShell";
 import { Money } from "@/components/shared/Money";
-import { forgetErpPush, listErpPushes, previewErpLandedCost, pushErpLandedCost, type ErpLandedCostPreview, type ErpPushResponse } from "@/features/actions";
+import { forgetErpPush, listErpPushes, previewErpLandedCost, enterErpDifferenceByHand, pushErpLandedCost, type ErpLandedCostPreview, type ErpPushResponse } from "@/features/actions";
 import { dateTimeShort, money } from "@/lib/format";
 
 const KNOWN_BLOCKERS = new Set(["no_erp_connection", "no_actual_costs", "no_receipt", "multiple_receipts", "not_valued", "unmatched_line", "already_pushed", "pushed_cost_changed", "pushed_cost_gone", "ambiguous_line", "erp_currency_mismatch", "adjustment_unplaced", "take_back_no_goods"]);
@@ -75,6 +75,15 @@ export default function LandedCostPush({ containerId, currency, embedded = false
           ? { label: t("openInOdoo"), onClick: () => window.open(r.data.record_url!, "_blank", "noopener,noreferrer") }
           : undefined,
       });
+      load();
+      router.refresh();
+    });
+
+  const enterByHand = (costId: string, difference: string) =>
+    start(async () => {
+      const r = await enterErpDifferenceByHand(containerId, costId, difference);
+      if (!r.ok) return void toast.error(r.error, { duration: 10000 });
+      toast.success(t("byHandEnteredOk"));
       load();
       router.refresh();
     });
@@ -170,7 +179,12 @@ export default function LandedCostPush({ containerId, currency, embedded = false
                         {c.by_hand ? (
                           <span className="mt-1 flex items-start text-xs text-amber-900">
                             <AlertTriangle className="w-3.5 h-3.5 mr-1 mt-px shrink-0 text-amber-600" aria-hidden />
-                            {t("byHand", { existing: c.by_hand.existing, held: money(c.by_hand.held, currency, locale), difference: signed(c.by_hand.difference) })}
+                            <span>
+                              {t("byHand", { existing: c.by_hand.existing, held: money(c.by_hand.held, currency, locale), difference: signed(c.by_hand.difference) })}{" "}
+                              <button type="button" disabled={pending} onClick={() => enterByHand(c.cost_ids[0], c.by_hand!.difference)} className="underline underline-offset-2 hover:text-amber-950 disabled:opacity-50">
+                                {t("byHandEntered")}
+                              </button>
+                            </span>
                           </span>
                         ) : null}
                       </span>

@@ -928,7 +928,8 @@
       "rate_card_created": "Rate card added",
       "rate_card_updated": "Rate card changed",
       "rate_card_deleted": "Rate card removed",
-      "cost_estimated": "Cost estimated from the rate cards"
+      "cost_estimated": "Cost estimated from the rate cards",
+      "erp_by_hand_entered": "Difference entered by hand in the ERP"
     },
     "finding": {
       "DUPLICATE_CHARGE": "Service invoiced twice",
@@ -1109,7 +1110,9 @@
     "CREDIT_NOT_FOUND": "This credit no longer exists. Reload the page.",
     "COST_HAS_CREDITS": "{count, plural, one {A credit reduces a cost involved} other {# credits reduce the cost or costs involved}}: remove {count, plural, one {it} other {them}} first, from the list of costs, or by reopening {count, plural, one {the confirmed credit note it comes from} other {the confirmed credit notes they come from}}. While a credit reduces it, a cost keeps its amount, currency, type and status, and cannot be deleted, by hand, by reopening its invoice or by undoing its import.",
     "PERIOD_DRIFT_ORDERS_WITHOUT_FX_RATE": "This month's gap cannot be marked as booked: some orders have no exchange rate ({orders}). The value of their goods is unknown today, and with it the amount of the gap. Set the rate on each of them, then mark the gap.",
-    "recordedItem": "{invoice}: {costs}"
+    "recordedItem": "{invoice}: {costs}",
+    "ERP_BY_HAND_CHANGED": "The difference to enter has changed since this screen was shown ({difference}): read it again, then say it is entered.",
+    "ERP_BY_HAND_NOTHING_TO_ENTER": "Nothing is waiting to be entered by hand for this cost any more."
   },
   "timeline": {
     "title": "Timeline",
@@ -1510,7 +1513,9 @@
         "PER_100KG": "Per 100 kg",
         "PER_CBM": "Per m³",
         "PCT_OF_FOB": "% of FOB"
-      }
+      },
+      "difference": "Difference entered",
+      "held": "Held by the document"
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "Needs review",
@@ -1708,7 +1713,10 @@
       "pushedAs": "already in {name}",
       "byHand": "{existing} holds {held} of it: the {difference} difference is to be entered by hand in the ERP",
       "willGo": "{count, plural, one {# cost will go} other {# costs will go}}",
-      "nothingNew": "Nothing new to push."
+      "nothingNew": "Nothing new to push.",
+      "byHandEntered": "It is entered in Odoo",
+      "byHandEnteredOk": "Difference noted as entered in Odoo: a later change will only ask for its own.",
+      "byHandFailed": "Could not record the difference as entered"
     },
     "pushes": {
       "title": "Documents created in Odoo",

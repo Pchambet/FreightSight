@@ -2344,6 +2344,13 @@ class ErpBlocker(BaseModel):
     blocking: bool = True
 
 
+class ErpByHandEntered(BaseModel):
+    """A person says the difference shown on a cost is entered by hand in the ERP: the one shown, signed."""
+
+    cost_id: UUID
+    difference: Decimal = Field(max_digits=14, decimal_places=2)
+
+
 class ErpPlannedLine(BaseModel):
     move_id: int
     product_name: str

@@ -908,7 +908,7 @@
       "organization_updated": "Réglages modifiés",
       "container_tracking_event_added": "Événement de suivi ajouté",
       "erp_landed_cost_pushed": "Écriture ERP créée (brouillon)",
-      "erp_push_forgotten": "Push ERP oublié",
+      "erp_push_forgotten": "Écriture ERP oubliée",
       "organization_sample_data_deleted": "Données d'exemple effacées",
       "period_closed": "Mois clôturé",
       "period_reopened": "Mois rouvert",
@@ -928,7 +928,8 @@
       "rate_card_created": "Barème ajouté",
       "rate_card_updated": "Barème modifié",
       "rate_card_deleted": "Barème supprimé",
-      "cost_estimated": "Coût estimé avec les barèmes"
+      "cost_estimated": "Coût estimé avec les barèmes",
+      "erp_by_hand_entered": "Écart saisi à la main dans l'ERP"
     },
     "finding": {
       "DUPLICATE_CHARGE": "Prestation facturée deux fois",
@@ -1109,7 +1110,9 @@
     "CREDIT_NOT_FOUND": "Cet avoir n'existe plus. Rechargez la page.",
     "COST_HAS_CREDITS": "{count, plural, one {Un avoir réduit un coût concerné} other {# avoirs réduisent le ou les coûts concernés}} : retirez-{count, plural, one {le} other {les}} d'abord, depuis la liste des coûts, ou en rouvrant {count, plural, one {l'avoir confirmé dont il vient} other {les avoirs confirmés dont ils viennent}}. Tant qu'un avoir le réduit, un coût garde son montant, sa devise, son type et son statut, et ne peut être supprimé ni à la main, ni en rouvrant sa facture, ni en annulant son import.",
     "PERIOD_DRIFT_ORDERS_WITHOUT_FX_RATE": "L'écart de ce mois ne peut pas être marqué comme comptabilisé : des commandes n'ont pas de taux de change ({orders}). La valeur de leurs marchandises est inconnue aujourd'hui, et avec elle le montant de l'écart. Saisissez le taux sur chacune, puis marquez l'écart.",
-    "recordedItem": "{invoice} : {costs}"
+    "recordedItem": "{invoice} : {costs}",
+    "ERP_BY_HAND_CHANGED": "L'écart à saisir a changé depuis l'affichage ({difference}) : relisez-le, puis déclarez-le saisi.",
+    "ERP_BY_HAND_NOTHING_TO_ENTER": "Plus rien n'attend d'être saisi à la main pour ce coût."
   },
   "timeline": {
     "title": "Chronologie",
@@ -1510,7 +1513,9 @@
         "PER_100KG": "Par 100 kg",
         "PER_CBM": "Par m³",
         "PCT_OF_FOB": "% du FOB"
-      }
+      },
+      "difference": "Écart saisi",
+      "held": "Détenu par l'écriture"
     },
     "invoiceStatus": {
       "NEEDS_REVIEW": "À relire",
@@ -1708,7 +1713,10 @@
       "pushedAs": "déjà dans {name}",
       "byHand": "{existing} en porte {held} : l'écart de {difference} est à saisir à la main dans l'ERP",
       "willGo": "{count, plural, one {# coût partira} other {# coûts partiront}}",
-      "nothingNew": "Rien de nouveau à pousser."
+      "nothingNew": "Rien de nouveau à pousser.",
+      "byHandEntered": "C'est saisi dans Odoo",
+      "byHandEnteredOk": "Écart noté comme saisi dans Odoo : un prochain changement ne demandera que le sien.",
+      "byHandFailed": "Impossible de noter l'écart comme saisi"
     },
     "pushes": {
       "title": "Documents créés dans Odoo",

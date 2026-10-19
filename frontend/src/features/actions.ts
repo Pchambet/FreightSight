@@ -858,6 +858,18 @@ export async function pushErpLandedCost(containerId: string): Promise<ActionResu
   return { ok: true, data };
 }
 
+/** Say the difference shown on a cost is entered by hand in the ERP, so a later change on it asks only for its own. */
+export async function enterErpDifferenceByHand(containerId: string, costId: string, difference: string): Promise<ActionResult<ErpLandedCostPreview>> {
+  await protectAction();
+  const { data, error } = await api.POST("/api/v1/containers/{container_id}/erp/landed-cost/by-hand", {
+    params: { path: { container_id: containerId } },
+    body: { cost_id: costId, difference },
+  });
+  if (error || !data) return await fail(error, "erp.push.byHandFailed");
+  revalidatePath(`/container/${containerId}`);
+  return { ok: true, data };
+}
+
 /** Every document ever created in the ERP for this container, newest first, forgotten ones marked. */
 export async function listErpPushes(containerId: string): Promise<ActionResult<ErpPushResponse[]>> {
   await protectAction();

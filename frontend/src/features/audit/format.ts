@@ -37,9 +37,9 @@ export type Formatters = {
 
 const DATE_KEYS = new Set(["fx_date", "cost_date", "invoice_date", "last_free_day", "credit_date"]);
 const DATE_TIME_KEYS = new Set(["closed_at", "created_at", "occurred_at", "forgotten_at", "expires_at"]);
-const MONEY_KEYS = new Set(["total_amount", "amount", "amount_base", "fob", "landed", "acknowledged_drift", "credited"]);
+const MONEY_KEYS = new Set(["total_amount", "amount", "amount_base", "fob", "landed", "acknowledged_drift", "credited", "difference", "held"]);
 /** Ids that name nothing a person can open (a share link's row, a push's row): a hash on screen, never information. */
-const HIDDEN_KEYS = new Set(["share_id", "push_id"]);
+const HIDDEN_KEYS = new Set(["share_id", "push_id", "cost_id"]);
 /** Settings are one JSON column; each one that moved is a change of its own, not a blob. */
 const NESTED_KEYS = new Set(["settings"]);
 /** Text a person typed or a system named (an invoice "2026.0412", a vendor, a note, a file "2026-09-30"): shown

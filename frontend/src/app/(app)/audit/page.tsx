@@ -14,10 +14,12 @@ export async function generateMetadata(): Promise<Metadata> {
 /** Every action the API writes, grouped as a person looks for them: costs, invoices, files, boxes, ERP, links, months, company. */
 const ACTIONS = [
   "cost.created", "cost.estimated", "cost.updated", "cost.superseded", "cost.closed", "cost.deleted",
+  "cost.credited", "cost.credit_removed",
   "invoice.confirmed", "invoice.corrected", "invoice.rejected", "invoice.reopened",
   "import.committed", "import.undone",
   "container.loads_replaced", "container.tracking_event_added",
-  "erp.landed_cost_pushed", "erp.push_forgotten",
+  "erp.landed_cost_pushed", "erp.push_forgotten", "erp.by_hand_entered",
+  "purchase_order.updated",
   "container.shared", "purchase_order.shared", "audit.shared", "share.revoked",
   "period.closed", "period.reopened", "period.drift_acknowledged",
   "organization.updated", "organization.sample_data_deleted",

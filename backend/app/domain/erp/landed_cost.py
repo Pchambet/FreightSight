@@ -57,6 +57,10 @@ PUSHED_COST_CHANGED = "pushed_cost_changed"
 PUSHED_COST_GONE = "pushed_cost_gone"
 CURRENCY_MISMATCH = "erp_currency_mismatch"
 ADJUSTMENT_UNPLACED = "adjustment_unplaced"
+
+#: In a forgotten push's snapshot of a cost: what a person said they entered by hand in the ERP on
+#: top of what the document holds, cumulative and signed.
+ENTERED_BY_HAND = "entered_by_hand"
 TAKE_BACK_NO_GOODS = "take_back_no_goods"
 
 #: Where a document that is no longer a draft has got to. Both mean the same thing for us: it is
@@ -841,7 +845,12 @@ def _booked_costs(
         for cost_id in push_row.cost_ids:
             snapshot = (push_row.carried or {}).get(cost_id) or {}
             amount = Decimal(snapshot["amount"]) if snapshot.get("amount") is not None else None
-            raw = snapshot.get("lines")
+            # What a person said they entered by hand on top of it is in their books too; where it
+            # landed per receipt line nobody told us, so the split is no longer known either.
+            entered = snapshot.get(ENTERED_BY_HAND)
+            if entered is not None and amount is not None:
+                amount += Decimal(entered)
+            raw = snapshot.get("lines") if entered is None else None
             lines = (
                 {int(move_id): Decimal(value) for move_id, value in raw.items()} if raw is not None else None
             )
@@ -977,6 +986,44 @@ def _cost_line(cost: PlannedCost) -> ErpCostLine:
         per_move=per_move,
         cost_ids=[str(cost_id) for cost_id in cost.cost_ids],
     )
+
+
+def enter_by_hand(
+    db: Session,
+    org: Organization,
+    container: Container,
+    writer: ErpWriter | None,
+    connection: ErpConnection | None,
+    *,
+    cost_id: UUID,
+    difference: Decimal,
+) -> tuple[Plan, Booked]:
+    """A person says they entered a cost's difference by hand in the ERP, as the screen asked.
+
+    The difference could not be placed on the receipt's lines, so nothing we write will ever hold it;
+    without this the next refund on the cost asks again for this one too. It must be the difference
+    the screen shows now: a figure from a screen left open on an older one is refused, not recorded.
+    """
+    lock_container(db, container.id)
+    current = plan(db, org, container, writer, connection)
+    planned = next((c for c in current.costs if cost_id in c.cost_ids and c.by_hand is not None), None)
+    if planned is None or planned.by_hand is None:
+        raise Unprocessable(
+            "Nothing is waiting to be entered by hand for this cost", code="ERP_BY_HAND_NOTHING_TO_ENTER"
+        )
+    if planned.by_hand.difference != q2(difference):
+        raise Unprocessable(
+            f"The difference to enter is now {planned.by_hand.difference:.2f}",
+            code="ERP_BY_HAND_CHANGED",
+            params={"difference": f"{planned.by_hand.difference:.2f}"},
+        )
+    held = _booked_costs(db, org, container, writer)[str(cost_id)]
+    snapshot = dict((held.push.carried or {}).get(str(cost_id)) or {})
+    snapshot[ENTERED_BY_HAND] = f"{q2(Decimal(snapshot.get(ENTERED_BY_HAND) or 0) + difference):.2f}"
+    # A new dict, so the JSON column is seen as changed.
+    held.push.carried = {**(held.push.carried or {}), str(cost_id): snapshot}
+    db.flush()
+    return current, held
 
 
 def push(

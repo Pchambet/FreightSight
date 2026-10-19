@@ -17,7 +17,7 @@ from app.core.crypto import CryptoError
 from app.core.errors import Conflict, NotFound, Unprocessable
 from app.core.net import assert_public_host
 from app.core.tenancy import TenantDep
-from app.domain.audit.service import ERP_LANDED_COST_PUSHED, ERP_PUSH_FORGOTTEN
+from app.domain.audit.service import ERP_BY_HAND_ENTERED, ERP_LANDED_COST_PUSHED, ERP_PUSH_FORGOTTEN
 from app.domain.audit.service import record as record_audit
 from app.domain.erp import landed_cost, service
 from app.domain.erp.urls import odoo_record_url
@@ -230,6 +230,39 @@ def push_landed_cost(container_id: UUID, t: TenantDep, p: WriterDep) -> schemas.
     t.db.commit()
     t.db.refresh(record)
     return _push_response(record, connection)
+
+
+@containers_router.post(
+    "/{container_id}/erp/landed-cost/by-hand", response_model=schemas.ErpLandedCostPreview
+)
+def enter_by_hand(
+    container_id: UUID, payload: schemas.ErpByHandEntered, t: TenantDep, p: WriterDep
+) -> schemas.ErpLandedCostPreview:
+    """Say that the difference shown on a cost is entered by hand in the ERP, so the next change on
+    it asks only for its own. Answers the preview as it now stands."""
+    container = _container(t, container_id)
+    connection = service.connection_for(t.db, t.org_id)
+    writer = service.writer_for(connection) if connection is not None else None
+    _, held = landed_cost.enter_by_hand(
+        t.db, t.org, container, writer, connection, cost_id=payload.cost_id, difference=payload.difference
+    )
+    record_audit(
+        t.db,
+        t.org_id,
+        actor_user_id=p.user_id,
+        action=ERP_BY_HAND_ENTERED,
+        entity_type="container",
+        entity_id=container.id,
+        after={
+            "cost_id": str(payload.cost_id),
+            "odoo_name": held.push.odoo_name,
+            "difference": f"{payload.difference:.2f}",
+            "held": f"{(held.amount or 0) + payload.difference:.2f}",
+        },
+    )
+    t.db.commit()
+    plan = landed_cost.plan(t.db, t.org, container, writer, connection)
+    return _preview_response(plan)
 
 
 def _push_response(record: ErpPush, connection: ErpConnection | None) -> schemas.ErpPushResponse:
