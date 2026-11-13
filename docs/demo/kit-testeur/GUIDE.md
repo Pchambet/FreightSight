@@ -4,11 +4,11 @@
 **Durée :** 45 min. **Il vous faut :** les 6 fichiers de ce dossier et un compte sur le site.
 
 <!-- kit-dates -->
-> **Ce kit a été préparé le 16/10/2026.** Ses dates en dépendent, le guide y renvoie :
+> **Ce kit a été préparé le 13/11/2026.** Ses dates en dépendent, le guide y renvoie :
 >
 > - le journal des frais (fichier 4) couvre le trimestre **du 01/07/2026 au 30/09/2026** : c'est la période de l'audit (étape 6) ;
-> - **MSCU6702211** a été déchargé le **13/10/2026**, son dernier jour franc est le **17/10/2026** (étape 2) ;
-> - **MSCU6715564** est attendu le **25/10/2026** (étape 7).
+> - **MSCU6702211** a été déchargé le **10/11/2026**, son dernier jour franc est le **14/11/2026** (étape 2) ;
+> - **MSCU6715564** est attendu le **22/11/2026** (étape 7).
 >
 > Ces dates passées, rien ne casse : un dernier jour franc dépassé, ce sont des surestaries qui
 > courent, et l'audit se lit sur la période ci-dessus. Les montants, eux, ne changent jamais.
