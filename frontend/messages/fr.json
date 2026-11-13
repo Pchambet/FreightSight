@@ -2900,6 +2900,6 @@
   },
   "unallocated": {
     "held": "{count, plural, one {Coût non ventilé : {costs}.} other {# coûts non ventilés : {costs}.}}",
-    "whole": "Ces montants sont ceux des factures entières : une facture d'expédition ou de commande y est comptée en entier, même si une part revient à d'autres conteneurs."
+    "whole": "Ces montants sont ceux des factures entières, qui couvrent aussi des lignes absentes de cette page (d'autres commandes ou d'autres conteneurs) : la part qui revient à cette page ne peut pas être calculée tant qu'elles ne sont pas ventilées."
   }
 }

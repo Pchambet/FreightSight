@@ -2900,6 +2900,6 @@
   },
   "unallocated": {
     "held": "{count, plural, one {Cost not allocated: {costs}.} other {# costs not allocated: {costs}.}}",
-    "whole": "These are whole invoice amounts: a shipment or order invoice is counted in full, even where part of it belongs to other containers."
+    "whole": "These are whole invoice amounts, which also cover lines this page does not show (other orders or other containers): this page's share cannot be worked out until they are allocated."
   }
 }
