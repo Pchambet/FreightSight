@@ -276,6 +276,10 @@ premier récapitulatif. Saisir ces dates avant que le premier passage tourne (06
 les clients que le premier e-mail est un rattrapage. Un job resté `doing` à l'arrêt est relancé (ou
 abandonné, et la facture passe en échec) par `ops.recover_stalled_jobs` dans les 10 minutes.
 
+La file n'est pas une archive : chaque nuit (04:10 UTC) `ops.forget_finished_jobs` supprime les tâches
+réussies depuis plus de 30 jours, avec leurs événements. Les tâches en échec restent, et ce qui a tourné
+et quand se lit dans `job_runs`. Au premier passage après une longue coupure, tout l'arriéré part d'un coup.
+
 ## 8. Postgres local : passage de 17 à 18
 
 `docker-compose.yml` lance `postgres:18`, la majeure de la CI et de la production. Les images 18
