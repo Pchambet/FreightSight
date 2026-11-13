@@ -16,6 +16,10 @@ updates:
       # every other Python bump. 2.0 patches still come; lift this once the code is typed for 2.1.
       - dependency-name: sqlalchemy
         versions: [">=2.1"]
+      # Migration 0005 installs procrastinate's 3.9 schema and refuses to run against another: a
+      # minor bump needs its own migration, so it is a piece of work, not a weekly bump (PR #27).
+      - dependency-name: procrastinate
+        versions: [">=3.10"]
   - package-ecosystem: npm
     directory: /frontend
     schedule:
