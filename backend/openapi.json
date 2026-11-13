@@ -17625,6 +17625,11 @@
             "type": "array",
             "title": "Load Labels",
             "default": []
+          },
+          "shared": {
+            "type": "boolean",
+            "title": "Shared",
+            "default": false
           }
         },
         "type": "object",
