@@ -14,7 +14,7 @@ Rien ici n'a été relu par un avocat. Une relecture est conseillée avant la pr
 |---|---|---|---|
 | `/confidentialite` | `frontend/src/app/(marketing)/confidentialite/page.tsx` | `politique-de-confidentialite.md` | Publiée, lien en pied de page, dans le sitemap |
 | `/securite` | `frontend/src/app/(marketing)/securite/page.tsx` | `reponses-questionnaire-securite.md` | Publiée ; sous-traitants alignés sur le code le 16/10/2026 |
-| `/mentions-legales` | `frontend/src/app/(marketing)/mentions-legales/page.tsx` | `mentions-legales.md` | **404** tant que l'identité n'est pas complète |
+| `/mentions-legales` | `frontend/src/app/(marketing)/mentions-legales/page.tsx` | `mentions-legales.md` | **Publiée** depuis le 13 novembre 2026 (identité complète) ; un champ vidé la remet en 404 |
 | `/cgv` | `frontend/src/app/(marketing)/cgv/page.tsx` | `cgv.md` | **404** tant que l'identité n'est pas complète **et** que les CGV ne sont pas datées |
 | — | — | `dpa-article-28.md` | Prêt à signer après les deux décisions marquées |
 | — | — | `accord-de-pilote.md` | Prêt après les décisions commerciales marquées |
@@ -30,7 +30,8 @@ dans le sitemap. Champ vide = 404, pas de lien. Il n'y a rien d'autre à toucher
 ## 1. À remplir (dans `frontend/src/lib/site.ts`)
 
 Fait le 19 octobre 2026 : nom, forme (EI), SIREN 109 186 510, adresse et directeur de la publication.
-Reste le téléphone de l'éditeur : c'est le seul champ qui manque pour publier `/mentions-legales`.
+Le téléphone de l'éditeur a été ajouté le 13 novembre 2026 : `/mentions-legales` est publiée. Restent les
+CGV (`termsEffectiveDate`).
 
 | Champ | Ce qu'il faut y mettre | D'où ça vient |
 |---|---|---|

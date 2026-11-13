@@ -12,9 +12,9 @@ function mailto(subject: string, body?: string): string {
   return `mailto:${CONTACT_EMAIL}?${params.join("&")}`;
 }
 
-// Who publishes the site, as article 6-III of the LCEN requires it. Every field stays empty until the
-// owner has the facts (registration, address, phone): an empty field keeps /mentions-legales and /cgv
-// at 404 and out of the footer and the sitemap, rather than publishing a legal page with a hole in it.
+// Who publishes the site, as article 6-III of the LCEN requires it. A field emptied again takes
+// /mentions-legales and /cgv back to 404 and out of the footer and the sitemap, rather than publishing
+// a legal page with a hole in it.
 // What to fill, and from where, is listed in the owner's legal notes.
 const publisher = {
   // "Pierre Chambet" for an entrepreneur individuel, the company name for a société.
@@ -29,8 +29,8 @@ const publisher = {
   // Left empty under the VAT franchise (art. 293 B du CGI): there is no number to show.
   vatNumber: "",
   address: "211 chemin du Pré Montclair, 74330 Poisy",
-  // The one field still missing before /mentions-legales can be published.
-  phone: "",
+  // Given by the owner on 13 November 2026: the last field /mentions-legales was waiting for.
+  phone: "07 78 66 44 85",
   publicationDirector: "Pierre Chambet",
   email: CONTACT_EMAIL,
 };
