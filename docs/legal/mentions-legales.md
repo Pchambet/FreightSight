@@ -23,7 +23,7 @@ professionnel d'un site accessible en France affiche, dès la mise en ligne,
 Amendes affichées par service-public : jusqu'à 75 000 € pour une personne physique, 375 000 € pour une
 personne morale.
 
-## 1. Éditeur — rempli le 19 octobre 2026, sauf le téléphone
+## 1. Éditeur — rempli le 19 octobre 2026, téléphone le 13 novembre 2026
 
 | Mention | Champ de `site.publisher` | Valeur |
 |---|---|---|
@@ -33,7 +33,7 @@ personne morale.
 | Registre | `registry` | Vide : entrepreneur individuel |
 | TVA intracommunautaire | `vatNumber` | Vide en franchise en base (art. 293 B du CGI). [À VÉRIFIER par Pierre : le FR48109186510 affiché par les annuaires est calculé depuis le SIREN, il ne prouve pas un assujettissement] |
 | Adresse | `address` | 211 chemin du Pré Montclair, 74330 Poisy (adresse du siège déclarée ; une domiciliation la remplacerait) |
-| Téléphone | `phone` | [À COMPLÉTER par Pierre : c'est le seul champ qui manque pour publier la page] |
+| Téléphone | `phone` | 07 78 66 44 85 (donné par Pierre le 13 novembre 2026) |
 | E-mail | `email` | `pierrechambet@gmail.com` (déjà affiché sur le site) ; à remplacer par une adresse sur domaine propre quand il existe |
 
 ## 2. Directeur de la publication — rempli
