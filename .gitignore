@@ -9,7 +9,7 @@ __pycache__/
 .env.*
 !.env.example
 
-# Private planning docs (strategy, pricing, competitive analysis)
+# Working notes, kept on the author's machine
 docs/plan/
 
 # Docker

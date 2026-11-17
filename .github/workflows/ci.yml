@@ -37,7 +37,7 @@ jobs:
               - 'backend/**'
               - 'docs/demo/kit-testeur/**'
               # test_worked_example.py holds this README's worked example to the engine's output.
-              - 'docs/public/README.md'
+              - 'README.md'
               - '.github/workflows/ci.yml'
             frontend:
               - 'frontend/**'

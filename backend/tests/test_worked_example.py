@@ -17,10 +17,7 @@ from pathlib import Path
 from types import ModuleType
 
 BACKEND = Path(__file__).resolve().parent.parent
-# The public README: kept in docs/public/ here, it is the repository's README.md once exported.
-README = next(
-    p for p in (BACKEND.parent / "docs" / "public" / "README.md", BACKEND.parent / "README.md") if p.is_file()
-)
+README = BACKEND.parent / "README.md"
 
 
 @cache
