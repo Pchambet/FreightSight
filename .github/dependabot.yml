@@ -20,6 +20,10 @@ updates:
       # minor bump needs its own migration, so it is a piece of work, not a weekly bump (PR #27).
       - dependency-name: procrastinate
         versions: [">=3.10"]
+      # pypdf 7 is a major of the invoice reader's parser: it goes in on its own, after a run of the
+      # invoice-reading bench, as the pin in pyproject.toml says.
+      - dependency-name: pypdf
+        versions: [">=7"]
   - package-ecosystem: npm
     directory: /frontend
     schedule:
@@ -29,4 +33,10 @@ updates:
         update-types: [minor, patch]
     ignore:
       - dependency-name: next
+        update-types: ["version-update:semver-major"]
+      # TypeScript 7 and Sentry 11 both fail the build and the browser tests as a plain bump: each is
+      # a migration of its own (Sentry 11 also changes what the SDK collects by default).
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@sentry/nextjs"
         update-types: ["version-update:semver-major"]
