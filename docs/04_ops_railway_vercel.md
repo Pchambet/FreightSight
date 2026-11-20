@@ -292,6 +292,9 @@ façons de passer :
 docker compose exec -T db pg_dump -U fs -Fc fs > ~/fs-local.dump
 docker compose down -v                    # supprime le volume 17
 docker compose up -d db                   # postgres:18, volume neuf
+# L'image démarre d'abord un serveur provisoire, sans TCP, puis le coupe : attendre le vrai
+until docker compose exec -T db pg_isready -h 127.0.0.1 -U fs; do sleep 1; done
+docker compose exec -T db psql -U fs -d fs -c "CREATE ROLE freightsight_app NOLOGIN"
 docker compose exec -T db pg_restore -U fs -d fs --no-owner < ~/fs-local.dump
 docker compose up -d --build              # migrate, api, worker
 
@@ -299,8 +302,18 @@ docker compose up -d --build              # migrate, api, worker
 docker compose down -v && docker compose up -d --build
 ```
 
-La restauration se plaint du rôle `freightsight_app`, absent d'un volume neuf, et sort en code 1 :
-les données sont bien là, et l'API locale se connecte en `fs`, qui n'en a pas besoin.
+Le rôle `freightsight_app` se crée avant la restauration : il n'est pas dans le dump (un rôle appartient
+au serveur, pas à la base). Sans lui, la restauration perd ses droits et ses politiques, et la première
+migration suivante échoue sur son `GRANT`.
+
+Si le changement est déjà récupéré, l'image 18 refuse le volume et le dump se fait avec un conteneur 17
+provisoire (rejoué le 20 novembre 2026, 0 erreur à la restauration) :
+
+```bash
+docker compose down
+docker run --rm -d --name fs17 -v freightsight_pgdata:/var/lib/postgresql/data -e POSTGRES_PASSWORD=fs postgres:17
+docker exec fs17 pg_dump -U fs -Fc fs > ~/fs-local.dump && docker stop fs17
+```
 
 ## 9. Supprimer une société en fin de contrat
 
