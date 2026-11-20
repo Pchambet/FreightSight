@@ -60,6 +60,8 @@ export const site = {
   // once a custom domain replaces the *.vercel.app address.
   url: process.env.NEXT_PUBLIC_SITE_URL || "https://freight-sight-two.vercel.app",
   contactEmail: CONTACT_EMAIL,
+  // The public repository: the code this site runs, under the licence in its LICENSE file.
+  repositoryUrl: "https://github.com/Pchambet/FreightSight",
   // Where the "Réserver 20 minutes" buttons go. Set NEXT_PUBLIC_BOOKING_URL (Cal.com, Calendly…)
   // on Vercel to replace the e-mail fallback.
   bookingUrl: process.env.NEXT_PUBLIC_BOOKING_URL || mailto("FreightSight – 20 minutes"),

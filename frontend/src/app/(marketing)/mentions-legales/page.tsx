@@ -48,7 +48,7 @@ export default function LegalNoticePage() {
       ))}
 
       <h2 className={prose.h2}>Propriété intellectuelle</h2>
-      <p className={prose.p}>Les textes, images, marques, logos et logiciels de ce site et du service FreightSight appartiennent à {publisher.legalName} ou sont utilisés avec l&apos;autorisation de leurs titulaires. Toute reproduction ou réutilisation sans autorisation écrite préalable est interdite.</p>
+      <p className={prose.p}>Les textes, images, marques, logos et logiciels de ce site et du service FreightSight appartiennent à {publisher.legalName} ou sont utilisés avec l&apos;autorisation de leurs titulaires. Le code source du logiciel est publié sous la <a href={`${site.repositoryUrl}/blob/main/LICENSE`} className={prose.link}>licence FSL-1.1-MIT</a>, qui fixe les conditions de sa réutilisation. Pour tout le reste, toute reproduction ou réutilisation sans autorisation écrite préalable est interdite.</p>
 
       <h2 className={prose.h2}>Données personnelles</h2>
       <p className={prose.p}>Le traitement des données personnelles est décrit dans la <Link href="/confidentialite" className={prose.link}>politique de confidentialité</Link>.</p>

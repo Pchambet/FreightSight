@@ -59,8 +59,10 @@ celle de ses pages légales.
 
 « Les textes, images, marques, logos et logiciels de ce site et du service FreightSight appartiennent à
 <éditeur> ou sont utilisés avec l'autorisation de leurs titulaires. Toute reproduction ou réutilisation
-sans autorisation écrite préalable est interdite. » Cohérent avec `LICENSE` (tous droits réservés,
-Pierre Chambet, 2026). Si une société est créée, Pierre lui cède ou lui concède ses droits sur le code :
+sans autorisation écrite préalable est interdite. » Depuis le 20 novembre 2026, le dépôt est public
+sous FSL-1.1-MIT (`LICENSE`) : la page dit donc que le code source est publié sous cette licence, qui
+fixe les conditions de sa réutilisation, et que l'interdiction vaut « pour tout le reste » (textes,
+images, marque, logo). Pierre Chambet reste titulaire des droits sur le code. Si une société est créée, Pierre lui cède ou lui concède ses droits sur le code :
 à prévoir à la création (statuts ou acte de cession), sinon la société vend un logiciel qui ne lui
 appartient pas.
 
