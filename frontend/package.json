@@ -40,6 +40,9 @@
   "overrides": {
     "@sentry/bundler-plugin-core": {
       "glob": "^14.0.6"
+    },
+    "@sentry/bundler-plugins": {
+      "glob": "^14.0.6"
     }
   }
 }
