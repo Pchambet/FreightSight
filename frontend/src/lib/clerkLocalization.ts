@@ -1,11 +1,12 @@
 import { enUS, frFR } from "@clerk/localizations";
+import { site } from "@/lib/site";
 
 /**
  * `frFR` leaves some keys undefined, and Clerk falls back to English for each of them: a French
  * tester signing up read "Create a password", "Edit email address", and the header's org switcher was
  * announced as "Open organization switcher". These are the gaps on the screens a customer goes
  * through (sign-in, sign-up, choosing the organization, the header); billing, SSO and MFA screens are
- * not used. The application name in "pour continuer vers …" is set in the Clerk dashboard, not here.
+ * not used.
  */
 const fr = {
   ...frFR,
@@ -52,7 +53,20 @@ const fr = {
   },
 } satisfies typeof frFR;
 
+/**
+ * Clerk fills `{{applicationName}}` from its dashboard, where the development instance is still called
+ * "My Application": the sign-in screen read "pour continuer vers My Application". The name is written
+ * here instead, in every sentence that uses it, so the screens say what the rest of the site says.
+ */
+function named<T>(value: T): T {
+  if (typeof value === "string") return value.replaceAll("{{applicationName}}", site.name) as T;
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, named(v)])) as T;
+  return value;
+}
+
+const localizations = { fr: named(fr), en: named(enUS) };
+
 /** Clerk's own screens in the application's language. */
 export function clerkLocalization(locale: string): typeof frFR {
-  return locale === "fr" ? fr : enUS;
+  return locale === "fr" ? localizations.fr : localizations.en;
 }
