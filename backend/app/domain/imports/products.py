@@ -82,10 +82,12 @@ def apply_products(
         if product is None:
             catalogue[sku] = t.add(Product(sku=sku, **known))
             counters["products_created"] += 1
-        elif any(getattr(product, name) != _stored(name, said) for name, said in known.items()):
-            for name, said in known.items():
-                setattr(product, name, said)
-            counters["products_updated"] += 1
+        else:
+            t.match(product)
+            if any(getattr(product, name) != _stored(name, said) for name, said in known.items()):
+                for name, said in known.items():
+                    setattr(product, name, said)
+                counters["products_updated"] += 1
         report.valid_rows += 1
     t.db.flush()
     if priced_without_currency:

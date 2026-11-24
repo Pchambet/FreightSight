@@ -58,6 +58,10 @@ CREATED_TABLES: tuple[type, ...] = (
     ContainerLoad,
 )
 
+#: How many of a file's columns another kind has to read before the file is said to read like it: a
+#: price list needs one column only, and one column in common is not a likeness.
+READS_LIKE_MIN = 3
+
 #: Columns whose commas have to be read as a number, and whose convention is therefore inferred
 #: over the whole file before the first row is parsed.
 NUMERIC_FIELDS = (
@@ -255,18 +259,27 @@ def _complete(kind: ImportKind, mapping: dict[str, str]) -> bool:
 def reads_like(job: ImportJob) -> ImportKind | None:
     """The kind a file not yet imported reads better as than the one it was dropped as, if any: a
     price list dropped as orders has none of the columns an order needs and every column of a price
-    list. A kind is better when its headers alone give it everything it requires and read more of the
-    file's columns than the job's own mapping does — so a ledger a person mapped by hand is left alone."""
+    list.
+
+    Another kind is better when its headers alone give it everything it requires and at least
+    `READS_LIKE_MIN` columns, and then: as many columns as the kind it was dropped as, when that one
+    lacks a column it requires; twice as many, when that one has all it requires — an orders export
+    that also carries tracking columns is an orders file. The kind it was dropped as is judged on the
+    better of its mapping and its headers: a preview refused with no mapping says nothing about the file."""
     if job.status is ImportStatus.DONE:
         return None
     columns = list(job.columns)
-    best, read = None, len([c for c in job.mapping.values() if c])
+    said = {field: column for field, column in job.mapping.items() if column}
+    own = suggest_mapping(job.kind, columns)
+    read = max(len(said), len(own))
+    needed = read if not (_complete(job.kind, said) or _complete(job.kind, own)) else 2 * read
+    best, most = None, max(needed, READS_LIKE_MIN) - 1
     for kind in MAIN_KINDS:
         if kind is job.kind:
             continue
         mapping = suggest_mapping(kind, columns)
-        if _complete(kind, mapping) and len(mapping) > read:
-            best, read = kind, len(mapping)
+        if _complete(kind, mapping) and len(mapping) > most:
+            best, most = kind, len(mapping)
     return best
 
 
@@ -282,13 +295,14 @@ def rekind(t: TenantSession, job: ImportJob, kind: ImportKind) -> None:
     t.db.flush()
 
 
-def rows_created(added: list[object]) -> dict[str, list[str]]:
-    """The rows among `added` a file is answerable for, by table, as `ImportJob.created` keeps them."""
-    created: dict[str, list[str]] = {}
-    for row in added:
+def rows_by_table(rows: list[object]) -> dict[str, list[str]]:
+    """The rows a file is answerable for among those it added or matched, by table, as
+    `ImportJob.created` and `ImportJob.matched` keep them."""
+    by_table: dict[str, set[str]] = {}
+    for row in rows:
         if isinstance(row, CREATED_TABLES):
-            created.setdefault(row.__tablename__, []).append(str(row.id))  # type: ignore[attr-defined]
-    return created
+            by_table.setdefault(row.__tablename__, set()).add(str(row.id))  # type: ignore[attr-defined]
+    return {table: sorted(ids) for table, ids in by_table.items()}
 
 
 def _check_mapping(kind: ImportKind, mapping: dict[str, str], columns: list[str]) -> None:
@@ -342,7 +356,7 @@ def run_job(
     conventions = infer_comma_conventions(table, {mapping[f] for f in NUMERIC_FIELDS if mapping.get(f)})
     _report_file_notes(job.kind, table, mapping, conventions, report)
 
-    first_added = len(t.added)
+    first_added, first_matched = len(t.added), len(t.matched)
     nested = t.db.begin_nested()
     try:
         if job.kind is ImportKind.PURCHASE_ORDERS:
@@ -389,7 +403,11 @@ def run_job(
     job.status = ImportStatus.DONE if not dry_run else ImportStatus.VALIDATED
     if not dry_run:
         job.committed_at = func.now()
-        job.created = rows_created(t.added[first_added:])
+        job.created = rows_by_table(t.added[first_added:])
+        # An order the file created on one row and found again on the next is its own, not matched.
+        matched = rows_by_table(t.matched[first_matched:])
+        others = {table: sorted(set(ids) - set(job.created.get(table, []))) for table, ids in matched.items()}
+        job.matched = {table: ids for table, ids in others.items() if ids}
         if job.kind is ImportKind.COSTS:
             job.matched_cost_ids = list(report.internal.get("matched_cost_ids", []))
             job.refused_rows = list(report.internal.get("refused_rows", []))
@@ -581,7 +599,8 @@ def _get_or_create_supplier(t: TenantSession, name: str | None, report: ImportRe
         sup = t.add(Supplier(name=name))
         t.db.flush()
         report.suppliers_created += 1
-    return sup
+        return sup
+    return t.match(sup)
 
 
 def _get_or_create_container(t: TenantSession, number: str, report: ImportReport) -> Container:
@@ -592,7 +611,8 @@ def _get_or_create_container(t: TenantSession, number: str, report: ImportReport
         c = t.add(Container(container_number=number))
         t.db.flush()
         report.containers_created += 1
-    return c
+        return c
+    return t.match(c)
 
 
 def _upsert_load(
@@ -623,9 +643,11 @@ def _upsert_load(
         t.add(ContainerLoad(container_id=container.id, po_line_id=line.id, quantity=qty))
         t.db.flush()
         r.report.loads_created += 1
-    elif load.quantity != qty:
-        load.quantity = qty
-        r.report.loads_updated += 1
+    else:
+        t.match(load)
+        if load.quantity != qty:
+            load.quantity = qty
+            r.report.loads_updated += 1
 
 
 def _find_line_without_number(
@@ -974,6 +996,7 @@ def _apply_purchase_orders(
             t.db.flush()
             report.purchase_orders_created += 1
         else:
+            t.match(po)
             changed = False
             if supplier and po.supplier_id != supplier.id:
                 po.supplier_id, changed = supplier.id, True
@@ -1046,6 +1069,7 @@ def _apply_purchase_orders(
             t.db.flush()
             report.lines_created += 1
         elif not repeated_line:
+            t.match(line)
             updates = {**source, **{k: v for k, v in enrichment.items() if v is not None}}
             if any(getattr(line, k) != v for k, v in updates.items()):
                 for k, v in updates.items():
@@ -1102,6 +1126,8 @@ def _apply_legacy(
             )
             t.db.flush()
             report.purchase_orders_created += 1
+        else:
+            t.match(po)
         line = t.db.scalar(
             select(PurchaseOrderLine).where(PurchaseOrderLine.po_id == po.id, PurchaseOrderLine.line_no == 1)
         )
@@ -1109,9 +1135,11 @@ def _apply_legacy(
             line = t.add(PurchaseOrderLine(po_id=po.id, line_no=1, quantity=Decimal("1"), unit_price=total))
             t.db.flush()
             report.lines_created += 1
-        elif line.unit_price != total:
-            line.unit_price = total
-            report.lines_updated += 1
+        else:
+            t.match(line)
+            if line.unit_price != total:
+                line.unit_price = total
+                report.lines_updated += 1
         if container_number:
             container = _get_or_create_container(t, container_number, report)
             _upsert_load(t, container, line, Decimal("1"), r)

@@ -128,9 +128,9 @@ def test_the_kit_taken_back_file_by_file_leaves_nothing_and_loads_again(client: 
     assert (first["CONTAINERS"]["containers_created"], first["COSTS"]["costs_created"]) == (10, 42)
     assert len(client.get("/api/v1/alerts").json()) == 1  # L1, still at the terminal
 
-    # Nothing is pulled from under what stands on it: the later files are named, latest first.
+    # Nothing is pulled from under what stands on it: the file that does is named, one step at a time.
     held = refused(client, jobs["PURCHASE_ORDERS"])
-    assert (held["code"], held["files"]) == ("IMPORT_RELIED_ON", [FILES["COSTS"], FILES["CONTAINERS"]])
+    assert (held["code"], held["files"]) == ("IMPORT_RELIED_ON", [FILES["CONTAINERS"]])
     held = refused(client, jobs["CONTAINERS"])
     assert (held["code"], held["files"]) == ("IMPORT_RELIED_ON", [FILES["COSTS"]])
     assert len(numbers(client)) == 10
@@ -320,3 +320,215 @@ def test_a_file_already_imported_keeps_its_kind_and_a_ledger_is_not_read_twice(c
     assert stray["reads_like"] == "COSTS"
     twice = client.post(f"/api/v1/imports/{stray['id']}/kind", json={"kind": "COSTS"})
     assert (twice.status_code, twice.json()["code"]) == (409, "FILE_ALREADY_IMPORTED")
+
+
+# ---------------------------------------------------------------------------- what else stands on a file
+
+
+def reading(client: TestClient, db: Session, org: Organization, name: str) -> str:
+    invoice_id: str = client.post(
+        "/api/v1/invoices", files={"file": (name, (KIT / name).read_bytes(), "application/pdf")}
+    ).json()["id"]
+    assert handlers.extract_invoice(db, org.id, uuid.UUID(invoice_id)) == "NEEDS_REVIEW"
+    return invoice_id
+
+
+def test_an_invoice_rejected_lets_go_too_and_reopened_puts_no_cost_on_a_box_that_is_gone(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    imported(client, "PRODUCTS")
+    imported(client, "PURCHASE_ORDERS")
+    tracking = imported(client, "CONTAINERS")
+    invoice_id = reading(client, db, org, f"5-facture-transitaire-{L1}.pdf")
+    assert client.post(f"/api/v1/invoices/{invoice_id}/reject").status_code == 200
+
+    # A rejected invoice is reopened as it stands: its lines must not still point at the old box.
+    assert taken_back(client, tracking)["containers_deleted"] == 10
+    lines = client.get(f"/api/v1/invoices/{invoice_id}").json()["lines"]
+    assert {(line["scope"], line["target_id"]) for line in lines} == {(None, None)}
+    imported(client, "CONTAINERS")
+    assert client.get("/api/v1/costs", params={"target_id": numbers(client)[L1]["id"]}).json() == []
+
+
+def test_an_invoice_is_not_confirmed_on_a_container_deleted_by_hand(
+    client: TestClient, db: Session, org: Organization
+) -> None:
+    imported(client, "PRODUCTS")
+    imported(client, "PURCHASE_ORDERS")
+    imported(client, "CONTAINERS")
+    invoice_id = reading(client, db, org, f"5-facture-transitaire-{L1}.pdf")
+    for line in client.get(f"/api/v1/invoices/{invoice_id}").json()["lines"]:
+        accepted = client.patch(f"/api/v1/invoices/{invoice_id}/lines/{line['id']}", json={"accepted": True})
+        assert accepted.is_success
+    box = numbers(client)[L1]["id"]
+    assert client.delete(f"/api/v1/containers/{box}").status_code == 204
+
+    confirmed = client.post(f"/api/v1/invoices/{invoice_id}/confirm")
+    assert (confirmed.status_code, confirmed.json()["code"]) == (422, "UNKNOWN_TARGET")
+    assert client.get("/api/v1/costs", params={"target_id": box}).json() == []
+
+
+def test_a_cost_on_a_bill_the_file_joined_holds_it_even_when_it_could_not_be_spread(
+    client: TestClient,
+) -> None:
+    # No price list: the order lines have no weight, so a freight split by weight lands on nothing
+    # yet. Taking the sheet back would change what it will land on all the same.
+    imported(client, "PURCHASE_ORDERS")
+    bill = client.post("/api/v1/shipments", json={"reference": "MEDUNB2601184"})  # H1's bill, by hand
+    assert bill.status_code == 201, bill.text
+    tracking = imported(client, "CONTAINERS")
+    assert tracking["report"]["shipments_created"] == 9  # H1 joined the bill that was there
+    cost = client.post(
+        "/api/v1/costs",
+        json={
+            "scope": "SHIPMENT",
+            "target_id": bill.json()["id"],
+            "cost_type": "OCEAN_FREIGHT",
+            "amount": "1000.00",
+            "currency": "EUR",
+            "cost_date": "2026-07-10",
+            "allocation_method": "BY_WEIGHT",
+        },
+    )
+    assert cost.status_code == 201, cost.text
+    assert numbers(client)[H1]["allocated_base"] == "0.00"  # held: nothing to weigh
+
+    held = refused(client, tracking)
+    assert (held["code"], held["count"]) == ("IMPORT_ROWS_CARRY_COSTS", 1)
+    assert len(numbers(client)) == 10
+
+
+def test_a_line_a_person_added_stays_with_its_order(client: TestClient) -> None:
+    orders = imported(client, "PURCHASE_ORDERS")
+    order = next(o for o in client.get("/api/v1/purchase-orders").json() if o["po_number"] == "PO-2026-041")
+    added = client.patch(
+        f"/api/v1/purchase-orders/{order['id']}",
+        json={"lines": [{"line_no": 9, "sku": "HAND", "quantity": "3", "unit_price": "10.00"}]},
+    )
+    assert added.status_code == 200, added.text
+
+    # Only what the file created is the file's to delete: the order keeps the line it did not write.
+    assert taken_back(client, orders) == NOTHING | {
+        "purchase_orders_deleted": 10,
+        "lines_deleted": 14,
+        "suppliers_deleted": 2,
+    }
+    (kept,) = client.get("/api/v1/purchase-orders").json()
+    lines = client.get(f"/api/v1/purchase-orders/{kept['id']}").json()["lines"]
+    assert (kept["po_number"], [line["sku"] for line in lines]) == ("PO-2026-041", ["HAND"])
+
+
+def test_the_same_orders_said_again_hold_the_file_that_created_them(client: TestClient, db: Session) -> None:
+    first = imported(client, "PURCHASE_ORDERS")
+    again = imported(
+        client, "PURCHASE_ORDERS", "2-commandes (2).csv", (KIT / FILES["PURCHASE_ORDERS"]).read_bytes()
+    )
+    assert again["report"]["purchase_orders_created"] == 0
+    stored = db.get(ImportJob, uuid.UUID(first["id"]))
+    assert stored is not None and stored.matched == {}  # what a file created is not what it matched
+
+    held = refused(client, first)
+    assert (held["code"], held["files"]) == ("IMPORT_RELIED_ON", ["2-commandes (2).csv"])
+    assert len(client.get("/api/v1/purchase-orders").json()) == 11
+    assert taken_back(client, again) == NOTHING  # it had created nothing
+    assert taken_back(client, first)["purchase_orders_deleted"] == 11
+
+
+def test_a_price_list_repriced_since_is_held_by_the_later_one(client: TestClient) -> None:
+    first = imported(client, "PRODUCTS", "tarif.csv", text(TARIFF, "TYRE;Pneu;40111000;4,5;60,00;EUR"))
+    second = imported(client, "PRODUCTS", "tarif-2.csv", text(TARIFF, "TYRE;Pneu;40111000;4,5;62,00;EUR"))
+    assert second["report"]["products_updated"] == 1
+
+    held = refused(client, first)
+    assert (held["code"], held["files"]) == ("IMPORT_RELIED_ON", ["tarif-2.csv"])
+    assert taken_back(client, second) == NOTHING
+    assert taken_back(client, first) == NOTHING | {"products_deleted": 1}
+
+
+def test_a_box_an_orders_file_created_and_a_sheet_dated_is_held_by_the_sheet(client: TestClient) -> None:
+    orders = imported(
+        client,
+        "PURCHASE_ORDERS",
+        "commandes.csv",
+        text("N° commande;Référence;Quantité;Prix unitaire;N° conteneur", f"PO-A;TYRE;100;10,00;{H1}"),
+    )
+    assert orders["report"]["containers_created"] == 1
+    sheet = imported(
+        client,
+        "CONTAINERS",
+        "suivi.csv",
+        text("N° conteneur;N° B/L;Arrivée réelle", f"{H1};MEDU1234567;07/07/2026"),
+    )
+    assert (sheet["report"]["containers_created"], sheet["report"]["containers_updated"]) == (0, 1)
+
+    held = refused(client, orders)
+    assert (held["code"], held["files"]) == ("IMPORT_RELIED_ON", ["suivi.csv"])
+    # What the sheet only changed keeps its value: the box stays dated, on the bill the sheet opened,
+    # and a bill a box still travels on is not deleted.
+    assert taken_back(client, sheet) == NOTHING
+    assert taken_back(client, orders) == NOTHING | {
+        "purchase_orders_deleted": 1,
+        "lines_deleted": 1,
+        "containers_deleted": 1,
+        "loads_deleted": 1,
+    }
+
+
+def test_rows_an_erp_sync_keeps_in_step_are_no_longer_the_file_s(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first = imported(client, "PURCHASE_ORDERS")
+    synced = imported(
+        client, "PURCHASE_ORDERS", "odoo-sync.csv", (KIT / FILES["PURCHASE_ORDERS"]).read_bytes()
+    )
+    from app.domain.imports import undo
+
+    monkeypatch.setattr(undo, "synced_jobs", lambda t, ids: {uuid.UUID(synced["id"])} & set(ids))
+
+    # Naming a file that cannot be taken back would be a dead end: the refusal says whose rows they are.
+    held = refused(client, first)
+    assert (held["code"], "files" in held) == ("IMPORT_HELD_BY_ERP_SYNC", False)
+    assert refused(client, synced)["code"] == "IMPORT_NOT_UNDOABLE"
+    assert len(client.get("/api/v1/purchase-orders").json()) == 11
+
+
+def test_a_file_of_tens_of_thousands_of_rows_is_taken_back_in_one_statement(
+    client: TestClient, db: Session
+) -> None:
+    job = imported(client, "PURCHASE_ORDERS")
+    stored = db.get(ImportJob, uuid.UUID(job["id"]))
+    assert stored is not None and stored.created is not None
+    # More ids than a statement holds parameters (65 535), as a 70 000-line file would keep.
+    stored.created = stored.created | {
+        "po_lines": [*stored.created["po_lines"], *(str(uuid.uuid4()) for _ in range(70_000))]
+    }
+    db.commit()
+
+    assert taken_back(client, job)["lines_deleted"] == 14
+
+
+# ---------------------------------------------------------------------------- what a file reads like
+
+
+def reads_like(client: TestClient, kind: str, *lines: str) -> Any:
+    return dropped(client, kind, "export.csv", text(*lines))["reads_like"]
+
+
+def test_an_orders_export_that_carries_tracking_columns_is_an_orders_file(client: TestClient) -> None:
+    header = "N° commande;Référence;Quantité;Prix unitaire;N° conteneur;N° B/L;Port de chargement;ETD;ETA"
+    row = "PO-A;TYRE;100;10,00;MSCU4821990;MEDU1234567;Ningbo;03/06/2026;07/07/2026"
+    assert reads_like(client, "PURCHASE_ORDERS", header, row) is None
+
+
+def test_a_preview_refused_with_no_mapping_says_nothing_about_the_file(client: TestClient) -> None:
+    job = dropped(client, "PURCHASE_ORDERS")
+    assert client.post(f"/api/v1/imports/{job['id']}/validate", json={"mapping": {}}).status_code == 422
+    assert client.get(f"/api/v1/imports/{job['id']}").json()["reads_like"] is None
+
+
+def test_a_price_list_without_prices_dropped_as_orders_is_still_a_price_list(client: TestClient) -> None:
+    header = "Référence;Désignation;Code SH;Taux de droits;Poids unitaire (kg)"
+    assert reads_like(client, "PURCHASE_ORDERS", header, "TYRE;Pneu;40111000;4,5;9,5") == "PRODUCTS"
+    # One column in common is not a likeness: a ledger with a « Référence » column is no price list.
+    ledger = "Date;Référence;Libellé;Débit"
+    assert reads_like(client, "COSTS", ledger, "10/07/2026;F-1;Fret maritime;3 480,00") is None

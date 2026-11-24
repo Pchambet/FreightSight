@@ -217,6 +217,11 @@ def replace_loads(
 ) -> list[schemas.LoadResponse]:
     """Replace the full list of loads for this container. Refuses to over-allocate a PO line."""
     c = _get(t, container_id)
+    # Held while its loads change: a file being taken back archives its containers, and a load
+    # written at that moment would sit in a box nobody sees.
+    held = select(Container.id).where(Container.id == c.id, Container.archived_at.is_(None))
+    if t.db.scalar(held.with_for_update()) is None:
+        raise NotFound("Container")
     if len({p.po_line_id for p in payload}) != len(payload):
         raise Unprocessable("Each po_line_id may appear once", code="DUPLICATE_LINE")
     wanted = {p.po_line_id: p.quantity for p in payload}

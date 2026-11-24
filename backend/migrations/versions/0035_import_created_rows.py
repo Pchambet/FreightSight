@@ -2,7 +2,9 @@
 
 Only a costs file could be taken back, because only a cost names the import it came from. A person
 who drops the wrong price list, the wrong orders or the wrong tracking sheet had no way back short of
-deleting each row by hand. Every import now keeps the ids of the rows it created, by table.
+deleting each row by hand. Every import now keeps the ids of the rows it created, by table, and of
+the rows it found already there and spoke about: a file is not taken back from under a later one that
+changed or confirmed its rows — the same orders imported twice, a price list repriced, an ERP sync.
 
 NULL is a file committed before this was kept: nothing says what it wrote, so it cannot be taken back.
 
@@ -24,7 +26,9 @@ depends_on: str | None = None
 
 def upgrade() -> None:
     op.add_column("import_jobs", sa.Column("created", postgresql.JSONB(), nullable=True))
+    op.add_column("import_jobs", sa.Column("matched", postgresql.JSONB(), nullable=True))
 
 
 def downgrade() -> None:
+    op.drop_column("import_jobs", "matched")
     op.drop_column("import_jobs", "created")

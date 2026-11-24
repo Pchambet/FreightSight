@@ -633,6 +633,10 @@ class ImportJob(Timestamped, OrgScoped, Base):
     #: deletes. A cost names its import itself and is not listed. None on a file committed before
     #: this was kept: nothing says what it wrote, so it cannot be taken back.
     created: Mapped[dict[str, Any] | None] = mapped_column()
+    #: The rows the file found already there and spoke about — an order it changed, an article it
+    #: confirmed — by table, as `created`: the file that created them is not taken back from under
+    #: this one. For costs, see `matched_cost_ids`.
+    matched: Mapped[dict[str, Any] | None] = mapped_column()
     #: What the preview ran with besides the mapping — the type of the rows that name none, the types a
     #: person gave the labels it could not read. The commit runs with exactly that, never another.
     options: Mapped[dict[str, Any]] = mapped_column(

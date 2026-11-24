@@ -13,18 +13,24 @@ name, and corrected the way a posted document is — with another one.
 
 And nothing is pulled from under what stands on it. A later copy of the same ledger that recognised
 some of these lines, the costs a later file put on these containers, the orders a tracking sheet
-loaded into them: the later file is taken back first, by name. What a person did by hand on these
-rows — a cost typed in or confirmed from an invoice, an order loaded in a container — is named too,
-and is theirs to remove.
+loaded into them, the same orders said again by a later file (`ImportJob.matched`): the later file
+is taken back first, by name — and rows an ERP sync now keeps in step are no longer this file's to
+take. What a person did by hand on these rows — a cost typed in or confirmed from an invoice, an
+order loaded in a container — is named too, and is theirs to remove; a line a person added to an
+order of the file is not the file's, and keeps its order.
 """
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import ColumnElement, String, any_, delete, literal, or_, select
+from sqlalchemy.dialects.postgresql import ARRAY, array
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 from app.core.errors import Conflict, Unprocessable
 from app.core.tenancy import TenantSession
@@ -38,12 +44,11 @@ from app.domain.models import (
     ContainerLoad,
     Cost,
     CostAllocation,
+    ErpSyncRun,
     ImportJob,
     ImportKind,
     ImportStatus,
-    Invoice,
     InvoiceLine,
-    InvoiceStatus,
     Product,
     PurchaseOrder,
     PurchaseOrderLine,
@@ -54,6 +59,35 @@ from app.domain.periods.service import frozen_periods
 
 #: How many containers, orders or invoices a refusal names before it only counts them.
 NAMED = 5
+
+
+def _among(column: Any, ids: Collection[UUID]) -> ColumnElement[bool]:
+    """`column` is one of `ids`, bound as one array: a file's rows are counted in tens of thousands,
+    and a statement holds no more than 65 535 parameters."""
+    return column == any_(literal(list(ids), ARRAY(PG_UUID(as_uuid=True))))  # type: ignore[no-any-return]
+
+
+def _lists_any(listed: Any, ids: Collection[UUID]) -> ColumnElement[bool]:
+    """A job's list of rows (`created` or `matched`, one table of it) names one of `ids`."""
+    return listed.has_any(literal([str(i) for i in ids], ARRAY(String)))  # type: ignore[no-any-return]
+
+
+def synced_jobs(t: TenantSession, ids: Collection[UUID]) -> set[UUID]:
+    """The jobs among `ids` an ERP sync drove. An ERP sync writes a file too; the sync run that drove
+    the job is the record of it, so nothing has to be stored on the job. A large sync is several
+    files: the run links the first, and lists every one in its detail."""
+    if not ids:
+        return set()
+    listed = ErpSyncRun.detail["import_job_ids"]
+    runs = t.db.execute(
+        select(ErpSyncRun.import_job_id, listed)
+        .where(ErpSyncRun.org_id == t.org_id)
+        .where(or_(ErpSyncRun.import_job_id.in_(list(ids)), listed.has_any(array([str(i) for i in ids]))))
+    ).all()
+    named: set[str] = set()
+    for first, every in runs:
+        named.update([str(first)] if first is not None else [], every or [])
+    return {i for i in ids if str(i) in named}
 
 
 @dataclass
@@ -186,18 +220,11 @@ def _refuse_closed_months(t: TenantSession, boxes: set[UUID]) -> None:
 
 
 def _release_invoice_lines(t: TenantSession, gone: set[UUID], boxes: dict[UUID, str]) -> None:
-    """A line of an invoice still being reviewed that pointed at a row now gone points at nothing
-    again: confirming it must not put a cost on a container that is no longer there. A box is named
-    on the line as the reading names one nobody knows, so the next tracking sheet finds the line."""
-    for line in t.db.scalars(
-        select(InvoiceLine)
-        .join(Invoice, Invoice.id == InvoiceLine.invoice_id)
-        .where(
-            Invoice.org_id == t.org_id,
-            Invoice.status == InvoiceStatus.NEEDS_REVIEW,
-            InvoiceLine.target_id.in_(gone),
-        )
-    ):
+    """A line of an invoice that pointed at a row now gone points at nothing again — whatever the
+    invoice's state: one being reviewed is confirmed next, one rejected can be reopened as it stands,
+    and either would put its cost on a container that is no longer there. A box is named on the line
+    as the reading names one nobody knows, so the next tracking sheet finds the line."""
+    for line in t.db.scalars(t.q(InvoiceLine).where(_among(InvoiceLine.target_id, gone))):
         number = boxes.get(line.target_id) if line.target_id is not None else None
         line.scope, line.target_id = None, None
         if number is not None:
@@ -212,87 +239,105 @@ def _on_record(job: ImportJob, model: type) -> list[UUID]:
 
 def _take_back_rows(t: TenantSession, job: ImportJob) -> TakenBack:
     """A price list, an orders file or a tracking sheet: the rows it created go, in the order their
-    foreign keys allow, once nothing stands on them."""
+    foreign keys allow, once nothing stands on them. They are locked first: a load written on one of
+    them at the same moment is then either seen, and holds the file, or refused."""
     db = t.db
-    loads = list(db.scalars(t.q(ContainerLoad).where(ContainerLoad.id.in_(_on_record(job, ContainerLoad)))))
-    boxes = list(
-        db.scalars(
-            t.q(Container).where(
-                Container.id.in_(_on_record(job, Container)), Container.archived_at.is_(None)
-            )
-        )
-    )
-    orders = list(db.scalars(t.q(PurchaseOrder).where(PurchaseOrder.id.in_(_on_record(job, PurchaseOrder)))))
-    order_ids = {order.id for order in orders}
-    own_lines = set(_on_record(job, PurchaseOrderLine))
-    # Every line that goes: those of the orders the file created, and those it added to an order
-    # that was there before it.
-    lines = list(
-        db.scalars(
-            t.q(PurchaseOrderLine).where(
-                or_(PurchaseOrderLine.po_id.in_(order_ids), PurchaseOrderLine.id.in_(own_lines))
-            )
-        )
-    )
-    line_ids = {line.id for line in lines}
-    shipments = list(db.scalars(t.q(Shipment).where(Shipment.id.in_(_on_record(job, Shipment)))))
+
+    def mine(model: type) -> Any:
+        return t.q(model).where(_among(model.id, _on_record(job, model))).with_for_update()  # type: ignore[attr-defined]
+
+    loads = list(db.scalars(mine(ContainerLoad)))
+    boxes = list(db.scalars(mine(Container).where(Container.archived_at.is_(None))))
+    lines = list(db.scalars(mine(PurchaseOrderLine)))
+    created_orders = list(db.scalars(mine(PurchaseOrder)))
+    shipments = list(db.scalars(mine(Shipment)))
+    products = list(db.scalars(mine(Product)))
+    load_ids, box_ids, line_ids = ({row.id for row in rows} for rows in (loads, boxes, lines))
     shipment_ids = {shipment.id for shipment in shipments}
-    box_ids = {box.id for box in boxes}
-    load_ids = {load.id for load in loads}
+    # An order of the file that now holds a line the file did not create — added by hand, by a later
+    # file, by the ERP — stays, with that line: only what the file created is the file's to delete.
+    kept_orders = set(
+        db.scalars(
+            select(PurchaseOrderLine.po_id).where(
+                _among(PurchaseOrderLine.po_id, [order.id for order in created_orders]),
+                ~_among(PurchaseOrderLine.id, line_ids),
+            )
+        )
+    )
+    orders = [order for order in created_orders if order.id not in kept_orders]
+    order_ids = {order.id for order in orders}
 
     # What stands on these rows and is not this file's: a load, on a line or in a box that goes…
     standing = list(
         db.scalars(
             t.q(ContainerLoad).where(
-                or_(ContainerLoad.po_line_id.in_(line_ids), ContainerLoad.container_id.in_(box_ids)),
-                ContainerLoad.id.notin_(load_ids),
+                or_(_among(ContainerLoad.po_line_id, line_ids), _among(ContainerLoad.container_id, box_ids)),
+                ~_among(ContainerLoad.id, load_ids),
             )
         )
     )
-    # …and a cost, on a box whose loads change, on a bill or an order that goes, or spread over a
-    # load that goes: its landed cost would move, or lose what it lands on.
+    # …and a cost whose spread would move: on a box whose loads change, on the bill such a box
+    # travels on, on a line whose loads change or on its order. Found by what the cost is on, not by
+    # what it is spread over: a cost that could not be spread yet would move all the same.
     touched = box_ids | {load.container_id for load in loads}
+    moved_lines = line_ids | {load.po_line_id for load in loads}
+    on_bills = select(Container.shipment_id).where(_among(Container.id, touched))
+    bills = shipment_ids | {bill for bill in db.scalars(on_bills) if bill is not None}
+    moved_orders = order_ids | set(
+        db.scalars(select(PurchaseOrderLine.po_id).where(_among(PurchaseOrderLine.id, moved_lines)))
+    )
     costs = list(
         db.scalars(
             t.q(Cost).where(
                 or_(
-                    Cost.container_id.in_(touched),
-                    Cost.shipment_id.in_(shipment_ids),
-                    Cost.po_id.in_(order_ids),
-                    Cost.po_line_id.in_(line_ids),
-                    Cost.id.in_(
-                        select(CostAllocation.cost_id).where(
-                            CostAllocation.container_load_id.in_(load_ids | {ld.id for ld in standing})
-                        )
-                    ),
+                    _among(Cost.container_id, touched),
+                    _among(Cost.shipment_id, bills),
+                    _among(Cost.po_id, moved_orders),
+                    _among(Cost.po_line_id, moved_lines),
                 )
             )
         )
     )
 
-    # A later file is taken back first, by name: the costs file that put costs here, the tracking
-    # sheet that loaded these orders, the orders file that added lines to these orders.
-    cost_jobs = {cost.import_job_id for cost in costs if cost.import_job_id is not None}
-    standing_ids = {str(load.id) for load in standing}
-    added_lines = {str(i) for i in line_ids - own_lines}
-    relying = []
-    for later_id, name, made in db.execute(
-        select(ImportJob.id, ImportJob.original_filename, ImportJob.created)
-        .where(
-            ImportJob.org_id == t.org_id,
-            ImportJob.id != job.id,
-            ImportJob.status == ImportStatus.DONE,
-            ImportJob.undone_at.is_(None),
+    # Another file is taken back first, by name: the costs file that put costs here, the file that
+    # loaded these orders or these boxes, and any file that found these rows already there and spoke
+    # about them — the same orders said again, a price list repriced, a box dated by the tracking.
+    going = {
+        Product: {product.id for product in products},
+        PurchaseOrder: order_ids,
+        PurchaseOrderLine: line_ids,
+        Container: box_ids,
+        ContainerLoad: load_ids,
+    }
+    held = [_lists_any(ImportJob.matched[model.__tablename__], ids) for model, ids in going.items() if ids]
+    if standing:
+        held.append(
+            _lists_any(ImportJob.created[ContainerLoad.__tablename__], {load.id for load in standing})
         )
-        .order_by(ImportJob.committed_at.desc(), ImportJob.created_at.desc())
-    ):
-        made = made or {}
-        if (
-            later_id in cost_jobs
-            or standing_ids & set(made.get(ContainerLoad.__tablename__, []))
-            or added_lines & set(made.get(PurchaseOrderLine.__tablename__, []))
-        ):
-            relying.append((later_id, name))
+    cost_jobs = {cost.import_job_id for cost in costs if cost.import_job_id is not None}
+    if cost_jobs:
+        held.append(ImportJob.id.in_(cost_jobs))
+    relying = (
+        db.execute(
+            select(ImportJob.id, ImportJob.original_filename)
+            .where(
+                ImportJob.org_id == t.org_id,
+                ImportJob.id != job.id,
+                ImportJob.status == ImportStatus.DONE,
+                ImportJob.undone_at.is_(None),
+                or_(*held),
+            )
+            .order_by(ImportJob.committed_at.desc(), ImportJob.created_at.desc())
+        ).all()
+        if held
+        else []
+    )
+    if synced_jobs(t, [later_id for later_id, _ in relying]):
+        # An ERP sync cannot be taken back, and will say these rows again: they are the ERP's now.
+        raise Unprocessable(
+            "An ERP sync now keeps rows of this file in step; correct them in the ERP",
+            code="IMPORT_HELD_BY_ERP_SYNC",
+        )
     if relying:
         raise Unprocessable(
             "A later file stands on rows of this one; take it back first",
@@ -305,7 +350,7 @@ def _take_back_rows(t: TenantSession, job: ImportJob) -> TakenBack:
         for box_id, number in db.execute(
             select(Container.id, Container.container_number).where(
                 Container.org_id == t.org_id,
-                Container.id.in_(touched | {load.container_id for load in standing}),
+                _among(Container.id, touched | {load.container_id for load in standing}),
             )
         )
     }
@@ -342,11 +387,13 @@ def _take_back_rows(t: TenantSession, job: ImportJob) -> TakenBack:
         if box.shipment_id in shipment_ids:
             box.shipment_id = None
     if boxes:
-        db.execute(delete(Alert).where(Alert.org_id == t.org_id, Alert.container_id.in_(box_ids)))
+        db.execute(delete(Alert).where(Alert.org_id == t.org_id, _among(Alert.container_id, box_ids)))
     db.flush()
     # A bill of lading goes with the boxes the file put on it, unless another box travels on it.
-    kept = set(db.scalars(select(Container.shipment_id).where(Container.shipment_id.in_(shipment_ids))))
-    gone_shipments = [shipment for shipment in shipments if shipment.id not in kept]
+    kept_bills = set(
+        db.scalars(select(Container.shipment_id).where(_among(Container.shipment_id, shipment_ids)))
+    )
+    gone_shipments = [shipment for shipment in shipments if shipment.id not in kept_bills]
     for shipment in gone_shipments:
         db.delete(shipment)
     _release_invoice_lines(
@@ -358,8 +405,7 @@ def _take_back_rows(t: TenantSession, job: ImportJob) -> TakenBack:
         if line.po_id not in order_ids:
             db.delete(line)
     for order in orders:
-        db.delete(order)  # with its lines
-    products = list(db.scalars(t.q(Product).where(Product.id.in_(_on_record(job, Product)))))
+        db.delete(order)  # with its lines, all of them the file's
     for product in products:
         # Order lines keep what they copied: deleting an entry moves no landed cost.
         db.delete(product)
@@ -368,7 +414,7 @@ def _take_back_rows(t: TenantSession, job: ImportJob) -> TakenBack:
     still_named = set(db.scalars(t.q(PurchaseOrder).with_only_columns(PurchaseOrder.supplier_id)))
     suppliers = [
         supplier
-        for supplier in db.scalars(t.q(Supplier).where(Supplier.id.in_(_on_record(job, Supplier))))
+        for supplier in db.scalars(t.q(Supplier).where(_among(Supplier.id, _on_record(job, Supplier))))
         if supplier.id not in still_named
     ]
     for supplier in suppliers:

@@ -52,10 +52,13 @@ simplement retiré de la liste.
 
 La reprise est refusée, en nommant ce qui la retient, tant que quelque chose s'appuie sur ce que le
 fichier a créé : un fichier importé après lui (les frais posés sur ses conteneurs, le suivi qui a
-chargé ses commandes : reprendre d'abord le plus récent), un coût saisi à la main ou confirmé depuis
-une facture, une commande chargée à la main, un coût parti dans l'ERP, un mois clos. Un fichier
-importé avant le 24 novembre 2026 ne se reprend pas, sauf un fichier de frais : l'application ne
-gardait pas encore la liste de ce qu'il avait créé.
+chargé ses commandes, le même fichier importé une seconde fois, un tarif qui a changé ses prix :
+reprendre d'abord le plus récent), un coût saisi à la main ou confirmé depuis une facture, une commande
+chargée à la main, un coût parti dans l'ERP, un mois clos. Des commandes qu'une synchronisation ERP
+tient à jour ne se reprennent plus : elles se corrigent dans l'ERP. Une ligne ajoutée à la main à une
+commande du fichier n'est pas au fichier : elle reste, avec sa commande. Un fichier importé avant le
+24 novembre 2026 ne se reprend pas, sauf un fichier de frais : l'application ne gardait pas encore la
+liste de ce qu'il avait créé.
 
 ## 3. Avant de lancer l'audit : la préparation
 

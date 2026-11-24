@@ -355,7 +355,9 @@ def confirm(
         target = db.scalar(
             select(model).where(model.id == target_id, model.org_id == org.id)  # type: ignore[attr-defined]
         )
-        if target is None:
+        # A container deleted since the line was read — by hand, or with the file that created it —
+        # is no target: its cost would sit where nobody sees it.
+        if target is None or getattr(target, "archived_at", None) is not None:
             raise Unprocessable(
                 f"{what} {target_id} does not belong to this organization", code="UNKNOWN_TARGET"
             )

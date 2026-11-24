@@ -5,8 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, File, Form, UploadFile, status
-from sqlalchemy import func, or_, select
-from sqlalchemy.dialects.postgresql import array
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.v1 import schemas
@@ -17,7 +16,7 @@ from app.domain.audit.service import IMPORT_COMMITTED, IMPORT_UNDONE, record
 from app.domain.costing.entry import lock_books
 from app.domain.imports import service, undo
 from app.domain.imports.fields import FIELDS, KIND_ORDER, REQUIRED_ONE_OF
-from app.domain.models import Cost, ErpSyncRun, ImportJob, ImportKind, ImportStatus
+from app.domain.models import Cost, ImportJob, ImportKind, ImportStatus
 
 router = APIRouter(prefix="/imports", tags=["imports"])
 
@@ -25,27 +24,9 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
 def _synced(t: TenantSession, jobs: list[ImportJob]) -> set[UUID]:
-    """The jobs an ERP sync drove. An ERP sync writes a file too, and without this the imports list
-    shows the nightly Odoo sync as "odoo-sync.csv", as if someone had dropped it by hand. The sync run
-    that drove the job is the record of it, so nothing has to be stored on the job. A large sync is
-    several files: the run links the first, and lists every one in its detail."""
-    if not jobs:
-        return set()
-    listed = ErpSyncRun.detail["import_job_ids"]
-    runs = t.db.execute(
-        select(ErpSyncRun.import_job_id, listed)
-        .where(ErpSyncRun.org_id == t.org_id)
-        .where(
-            or_(
-                ErpSyncRun.import_job_id.in_([j.id for j in jobs]),
-                listed.has_any(array([str(j.id) for j in jobs])),
-            )
-        )
-    ).all()
-    named: set[str] = set()
-    for first, every in runs:
-        named.update([str(first)] if first is not None else [], every or [])
-    return {j.id for j in jobs if str(j.id) in named}
+    """The jobs an ERP sync drove: without this the imports list shows the nightly Odoo sync as
+    "odoo-sync.csv", as if someone had dropped it by hand."""
+    return undo.synced_jobs(t, [job.id for job in jobs])
 
 
 def _responses(t: TenantSession, jobs: list[ImportJob]) -> list[schemas.ImportJobResponse]:
@@ -251,10 +232,12 @@ def undo_import(import_id: UUID, t: TenantDep, p: WriterDep) -> schemas.ImportUn
     standing again; its products, orders, containers and loads — and a row it only changed keeps
     what it now says. A file never imported is discarded (`discarded`), with nothing to delete.
 
-    Refused by name once something stands on its rows: a later file (IMPORT_RELIED_ON, with its
-    `files`), a cost in the ERP (COSTS_PUSHED_TO_ERP), a closed month (IMPORT_PERIOD_CLOSED, with its
-    `months`), costs a person entered or confirmed on its containers (IMPORT_ROWS_CARRY_COSTS), orders
-    loaded by hand (IMPORT_ROWS_LOADED). A file taken back once answers IMPORT_ALREADY_UNDONE; one
+    Refused by name once something stands on its rows: another file that wrote on them or said them
+    again (IMPORT_RELIED_ON, with its `files`), an ERP sync that keeps them in step
+    (IMPORT_HELD_BY_ERP_SYNC), a cost in the ERP (COSTS_PUSHED_TO_ERP), a closed month
+    (IMPORT_PERIOD_CLOSED, with its `months`), costs a person entered or confirmed on them
+    (IMPORT_ROWS_CARRY_COSTS, with `count`, `containers`, `invoices`), orders loaded by hand
+    (IMPORT_ROWS_LOADED, with `containers`). A file taken back once answers IMPORT_ALREADY_UNDONE; one
     committed before its rows were kept on record, IMPORT_NOT_UNDOABLE."""
     job = _locked(t, import_id)
     lock_books(t.db, t.org_id)
@@ -311,8 +294,9 @@ def commit_import(
         mapping, expected = dict(job.mapping), dict(job.report)
     else:
         mapping = payload.mapping or dict(job.mapping)
-    if job.kind is ImportKind.COSTS:
-        lock_books(t.db, t.org_id)
+    # Every file, not only a ledger: a file being taken back must not see another one written
+    # across the rows it is deleting.
+    lock_books(t.db, t.org_id)
     try:
         _run(
             t,

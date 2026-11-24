@@ -46,8 +46,10 @@ class TenantSession:
         self.principal = principal
         self.org = org
         self.org_id = org.id
-        #: Every object added through this session, in order: what an import created is read off it.
+        #: Every object added through this session, in order, and every one an import said it found
+        #: already there: what a file created, and what it stands on, are read off them.
         self.added: list[object] = []
+        self.matched: list[object] = []
 
     def q(self, model: type[T]) -> Select[tuple[T]]:
         return select(model).where(model.org_id == self.org_id)  # type: ignore[attr-defined]
@@ -65,6 +67,11 @@ class TenantSession:
         obj.org_id = self.org_id  # type: ignore[attr-defined]
         self.db.add(obj)
         self.added.append(obj)
+        return obj
+
+    def match(self, obj: T) -> T:
+        """An import found this row already there and speaks about it: it now stands on it."""
+        self.matched.append(obj)
         return obj
 
 

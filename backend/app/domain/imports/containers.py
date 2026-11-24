@@ -312,6 +312,8 @@ def _write_box(t: TenantSession, box: _Box, counters: dict[str, int], report: Im
         container = t.add(Container(container_number=box.number))
         t.db.flush()
         counters["containers_created"] += 1
+    else:
+        t.match(container)
     was_dated = arrival_date(container) is not None
     changed = False
 
@@ -324,6 +326,8 @@ def _write_box(t: TenantSession, box: _Box, counters: dict[str, int], report: Im
             shipment = t.add(Shipment(reference=reference))
             t.db.flush()
             counters["shipments_created"] += 1
+        else:
+            t.match(shipment)
         for name, column in (
             ("etd", "etd"),
             ("eta", "eta"),
