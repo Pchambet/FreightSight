@@ -1115,6 +1115,7 @@
     "IMPORT_ALREADY_UNDONE": "This import is already deleted.",
     "IMPORT_NOT_UNDOABLE": "This import cannot be deleted: it dates from before the application kept the list of what a file creates, or it comes from an ERP sync.",
     "IMPORT_ROWS_CARRY_COSTS": "Costs stand on what this file created: delete them first.",
+    "IMPORT_HELD_BY_ERP_SYNC": "An ERP sync now keeps these rows in step: they are no longer deleted with this file. Correct them in the ERP.",
     "IMPORT_ROWS_LOADED": "Orders were loaded in containers outside this file: remove those loads first.",
     "FILE_ALREADY_IMPORTED": "This file was already imported: importing it again would count every cost twice.",
     "PREVIEW_CHANGED": "The figures changed since the preview: read it again, then import.",

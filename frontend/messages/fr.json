@@ -1125,6 +1125,7 @@
     "IMPORT_ALREADY_UNDONE": "Cet import est déjà supprimé.",
     "IMPORT_NOT_UNDOABLE": "Cet import ne peut pas être supprimé : il date d'avant que l'application garde la liste de ce qu'un fichier crée, ou il vient d'une synchronisation ERP.",
     "IMPORT_ROWS_CARRY_COSTS": "Des coûts sont rattachés à ce que ce fichier a créé : supprimez-les d'abord.",
+    "IMPORT_HELD_BY_ERP_SYNC": "Une synchronisation ERP tient maintenant ces lignes à jour : elles ne se suppriment plus avec ce fichier. Corrigez-les dans l'ERP.",
     "IMPORT_ROWS_LOADED": "Des commandes ont été chargées dans des conteneurs en dehors de ce fichier : retirez ces chargements d'abord.",
     "FILE_ALREADY_IMPORTED": "Ce fichier a déjà été importé : le réimporter compterait chaque frais deux fois.",
     "PREVIEW_CHANGED": "Les chiffres ont changé depuis l'aperçu : relisez-le, puis importez.",

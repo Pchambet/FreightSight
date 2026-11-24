@@ -1419,10 +1419,12 @@ export interface paths {
          *     standing again; its products, orders, containers and loads — and a row it only changed keeps
          *     what it now says. A file never imported is discarded (`discarded`), with nothing to delete.
          *
-         *     Refused by name once something stands on its rows: a later file (IMPORT_RELIED_ON, with its
-         *     `files`), a cost in the ERP (COSTS_PUSHED_TO_ERP), a closed month (IMPORT_PERIOD_CLOSED, with its
-         *     `months`), costs a person entered or confirmed on its containers (IMPORT_ROWS_CARRY_COSTS), orders
-         *     loaded by hand (IMPORT_ROWS_LOADED). A file taken back once answers IMPORT_ALREADY_UNDONE; one
+         *     Refused by name once something stands on its rows: another file that wrote on them or said them
+         *     again (IMPORT_RELIED_ON, with its `files`), an ERP sync that keeps them in step
+         *     (IMPORT_HELD_BY_ERP_SYNC), a cost in the ERP (COSTS_PUSHED_TO_ERP), a closed month
+         *     (IMPORT_PERIOD_CLOSED, with its `months`), costs a person entered or confirmed on them
+         *     (IMPORT_ROWS_CARRY_COSTS, with `count`, `containers`, `invoices`), orders loaded by hand
+         *     (IMPORT_ROWS_LOADED, with `containers`). A file taken back once answers IMPORT_ALREADY_UNDONE; one
          *     committed before its rows were kept on record, IMPORT_NOT_UNDOABLE.
          */
         delete: operations["undo_import_api_v1_imports__import_id__delete"];
