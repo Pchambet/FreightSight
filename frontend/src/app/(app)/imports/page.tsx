@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
-import { Card, PageHeader, btnPrimary, td, tdRight, th, thRight } from "@/components/layout/AppShell";
+import { Card, PageHeader, td, tdRight, th, thRight } from "@/components/layout/AppShell";
+import ApiErrorNotice from "@/components/shared/ApiErrorNotice";
 import ScrollRegion from "@/components/shared/ScrollRegion";
+import ImportSteps from "@/features/imports/ImportSteps";
 import UndoImportButton from "@/features/imports/UndoImportButton";
+import { importResultLine, importStepStates } from "@/features/imports/stepStates";
 import AuditPreparation from "@/features/report/AuditPreparation";
 import { presetRange } from "@/features/report/auditPeriods";
-import WorkflowNextStep from "@/features/workflow/WorkflowNextStep";
-import { importsHubStep } from "@/features/workflow/steps";
-import { api, type ImportJobResponse } from "@/lib/api/client";
-import { dateShort, money } from "@/lib/format";
+import { api } from "@/lib/api/client";
+import { dateShort } from "@/lib/format";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("imports");
@@ -24,43 +25,32 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 export default async function ImportsPage() {
-  const [{ data }, t, tc, locale, org] = await Promise.all([
+  const [{ data }, kindsRes, t, tc, locale, org] = await Promise.all([
     api.GET("/api/v1/imports"),
+    api.GET("/api/v1/imports/kinds"),
     getTranslations("imports"),
     getTranslations("common"),
     getLocale(),
     api.GET("/api/v1/organization"),
   ]);
   const jobs = data ?? [];
-  const hubStep = importsHubStep(jobs);
+  const kinds = kindsRes.data ?? [];
   const base = org.data?.base_currency ?? "EUR";
-  // What an import of this kind did, in one line of the history.
-  const result = (j: ImportJobResponse) => {
-    const r = j.report;
-    switch (j.kind) {
-      case "PRODUCTS":
-        return t("resultProducts", { created: r.products_created ?? 0, updated: r.products_updated ?? 0 });
-      case "CONTAINERS":
-        return t("resultContainers", { created: r.containers_created ?? 0, updated: r.containers_updated ?? 0, dated: r.containers_dated ?? 0 });
-      case "COSTS":
-        return t("resultCosts", { count: r.costs_created ?? 0, amount: money(r.money?.total_base ?? "0", base, locale), vat: r.money?.by_type?.some((x) => x.cost_type === "IMPORT_VAT") ? "yes" : "no" });
-      default:
-        return t("result", { pos: r.purchase_orders_created ?? 0, lines: r.lines_created ?? 0, containers: r.containers_created ?? 0, loads: r.loads_created ?? 0 });
-    }
-  };
+  const states = await importStepStates(jobs, base);
   const quarter = presetRange("lastQuarter");
   return (
     <>
-      <PageHeader title={t("title")} subtitle={t("subtitle")} actions={<Link href="/imports/new" className={btnPrimary}>{t("new")}</Link>} />
-      <WorkflowNextStep step={hubStep} />
+      <PageHeader title={t("title")} subtitle={t("subtitle")} />
+      {/* The page is the steps: each file is dropped on its own, in order, and says where it stands. */}
+      {kinds.length ? <div className="mb-6"><ImportSteps kinds={kinds} states={states} /></div> : <ApiErrorNotice error={kindsRes.error} retryHref="/imports" />}
       <AuditPreparation periodFrom={quarter.from} periodTo={quarter.to} showPeriod />
-      <Card>
+      <Card title={t("history")}>
         <ScrollRegion label={t("history")}>
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50"><tr><th className={th}>{t("th.date")}</th><th className={th}>{t("th.file")}</th><th className={th}>{t("th.kind")}</th><th className={th}>{t("th.status")}</th><th className={thRight}>{t("th.rows")}</th><th className={thRight}>{t("th.errors")}</th><th className={th}>{t("th.result")}</th><th className={th}><span className="sr-only">{t("th.actions")}</span></th></tr></thead>
             <tbody className="divide-y divide-slate-200">
               {jobs.length === 0 ? (
-                <tr><td colSpan={8} className="px-5 py-14 text-center text-sm text-slate-500">{t("empty")} <Link href="/imports/new" className="text-blue-600 hover:underline font-medium">{t("emptyLink")}</Link> {t("emptySuffix")}</td></tr>
+                <tr><td colSpan={8} className="px-5 py-10 text-center text-sm text-slate-500">{t("empty")}</td></tr>
               ) : (
                 jobs.map((j) => (
                   // The anchor a « file already imported » refusal leads to.
@@ -80,7 +70,7 @@ export default async function ImportsPage() {
                     <td className={`${tdRight} ${j.error_count ? "text-amber-700" : ""}`}>{j.error_count}</td>
                     <td className={`${td} text-xs text-slate-600`}>
                       {j.status === "DONE"
-                        ? result(j)
+                        ? importResultLine(j, t, base, locale)
                         : j.status === "PARSED" || j.status === "VALIDATED"
                           ? <Link href={`/imports/new?job=${j.id}`} className="text-blue-600 hover:underline">{t("continue")}</Link>
                           : tc("empty")}

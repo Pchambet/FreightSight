@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getLocale, getTranslations } from "next-intl/server";
+import { readsItself } from "@/features/imports/columns";
 import { monthTitle } from "@/features/overview/period";
 import { api, problemMessage, type ImportJobResponse, type LandedCostReport, type Problem, type Schemas } from "@/lib/api/client";
 import { protectAction } from "@/lib/auth";
@@ -528,15 +529,20 @@ export async function replaceLoads(
 // ---------------------------------------------------------------------------- imports
 
 /**
+ * A file dropped on its step: read, and previewed at once when its columns leave nothing to decide
+ * (`readsItself`) — the screen then opens on what the import would do, not on a list of columns. The
+ * preview's outcome, a refusal included, is kept on the import, which is where the screen reads it.
+ * Nothing is written to the books here.
+ *
  * A file refused because the very same file was already imported (costs: replaying it would count
  * every line twice) — `existingId` is that import, so the screen can open it instead of stopping.
  */
-export type ImportUploadResult = { ok: true; data: ImportJobResponse } | { ok: false; error: string; existingId?: string };
+export type ImportDropResult = { ok: true; id: string } | { ok: false; error: string; existingId?: string };
 
-export async function createImport(formData: FormData): Promise<ImportUploadResult> {
+export async function dropImport(formData: FormData): Promise<ImportDropResult> {
   await protectAction();
   const file = formData.get("file");
-  const kind = String(formData.get("kind") ?? "PURCHASE_ORDERS") as ImportKind;
+  const kind = String(formData.get("kind") ?? "") as ImportKind;
   if (!(file instanceof File) || file.size === 0) {
     const t = await getTranslations("importWizard.upload");
     return { ok: false, error: t("chooseFirst") };
@@ -553,7 +559,14 @@ export async function createImport(formData: FormData): Promise<ImportUploadResu
     const p = error as (Problem & { existing_id?: string }) | undefined;
     return { ok: false, error: await problemMessage(error, t("importWizard.upload.failed")), existingId: p?.code === "FILE_ALREADY_IMPORTED" ? p.existing_id : undefined };
   }
-  return { ok: true, data };
+  const kinds = await api.GET("/api/v1/imports/kinds");
+  const info = kinds.data?.find((k) => k.kind === data.kind);
+  if (info && readsItself(info, data)) {
+    // The file is in whatever becomes of its preview: a preview that could not run is run from the columns.
+    await api.POST("/api/v1/imports/{import_id}/validate", { params: { path: { import_id: data.id } }, body: { mapping: data.mapping, force_duplicates: false } }).catch(() => null);
+  }
+  revalidatePath("/imports");
+  return { ok: true, id: data.id };
 }
 
 /**

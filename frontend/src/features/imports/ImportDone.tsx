@@ -1,25 +1,34 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { btnPrimary, btnSecondary } from "@/components/layout/AppShell";
+import { btnSecondary } from "@/components/layout/AppShell";
 import UndoImportButton from "@/features/imports/UndoImportButton";
 import type { ImportJobResponse } from "@/lib/api/client";
-import { NEXT_IMPORT_KIND, type ImportKind } from "@/lib/domain";
 import { money } from "@/lib/format";
 
 /** How many orders without a rate are named one by one; the rest are counted. */
 const NAMED = 8;
 
+/** Where what a file brought is looked at. A price list changes no screen by itself: the next file does. */
+const SEE: Partial<Record<ImportJobResponse["kind"], { href: string; key: "goToOrders" | "goToContainers" | "prepareAudit" }>> = {
+  PURCHASE_ORDERS: { href: "/purchase-orders", key: "goToOrders" },
+  LEGACY_PO_CONTAINER: { href: "/purchase-orders", key: "goToOrders" },
+  CONTAINERS: { href: "/containers", key: "goToContainers" },
+  COSTS: { href: "/cost-audit", key: "prepareAudit" },
+};
+
 /**
  * What the import unlocked, in words — « 23 conteneurs datés », « 212 coûts créés pour 48 310,00 € » —
- * then where to go: the next file of the quarter, the audit's preparation list, and, for a costs file,
- * the way back. The orders a file left without a rate are named, each a link, since each needs one.
+ * what it means for the files that follow, where to look at it, and, for a costs file, the way back.
+ * The orders a file left without a rate are named, each a link, since each needs one. The next file is
+ * not a button here: its step, with its drop zone, is right below.
  */
-export default function ImportDone({ job, baseCurrency, onAnother }: { job: ImportJobResponse; baseCurrency: string; onAnother: (next?: ImportKind) => void }) {
+export default function ImportDone({ job, baseCurrency }: { job: ImportJobResponse; baseCurrency: string }) {
   const t = useTranslations("importWizard.done");
-  const tk = useTranslations("importWizard.kinds");
   const locale = useLocale();
+  const router = useRouter();
   const r = job.report;
   const skipped = new Set((r.errors ?? []).map((e) => e.row)).size;
   const lines: string[] = [];
@@ -50,7 +59,11 @@ export default function ImportDone({ job, baseCurrency, onAnother }: { job: Impo
   }
   if (skipped) lines.push(t("skipped", { rows: skipped }));
   const withoutRate = job.kind === "PURCHASE_ORDERS" ? (r.orders_without_rate ?? []) : [];
-  const next = NEXT_IMPORT_KIND[job.kind];
+  // Whether a file of orders puts them in containers is whether it has a container column: a file read
+  // again creates and changes no load, yet its orders are in their containers all the same.
+  const unloaded = job.kind === "PURCHASE_ORDERS" && !job.mapping.container_number;
+  const see = SEE[job.kind];
+  const canUndo = job.kind === "COSTS" && job.can_undo;
   return (
     <div className="p-5 space-y-4 text-sm">
       <ul className="space-y-1 text-slate-800">
@@ -65,15 +78,13 @@ export default function ImportDone({ job, baseCurrency, onAnother }: { job: Impo
           </li>
         ) : null}
       </ul>
-      <div className="flex flex-wrap items-center gap-2">
-        {next ? (
-          <button type="button" onClick={() => onAnother(next)} className={btnPrimary}>{t("next", { kind: tk(`${next}.title`) })}</button>
-        ) : null}
-        {/* After a costs file the card above already opens the audit's preparation: one button, not two. */}
-        {job.kind === "COSTS" ? null : <Link href="/cost-audit" className={next ? btnSecondary : btnPrimary}>{t("prepareAudit")}</Link>}
-        <button type="button" onClick={() => onAnother()} className={btnSecondary}>{t("another")}</button>
-        {job.kind === "COSTS" && job.can_undo ? <UndoImportButton importId={job.id} costCount={r.costs_created ?? 0} estimatesReplaced={r.estimates_replaced ?? 0} onUndone={() => onAnother()} /> : null}
-      </div>
+      <p className="text-slate-600">{unloaded ? t("meansUnloaded") : t("means", { kind: job.kind })}</p>
+      {see || canUndo ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {see ? <Link href={see.href} className={btnSecondary}>{t(see.key)}</Link> : null}
+          {canUndo ? <UndoImportButton importId={job.id} costCount={r.costs_created ?? 0} estimatesReplaced={r.estimates_replaced ?? 0} onUndone={() => router.push("/imports")} /> : null}
+        </div>
+      ) : null}
     </div>
   );
 }

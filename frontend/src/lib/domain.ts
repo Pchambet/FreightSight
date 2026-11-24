@@ -15,9 +15,6 @@ export type AllocationMethod = Schemas["AllocationMethod"];
 export type DndRisk = Schemas["DndRisk"];
 export type ImportKind = Schemas["ImportKind"];
 
-/** A quarter is loaded in this order, each file building on the previous ones: after each, the next. */
-export const NEXT_IMPORT_KIND: Partial<Record<ImportKind, ImportKind>> = { PRODUCTS: "PURCHASE_ORDERS", PURCHASE_ORDERS: "CONTAINERS", CONTAINERS: "COSTS" };
-
 // Labels live in messages/*.json under `domain.*`, keyed by these API values: a component reads
 // t(`domain.costType.${value}`). The lists below are only the order the user sees them in.
 

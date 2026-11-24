@@ -1,5 +1,4 @@
-import type { ContainerResponse, ImportJobResponse, LandedCostReport, LoadResponse, PurchaseOrderSummary } from "@/lib/api/client";
-import { NEXT_IMPORT_KIND } from "@/lib/domain";
+import type { ContainerResponse, LandedCostReport, LoadResponse, PurchaseOrderSummary } from "@/lib/api/client";
 
 export type WorkflowStep = {
   descriptionKey: string;
@@ -282,122 +281,21 @@ export function invoiceDetailStep(
   return null;
 }
 
-export function importsHubStep(jobs: Pick<ImportJobResponse, "id" | "status" | "kind" | "created_at" | "undone_at">[]): WorkflowStep {
-  const pending = jobs.find((j) => j.status === "PARSED" || j.status === "VALIDATED");
-  if (pending) {
-    return {
-      descriptionKey: "imports.resume",
-      primary: { href: `/imports/new?job=${pending.id}`, labelKey: "imports.resumeAction" },
-      secondary: [{ href: "/imports/new", labelKey: "imports.newImport" }],
-      variant: "warning",
-    };
-  }
-  if (jobs.length === 0) {
-    return {
-      descriptionKey: "imports.start",
-      primary: { href: "/imports/new", labelKey: "imports.startAction" },
-      secondary: [{ href: "/containers", labelKey: "imports.sampleData" }],
-      variant: "default",
-    };
-  }
-  // The quarter goes on from the last file that went in: the next kind, then the audit's list.
-  const last = jobs.filter((j) => j.status === "DONE" && !j.undone_at).sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-  const next = last ? NEXT_IMPORT_KIND[last.kind] : undefined;
-  if (last && next) {
-    return {
-      descriptionKey: "imports.next",
-      descriptionParams: { last: last.kind, next },
-      primary: { href: `/imports/new?kind=${next}`, labelKey: "imports.nextAction", labelParams: { next } },
-      secondary: [{ href: "/cost-audit", labelKey: "imports.prepareAudit" }],
-      variant: "default",
-    };
-  }
-  if (last?.kind === "COSTS") {
-    return {
-      descriptionKey: "imports.costsDone",
-      primary: { href: "/cost-audit", labelKey: "imports.prepareAudit" },
-      secondary: [{ href: "/containers", labelKey: "imports.goContainers" }],
-      variant: "success",
-    };
-  }
-  return {
-    descriptionKey: "imports.done",
-    primary: { href: "/purchase-orders", labelKey: "imports.viewPos" },
-    secondary: [{ href: "/containers", labelKey: "imports.goContainers" }],
-    variant: "success",
-  };
-}
-
-export function importNewStep(resuming: boolean): WorkflowStep {
-  if (resuming) {
-    return {
-      descriptionKey: "importNew.resume",
-      primary: { href: "#wizard", labelKey: "importNew.continue" },
-      secondary: [{ href: "/imports", labelKey: "importNew.backList" }],
-      variant: "warning",
-    };
-  }
-  return {
-    descriptionKey: "importNew.upload",
-    primary: { href: "#wizard", labelKey: "importNew.uploadAction" },
-    secondary: [{ href: "/containers", labelKey: "imports.sampleData" }],
-    variant: "default",
-  };
-}
-
-const DONE_HREF: Partial<Record<ImportJobResponse["kind"], string>> = { PRODUCTS: "/imports", CONTAINERS: "/containers", COSTS: "/cost-audit" };
-
-/** What an orders file left to do: its orders still without an exchange rate, and whether any of its lines went into a container. */
-export type OrdersOutcome = { withoutRate: string[]; loaded: boolean };
-
 /**
- * The next-step card for the import wizard itself, computed from the wizard's own client-side step
- * instead of the server-rendered "resuming or not" snapshot the page loaded with: the
- * card used to keep telling you to "choose a file" while you were already on the validation
- * report.
+ * An orders file left orders without an exchange rate: an order without a rate has no value, and every
+ * charge split by value on its boxes waits for it. That comes before the next file of the quarter,
+ * which the import screen shows by itself.
  */
-export function importWizardStep(step: "upload" | "mapping" | "review" | "done", resuming: boolean, hasErrors: boolean, kind: ImportJobResponse["kind"] = "PURCHASE_ORDERS", outcome?: OrdersOutcome): WorkflowStep {
-  if (step === "mapping") {
-    return {
-      descriptionKey: "importNew.mapping",
-      primary: { href: "#wizard", labelKey: "importNew.mappingAction" },
-      secondary: resuming ? [] : [{ href: "/imports", labelKey: "importNew.backList" }],
-      variant: "default",
-    };
-  }
-  if (step === "review") {
-    return {
-      descriptionKey: hasErrors ? "importNew.reviewErrors" : "importNew.reviewOk",
-      primary: null,
-      secondary: [],
-      variant: hasErrors ? "warning" : "default",
-    };
-  }
-  if (step === "done") {
-    const first = outcome?.withoutRate[0];
-    if (outcome && first !== undefined) {
-      // An order without a rate has no value, and every charge split by value on its boxes waits for
-      // it: that comes before anything else the file was for.
-      return {
-        descriptionKey: "importNew.doneWithoutRate",
-        descriptionParams: { count: outcome.withoutRate.length, po: first },
-        primary: { href: `/purchase-orders?q=${encodeURIComponent(first)}`, labelKey: "importNew.openOrder", labelParams: { po: first } },
-        secondary: [{ href: "/containers", labelKey: "imports.goContainers" }],
-        variant: "warning",
-      };
-    }
-    // What to look at next depends on what the file was: a tariff, a tracking sheet and a costs
-    // ledger have nothing to do with "check your orders are in containers" — nor has a file of orders
-    // that put none of them in a container.
-    return {
-      descriptionKey: outcome && !outcome.loaded ? "importNew.doneUnloaded" : "importNew.done",
-      descriptionParams: { kind },
-      primary: { href: DONE_HREF[kind] ?? "/purchase-orders", labelKey: "importNew.doneAction", labelParams: { kind } },
-      secondary: kind === "CONTAINERS" ? [] : [{ href: "/containers", labelKey: "imports.goContainers" }],
-      variant: "success",
-    };
-  }
-  return importNewStep(resuming);
+export function ordersWithoutRateStep(withoutRate: string[]): WorkflowStep | null {
+  const first = withoutRate[0];
+  if (first === undefined) return null;
+  return {
+    descriptionKey: "importNew.doneWithoutRate",
+    descriptionParams: { count: withoutRate.length, po: first },
+    primary: { href: `/purchase-orders?q=${encodeURIComponent(first)}`, labelKey: "importNew.openOrder", labelParams: { po: first } },
+    secondary: [{ href: "/containers", labelKey: "imports.goContainers" }],
+    variant: "warning",
+  };
 }
 
 export function purchaseOrdersHubStep(pos: PurchaseOrderSummary[]): WorkflowStep {
