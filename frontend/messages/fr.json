@@ -124,13 +124,16 @@
     },
     "views": {
       "label": "Filtrer les conteneurs",
+      "all": "Tous",
       "active": "En cours",
       "exposed": "Exposés",
       "nocost": "Sans coût",
       "closed": "Livrés",
-      "all": "Tous",
+      "group": "{label} · {count}",
       "search": "N° de conteneur, expédition, commande…",
       "noMatch": "Aucun conteneur ne correspond à « {q} » dans cette vue.",
+      "noMatchAnywhere": "Aucun conteneur ne correspond à « {q} ».",
+      "matchElsewhere": "{count, plural, one {# conteneur correspond} other {# conteneurs correspondent}} parmi tous les conteneurs",
       "emptyView": "Aucun conteneur dans cette vue.",
       "showAll": "Voir tous les conteneurs"
     }

@@ -124,13 +124,16 @@
     },
     "views": {
       "label": "Filter containers",
+      "all": "All",
       "active": "In progress",
       "exposed": "Exposed",
       "nocost": "No cost",
       "closed": "Delivered",
-      "all": "All",
+      "group": "{label} · {count}",
       "search": "Container no., shipment, order…",
       "noMatch": "No container matches “{q}” in this view.",
+      "noMatchAnywhere": "No container matches “{q}”.",
+      "matchElsewhere": "{count, plural, one {# container matches} other {# containers match}} among all containers",
       "emptyView": "No container in this view.",
       "showAll": "See all containers"
     }

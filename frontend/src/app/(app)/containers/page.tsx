@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -70,7 +71,7 @@ function buildTodos(containers: ContainerSummary[]): Todo[] {
   );
 }
 
-const VIEWS = ["active", "exposed", "nocost", "closed", "all"] as const;
+const VIEWS = ["all", "active", "exposed", "nocost", "closed"] as const;
 type View = (typeof VIEWS)[number];
 const SORTS = ["container", "lfd", "fob", "allocated"] as const;
 type SortKey = (typeof SORTS)[number];
@@ -101,8 +102,9 @@ export default async function ContainersPage({ searchParams }: { searchParams: P
   const atRiskAtTerminal = active
     .filter((c) => RISKY.includes(c.dnd_risk) && demurrageRelevant(c))
     .sort((a, b) => (a.last_free_day ?? "").localeCompare(b.last_free_day ?? ""));
-  // The board is a work list: what is still moving by default, the rest one click away, and the
-  // whole state in the URL so that a filtered list can be bookmarked, shared and reloaded.
+  // Every container by default — a list that opened on the ones still moving read as « the others are
+  // missing » — with what is still moving first; the narrower views are one click away, and the whole
+  // state is in the URL so that a filtered list can be bookmarked, shared and reloaded.
   const inView: Record<View, ContainerSummary[]> = {
     active,
     exposed: atRiskAtTerminal,
@@ -110,11 +112,22 @@ export default async function ContainersPage({ searchParams }: { searchParams: P
     closed: containers.filter((c) => CLOSED.includes(c.milestone)),
     all: containers,
   };
-  const view: View = (VIEWS as readonly string[]).includes(sp.view ?? "") ? (sp.view as View) : active.length > 0 ? "active" : "all";
+  const view: View = (VIEWS as readonly string[]).includes(sp.view ?? "") ? (sp.view as View) : "all";
   const q = (sp.q ?? "").trim().slice(0, 60);
-  const sort: SortKey = (SORTS as readonly string[]).includes(sp.sort ?? "") ? (sp.sort as SortKey) : "lfd";
-  const dir: 1 | -1 = sp.dir === "desc" ? -1 : 1;
+  // No sort asked for is the list's own order, below; a column header sorts the whole list by it.
+  const sort: SortKey | null = (SORTS as readonly string[]).includes(sp.sort ?? "") ? (sp.sort as SortKey) : null;
+  const dir: 1 | -1 = sort && sp.dir === "desc" ? -1 : 1;
   const needle = fold(q);
+  const isClosed = (c: ContainerSummary) => CLOSED.includes(c.milestone);
+  // When a box left: the latest thing known about it.
+  const leftAt = (c: ContainerSummary) => c.empty_returned_at ?? c.gate_out_at ?? c.discharged_at ?? c.ata ?? c.eta ?? "";
+  // The list's own order: what is still moving first, the nearest last free day on top (none known
+  // last); then what is delivered, the most recent first.
+  const ownOrder = (a: ContainerSummary, b: ContainerSummary) =>
+    Number(isClosed(a)) - Number(isClosed(b)) ||
+    (isClosed(a)
+      ? leftAt(b).localeCompare(leftAt(a))
+      : (a.last_free_day ? 0 : 1) - (b.last_free_day ? 0 : 1) || (a.last_free_day ?? "").localeCompare(b.last_free_day ?? ""));
   const compare: Record<SortKey, (a: ContainerSummary, b: ContainerSummary) => number> = {
     container: (a, b) => dir * a.container_number.localeCompare(b.container_number),
     // No last free day sorts last in both directions: "unknown" is never the most urgent.
@@ -123,21 +136,27 @@ export default async function ContainersPage({ searchParams }: { searchParams: P
     fob: (a, b) => (a.fob_base === null ? 1 : 0) - (b.fob_base === null ? 1 : 0) || dir * (Number(a.fob_base) - Number(b.fob_base)),
     allocated: (a, b) => dir * (Number(a.allocated_base) - Number(b.allocated_base)),
   };
-  const rows = inView[view]
-    .filter((c) => needle === "" || [c.container_number, c.shipment_reference ?? "", ...(c.po_numbers ?? [])].some((v) => fold(v).includes(needle)))
-    .sort(compare[sort]);
-  const href = (next: Partial<{ view: View; q: string; sort: SortKey; dir: "asc" | "desc" }>) => {
+  const matches = (c: ContainerSummary) => needle === "" || [c.container_number, c.shipment_reference ?? "", ...(c.po_numbers ?? [])].some((v) => fold(v).includes(needle));
+  const rows = inView[view].filter(matches).sort(sort ? compare[sort] : ownOrder);
+  // A search that finds nothing in a narrower view says what it would find among all the containers.
+  const matchesElsewhere = rows.length === 0 && q !== "" && view !== "all" ? containers.filter(matches).length : 0;
+  // In its own order a list that holds both kinds says where one ends and the other begins.
+  const moving = rows.filter((c) => !isClosed(c)).length;
+  const grouped = sort === null && moving > 0 && moving < rows.length;
+  const href = (next: Partial<{ view: View; q: string; sort: SortKey | null; dir: "asc" | "desc" }>) => {
     const state = { view, q, sort, dir: dir === 1 ? "asc" : "desc", ...next };
     const params = new URLSearchParams();
-    if (state.view !== "active") params.set("view", state.view);
+    if (state.view !== "all") params.set("view", state.view);
     if (state.q) params.set("q", state.q);
-    if (state.sort !== "lfd") params.set("sort", state.sort);
-    if (state.dir !== "asc") params.set("dir", state.dir);
+    if (state.sort) params.set("sort", state.sort);
+    if (state.sort && state.dir !== "asc") params.set("dir", state.dir);
     const qs = params.toString();
     return qs ? `/containers?${qs}` : "/containers";
   };
+  // A view of boxes still moving is, in its own order, sorted by last free day: the header says so.
+  const ownOrderIsLfd = sort === null && (view === "active" || view === "exposed" || view === "nocost");
   const sortHeader = (key: SortKey, labelText: string, right = false) => {
-    const on = sort === key;
+    const on = sort === key || (key === "lfd" && ownOrderIsLfd);
     const Arrow = on ? (dir === 1 ? ArrowUp : ArrowDown) : ArrowUpDown;
     return (
       <th className={right ? thRight : th} aria-sort={on ? (dir === 1 ? "ascending" : "descending") : undefined}>
@@ -221,9 +240,9 @@ export default async function ContainersPage({ searchParams }: { searchParams: P
             <form method="get" role="search" className="relative ml-auto w-full sm:w-64">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden />
               <input name="q" defaultValue={q} placeholder={t("views.search")} aria-label={t("views.search")} className={`${input} pl-9`} />
-              {view !== "active" ? <input type="hidden" name="view" value={view} /> : null}
-              {sort !== "lfd" ? <input type="hidden" name="sort" value={sort} /> : null}
-              {dir === -1 ? <input type="hidden" name="dir" value="desc" /> : null}
+              {view !== "all" ? <input type="hidden" name="view" value={view} /> : null}
+              {sort ? <input type="hidden" name="sort" value={sort} /> : null}
+              {sort && dir === -1 ? <input type="hidden" name="dir" value="desc" /> : null}
             </form>
           </div>
         ) : null}
@@ -273,13 +292,25 @@ export default async function ContainersPage({ searchParams }: { searchParams: P
               ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-5 py-10 text-center text-sm text-slate-500">
-                    {q ? t("views.noMatch", { q }) : t("views.emptyView")}{" "}
-                    <Link href="/containers?view=all" className="text-blue-700 hover:underline">{t("views.showAll")}</Link>
+                    {q ? t(view === "all" ? "views.noMatchAnywhere" : "views.noMatch", { q }) : t("views.emptyView")}{" "}
+                    {matchesElsewhere > 0 ? (
+                      <Link href={href({ view: "all" })} className="text-blue-700 hover:underline">{t("views.matchElsewhere", { count: matchesElsewhere })}</Link>
+                    ) : view !== "all" || q ? (
+                      <Link href="/containers" className="text-blue-700 hover:underline">{t("views.showAll")}</Link>
+                    ) : null}
                   </td>
                 </tr>
               ) : (
-                rows.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50">
+                rows.map((c, i) => (
+                  <Fragment key={c.id}>
+                  {grouped && (i === 0 || i === moving) ? (
+                    <tr className="bg-slate-50/70">
+                      <th colSpan={9} scope="colgroup" className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
+                        {t("views.group", { label: t(i === 0 ? "views.active" : "views.closed"), count: i === 0 ? moving : rows.length - moving })}
+                      </th>
+                    </tr>
+                  ) : null}
+                  <tr className="hover:bg-slate-50">
                     <td className={td}>
                       <Link href={`/container/${c.id}`} className="font-mono font-medium text-blue-600 hover:underline">{c.container_number}</Link>
                       {c.closed_period ? (
@@ -300,6 +331,7 @@ export default async function ContainersPage({ searchParams }: { searchParams: P
                       {c.cost_types_present?.length ? c.cost_types_present.map((k) => costType(k)).join(", ") : <span className="text-slate-500">{t("none")}</span>}
                     </td>
                   </tr>
+                  </Fragment>
                 ))
               )}
             </tbody>
