@@ -205,9 +205,9 @@ the owner of that organization (the front end still requires Clerk).
 
 Try it: on an empty organization, Containers → load the sample data, then upload
 `docs/demo/fixtures/facture-transdemo-demo.pdf` in the invoice inbox and confirm its five lines: container
-`MSCU4821990` lands on the worked example's "FreightSight default" figures. Or Imports → New import →
-upload `backend/tests/fixtures/legacy_po_container.csv`, open a container, add an ocean freight cost and
-switch the allocation method in the preview.
+`MSCU4821990` lands on the worked example's "FreightSight default" figures. Or Imports → unfold "Other
+format" under the four steps and drop `backend/tests/fixtures/legacy_po_container.csv` there, open a
+container, add an ocean freight cost and switch the allocation method in the preview.
 
 ## Development
 

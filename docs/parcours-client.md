@@ -259,7 +259,8 @@ Cochez mentalement :
 Si vous voulez vivre **l'import depuis zéro** (plus long, plus réaliste) :
 
 1. Nouvelle org vide → checklist **Premiers pas** sur Conteneurs
-2. `/imports/new` → fichier `backend/tests/fixtures/legacy_po_container.csv`
+2. Menu **Imports** → déplier « Autre format », sous les quatre étapes → y déposer
+   `backend/tests/fixtures/legacy_po_container.csv`
 3. Créer conteneur, charger lignes, saisir un coût manuel
 4. Puis facture Transdemo
 

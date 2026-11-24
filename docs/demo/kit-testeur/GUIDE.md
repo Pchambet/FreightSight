@@ -78,28 +78,35 @@ Ces fichiers s'ouvrent dans Excel ; inutile de les modifier.
 
 ### Étape 1 — Charger la société (10 min)
 
-Menu **Imports → Nouvel import**. Pour chaque fichier : **choisir vous-même le type** (celui qui est
-coché au départ n'est pas forcément le bon), *Déposer et détecter les colonnes* (les colonnes se
-reconnaissent seules), *Valider (à blanc)*, lire l'aperçu — **rien n'est encore écrit** — puis
-*Importer*. L'ordre compte : chaque fichier s'appuie sur les précédents.
+Menu **Imports**. La page liste les quatre fichiers, dans l'ordre, chacun avec **sa propre zone de
+dépôt** : il n'y a aucun type à choisir. Pour chaque fichier : cliquez sur la zone de son étape (ou
+glissez-y le fichier). Il est lu aussitôt et son **aperçu** s'ouvre — **rien n'est encore écrit** —
+puis *Importer*. L'étape suivante est juste en dessous. L'ordre compte : chaque fichier s'appuie sur
+les précédents.
 
-- [ ] Type **Tarif** → `1-tarif.csv` → **5 fiches produits**.
-- [ ] Type **Commandes** → `2-commandes.csv` → **11 commandes, 14 lignes**. Les avertissements qui
+- [ ] **Étape 1 — Tarif** → `1-tarif.csv` → **5 fiches produits**.
+- [ ] **Étape 2 — Commandes** → `2-commandes.csv` → **11 commandes, 14 lignes**. Les avertissements qui
   disent que le poids, le volume et le taux de droits sont repris de la fiche produit sont normaux :
   ils viennent du tarif, vous n'avez pas à les ressaisir.
-- [ ] Type **Suivi des conteneurs** → `3-suivi-conteneurs.csv` → **10 conteneurs, 14 chargements**, et un
-  avertissement sur **MSCU6702211** : déchargé, jamais sorti du terminal, ses surestaries courent.
+- [ ] **Étape 3 — Suivi des conteneurs** → `3-suivi-conteneurs.csv` → **10 conteneurs, 14 chargements**,
+  et un avertissement sur **MSCU6702211** : déchargé, jamais sorti du terminal, ses surestaries courent.
   Retenez-le.
-- [ ] Type **Frais** → `4-frais-trimestre.csv` → l'aperçu montre l'argent d'abord : **42 coûts pour
+- [ ] **Étape 4 — Frais** → `4-frais-trimestre.csv` → l'aperçu montre l'argent d'abord : **42 coûts pour
   45 758,53 € HT**, par type (fret 29 510 €, droits 7 878,53 €, camionnage 4 265 €…), et **« 1 avoir
   écarté (80,00 €) »** : un avoir n'est pas un coût.
+
+> **Vous vous êtes trompé ?** Un fichier déposé à la mauvaise étape le dit (« Ce fichier ressemble à
+> « Tarif » (étape 1)… ») et se relit d'un clic. Un fichier importé à tort se supprime avec la
+> **corbeille** au bout de sa ligne : ce qu'il a créé est effacé, et vous pouvez le déposer à nouveau.
+> Si un fichier plus récent s'appuie dessus, l'application le nomme : supprimez d'abord celui-là.
 
 > **Pourquoi c'est important :** un client réel n'a rien à ressaisir. Il envoie ce qu'il a déjà, dans le
 > format de son ERP et de son comptable (point-virgule, virgule décimale, accents).
 
 ### Étape 2 — Le conteneur qui va coûter cher (3 min)
 
-- [ ] Menu **Conteneurs**. **MSCU6702211** est signalé à risque : déchargé au Havre, toujours au
+- [ ] Menu **Conteneurs**. La liste montre vos 10 conteneurs : les 2 **en cours** en haut, les 8
+  **livrés** en dessous. **MSCU6702211** est signalé à risque : déchargé au Havre, toujours au
   terminal. Son dernier jour franc est celui de l'encadré en tête de ce guide ; une fois cette date
   passée, le conteneur l'a dépassé et les surestaries courent : même signal, en plus grave.
 - [ ] La **cloche** en haut à droite porte **1 alerte** pour ce conteneur (menu **Alertes** pour la lire).
@@ -144,7 +151,8 @@ reconnaissent seules), *Valider (à blanc)*, lire l'aperçu — **rien n'est enc
 
 ### Étape 5 — Le parasol et la lampe : la méthode change le prix (5 min)
 
-- [ ] Ouvrir le conteneur **MSCU6614208** (600 parasols + 1 500 lots de lampes solaires).
+- [ ] Ouvrir le conteneur **MSCU6614208** (600 parasols + 1 500 lots de lampes solaires) : menu
+  **Conteneurs**, sous « Livrés », ou la recherche en haut de l'écran.
   Coût unitaire : **parasol 45,04 €**, **lampe 7,70 €** — les frais sont répartis à la valeur, comme dans
   la plupart des tableurs.
 - [ ] Dans **Coût rendu par ligne de commande**, *Et si la ventilation était :* passer le **fret maritime**, les
@@ -219,6 +227,8 @@ Notez les réponses au fil de l'eau, même en vrac :
 |---|---|
 | L'import des frais refuse des lignes « conteneur inconnu » | Le suivi des conteneurs n'a pas été importé avant : respecter l'ordre 1 → 4 |
 | « Ce fichier a déjà été importé » | Normal : réimporter compterait chaque frais deux fois. Passer au fichier suivant |
+| J'ai importé le mauvais fichier, ou deux fois le même | La **corbeille** au bout de sa ligne (menu **Imports**) supprime ce qu'il a créé. Elle refuse en nommant ce qui s'appuie dessus : supprimez d'abord le fichier plus récent, ou le coût saisi sur un de ses conteneurs |
+| Le fichier s'ouvre sur ses colonnes, avec des champs obligatoires vides | Il a été déposé à la mauvaise étape : le bandeau jaune propose de le relire comme le bon fichier |
 | La facture reste « Déposée » sans lignes | Attendre 30 s et rafraîchir ; sinon le signaler (le lecteur tourne en arrière-plan) |
 | Les chiffres ne sont pas ceux du guide | L'organisation contenait déjà des données : recommencer dans une organisation neuve. Les dates, elles, changent d'un kit à l'autre ; les montants non |
 | L'audit dit qu'une facture est à relire | La facture n° 6 n'a pas été rejetée (étape 4) |
