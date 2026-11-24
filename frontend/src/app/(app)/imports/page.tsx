@@ -5,7 +5,8 @@ import { Card, PageHeader, td, tdRight, th, thRight } from "@/components/layout/
 import ApiErrorNotice from "@/components/shared/ApiErrorNotice";
 import ScrollRegion from "@/components/shared/ScrollRegion";
 import ImportSteps from "@/features/imports/ImportSteps";
-import UndoImportButton from "@/features/imports/UndoImportButton";
+import DeleteImportButton from "@/features/imports/DeleteImportButton";
+import { deleteTarget } from "@/features/imports/deleteTarget";
 import { importResultLine, importStepStates } from "@/features/imports/stepStates";
 import AuditPreparation from "@/features/report/AuditPreparation";
 import { presetRange } from "@/features/report/auditPeriods";
@@ -47,12 +48,14 @@ export default async function ImportsPage() {
       <Card title={t("history")}>
         <ScrollRegion label={t("history")}>
           <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50"><tr><th className={th}>{t("th.date")}</th><th className={th}>{t("th.file")}</th><th className={th}>{t("th.kind")}</th><th className={th}>{t("th.status")}</th><th className={thRight}>{t("th.rows")}</th><th className={thRight}>{t("th.errors")}</th><th className={th}>{t("th.result")}</th><th className={th}><span className="sr-only">{t("th.actions")}</span></th></tr></thead>
+            <thead className="bg-slate-50"><tr><th className={th}>{t("th.date")}</th><th className={th}>{t("th.file")}</th><th className={th}>{t("th.kind")}</th><th className={th}>{t("th.status")}</th><th className={thRight}>{t("th.rows")}</th><th className={thRight}>{t("th.errors")}</th><th className={th}>{t("th.result")}</th><th className="sticky right-0 w-px bg-slate-50 px-2"><span className="sr-only">{t("th.actions")}</span></th></tr></thead>
             <tbody className="divide-y divide-slate-200">
               {jobs.length === 0 ? (
                 <tr><td colSpan={8} className="px-5 py-10 text-center text-sm text-slate-500">{t("empty")}</td></tr>
               ) : (
-                jobs.map((j) => (
+                jobs.map((j) => {
+                  const target = deleteTarget(j);
+                  return (
                   // The anchor a « file already imported » refusal leads to.
                   <tr key={j.id} id={`import-${j.id}`} className="scroll-mt-24 target:bg-amber-50">
                     <td className={`${td} text-slate-600`}>{dateShort(j.created_at, locale)}</td>
@@ -68,16 +71,18 @@ export default async function ImportsPage() {
                     </td>
                     <td className={tdRight}>{j.row_count}</td>
                     <td className={`${tdRight} ${j.error_count ? "text-amber-700" : ""}`}>{j.error_count}</td>
-                    <td className={`${td} text-xs text-slate-600`}>
+                    <td className={`${td} min-w-48 max-w-72 whitespace-normal text-xs text-slate-600`}>
                       {j.status === "DONE"
                         ? importResultLine(j, t, base, locale)
                         : j.status === "PARSED" || j.status === "VALIDATED"
                           ? <Link href={`/imports/new?job=${j.id}`} className="text-blue-600 hover:underline">{t("continue")}</Link>
                           : tc("empty")}
                     </td>
-                    <td className={td}>{j.can_undo ? <UndoImportButton importId={j.id} costCount={j.report.costs_created ?? 0} estimatesReplaced={j.report.estimates_replaced ?? 0} /> : null}</td>
+                    {/* Held at the right edge: on a table wider than its room the bin stays in sight. */}
+                    <td className="sticky right-0 w-px bg-white px-2 py-1 text-right">{target ? <DeleteImportButton target={target} /> : null}</td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

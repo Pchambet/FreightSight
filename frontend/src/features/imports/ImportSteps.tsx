@@ -8,6 +8,7 @@ import { Check, Download, Loader2, Upload } from "lucide-react";
 import { Card, btnPrimary, btnSecondary } from "@/components/layout/AppShell";
 import FileTooLarge from "@/components/shared/FileTooLarge";
 import { dropImport } from "@/features/actions";
+import DeleteImportButton from "@/features/imports/DeleteImportButton";
 import { downloadImportTemplate } from "@/features/imports/importTemplate";
 import type { ImportStepState } from "@/features/imports/stepStates";
 import type { Schemas } from "@/lib/api/client";
@@ -88,16 +89,23 @@ export default function ImportSteps({ kinds, states, current = null }: { kinds: 
             </h3>
             <p className="mt-1 text-sm text-slate-700">{t(`kinds.${k.kind}.brings`)}</p>
             <p className="mt-1 text-xs text-slate-500">{t(`kinds.${k.kind}.where`)}</p>
+            {/* The bin sits on the file's own line: the wrong file is taken back where it is read. */}
             {state?.done ? (
-              <p className="mt-2 text-sm text-emerald-800">
-                <span className="font-medium">{t("stepList.done")}</span> {t("stepList.doneLine", { file: state.done.file, date: state.done.date, result: state.done.result })}
-              </p>
+              <div className="mt-2 flex items-center gap-1">
+                <p className="text-sm text-emerald-800">
+                  <span className="font-medium">{t("stepList.done")}</span> {t("stepList.doneLine", { file: state.done.file, date: state.done.date, result: state.done.result })}
+                </p>
+                {state.done.remove ? <DeleteImportButton target={state.done.remove} /> : null}
+              </div>
             ) : null}
             {state?.waiting ? (
-              <p className="mt-2 text-sm text-amber-800">
-                {t("stepList.waiting", { file: state.waiting.file })}{" "}
-                <Link href={`/imports/new?job=${state.waiting.id}`} className="font-medium underline underline-offset-2 hover:no-underline">{t("stepList.resume")}</Link>
-              </p>
+              <div className="mt-2 flex items-center gap-1">
+                <p className="text-sm text-amber-800">
+                  {t("stepList.waiting", { file: state.waiting.file })}{" "}
+                  <Link href={`/imports/new?job=${state.waiting.id}`} className="font-medium underline underline-offset-2 hover:no-underline">{t("stepList.resume")}</Link>
+                </p>
+                {state.waiting.remove ? <DeleteImportButton target={state.waiting.remove} /> : null}
+              </div>
             ) : null}
             <button
               type="button"

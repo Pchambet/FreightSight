@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { btnSecondary } from "@/components/layout/AppShell";
-import UndoImportButton from "@/features/imports/UndoImportButton";
+import DeleteImportButton from "@/features/imports/DeleteImportButton";
+import { deleteTarget } from "@/features/imports/deleteTarget";
 import type { ImportJobResponse } from "@/lib/api/client";
 import { money } from "@/lib/format";
 
@@ -21,7 +22,7 @@ const SEE: Partial<Record<ImportJobResponse["kind"], { href: string; key: "goToO
 
 /**
  * What the import unlocked, in words — « 23 conteneurs datés », « 212 coûts créés pour 48 310,00 € » —
- * what it means for the files that follow, where to look at it, and, for a costs file, the way back.
+ * what it means for the files that follow, where to look at it, and the way back: deleting the import.
  * The orders a file left without a rate are named, each a link, since each needs one. The next file is
  * not a button here: its step, with its drop zone, is right below.
  */
@@ -63,7 +64,7 @@ export default function ImportDone({ job, baseCurrency }: { job: ImportJobRespon
   // again creates and changes no load, yet its orders are in their containers all the same.
   const unloaded = job.kind === "PURCHASE_ORDERS" && !job.mapping.container_number;
   const see = SEE[job.kind];
-  const canUndo = job.kind === "COSTS" && job.can_undo;
+  const target = deleteTarget(job);
   return (
     <div className="p-5 space-y-4 text-sm">
       <ul className="space-y-1 text-slate-800">
@@ -79,10 +80,10 @@ export default function ImportDone({ job, baseCurrency }: { job: ImportJobRespon
         ) : null}
       </ul>
       <p className="text-slate-600">{unloaded ? t("meansUnloaded") : t("means", { kind: job.kind })}</p>
-      {see || canUndo ? (
+      {see || target ? (
         <div className="flex flex-wrap items-center gap-2">
           {see ? <Link href={see.href} className={btnSecondary}>{t(see.key)}</Link> : null}
-          {canUndo ? <UndoImportButton importId={job.id} costCount={r.costs_created ?? 0} estimatesReplaced={r.estimates_replaced ?? 0} onUndone={() => router.push("/imports")} /> : null}
+          {target ? <DeleteImportButton target={target} labelled onDeleted={() => router.push("/imports")} /> : null}
         </div>
       ) : null}
     </div>

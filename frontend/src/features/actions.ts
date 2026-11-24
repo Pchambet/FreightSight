@@ -559,14 +559,35 @@ export async function dropImport(formData: FormData): Promise<ImportDropResult> 
     const p = error as (Problem & { existing_id?: string }) | undefined;
     return { ok: false, error: await problemMessage(error, t("importWizard.upload.failed")), existingId: p?.code === "FILE_ALREADY_IMPORTED" ? p.existing_id : undefined };
   }
-  const kinds = await api.GET("/api/v1/imports/kinds");
-  const info = kinds.data?.find((k) => k.kind === data.kind);
-  if (info && readsItself(info, data)) {
-    // The file is in whatever becomes of its preview: a preview that could not run is run from the columns.
-    await api.POST("/api/v1/imports/{import_id}/validate", { params: { path: { import_id: data.id } }, body: { mapping: data.mapping, force_duplicates: false } }).catch(() => null);
-  }
+  await previewIfItReadsItself(data);
   revalidatePath("/imports");
   return { ok: true, id: data.id };
+}
+
+/**
+ * A file whose columns leave nothing to decide is previewed as soon as it is in — unless it reads
+ * better as another kind than the one it was dropped as: that question comes first, at the columns.
+ * The file is in whatever becomes of its preview: one that could not run is run from the columns.
+ */
+async function previewIfItReadsItself(job: ImportJobResponse): Promise<void> {
+  if (job.reads_like) return;
+  const kinds = await api.GET("/api/v1/imports/kinds");
+  const info = kinds.data?.find((k) => k.kind === job.kind);
+  if (!info || !readsItself(info, job)) return;
+  await api.POST("/api/v1/imports/{import_id}/validate", { params: { path: { import_id: job.id } }, body: { mapping: job.mapping, force_duplicates: false } }).catch(() => null);
+}
+
+/**
+ * A file dropped on the wrong step — a price list on the orders step — read as the kind it is: its
+ * columns are mapped afresh, and it is previewed at once when they leave nothing to decide.
+ */
+export async function readImportAs(importId: string, kind: ImportKind): Promise<ActionResult<{ id: string }>> {
+  await protectAction();
+  const { data, error } = await api.POST("/api/v1/imports/{import_id}/kind", { params: { path: { import_id: importId } }, body: { kind } });
+  if (error || !data) return await fail(error, "importWizard.readsLike.failed");
+  await previewIfItReadsItself(data);
+  revalidatePath("/imports");
+  return { ok: true, data: { id: data.id } };
 }
 
 /**
@@ -640,14 +661,17 @@ export async function commitImport(importId: string, onError: "skip_rows" | "abo
  * Takes a costs import back: its costs are deleted, the estimates they had replaced are open again.
  * Refused, by name, when a cost went to the ERP or sits in a closed month.
  */
-export async function undoImport(importId: string): Promise<ActionResult<{ costsDeleted: number; estimatesReopened: number }>> {
+/** What taking a file back removed, as the API counted it. */
+export type ImportTakenBack = { discarded: boolean; costs: number; estimates: number; products: number; orders: number; lines: number; containers: number; loads: number };
+
+export async function undoImport(importId: string): Promise<ActionResult<ImportTakenBack>> {
   await protectAction();
   const { data, error } = await api.DELETE("/api/v1/imports/{import_id}", { params: { path: { import_id: importId } } });
   if (error || !data) {
-    // Two refusals name what stands in the way, as real lists: the ERP documents that carry some of
-    // the costs (the invoice-reopen code, whose own sentence speaks of « cette facture »), and the
-    // closed months — said in words, in the reader's language.
-    const p = error as (Problem & { months?: string[] }) | undefined;
+    // The refusals name what stands in the way, as real lists, in the reader's language: the ERP
+    // documents that carry some of the costs (the invoice-reopen code, whose own sentence speaks of
+    // « cette facture »), the later files, the costs and loads a person added, the closed months.
+    const p = error as (Problem & { months?: string[]; files?: string[]; count?: number; containers?: string[]; invoices?: string[] }) | undefined;
     const [t, locale] = await Promise.all([getTranslations("imports.undo"), getLocale()]);
     const list = (items: string[]) => new Intl.ListFormat(locale === "fr" ? "fr-FR" : "en-GB", { type: "conjunction" }).format(items);
     // One document carries several costs: it is counted, and named, once.
@@ -655,18 +679,36 @@ export async function undoImport(importId: string): Promise<ActionResult<{ costs
     if (p?.code === "COSTS_PUSHED_TO_ERP" && documents.length) {
       return { ok: false, error: t("pushed", { count: documents.length, documents: list(documents) }) };
     }
-    // A later file of the same ledger recognised some of these lines and left them to this one.
-    const later = (p as { files?: string[] } | undefined)?.files?.filter(Boolean) ?? [];
+    // A later file stands on what this one created: it goes first.
+    const later = p?.files?.filter(Boolean) ?? [];
     if (p?.code === "IMPORT_RELIED_ON") {
       return { ok: false, error: later.length ? t("reliedOn", { count: later.length, files: list(later) }) : t("reliedOnUnnamed") };
+    }
+    if (p?.code === "IMPORT_ROWS_CARRY_COSTS") {
+      return { ok: false, error: t("carryCosts", { count: p.count ?? 1, containers: p.containers?.length ? list(p.containers) : "none", invoices: p.invoices?.length ? list(p.invoices) : "none" }) };
+    }
+    if (p?.code === "IMPORT_ROWS_LOADED" && p.containers?.length) {
+      return { ok: false, error: t("loaded", { count: p.count ?? p.containers.length, containers: list(p.containers) }) };
     }
     if (p?.code === "IMPORT_PERIOD_CLOSED" && p.months?.length) {
       return { ok: false, error: t("periodClosed", { count: p.months.length, months: list(p.months.map((m) => monthTitle(m, locale))) }) };
     }
     return await fail(error, "imports.undo.failed");
   }
-  for (const path of ["/containers", "/imports", "/cost-audit", "/overview"]) revalidatePath(path);
-  return { ok: true, data: { costsDeleted: data.costs_deleted, estimatesReopened: data.estimates_reopened } };
+  for (const path of ["/containers", "/imports", "/purchase-orders", "/products", "/cost-audit", "/overview"]) revalidatePath(path);
+  return {
+    ok: true,
+    data: {
+      discarded: data.discarded ?? false,
+      costs: data.costs_deleted ?? 0,
+      estimates: data.estimates_reopened ?? 0,
+      products: data.products_deleted ?? 0,
+      orders: data.purchase_orders_deleted ?? 0,
+      lines: data.lines_deleted ?? 0,
+      containers: data.containers_deleted ?? 0,
+      loads: data.loads_deleted ?? 0,
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------- demo data

@@ -8,7 +8,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, btnPrimary, btnSecondary, input, label } from "@/components/layout/AppShell";
 import NextStepCard from "@/components/shared/NextStepCard";
-import { commitImport, validateImport } from "@/features/actions";
+import { commitImport, readImportAs, validateImport } from "@/features/actions";
 import { unreadColumns } from "@/features/imports/columns";
 import CostsPreview from "@/features/imports/CostsPreview";
 import ImportDone from "@/features/imports/ImportDone";
@@ -167,6 +167,19 @@ export default function ImportWizard({
     });
   };
 
+  // A file dropped on the wrong step — a price list on the orders step — says which file it reads like,
+  // until it is imported; one click reads it as that, and the screen starts again from its new columns.
+  const readsLike = step === "done" ? null : (job.reads_like ?? null);
+  const readsLikeStep = kinds.filter((k) => k.kind !== "LEGACY_PO_CONTAINER").findIndex((k) => k.kind === readsLike) + 1;
+  const readAsItReads = () => {
+    if (!readsLike) return;
+    startTransition(async () => {
+      const result = await readImportAs(job.id, readsLike);
+      if (!result.ok) return void toast.error(result.error);
+      router.refresh();
+    });
+  };
+
   // The figures the preview shows first, by kind: what the import would create or change.
   const figures = (r: Report): [string, string][] => {
     const valid: [string, string] = [t("review.validRows"), `${r.valid_rows} / ${r.row_count}`];
@@ -231,6 +244,14 @@ export default function ImportWizard({
           primary={withoutRate.primary && { href: withoutRate.primary.href, label: wLabel(withoutRate.primary.labelKey, withoutRate.primary.labelParams) }}
           secondary={withoutRate.secondary.map((s) => ({ href: s.href, label: wLabel(s.labelKey, s.labelParams) }))}
         />
+      ) : null}
+      {readsLike ? (
+        <div role="status" className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <p className="min-w-0 flex-1">{t("readsLike.notice", { kind: t(`kinds.${readsLike}.title`), n: readsLikeStep, current: t(`kinds.${job.kind}.title`) })}</p>
+          <button type="button" onClick={readAsItReads} disabled={pending} className={btnPrimary}>
+            {pending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden /> : null}{t("readsLike.action", { kind: t(`kinds.${readsLike}.title`) })}
+          </button>
+        </div>
       ) : null}
       <ol className="flex flex-wrap gap-2 text-xs">
         {STEPS.map((s) => (

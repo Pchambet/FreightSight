@@ -65,8 +65,9 @@ export default async function NewImportPage({ searchParams }: { searchParams: Pr
         title={n ? t("stepList.stepOf", { n, total: numbered.length, title }) : title}
         subtitle={t("fileMeta", { file: file.original_filename ?? t("mapping.fallbackFilename"), rows: file.row_count })}
       />
-      {/* Keyed by the file: the next one, dropped from this screen's steps, starts from its own state. */}
-      <ImportWizard key={file.id} kinds={kinds} initialJob={file} initialMappingError={refused} states={states} baseCurrency={base} />
+      {/* Keyed by the file and what it is read as: the next one, dropped from this screen's steps, or
+          this one read as another kind, starts from its own state. */}
+      <ImportWizard key={`${file.id}:${file.kind}`} kinds={kinds} initialJob={file} initialMappingError={refused} states={states} baseCurrency={base} />
     </>
   );
 }

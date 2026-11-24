@@ -1,4 +1,5 @@
 import { getLocale, getTranslations } from "next-intl/server";
+import { deleteTarget, type DeleteTarget } from "@/features/imports/deleteTarget";
 import type { ImportJobResponse } from "@/lib/api/client";
 import type { ImportKind } from "@/lib/domain";
 import { dateShort, money } from "@/lib/format";
@@ -22,11 +23,12 @@ export function importResultLine(job: ImportJobResponse, t: Translate, baseCurre
 
 /**
  * Where one of the files stands: the last one of its kind that went in and was not taken back, and a
- * file dropped since that is still waiting to be imported.
+ * file dropped since that is still waiting to be imported — each with the way to delete it, when it
+ * has one.
  */
 export type ImportStepState = {
-  done: { file: string; date: string; result: string } | null;
-  waiting: { id: string; file: string } | null;
+  done: { file: string; date: string; result: string; remove: DeleteTarget | null } | null;
+  waiting: { id: string; file: string; remove: DeleteTarget | null } | null;
 };
 
 /** The state of each kind's step, from the import history (most recent first, as the API lists it). */
@@ -37,10 +39,10 @@ export async function importStepStates(jobs: ImportJobResponse[], baseCurrency: 
   for (const j of [...jobs].sort((a, b) => b.created_at.localeCompare(a.created_at))) {
     const state = (states[j.kind] ??= { done: null, waiting: null });
     if (j.status === "DONE" && !j.undone_at) {
-      state.done ??= { file: name(j), date: dateShort(j.committed_at ?? j.created_at, locale), result: importResultLine(j, t, baseCurrency, locale) };
+      state.done ??= { file: name(j), date: dateShort(j.committed_at ?? j.created_at, locale), result: importResultLine(j, t, baseCurrency, locale), remove: deleteTarget(j) };
     } else if ((j.status === "PARSED" || j.status === "VALIDATED") && !state.done) {
       // Only a file dropped after the last one that went in: an older one left on the way is history.
-      state.waiting ??= { id: j.id, file: name(j) };
+      state.waiting ??= { id: j.id, file: name(j), remove: deleteTarget(j) };
     }
   }
   return states;
