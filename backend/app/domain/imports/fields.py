@@ -29,6 +29,8 @@ KIND_ORDER: tuple[ImportKind, ...] = (
     ImportKind.COSTS,
     ImportKind.LEGACY_PO_CONTAINER,
 )
+#: The four files of a quarter: the kinds a file is ever guessed to be.
+MAIN_KINDS: tuple[ImportKind, ...] = KIND_ORDER[:-1]
 
 FIELDS: dict[ImportKind, tuple[Field, ...]] = {
     ImportKind.PURCHASE_ORDERS: (

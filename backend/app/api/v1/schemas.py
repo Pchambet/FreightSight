@@ -861,11 +861,15 @@ class ImportJobResponse(BaseModel):
     report: ImportReport
     created_at: datetime
     committed_at: datetime | None
-    #: A costs file taken back (DELETE /imports/{id}).
+    #: A file taken back (DELETE /imports/{id}).
     undone_at: datetime | None = None
-    #: A costs file, committed, dropped by a person, not taken back yet. What happened since — a cost
-    #: pushed to the ERP, a month closed — is the DELETE's to refuse, by name.
+    #: Dropped by a person and not taken back yet: a file never imported (the DELETE discards it), a
+    #: costs file, or a file whose created rows are on record. What happened since — a cost pushed to
+    #: the ERP, a month closed, a later file standing on its rows — is the DELETE's to refuse, by name.
     can_undo: bool = False
+    #: A file not imported yet that reads better as another kind than the one it was dropped as — a
+    #: price list dropped as orders. POST /imports/{id}/kind reads it as that kind.
+    reads_like: ImportKind | None = None
     #: How the file got here: a person dropped it, or an ERP sync produced it. Not stored on the
     #: job — the sync run that drove it says so (see api/v1/imports.py).
     source: Literal["upload", "erp_sync"] = "upload"
@@ -899,10 +903,25 @@ class ImportCommitRequest(BaseModel):
     preview_key: str | None = None
 
 
+class ImportKindRequest(BaseModel):
+    kind: ImportKind
+
+
 class ImportUndoResponse(BaseModel):
-    costs_deleted: int
+    #: The file had never been imported: nothing was written, the draft is gone from the list.
+    discarded: bool = False
+    costs_deleted: int = 0
     #: Estimates the deleted costs had replaced, standing again.
-    estimates_reopened: int
+    estimates_reopened: int = 0
+    #: The other rows the file had created, deleted with it. A container is archived, as when
+    #: deleted by hand; a row the file only changed keeps what it now says.
+    products_deleted: int = 0
+    suppliers_deleted: int = 0
+    purchase_orders_deleted: int = 0
+    lines_deleted: int = 0
+    containers_deleted: int = 0
+    shipments_deleted: int = 0
+    loads_deleted: int = 0
 
 
 # ---------------------------------------------------------------------------- fx

@@ -46,6 +46,8 @@ class TenantSession:
         self.principal = principal
         self.org = org
         self.org_id = org.id
+        #: Every object added through this session, in order: what an import created is read off it.
+        self.added: list[object] = []
 
     def q(self, model: type[T]) -> Select[tuple[T]]:
         return select(model).where(model.org_id == self.org_id)  # type: ignore[attr-defined]
@@ -62,6 +64,7 @@ class TenantSession:
             raise TenantViolation("Object belongs to another organization")
         obj.org_id = self.org_id  # type: ignore[attr-defined]
         self.db.add(obj)
+        self.added.append(obj)
         return obj
 
 

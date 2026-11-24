@@ -627,8 +627,12 @@ class ImportJob(Timestamped, OrgScoped, Base):
     report: Mapped[dict[str, Any]] = mapped_column(nullable=False, default=dict)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     committed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    #: A costs file taken back: its costs are gone, the job stays as the record that they came and went.
+    #: A file taken back: what it wrote is gone, the job stays as the record that it came and went.
     undone_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: The rows the file created, by table (`{"containers": [id, …], …}`): what taking it back
+    #: deletes. A cost names its import itself and is not listed. None on a file committed before
+    #: this was kept: nothing says what it wrote, so it cannot be taken back.
+    created: Mapped[dict[str, Any] | None] = mapped_column()
     #: What the preview ran with besides the mapping — the type of the rows that name none, the types a
     #: person gave the labels it could not read. The commit runs with exactly that, never another.
     options: Mapped[dict[str, Any]] = mapped_column(

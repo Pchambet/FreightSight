@@ -98,6 +98,13 @@ def costs_on(client: TestClient, target: str) -> list[dict[str, Any]]:
     return found
 
 
+def taken_back(client: TestClient, job: dict[str, Any]) -> dict[str, Any]:
+    """What taking the file back removed: the counters of its answer that are not zero."""
+    res = client.delete(f"/api/v1/imports/{job['id']}")
+    assert res.status_code == 200, res.text
+    return {name: count for name, count in res.json().items() if count}
+
+
 # ---------------------------------------------------------------------------- what is read
 
 
@@ -311,9 +318,7 @@ def test_a_costs_file_is_taken_back_whole_and_once(client: TestClient, world: di
     commit(client, job)
     assert [j["can_undo"] for j in client.get("/api/v1/imports").json()] == [True]
 
-    undone = client.delete(f"/api/v1/imports/{job['id']}")
-    assert undone.status_code == 200, undone.text
-    assert undone.json() == {"costs_deleted": 2, "estimates_reopened": 1}
+    assert taken_back(client, job) == {"costs_deleted": 2, "estimates_reopened": 1}
     assert [c["id"] for c in costs_on(client, world["MSCU4821994"])] == [estimate["id"]]  # standing again
     again = client.delete(f"/api/v1/imports/{job['id']}")
     assert (again.status_code, again.json()["code"]) == (409, "IMPORT_ALREADY_UNDONE")
@@ -322,15 +327,15 @@ def test_a_costs_file_is_taken_back_whole_and_once(client: TestClient, world: di
     assert upload(client, ledger(THC_F1, FREIGHT_F1))
 
 
-def test_a_file_that_is_not_costs_is_not_taken_back(client: TestClient, world: dict[str, str]) -> None:
+def test_a_file_that_is_not_costs_is_taken_back_too(client: TestClient, world: dict[str, str]) -> None:
+    # Every kind of file has its way back; `test_imports_delete` holds what each takes and what holds it.
     orders = client.post(
         "/api/v1/imports",
         data={"kind": "PURCHASE_ORDERS"},
         files={"file": ("po.csv", "N° commande;Quantité;Prix unitaire\nPO-9;10;5\n".encode(), "text/csv")},
     ).json()
     client.post(f"/api/v1/imports/{orders['id']}/commit", json={})
-    refused = client.delete(f"/api/v1/imports/{orders['id']}")
-    assert (refused.status_code, refused.json()["code"]) == (422, "IMPORT_NOT_UNDOABLE")
+    assert taken_back(client, orders) == {"purchase_orders_deleted": 1, "lines_deleted": 1}
 
 
 # ---------------------------------------------------------------------------- the money it makes
@@ -594,14 +599,8 @@ def test_a_file_a_later_copy_stands_on_is_taken_back_after_it(
         [grown["id"]],
     )
     assert len(costs_on(client, world["MSCU4821994"])) == 2  # nothing was taken
-    assert client.delete(f"/api/v1/imports/{grown['id']}").json() == {
-        "costs_deleted": 1,
-        "estimates_reopened": 0,
-    }
-    assert client.delete(f"/api/v1/imports/{first['id']}").json() == {
-        "costs_deleted": 1,
-        "estimates_reopened": 0,
-    }
+    assert taken_back(client, grown) == {"costs_deleted": 1}
+    assert taken_back(client, first) == {"costs_deleted": 1}
     assert costs_on(client, world["MSCU4821994"]) == []
 
 

@@ -55,6 +55,7 @@ def _responses(t: TenantSession, jobs: list[ImportJob]) -> list[schemas.ImportJo
             update={
                 "source": "erp_sync" if job.id in synced else "upload",
                 "can_undo": undo.undoable(job, synced=job.id in synced),
+                "reads_like": service.reads_like(job),
                 "preview_key": service.preview_key(job) if job.kind in BOUND else None,
             }
         )
@@ -97,7 +98,7 @@ def create_import(
     _: WriterDep,
     kind: Annotated[ImportKind, Form()] = ImportKind.PURCHASE_ORDERS,
     file: UploadFile = File(...),
-) -> ImportJob:
+) -> schemas.ImportJobResponse:
     """Upload a CSV/XLSX. Returns detected columns and a suggested (or remembered) mapping.
 
     Nothing is written yet. A plain `def`, so the parsing runs in the thread pool: as `async def` it
@@ -112,7 +113,7 @@ def create_import(
     job = service.create_job(t, kind, content, file.filename)
     t.db.commit()
     t.db.refresh(job)
-    return job
+    return _responses(t, [job])[0]
 
 
 @router.get("/{import_id}", response_model=schemas.ImportJobResponse)
@@ -219,26 +220,69 @@ def _counted(job: ImportJob) -> dict[str, object]:
     }
 
 
+@router.post("/{import_id}/kind", response_model=schemas.ImportJobResponse)
+def read_as_kind(
+    import_id: UUID, payload: schemas.ImportKindRequest, t: TenantDep, _: WriterDep
+) -> schemas.ImportJobResponse:
+    """Read a file not imported yet as another kind — the price list dropped as orders. Its columns
+    are mapped afresh and any preview it held is gone; nothing had been written."""
+    job = _locked(t, import_id)
+    service.rekind(t, job, payload.kind)
+    t.db.commit()
+    t.db.refresh(job)
+    return _responses(t, [job])[0]
+
+
+#: The rows a file deletes with it, as the response and the history count them.
+DELETED = {
+    "products": "products_deleted",
+    "suppliers": "suppliers_deleted",
+    "purchase_orders": "purchase_orders_deleted",
+    "po_lines": "lines_deleted",
+    "containers": "containers_deleted",
+    "shipments": "shipments_deleted",
+    "container_loads": "loads_deleted",
+}
+
+
 @router.delete("/{import_id}", response_model=schemas.ImportUndoResponse)
 def undo_import(import_id: UUID, t: TenantDep, p: WriterDep) -> schemas.ImportUndoResponse:
-    """Take a costs file back: every cost it wrote is deleted, and the estimates they had replaced
-    stand again. Refused by name once a cost is in the ERP (COSTS_PUSHED_TO_ERP) or in a closed month
-    (IMPORT_PERIOD_CLOSED, with its `months`); a file taken back once answers IMPORT_ALREADY_UNDONE."""
+    """Take a file back: what it created is deleted — its costs, with the estimates they had replaced
+    standing again; its products, orders, containers and loads — and a row it only changed keeps
+    what it now says. A file never imported is discarded (`discarded`), with nothing to delete.
+
+    Refused by name once something stands on its rows: a later file (IMPORT_RELIED_ON, with its
+    `files`), a cost in the ERP (COSTS_PUSHED_TO_ERP), a closed month (IMPORT_PERIOD_CLOSED, with its
+    `months`), costs a person entered or confirmed on its containers (IMPORT_ROWS_CARRY_COSTS), orders
+    loaded by hand (IMPORT_ROWS_LOADED). A file taken back once answers IMPORT_ALREADY_UNDONE; one
+    committed before its rows were kept on record, IMPORT_NOT_UNDOABLE."""
     job = _locked(t, import_id)
     lock_books(t.db, t.org_id)
     named = _named(t, job)  # before its costs are gone
-    deleted, reopened = undo.undo(t, job, synced=job.id in _synced(t, [job]))
-    record(
-        t.db,
-        t.org_id,
-        actor_user_id=p.user_id,
-        action=IMPORT_UNDONE,
-        entity_type="import",
-        entity_id=job.id,
-        after={**named, "cost_ids": deleted, "estimates_reopened": reopened},
-    )
+    taken = undo.undo(t, job, synced=job.id in _synced(t, [job]))
+    deleted = {name: taken.rows.get(table, 0) for table, name in DELETED.items()}
+    if not taken.discarded:
+        costs = (
+            {"cost_ids": taken.cost_ids, "estimates_reopened": taken.estimates_reopened}
+            if job.kind is ImportKind.COSTS
+            else {name: count for name, count in deleted.items() if count}
+        )
+        record(
+            t.db,
+            t.org_id,
+            actor_user_id=p.user_id,
+            action=IMPORT_UNDONE,
+            entity_type="import",
+            entity_id=job.id,
+            after={**named, **costs},
+        )
     t.db.commit()
-    return schemas.ImportUndoResponse(costs_deleted=len(deleted), estimates_reopened=reopened)
+    return schemas.ImportUndoResponse(
+        discarded=taken.discarded,
+        costs_deleted=len(taken.cost_ids),
+        estimates_reopened=taken.estimates_reopened,
+        **deleted,
+    )
 
 
 @router.post("/{import_id}/commit", response_model=schemas.ImportJobResponse)

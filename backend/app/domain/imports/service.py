@@ -16,7 +16,7 @@ from app.core.tenancy import TenantSession
 from app.domain.costing.service import recompute_org
 from app.domain.fx.orders import IMPORT
 from app.domain.fx.service import FxService
-from app.domain.imports.fields import REQUIRED_ONE_OF
+from app.domain.imports.fields import MAIN_KINDS, REQUIRED_ONE_OF
 from app.domain.imports.parsing import (
     CONTAINER_NUMBER_RE,
     REQUIRED,
@@ -41,9 +41,22 @@ from app.domain.models import (
     Product,
     PurchaseOrder,
     PurchaseOrderLine,
+    Shipment,
     Supplier,
 )
 from app.domain.products import service as products
+
+#: The rows a file can create besides costs, which name their import themselves. What a job keeps
+#: of them (`ImportJob.created`) is what taking the file back deletes.
+CREATED_TABLES: tuple[type, ...] = (
+    Product,
+    Supplier,
+    PurchaseOrder,
+    PurchaseOrderLine,
+    Container,
+    Shipment,
+    ContainerLoad,
+)
 
 #: Columns whose commas have to be read as a number, and whose convention is therefore inferred
 #: over the whole file before the first row is parsed.
@@ -185,6 +198,26 @@ class ImportReport:
         return common | self.extra
 
 
+def _first_mapping(t: TenantSession, kind: ImportKind, columns: list[str]) -> dict[str, str]:
+    """The mapping a file starts with: the one a person settled for these headers, else each header
+    read as the field it is an alias of."""
+    saved = t.db.scalar(
+        t.q(ImportMapping).where(
+            ImportMapping.kind == kind, ImportMapping.header_signature == header_signature(columns)
+        )
+    )
+    return dict(saved.mapping) if saved else suggest_mapping(kind, columns)
+
+
+def _refuse_ledger_twice(t: TenantSession, sha256: str, kind: ImportKind) -> None:
+    """The same ledger twice is every cost twice; the file already in is opened instead. The other
+    kinds write what their file says, and saying it again changes nothing."""
+    if kind is ImportKind.COSTS and (previous := find_duplicate(t, sha256, kind)) is not None:
+        raise Conflict(
+            "This costs file is already imported", code="FILE_ALREADY_IMPORTED", existing_id=str(previous.id)
+        )
+
+
 def create_job(t: TenantSession, kind: ImportKind, content: bytes, filename: str | None) -> ImportJob:
     try:
         table = parse_table(content, filename)
@@ -192,18 +225,9 @@ def create_job(t: TenantSession, kind: ImportKind, content: bytes, filename: str
         refused = Unprocessable(e.message, code=e.code)
         refused.extra.update(e.params)  # the cap a refusal names, for the sentence
         raise refused from e
-    signature = header_signature(table.columns)
-    saved = t.db.scalar(
-        t.q(ImportMapping).where(ImportMapping.kind == kind, ImportMapping.header_signature == signature)
-    )
-    mapping = dict(saved.mapping) if saved else suggest_mapping(kind, table.columns)
+    mapping = _first_mapping(t, kind, table.columns)
     sha256 = hashlib.sha256(content).hexdigest()
-    if kind is ImportKind.COSTS and (previous := find_duplicate(t, sha256, kind)) is not None:
-        # The same ledger twice is every cost twice; the file already in is opened instead. The other
-        # kinds write what their file says, and saying it again changes nothing.
-        raise Conflict(
-            "This costs file is already imported", code="FILE_ALREADY_IMPORTED", existing_id=str(previous.id)
-        )
+    _refuse_ledger_twice(t, sha256, kind)
     job = ImportJob(
         kind=kind,
         original_filename=filename,
@@ -219,6 +243,52 @@ def create_job(t: TenantSession, kind: ImportKind, content: bytes, filename: str
     t.add(job)
     t.db.flush()
     return job
+
+
+def _complete(kind: ImportKind, mapping: dict[str, str]) -> bool:
+    """Every field the kind cannot do without has a column."""
+    return all(mapping.get(f) for f in REQUIRED[kind]) and all(
+        any(mapping.get(f) for f in group) for group in REQUIRED_ONE_OF.get(kind, ())
+    )
+
+
+def reads_like(job: ImportJob) -> ImportKind | None:
+    """The kind a file not yet imported reads better as than the one it was dropped as, if any: a
+    price list dropped as orders has none of the columns an order needs and every column of a price
+    list. A kind is better when its headers alone give it everything it requires and read more of the
+    file's columns than the job's own mapping does — so a ledger a person mapped by hand is left alone."""
+    if job.status is ImportStatus.DONE:
+        return None
+    columns = list(job.columns)
+    best, read = None, len([c for c in job.mapping.values() if c])
+    for kind in MAIN_KINDS:
+        if kind is job.kind:
+            continue
+        mapping = suggest_mapping(kind, columns)
+        if _complete(kind, mapping) and len(mapping) > read:
+            best, read = kind, len(mapping)
+    return best
+
+
+def rekind(t: TenantSession, job: ImportJob, kind: ImportKind) -> None:
+    """Read a file not yet imported as another kind: its columns are mapped afresh and any preview
+    it held is gone. Nothing was written, so nothing is lost."""
+    ensure_not_done(job)
+    _refuse_ledger_twice(t, job.sha256, kind)
+    job.kind = kind
+    job.mapping = _first_mapping(t, kind, list(job.columns))
+    job.status = ImportStatus.PARSED
+    job.report, job.options, job.error_count = {}, {}, 0
+    t.db.flush()
+
+
+def rows_created(added: list[object]) -> dict[str, list[str]]:
+    """The rows among `added` a file is answerable for, by table, as `ImportJob.created` keeps them."""
+    created: dict[str, list[str]] = {}
+    for row in added:
+        if isinstance(row, CREATED_TABLES):
+            created.setdefault(row.__tablename__, []).append(str(row.id))  # type: ignore[attr-defined]
+    return created
 
 
 def _check_mapping(kind: ImportKind, mapping: dict[str, str], columns: list[str]) -> None:
@@ -272,6 +342,7 @@ def run_job(
     conventions = infer_comma_conventions(table, {mapping[f] for f in NUMERIC_FIELDS if mapping.get(f)})
     _report_file_notes(job.kind, table, mapping, conventions, report)
 
+    first_added = len(t.added)
     nested = t.db.begin_nested()
     try:
         if job.kind is ImportKind.PURCHASE_ORDERS:
@@ -318,6 +389,7 @@ def run_job(
     job.status = ImportStatus.DONE if not dry_run else ImportStatus.VALIDATED
     if not dry_run:
         job.committed_at = func.now()
+        job.created = rows_created(t.added[first_added:])
         if job.kind is ImportKind.COSTS:
             job.matched_cost_ids = list(report.internal.get("matched_cost_ids", []))
             job.refused_rows = list(report.internal.get("refused_rows", []))

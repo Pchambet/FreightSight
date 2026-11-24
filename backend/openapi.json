@@ -5944,7 +5944,7 @@
           "imports"
         ],
         "summary": "Undo Import",
-        "description": "Take a costs file back: every cost it wrote is deleted, and the estimates they had replaced\nstand again. Refused by name once a cost is in the ERP (COSTS_PUSHED_TO_ERP) or in a closed month\n(IMPORT_PERIOD_CLOSED, with its `months`); a file taken back once answers IMPORT_ALREADY_UNDONE.",
+        "description": "Take a file back: what it created is deleted \u2014 its costs, with the estimates they had replaced\nstanding again; its products, orders, containers and loads \u2014 and a row it only changed keeps\nwhat it now says. A file never imported is discarded (`discarded`), with nothing to delete.\n\nRefused by name once something stands on its rows: a later file (IMPORT_RELIED_ON, with its\n`files`), a cost in the ERP (COSTS_PUSHED_TO_ERP), a closed month (IMPORT_PERIOD_CLOSED, with its\n`months`), costs a person entered or confirmed on its containers (IMPORT_ROWS_CARRY_COSTS), orders\nloaded by hand (IMPORT_ROWS_LOADED). A file taken back once answers IMPORT_ALREADY_UNDONE; one\ncommitted before its rows were kept on record, IMPORT_NOT_UNDOABLE.",
         "operationId": "undo_import_api_v1_imports__import_id__delete",
         "parameters": [
           {
@@ -6042,6 +6042,77 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ImportValidateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportJobResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/imports/{import_id}/kind": {
+      "post": {
+        "tags": [
+          "imports"
+        ],
+        "summary": "Read As Kind",
+        "description": "Read a file not imported yet as another kind \u2014 the price list dropped as orders. Its columns\nare mapped afresh and any preview it held is gone; nothing had been written.",
+        "operationId": "read_as_kind_api_v1_imports__import_id__kind_post",
+        "parameters": [
+          {
+            "name": "import_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Import Id"
+            }
+          },
+          {
+            "name": "X-Org-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Org-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportKindRequest"
               }
             }
           }
@@ -12563,6 +12634,16 @@
             "title": "Can Undo",
             "default": false
           },
+          "reads_like": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "source": {
             "type": "string",
             "enum": [
@@ -12642,6 +12723,18 @@
           "fields"
         ],
         "title": "ImportKindInfo"
+      },
+      "ImportKindRequest": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ImportKind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "ImportKindRequest"
       },
       "ImportMoney": {
         "properties": {
@@ -13141,20 +13234,58 @@
       },
       "ImportUndoResponse": {
         "properties": {
+          "discarded": {
+            "type": "boolean",
+            "title": "Discarded",
+            "default": false
+          },
           "costs_deleted": {
             "type": "integer",
-            "title": "Costs Deleted"
+            "title": "Costs Deleted",
+            "default": 0
           },
           "estimates_reopened": {
             "type": "integer",
-            "title": "Estimates Reopened"
+            "title": "Estimates Reopened",
+            "default": 0
+          },
+          "products_deleted": {
+            "type": "integer",
+            "title": "Products Deleted",
+            "default": 0
+          },
+          "suppliers_deleted": {
+            "type": "integer",
+            "title": "Suppliers Deleted",
+            "default": 0
+          },
+          "purchase_orders_deleted": {
+            "type": "integer",
+            "title": "Purchase Orders Deleted",
+            "default": 0
+          },
+          "lines_deleted": {
+            "type": "integer",
+            "title": "Lines Deleted",
+            "default": 0
+          },
+          "containers_deleted": {
+            "type": "integer",
+            "title": "Containers Deleted",
+            "default": 0
+          },
+          "shipments_deleted": {
+            "type": "integer",
+            "title": "Shipments Deleted",
+            "default": 0
+          },
+          "loads_deleted": {
+            "type": "integer",
+            "title": "Loads Deleted",
+            "default": 0
           }
         },
         "type": "object",
-        "required": [
-          "costs_deleted",
-          "estimates_reopened"
-        ],
         "title": "ImportUndoResponse"
       },
       "ImportUnknownLabel": {

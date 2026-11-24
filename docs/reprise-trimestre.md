@@ -45,9 +45,17 @@ Un journal exporté ligne par ligne (compte, débit, crédit) est lu par ses com
 des **comptes de charges (classe 6)** deviennent des coûts ; la TVA (445…) et le total du fournisseur
 (401…) sont écartés et comptés ; un avoir au crédit d'un compte de charges est compté comme avoir.
 
-Un fichier de frais se **reprend** (« Annuler cet import ») tant que ses coûts ne sont ni partis dans
-l'ERP ni dans un mois clos, et qu'aucun fichier plus récent du même journal ne s'appuie sur ses lignes :
-dans ce cas, reprendre d'abord le plus récent.
+Tout fichier se **reprend** (la corbeille au bout de sa ligne, dans **Imports**) : ce qu'il a créé est
+supprimé — ses coûts, ses fiches produits, ses commandes, ses conteneurs et leurs chargements — et ce
+qu'il a seulement modifié garde sa valeur actuelle. Un fichier déposé mais jamais importé est
+simplement retiré de la liste.
+
+La reprise est refusée, en nommant ce qui la retient, tant que quelque chose s'appuie sur ce que le
+fichier a créé : un fichier importé après lui (les frais posés sur ses conteneurs, le suivi qui a
+chargé ses commandes : reprendre d'abord le plus récent), un coût saisi à la main ou confirmé depuis
+une facture, une commande chargée à la main, un coût parti dans l'ERP, un mois clos. Un fichier
+importé avant le 24 novembre 2026 ne se reprend pas, sauf un fichier de frais : l'application ne
+gardait pas encore la liste de ce qu'il avait créé.
 
 ## 3. Avant de lancer l'audit : la préparation
 
