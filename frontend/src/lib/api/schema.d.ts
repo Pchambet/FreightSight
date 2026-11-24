@@ -1415,9 +1415,15 @@ export interface paths {
         post?: never;
         /**
          * Undo Import
-         * @description Take a costs file back: every cost it wrote is deleted, and the estimates they had replaced
-         *     stand again. Refused by name once a cost is in the ERP (COSTS_PUSHED_TO_ERP) or in a closed month
-         *     (IMPORT_PERIOD_CLOSED, with its `months`); a file taken back once answers IMPORT_ALREADY_UNDONE.
+         * @description Take a file back: what it created is deleted — its costs, with the estimates they had replaced
+         *     standing again; its products, orders, containers and loads — and a row it only changed keeps
+         *     what it now says. A file never imported is discarded (`discarded`), with nothing to delete.
+         *
+         *     Refused by name once something stands on its rows: a later file (IMPORT_RELIED_ON, with its
+         *     `files`), a cost in the ERP (COSTS_PUSHED_TO_ERP), a closed month (IMPORT_PERIOD_CLOSED, with its
+         *     `months`), costs a person entered or confirmed on its containers (IMPORT_ROWS_CARRY_COSTS), orders
+         *     loaded by hand (IMPORT_ROWS_LOADED). A file taken back once answers IMPORT_ALREADY_UNDONE; one
+         *     committed before its rows were kept on record, IMPORT_NOT_UNDOABLE.
          */
         delete: operations["undo_import_api_v1_imports__import_id__delete"];
         options?: never;
@@ -1443,6 +1449,27 @@ export interface paths {
          *     types a person gave the labels it could not read — and the commit runs with exactly that.
          */
         post: operations["validate_import_api_v1_imports__import_id__validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/{import_id}/kind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read As Kind
+         * @description Read a file not imported yet as another kind — the price list dropped as orders. Its columns
+         *     are mapped afresh and any preview it held is gone; nothing had been written.
+         */
+        post: operations["read_as_kind_api_v1_imports__import_id__kind_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3441,6 +3468,7 @@ export interface components {
              * @default false
              */
             can_undo: boolean;
+            reads_like?: components["schemas"]["ImportKind"] | null;
             /**
              * Source
              * @default upload
@@ -3462,6 +3490,10 @@ export interface components {
             fields: components["schemas"]["ImportFieldInfo"][];
             /** Required One Of */
             required_one_of?: string[][];
+        };
+        /** ImportKindRequest */
+        ImportKindRequest: {
+            kind: components["schemas"]["ImportKind"];
         };
         /**
          * ImportMoney
@@ -3615,10 +3647,56 @@ export interface components {
         ImportStatus: "PARSED" | "VALIDATED" | "DONE" | "FAILED";
         /** ImportUndoResponse */
         ImportUndoResponse: {
-            /** Costs Deleted */
+            /**
+             * Discarded
+             * @default false
+             */
+            discarded: boolean;
+            /**
+             * Costs Deleted
+             * @default 0
+             */
             costs_deleted: number;
-            /** Estimates Reopened */
+            /**
+             * Estimates Reopened
+             * @default 0
+             */
             estimates_reopened: number;
+            /**
+             * Products Deleted
+             * @default 0
+             */
+            products_deleted: number;
+            /**
+             * Suppliers Deleted
+             * @default 0
+             */
+            suppliers_deleted: number;
+            /**
+             * Purchase Orders Deleted
+             * @default 0
+             */
+            purchase_orders_deleted: number;
+            /**
+             * Lines Deleted
+             * @default 0
+             */
+            lines_deleted: number;
+            /**
+             * Containers Deleted
+             * @default 0
+             */
+            containers_deleted: number;
+            /**
+             * Shipments Deleted
+             * @default 0
+             */
+            shipments_deleted: number;
+            /**
+             * Loads Deleted
+             * @default 0
+             */
+            loads_deleted: number;
         };
         /**
          * ImportUnknownLabel
@@ -8859,6 +8937,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ImportValidateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_as_kind_api_v1_imports__import_id__kind_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Org-Id"?: string | null;
+            };
+            path: {
+                import_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportKindRequest"];
             };
         };
         responses: {
